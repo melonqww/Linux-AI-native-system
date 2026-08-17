@@ -47,7 +47,9 @@
                     <option>Qwen 3.5 4B</option>
                   </select>
                 </label>
-                <button class="send-button" type="submit" aria-label="Отправить сообщение">↑</button>
+                <button class="send-button" type="submit" aria-label="Отправить сообщение">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" /></svg>
+                </button>
               </div>
             </form>
           </section>
@@ -76,6 +78,7 @@
             <button class="setting-row"><span>Состояние системы</span><span>›</span></button>
             <button class="setting-row"><span>Новый workspace</span><span>›</span></button>
           </section>
+          <div class="toast" id="toast" role="status" hidden>Нельзя открыть больше одного нового чата.</div>
         </section>
 
         <aside class="chat-menu" id="chat-menu" hidden>

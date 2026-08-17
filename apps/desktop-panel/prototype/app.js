@@ -14,7 +14,9 @@ const confirmationButton = document.querySelector("#confirmation-button");
 const modelSelect = document.querySelector("#model-select");
 const settingsModel = document.querySelector("#settings-model");
 const chatTitle = document.querySelector("#chat-title");
+const toast = document.querySelector("#toast");
 let nextChatId = 2;
+let toastTimer;
 
 function allViews() {
   return [chatView, settingsView, sidebarView];
@@ -37,6 +39,10 @@ function selectChat(tab) {
 }
 
 function createChat() {
+  if (chatTabs.querySelector(".chat-tab")) {
+    showTransientNotice("Нельзя открыть больше одного нового чата.");
+    return;
+  }
   const id = String(nextChatId++);
   const tab = document.createElement("button");
   tab.className = "tab-control chat-tab";
@@ -46,6 +52,13 @@ function createChat() {
   tab.innerHTML = `Новый чат ${id} <i aria-label="Закрыть чат">×</i>`;
   chatTabs.append(tab);
   selectChat(tab);
+}
+
+function showTransientNotice(text) {
+  toast.textContent = text;
+  toast.hidden = false;
+  window.clearTimeout(toastTimer);
+  toastTimer = window.setTimeout(() => { toast.hidden = true; }, 2600);
 }
 
 function closeChat(tab) {
