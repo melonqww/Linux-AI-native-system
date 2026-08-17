@@ -111,25 +111,25 @@ button, label { cursor: pointer; }
 .plan-card p { margin: 8px 0 0; color: #e1e1df; font-size: 12px; line-height: 1.45; }
 .soft-button { margin-top: 11px; padding: 7px 10px; border: 0; border-radius: 8px; background: #ededeb; color: #262626; font-size: 11px; font-weight: 700; }
 
-.composer { flex: 0 0 auto; margin: 0 12px 12px; padding: 11px 12px 5px; border: 1px solid rgba(255,255,255,.1); border-radius: 21px; background: #3b3b3b; }
-.composer textarea { display: block; width: 100%; min-height: 21px; max-height: 142px; padding: 0 3px; resize: none; overflow-y: auto; border: 0; outline: 0; background: transparent; color: #f9f9f7; font-size: 12px; line-height: 21px; }
+.composer { flex: 0 0 auto; margin: 0 12px 12px; padding: 9px 11px 3px; border: 1px solid rgba(255,255,255,.1); border-radius: 21px; background: #3b3b3b; }
+.composer textarea { display: block; width: 100%; min-height: 20px; max-height: 142px; padding: 0 3px; resize: none; overflow-y: auto; border: 0; outline: 0; background: transparent; color: #f9f9f7; font-size: 12px; line-height: 20px; }
 .composer textarea::placeholder { color: #a8a8a6; }
-.composer-actions { display: flex; min-height: 37px; gap: 5px; align-items: center; min-width: 0; margin-top: 15px; transform: translateY(3px); }
-.confirmation-control { display: flex; align-items: center; height: 37px; min-width: 0; overflow: hidden; padding: 0 2px; border: 0; background: transparent; color: #c7c7c4; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.composer-actions { display: flex; min-height: 34px; gap: 5px; align-items: center; min-width: 0; margin-top: 11px; transform: translateY(2px); }
+.confirmation-control { display: flex; align-items: center; height: 34px; min-width: 0; overflow: hidden; padding: 0 2px; border: 0; background: transparent; color: #c7c7c4; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .shield-icon { display: inline-flex; width: 16px; height: 16px; margin-right: 5px; align-items: center; justify-content: center; color: #cfcfcd; }
 .shield-icon svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.35; }
 .confirmation-control[aria-pressed="true"] { color: #c8e2b5; }
 .confirmation-control[aria-pressed="true"] span { color: #b9da9e; }
-.model-control { position: relative; display: flex; align-items: center; height: 37px; min-width: 0; margin-left: auto; }
-.model-button { display: flex; width: 145px; height: 37px; align-items: center; justify-content: flex-end; gap: 6px; overflow: hidden; padding: 0 4px; border: 0; background: transparent; color: #dededb; font-size: 13px; white-space: nowrap; }
+.model-control { position: relative; display: flex; align-items: center; height: 34px; min-width: 0; margin-left: auto; }
+.model-button { display: flex; width: 145px; height: 34px; align-items: center; justify-content: flex-end; gap: 6px; overflow: hidden; padding: 0 4px; border: 0; background: transparent; color: #dededb; font-size: 13px; white-space: nowrap; }
 .model-button:hover { color: #fff; }
 .model-chevron { display: inline-flex; width: 14px; height: 14px; align-items: center; justify-content: center; color: #cfcfcd; }
 .model-chevron svg { width: 12px; height: 10px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
 .model-menu { position: absolute; right: 0; bottom: calc(100% + 6px); z-index: 8; width: 150px; padding: 5px; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; background: #292929; box-shadow: 0 10px 25px rgba(0,0,0,.35); }
 .model-menu button { display: block; width: 100%; padding: 8px 9px; border: 0; border-radius: 6px; background: transparent; color: #e7e7e5; font-size: 11px; text-align: right; }
 .model-menu button:hover { background: rgba(255,255,255,.1); }
-.send-button { display: grid; flex: 0 0 35px; width: 35px; height: 35px; place-items: center; border: 0; border-radius: 50%; background: #efefec; color: #292929; }
-.send-button svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.2; }
+.send-button { display: grid; flex: 0 0 33px; width: 33px; height: 33px; place-items: center; border: 0; border-radius: 50%; background: #efefec; color: #292929; }
+.send-button svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.2; }
 .send-button:hover, .soft-button:hover { background: #fff; }
 
 .settings-view { flex-direction: column; gap: 8px; overflow-y: auto; padding: 22px 16px 16px; }
