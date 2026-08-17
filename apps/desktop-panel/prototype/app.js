@@ -32,9 +32,21 @@ function clearActiveTabs() {
 function selectView(view, activeTab) {
   allViews().forEach((item) => item.classList.remove("active"));
   view.classList.add("active");
-  chatMeta.classList.toggle("compact-meta", view !== chatView);
+  setMetaCompact(view !== chatView);
   clearActiveTabs();
   activeTab.classList.add("active-tab");
+}
+
+function setMetaCompact(compact) {
+  const startWidth = chatMeta.getBoundingClientRect().width;
+  chatMeta.style.width = `${startWidth}px`;
+  chatMeta.classList.toggle("compact-meta", compact);
+  window.requestAnimationFrame(() => {
+    chatMeta.style.width = `${chatMeta.scrollWidth}px`;
+  });
+  chatMeta.addEventListener("transitionend", (event) => {
+    if (event.propertyName === "width") chatMeta.style.width = "";
+  }, { once: true });
 }
 
 function selectChat(tab) {

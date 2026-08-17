@@ -88,26 +88,28 @@ button, label { cursor: pointer; }
   display: flex;
   flex-direction: column;
   gap: 3px;
-  align-self: flex-end;
+  align-self: flex-start;
+  width: fit-content;
   max-width: calc(100% - 24px);
-  margin: 8px 12px 3px 0;
+  margin: 8px 0 3px 12px;
   padding: 8px 13px;
   border: 1px solid rgba(255,255,255,.08);
   border-radius: 18px;
   background: #414141;
+  transition: width .45s ease-in-out, max-width .45s ease-in-out, padding .45s ease-in-out, border-radius .45s ease-in-out, background-color .45s ease-in-out;
 }
 .chat-meta strong {
   color: #f3f3f1;
   font-size: 13px;
   font-weight: 650;
 }
-.chat-meta button { min-width: 0; max-width: 100%; overflow: hidden; padding: 0; border: 0; background: transparent; color: #aaa; font-size: 10px; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+.chat-meta button { min-width: 0; max-width: 100%; max-height: 16px; overflow: hidden; padding: 0; border: 0; background: transparent; color: #aaa; font-size: 10px; text-align: left; text-overflow: ellipsis; white-space: nowrap; opacity: 1; transition: max-height .45s ease-in-out, opacity .25s ease-in-out; }
 .folder-icon { position: relative; display: inline-block; width: 12px; height: 9px; margin-right: 5px; border: 1px solid #c9c9c7; border-radius: 2px; vertical-align: -1px; }
 .folder-icon::before { position: absolute; top: -4px; left: 1px; width: 5px; height: 3px; border: 1px solid #c9c9c7; border-bottom: 0; border-radius: 2px 2px 0 0; content: ""; }
 .chat-meta button:hover { color: #fff; }
 .chat-meta.compact-meta { max-width: 190px; padding: 6px 13px; border-radius: 999px; }
 .chat-meta.compact-meta strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.chat-meta.compact-meta button { display: none; }
+.chat-meta.compact-meta button { width: 0; max-width: 0; max-height: 0; opacity: 0; }
 
 .view { display: none; min-height: 0; flex: 1; }
 .view.active { display: flex; }
