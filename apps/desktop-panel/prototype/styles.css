@@ -51,6 +51,9 @@ button, label { cursor: pointer; }
   background: rgba(38,38,38,.45);
 }
 .tab-control {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
   flex: 1 1 0;
   min-width: 0;
   height: 42px;
@@ -62,19 +65,21 @@ button, label { cursor: pointer; }
   font-size: 11px;
   font-weight: 650;
   white-space: nowrap;
-  transition: background-color .45s ease-in-out, color .45s ease-in-out, border-radius .45s ease-in-out;
+  transition: color .18s ease-out;
 }
-.tab-control span { margin-right: 4px; font-size: 14px; vertical-align: -1px; }
-.tab-control:hover { background: rgba(255,255,255,.1); color: #e4e4e1; }
-.active-tab { background: #4a4a4a; color: #f4f4f2; }
+.tab-control::before { position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: #4a4a4a; content: ""; opacity: 0; transform: scale(0); transform-origin: center; transition: opacity .12s ease-out, transform .32s cubic-bezier(.2,.8,.25,1); }
+.tab-control:hover, .active-tab { color: #f4f4f2; }
+.tab-control:hover::before, .active-tab::before { opacity: 1; transform: scale(1); }
+.tab-control > span { position: relative; z-index: 1; margin-right: 4px; font-size: 14px; vertical-align: -1px; }
+.tab-control > .tab-label { font-size: 11px; }
 .tab-control:hover, .active-tab { border-radius: 16px; }
 .chat-tabs { display: flex; min-width: 0; flex: 1 1 0; gap: 2px; overflow-x: auto; scrollbar-width: none; }
 .chat-tabs::-webkit-scrollbar { display: none; }
 .chat-tab { display: flex; width: 100%; align-items: center; justify-content: space-between; overflow: hidden; text-overflow: ellipsis; }
-.chat-tab i { display: inline-grid; flex: 0 0 18px; width: 18px; height: 18px; margin: -3px -3px 0 5px; place-items: center; border-radius: 50%; color: #bdbdbb; font-size: 14px; font-style: normal; line-height: 1; }
+.chat-tab i { position: relative; z-index: 1; display: inline-grid; flex: 0 0 18px; width: 18px; height: 18px; margin: -3px -3px 0 5px; place-items: center; border-radius: 50%; color: #bdbdbb; font-size: 14px; font-style: normal; line-height: 1; }
 .chat-tab i:hover { background: rgba(255,255,255,.13); color: #fff; }
 .create-chat-button { position: relative; display: grid; flex: 0 0 38px; width: 38px; height: 38px; margin: 2px 3px 2px 5px; place-items: center; padding: 0; border: 0; border-radius: 50%; background: transparent; color: #ddd; font-size: 20px; line-height: 1; }
-.create-chat-button { transition: background-color .45s ease-in-out, color .45s ease-in-out, box-shadow .45s ease-in-out; }
+.create-chat-button { transition: background-color .32s ease-out, color .32s ease-out, box-shadow .32s ease-out; }
 .create-chat-button:hover, .create-chat-button:focus-visible { background: #5a5a5a; color: #fff; box-shadow: 0 0 0 1px rgba(255,255,255,.12); }
 .create-chat-button::after { position: absolute; top: calc(100% + 8px); right: 0; z-index: 10; width: max-content; max-width: 180px; padding: 7px 9px; border: 1px solid rgba(255,255,255,.12); border-radius: 7px; background: #232323; color: #f3f3f1; box-shadow: 0 8px 20px rgba(0,0,0,.3); content: attr(data-tooltip); font-size: 11px; opacity: 0; pointer-events: none; transition: opacity .45s ease-in-out; }
 .create-chat-button:hover::after, .create-chat-button:focus-visible::after { opacity: 1; }

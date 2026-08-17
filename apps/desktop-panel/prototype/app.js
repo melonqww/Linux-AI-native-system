@@ -51,7 +51,7 @@ function createChat() {
   tab.dataset.chatId = id;
   tab.dataset.chatName = `Новый чат ${id}`;
   tab.setAttribute("aria-label", `Открыть чат Новый чат ${id}`);
-  tab.innerHTML = `Новый чат ${id} <i aria-label="Закрыть чат">×</i>`;
+  tab.innerHTML = `<span class="tab-label">Новый чат ${id}</span> <i aria-label="Закрыть чат">×</i>`;
   chatTabs.append(tab);
   selectChat(tab);
 }
