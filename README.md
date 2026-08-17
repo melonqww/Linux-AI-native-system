@@ -18,6 +18,18 @@
 intent → policy → tool → audit event → result
 ```
 
+## Локальная демонстрация без Ubuntu
+
+Уже сейчас можно проверить policy layer и audit log на Windows:
+
+```powershell
+$env:PYTHONPATH = "services\\agent-runtime\\src"
+python -m ai_native_linux.cli --demo
+python -m unittest discover -s services/agent-runtime/tests -v
+```
+
+Команда `--demo` не читает и не изменяет систему: она проверяет заранее заданное R0-намерение и записывает обезличенное audit event в игнорируемую Git папку `data/`.
+
 ## Документация
 
 - [Концепция v0.1](Architecture/AI-native-Linux-v0.1-концепция.md)
