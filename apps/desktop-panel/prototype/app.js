@@ -16,6 +16,7 @@ const modelLabel = document.querySelector("#model-label");
 const modelMenu = document.querySelector("#model-menu");
 const settingsModel = document.querySelector("#settings-model");
 const chatTitle = document.querySelector("#chat-title");
+const chatMeta = document.querySelector(".chat-meta");
 const toast = document.querySelector("#toast");
 let nextChatId = 2;
 let toastTimer;
@@ -31,6 +32,7 @@ function clearActiveTabs() {
 function selectView(view, activeTab) {
   allViews().forEach((item) => item.classList.remove("active"));
   view.classList.add("active");
+  chatMeta.classList.toggle("compact-meta", view !== chatView);
   clearActiveTabs();
   activeTab.classList.add("active-tab");
 }
