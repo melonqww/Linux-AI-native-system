@@ -66,8 +66,7 @@ button, label { cursor: pointer; }
 .tab-control span { margin-right: 4px; font-size: 14px; vertical-align: -1px; }
 .tab-control:hover { background: rgba(255,255,255,.1); color: #e4e4e1; }
 .active-tab { background: #4a4a4a; color: #f4f4f2; font-weight: 650; }
-.tab-control:hover, .active-tab { border-radius: 0; }
-#menu-button:hover, #menu-button.active-tab { border-radius: 16px; }
+.tab-control:hover, .active-tab { border-radius: 16px; }
 .chat-tabs { display: flex; min-width: 0; flex: 1 1 0; gap: 2px; overflow-x: auto; scrollbar-width: none; }
 .chat-tabs::-webkit-scrollbar { display: none; }
 .chat-tab { display: flex; width: 100%; align-items: center; justify-content: space-between; overflow: hidden; text-overflow: ellipsis; }
