@@ -7,64 +7,70 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <main class="desktop" aria-label="Прототип рабочего стола Ubuntu">
-      <div class="top-bar">
-        <span>Действия</span>
-        <span class="clock">Пн, 17 авг&nbsp;&nbsp; 18:40</span>
-        <span>RU &nbsp; ◉ &nbsp; ◒ &nbsp; 87%</span>
-      </div>
+    <main class="desktop" aria-label="Прототип AI-панели">
+      <section class="panel-shell" aria-label="AI-native Linux">
+        <nav class="panel-nav" aria-label="Навигация чата">
+          <button class="round-control" id="menu-button" aria-label="Открыть список чатов">☰</button>
+          <button class="chat-title-control" id="new-chat" aria-label="Создать новый чат">Новый чат</button>
+          <button class="round-control" id="settings-button" aria-label="Открыть настройки">⚙</button>
+        </nav>
 
-      <section class="panel" aria-label="AI-native Linux">
-        <header class="panel-header">
-          <button class="icon-button" id="menu-button" aria-label="Открыть список чатов">☰</button>
-          <div class="chat-context">
-            <h1 id="chat-title">Новый чат</h1>
-            <button class="directory" id="directory-button" title="Текущая рабочая директория">
-              ~/Projects/Linux AI System
-            </button>
+        <section class="panel">
+          <div class="working-directory">
+            <span class="directory-dot"></span>
+            <button id="directory-button" title="Текущая рабочая директория">~/Projects/Linux AI System</button>
+            <span class="generation-state" id="generation-state" hidden><i></i> AI отвечает</span>
           </div>
-          <div class="generation-state" id="generation-state" hidden>
-            <span class="pulse"></span> AI отвечает
-          </div>
-          <button class="icon-button" id="settings-button" aria-label="Открыть настройки">⚙</button>
-        </header>
 
-        <section class="chat-view view active" id="chat-view" aria-label="Чат">
-          <div class="chat-scroll" id="messages">
-            <p class="assistant-message">Привет. Я локальный помощник Ubuntu. Могу показать состояние системы, подготовить workspace или объяснить ошибку. Что сделать?</p>
-            <div class="user-message">Покажи состояние системы</div>
-            <div class="plan-card">
-              <span class="card-label">Безопасный план · R0</span>
-              <p>Прочитаю информацию о диске, памяти и загрузке CPU. Ничего в системе не изменится.</p>
-              <button class="soft-button" id="run-demo">Запустить проверку</button>
+          <section class="chat-view view active" id="chat-view" aria-label="Чат">
+            <div class="chat-scroll" id="messages">
+              <p class="assistant-message">Привет. Я локальный помощник Ubuntu. Могу показать состояние системы, подготовить workspace или объяснить ошибку.</p>
+              <div class="user-message">Покажи состояние системы</div>
+              <div class="plan-card">
+                <span class="card-label">БЕЗОПАСНЫЙ ПЛАН · R0</span>
+                <p>Прочитаю информацию о диске, памяти и загрузке CPU. Ничего в системе не изменится.</p>
+                <button class="soft-button" id="run-demo">Запустить проверку</button>
+              </div>
             </div>
-          </div>
-          <form class="composer" id="composer">
-            <label class="icon-button attach" for="file-input" title="Прикрепить файл">＋</label>
-            <input id="file-input" type="file" hidden />
-            <input id="message-input" autocomplete="off" placeholder="Напишите сообщение…" aria-label="Сообщение" />
-            <button class="send-button" type="submit" aria-label="Отправить сообщение">↑</button>
-          </form>
-        </section>
 
-        <section class="settings-view view" id="settings-view" aria-label="Настройки">
-          <div class="settings-heading">
-            <span class="eyebrow">НАСТРОЙКИ</span>
-            <h2>Управление помощником</h2>
-            <p>Настройки не прерывают текущий ответ AI.</p>
-          </div>
-          <button class="setting-row"><span>OS &amp; интеграции</span><span>›</span></button>
-          <button class="setting-row"><span>Безопасность</span><span>›</span></button>
-          <button class="setting-row"><span>Модели</span><span class="setting-value">Локальная</span></button>
-          <button class="setting-row"><span>Приватность</span><span>›</span></button>
-          <button class="setting-row"><span>О приложении</span><span>›</span></button>
-          <button class="back-button" id="back-to-chat">← Вернуться в чат</button>
+            <form class="composer" id="composer">
+              <textarea id="message-input" rows="1" autocomplete="off" placeholder="Поручите что угодно" aria-label="Сообщение"></textarea>
+              <div class="composer-actions">
+                <label class="composer-icon" for="file-input" title="Прикрепить файл">＋</label>
+                <input id="file-input" type="file" hidden />
+                <button class="confirmation-control" id="confirmation-button" type="button" aria-pressed="false"><span>◌</span> Подтверждать за меня</button>
+                <label class="model-control">
+                  <span class="visually-hidden">Модель</span>
+                  <select id="model-select" aria-label="Выбор локальной модели">
+                    <option>Qwen 3.5 2B</option>
+                    <option>Gemma 2 2B</option>
+                    <option>Qwen 3.5 4B</option>
+                  </select>
+                </label>
+                <button class="send-button" type="submit" aria-label="Отправить сообщение">↑</button>
+              </div>
+            </form>
+          </section>
+
+          <section class="settings-view view" id="settings-view" aria-label="Настройки">
+            <div class="settings-heading">
+              <span class="eyebrow">НАСТРОЙКИ</span>
+              <h1>Управление помощником</h1>
+              <p>Переключение на настройки не прерывает текущий ответ AI.</p>
+            </div>
+            <button class="setting-row"><span>OS &amp; интеграции</span><span>›</span></button>
+            <button class="setting-row"><span>Безопасность</span><span>›</span></button>
+            <button class="setting-row"><span>Модели</span><span class="setting-value" id="settings-model">Qwen 3.5 2B</span></button>
+            <button class="setting-row"><span>Приватность</span><span>›</span></button>
+            <button class="setting-row"><span>О приложении</span><span>›</span></button>
+            <button class="back-button" id="back-to-chat">← Вернуться в чат</button>
+          </section>
         </section>
 
         <aside class="chat-menu" id="chat-menu" hidden>
           <span class="eyebrow">ЧАТЫ</span>
           <button class="chat-row active-row">Новый чат <small>сейчас</small></button>
-          <button class="new-chat" id="new-chat">＋ Новый чат</button>
+          <button class="new-chat-row">＋ Новый чат</button>
         </aside>
       </section>
     </main>

@@ -10,6 +10,9 @@ const messages = document.querySelector("#messages");
 const generationState = document.querySelector("#generation-state");
 const directoryButton = document.querySelector("#directory-button");
 const fileInput = document.querySelector("#file-input");
+const confirmationButton = document.querySelector("#confirmation-button");
+const modelSelect = document.querySelector("#model-select");
+const settingsModel = document.querySelector("#settings-model");
 
 function showChat() {
   settingsView.classList.remove("active");
@@ -37,18 +40,15 @@ function simulateResponse() {
   }, 1100);
 }
 
+function resizeInput() {
+  input.style.height = "auto";
+  input.style.height = `${Math.min(input.scrollHeight, 142)}px`;
+}
+
 settingsButton.addEventListener("click", showSettings);
 backButton.addEventListener("click", showChat);
-
-menuButton.addEventListener("click", () => {
-  chatMenu.hidden = !chatMenu.hidden;
-});
-
-document.querySelector("#new-chat").addEventListener("click", () => {
-  document.querySelector("#chat-title").textContent = "Новый чат";
-  chatMenu.hidden = true;
-  showChat();
-});
+menuButton.addEventListener("click", () => { chatMenu.hidden = !chatMenu.hidden; });
+document.querySelector("#new-chat").addEventListener("click", () => { chatMenu.hidden = true; showChat(); });
 
 composer.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -59,18 +59,20 @@ composer.addEventListener("submit", (event) => {
   message.textContent = text;
   messages.append(message);
   input.value = "";
+  resizeInput();
   messages.scrollTop = messages.scrollHeight;
   simulateResponse();
 });
 
+input.addEventListener("input", resizeInput);
 document.querySelector("#run-demo").addEventListener("click", simulateResponse);
-
-directoryButton.addEventListener("click", () => {
-  directoryButton.textContent = "~/Projects/Linux AI System/services/agent-runtime";
+confirmationButton.addEventListener("click", () => {
+  const enabled = confirmationButton.getAttribute("aria-pressed") === "true";
+  confirmationButton.setAttribute("aria-pressed", String(!enabled));
+  confirmationButton.innerHTML = !enabled ? "<span>●</span> Подтверждать за меня" : "<span>◌</span> Подтверждать за меня";
 });
-
+modelSelect.addEventListener("change", () => { settingsModel.textContent = modelSelect.value; });
+directoryButton.addEventListener("click", () => { directoryButton.textContent = "~/Projects/Linux AI System/services/agent-runtime"; });
 fileInput.addEventListener("change", () => {
-  if (fileInput.files.length) {
-    addAssistantMessage(`Файл «${fileInput.files[0].name}» прикреплён к текущей задаче. Перед отправкой в модель его контекст будет показан отдельно.`);
-  }
+  if (fileInput.files.length) addAssistantMessage(`Файл «${fileInput.files[0].name}» прикреплён к текущей задаче. Перед отправкой в модель его контекст будет показан отдельно.`);
 });
