@@ -38,15 +38,20 @@
             <form class="composer" id="composer">
               <textarea id="message-input" rows="1" autocomplete="off" placeholder="Сообщение для вашего ИИ" aria-label="Сообщение"></textarea>
               <div class="composer-actions">
-                <button class="confirmation-control" id="confirmation-button" type="button" aria-pressed="false"><span>◌</span> Подтверждать за меня</button>
-                <label class="model-control">
-                  <span class="visually-hidden">Модель</span>
-                  <select id="model-select" aria-label="Выбор локальной модели">
-                    <option>Qwen 3.5 2B</option>
-                    <option>Gemma 2 2B</option>
-                    <option>Qwen 3.5 4B</option>
-                  </select>
-                </label>
+                <button class="confirmation-control" id="confirmation-button" type="button" aria-pressed="false">
+                  <span class="shield-icon" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M10 2.5 16 5v4.1c0 3.7-2.3 6.5-6 8.4-3.7-1.9-6-4.7-6-8.4V5l6-2.5Z"/><path d="m7.1 9.9 1.8 1.8 3.9-4"/></svg></span>
+                  Подтверждать за меня
+                </button>
+                <div class="model-control">
+                  <button class="model-button" id="model-button" type="button" aria-expanded="false" aria-haspopup="listbox">
+                    <span id="model-label">Qwen 3.5 2B</span><span class="model-chevron">⌄</span>
+                  </button>
+                  <div class="model-menu" id="model-menu" role="listbox" hidden>
+                    <button type="button" role="option" data-model="Qwen 3.5 2B">Qwen 3.5 2B</button>
+                    <button type="button" role="option" data-model="Gemma 2 2B">Gemma 2 2B</button>
+                    <button type="button" role="option" data-model="Qwen 3.5 4B">Qwen 3.5 4B</button>
+                  </div>
+                </div>
                 <button class="send-button" type="submit" aria-label="Отправить сообщение">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" /></svg>
                 </button>

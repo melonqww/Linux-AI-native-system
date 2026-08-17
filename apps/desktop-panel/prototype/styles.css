@@ -70,9 +70,9 @@ button, label { cursor: pointer; }
 .chat-tab { width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .chat-tab i { display: inline-grid; width: 14px; height: 14px; margin-left: 4px; place-items: center; border-radius: 50%; color: #bdbdbb; font-size: 14px; font-style: normal; line-height: 1; }
 .chat-tab i:hover { background: rgba(255,255,255,.13); color: #fff; }
-.create-chat-button { position: relative; flex: 0 0 30px; width: 30px; height: 30px; margin: 0 1px 2px 4px; border: 0; border-radius: 8px; background: transparent; color: #ddd; font-size: 19px; line-height: 1; }
+.create-chat-button { position: relative; display: grid; flex: 0 0 30px; width: 30px; height: 30px; margin: 0 1px 2px 4px; place-items: center; padding: 0; border: 0; border-radius: 8px; background: transparent; color: #ddd; font-size: 19px; line-height: 1; }
 .create-chat-button:hover { background: rgba(255,255,255,.09); color: #fff; }
-.create-chat-button::after { position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 10; width: max-content; max-width: 180px; padding: 7px 9px; border: 1px solid rgba(255,255,255,.12); border-radius: 7px; background: #232323; color: #f3f3f1; box-shadow: 0 8px 20px rgba(0,0,0,.3); content: attr(data-tooltip); font-size: 11px; opacity: 0; pointer-events: none; }
+.create-chat-button::after { position: absolute; top: calc(100% + 8px); right: 0; z-index: 10; width: max-content; max-width: 180px; padding: 7px 9px; border: 1px solid rgba(255,255,255,.12); border-radius: 7px; background: #232323; color: #f3f3f1; box-shadow: 0 8px 20px rgba(0,0,0,.3); content: attr(data-tooltip); font-size: 11px; opacity: 0; pointer-events: none; }
 .create-chat-button:hover::after, .create-chat-button:focus-visible::after { opacity: 1; }
 
 .chat-meta {
@@ -107,11 +107,17 @@ button, label { cursor: pointer; }
 .composer textarea::placeholder { color: #a8a8a6; }
 .composer-actions { display: flex; min-height: 37px; gap: 5px; align-items: center; min-width: 0; margin-top: 15px; transform: translateY(3px); }
 .confirmation-control { display: flex; align-items: center; height: 37px; min-width: 0; overflow: hidden; padding: 0 2px; border: 0; background: transparent; color: #c7c7c4; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.confirmation-control span { margin-right: 4px; color: #dededb; font-size: 14px; vertical-align: -1px; }
+.shield-icon { display: inline-flex; width: 16px; height: 16px; margin-right: 5px; align-items: center; justify-content: center; color: #cfcfcd; }
+.shield-icon svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.35; }
 .confirmation-control[aria-pressed="true"] { color: #c8e2b5; }
 .confirmation-control[aria-pressed="true"] span { color: #b9da9e; }
-.model-control { display: flex; align-items: center; height: 37px; min-width: 0; margin-left: auto; }
-.model-control select { max-width: 137px; overflow: hidden; padding: 0 18px 0 5px; border: 0; outline: 0; background: transparent; color: #dededb; font-size: 13px; text-align: right; text-align-last: right; text-overflow: ellipsis; }
+.model-control { position: relative; display: flex; align-items: center; height: 37px; min-width: 0; margin-left: auto; }
+.model-button { display: flex; width: 145px; height: 37px; align-items: center; justify-content: flex-end; gap: 6px; overflow: hidden; padding: 0 4px; border: 0; background: transparent; color: #dededb; font-size: 13px; white-space: nowrap; }
+.model-button:hover { color: #fff; }
+.model-chevron { color: #cfcfcd; font-size: 17px; line-height: 1; }
+.model-menu { position: absolute; right: 0; bottom: calc(100% + 6px); z-index: 8; width: 150px; padding: 5px; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; background: #292929; box-shadow: 0 10px 25px rgba(0,0,0,.35); }
+.model-menu button { display: block; width: 100%; padding: 8px 9px; border: 0; border-radius: 6px; background: transparent; color: #e7e7e5; font-size: 11px; text-align: right; }
+.model-menu button:hover { background: rgba(255,255,255,.1); }
 .send-button { display: grid; flex: 0 0 35px; width: 35px; height: 35px; place-items: center; border: 0; border-radius: 50%; background: #efefec; color: #292929; }
 .send-button svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.2; }
 .send-button:hover, .soft-button:hover { background: #fff; }
@@ -135,5 +141,5 @@ button, label { cursor: pointer; }
 @media (max-width: 600px) {
   .panel-shell { right: 10px; bottom: 10px; width: calc(100vw - 20px); height: min(72vh, 560px); }
   .confirmation-control { max-width: 122px; }
-  .model-control select { max-width: 98px; }
+  .model-button { width: 106px; font-size: 11px; }
 }

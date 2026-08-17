@@ -11,7 +11,9 @@ const input = document.querySelector("#message-input");
 const messages = document.querySelector("#messages");
 const directoryButton = document.querySelector("#directory-button");
 const confirmationButton = document.querySelector("#confirmation-button");
-const modelSelect = document.querySelector("#model-select");
+const modelButton = document.querySelector("#model-button");
+const modelLabel = document.querySelector("#model-label");
+const modelMenu = document.querySelector("#model-menu");
 const settingsModel = document.querySelector("#settings-model");
 const chatTitle = document.querySelector("#chat-title");
 const toast = document.querySelector("#toast");
@@ -123,7 +125,18 @@ document.querySelector("#run-demo").addEventListener("click", simulateResponse);
 confirmationButton.addEventListener("click", () => {
   const enabled = confirmationButton.getAttribute("aria-pressed") === "true";
   confirmationButton.setAttribute("aria-pressed", String(!enabled));
-  confirmationButton.innerHTML = !enabled ? "<span>●</span> Подтверждать за меня" : "<span>◌</span> Подтверждать за меня";
 });
-modelSelect.addEventListener("change", () => { settingsModel.textContent = modelSelect.value; });
+modelButton.addEventListener("click", () => {
+  const isOpen = modelButton.getAttribute("aria-expanded") === "true";
+  modelButton.setAttribute("aria-expanded", String(!isOpen));
+  modelMenu.hidden = isOpen;
+});
+modelMenu.addEventListener("click", (event) => {
+  const option = event.target.closest("[data-model]");
+  if (!option) return;
+  modelLabel.textContent = option.dataset.model;
+  settingsModel.textContent = option.dataset.model;
+  modelButton.setAttribute("aria-expanded", "false");
+  modelMenu.hidden = true;
+});
 directoryButton.addEventListener("click", () => { directoryButton.innerHTML = "<span class=\"folder-icon\" aria-hidden=\"true\"></span> ~/Projects/Linux AI System/services/agent-runtime"; });
