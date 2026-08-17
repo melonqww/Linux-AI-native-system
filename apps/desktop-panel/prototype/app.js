@@ -7,9 +7,7 @@ const chatMenu = document.querySelector("#chat-menu");
 const composer = document.querySelector("#composer");
 const input = document.querySelector("#message-input");
 const messages = document.querySelector("#messages");
-const generationState = document.querySelector("#generation-state");
 const directoryButton = document.querySelector("#directory-button");
-const fileInput = document.querySelector("#file-input");
 const confirmationButton = document.querySelector("#confirmation-button");
 const modelSelect = document.querySelector("#model-select");
 const settingsModel = document.querySelector("#settings-model");
@@ -33,9 +31,7 @@ function addAssistantMessage(text) {
 }
 
 function simulateResponse() {
-  generationState.hidden = false;
   window.setTimeout(() => {
-    generationState.hidden = true;
     addAssistantMessage("Готово. В рабочей версии здесь появится проверенный результат инструмента и запись в audit log.");
   }, 1100);
 }
@@ -72,7 +68,4 @@ confirmationButton.addEventListener("click", () => {
   confirmationButton.innerHTML = !enabled ? "<span>●</span> Подтверждать за меня" : "<span>◌</span> Подтверждать за меня";
 });
 modelSelect.addEventListener("change", () => { settingsModel.textContent = modelSelect.value; });
-directoryButton.addEventListener("click", () => { directoryButton.textContent = "~/Projects/Linux AI System/services/agent-runtime"; });
-fileInput.addEventListener("change", () => {
-  if (fileInput.files.length) addAssistantMessage(`Файл «${fileInput.files[0].name}» прикреплён к текущей задаче. Перед отправкой в модель его контекст будет показан отдельно.`);
-});
+directoryButton.addEventListener("click", () => { directoryButton.innerHTML = "<span class=\"folder-icon\" aria-hidden=\"true\"></span> ~/Projects/Linux AI System/services/agent-runtime"; });

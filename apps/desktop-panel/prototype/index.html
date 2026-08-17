@@ -9,17 +9,16 @@
   <body>
     <main class="desktop" aria-label="Прототип AI-панели">
       <section class="panel-shell" aria-label="AI-native Linux">
-        <nav class="panel-nav" aria-label="Навигация чата">
-          <button class="round-control" id="menu-button" aria-label="Открыть список чатов">☰</button>
-          <button class="chat-title-control" id="new-chat" aria-label="Создать новый чат">Новый чат</button>
-          <button class="round-control" id="settings-button" aria-label="Открыть настройки">⚙</button>
-        </nav>
-
         <section class="panel">
-          <div class="working-directory">
-            <span class="directory-dot"></span>
-            <button id="directory-button" title="Текущая рабочая директория">~/Projects/Linux AI System</button>
-            <span class="generation-state" id="generation-state" hidden><i></i> AI отвечает</span>
+          <nav class="panel-tabs" aria-label="Навигация чата">
+            <button class="tab-control" id="menu-button" aria-label="Открыть боковую панель"><span>☰</span> Боковая панель</button>
+            <button class="tab-control active-tab" id="new-chat" aria-label="Создать новый чат">Новый чат</button>
+            <button class="tab-control" id="settings-button" aria-label="Открыть настройки"><span>⚙</span> Настройки</button>
+          </nav>
+
+          <div class="chat-meta">
+            <strong id="chat-title">Новый чат</strong>
+            <button id="directory-button" title="Текущая рабочая директория"><span class="folder-icon" aria-hidden="true"></span> ~/Projects/Linux AI System</button>
           </div>
 
           <section class="chat-view view active" id="chat-view" aria-label="Чат">
@@ -34,10 +33,8 @@
             </div>
 
             <form class="composer" id="composer">
-              <textarea id="message-input" rows="1" autocomplete="off" placeholder="Поручите что угодно" aria-label="Сообщение"></textarea>
+              <textarea id="message-input" rows="1" autocomplete="off" placeholder="Сообщение для вашего ИИ" aria-label="Сообщение"></textarea>
               <div class="composer-actions">
-                <label class="composer-icon" for="file-input" title="Прикрепить файл">＋</label>
-                <input id="file-input" type="file" hidden />
                 <button class="confirmation-control" id="confirmation-button" type="button" aria-pressed="false"><span>◌</span> Подтверждать за меня</button>
                 <label class="model-control">
                   <span class="visually-hidden">Модель</span>
