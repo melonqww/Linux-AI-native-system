@@ -12,8 +12,11 @@
         <section class="panel">
           <nav class="panel-tabs" aria-label="Навигация чата">
             <button class="tab-control" id="menu-button" aria-label="Открыть боковую панель"><span>☰</span> Боковая панель</button>
-            <button class="tab-control active-tab" id="new-chat" aria-label="Создать новый чат">Новый чат</button>
+            <div class="chat-tabs" id="chat-tabs">
+              <button class="tab-control chat-tab active-tab" data-chat-id="1" aria-label="Открыть чат Новый чат">Новый чат <i aria-label="Закрыть чат">×</i></button>
+            </div>
             <button class="tab-control" id="settings-button" aria-label="Открыть настройки"><span>⚙</span> Настройки</button>
+            <button class="create-chat-button" id="create-chat-button" aria-label="Создать новый чат" data-tooltip="Создать новый чат">＋</button>
           </nav>
 
           <div class="chat-meta">
@@ -61,6 +64,17 @@
             <button class="setting-row"><span>Приватность</span><span>›</span></button>
             <button class="setting-row"><span>О приложении</span><span>›</span></button>
             <button class="back-button" id="back-to-chat">← Вернуться в чат</button>
+          </section>
+
+          <section class="sidebar-view view" id="sidebar-view" aria-label="Боковая панель">
+            <div class="settings-heading">
+              <span class="eyebrow">БОКОВАЯ ПАНЕЛЬ</span>
+              <h1>Ваши чаты</h1>
+              <p>Здесь появятся сохранённые задачи и быстрые действия.</p>
+            </div>
+            <button class="setting-row"><span>Сегодня</span><span>›</span></button>
+            <button class="setting-row"><span>Состояние системы</span><span>›</span></button>
+            <button class="setting-row"><span>Новый workspace</span><span>›</span></button>
           </section>
         </section>
 

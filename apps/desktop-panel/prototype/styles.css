@@ -43,7 +43,7 @@ button, label { cursor: pointer; }
 
 .panel-tabs {
   display: flex;
-  gap: 3px;
+  gap: 2px;
   align-items: flex-end;
   min-height: 43px;
   padding: 7px 9px 0;
@@ -51,6 +51,7 @@ button, label { cursor: pointer; }
   background: rgba(38,38,38,.45);
 }
 .tab-control {
+  flex: 0 0 auto;
   height: 34px;
   padding: 0 10px;
   border: 0;
@@ -63,6 +64,16 @@ button, label { cursor: pointer; }
 .tab-control span { margin-right: 4px; font-size: 14px; vertical-align: -1px; }
 .tab-control:hover { background: rgba(255,255,255,.065); color: #e4e4e1; }
 .active-tab { background: #4a4a4a; color: #f4f4f2; font-weight: 650; }
+.chat-tabs { display: flex; min-width: 0; flex: 1; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+.chat-tabs::-webkit-scrollbar { display: none; }
+.chat-tab { max-width: 132px; overflow: hidden; text-overflow: ellipsis; }
+.chat-tab i { display: inline-grid; width: 14px; height: 14px; margin-left: 4px; place-items: center; border-radius: 50%; color: #bdbdbb; font-size: 14px; font-style: normal; line-height: 1; }
+.chat-tab i:hover { background: rgba(255,255,255,.13); color: #fff; }
+#settings-button { margin-left: auto; }
+.create-chat-button { position: relative; flex: 0 0 30px; width: 30px; height: 30px; margin: 0 1px 2px 4px; border: 0; border-radius: 8px; background: transparent; color: #ddd; font-size: 19px; line-height: 1; }
+.create-chat-button:hover { background: rgba(255,255,255,.09); color: #fff; }
+.create-chat-button::after { position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 10; width: max-content; max-width: 180px; padding: 7px 9px; border: 1px solid rgba(255,255,255,.12); border-radius: 7px; background: #232323; color: #f3f3f1; box-shadow: 0 8px 20px rgba(0,0,0,.3); content: attr(data-tooltip); font-size: 11px; opacity: 0; pointer-events: none; }
+.create-chat-button:hover::after, .create-chat-button:focus-visible::after { opacity: 1; }
 
 .chat-meta {
   display: flex;
@@ -94,13 +105,13 @@ button, label { cursor: pointer; }
 .composer { flex: 0 0 auto; margin: 0 12px 12px; padding: 11px 12px 9px; border: 1px solid rgba(255,255,255,.1); border-radius: 21px; background: #3b3b3b; }
 .composer textarea { display: block; width: 100%; min-height: 23px; max-height: 142px; padding: 0 3px; resize: none; overflow-y: auto; border: 0; outline: 0; background: transparent; color: #f9f9f7; font-size: 13px; line-height: 23px; }
 .composer textarea::placeholder { color: #a8a8a6; }
-.composer-actions { display: flex; gap: 8px; align-items: center; min-width: 0; margin-top: 12px; }
-.confirmation-control { min-width: 0; overflow: hidden; padding: 0 0 1px; border: 0; background: transparent; color: #c7c7c4; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.composer-actions { display: flex; min-height: 35px; gap: 8px; align-items: end; min-width: 0; margin-top: 12px; }
+.confirmation-control { min-width: 0; overflow: hidden; padding: 0 0 5px; border: 0; background: transparent; color: #c7c7c4; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .confirmation-control span { margin-right: 4px; color: #dededb; font-size: 14px; vertical-align: -1px; }
 .confirmation-control[aria-pressed="true"] { color: #c8e2b5; }
 .confirmation-control[aria-pressed="true"] span { color: #b9da9e; }
 .model-control { min-width: 0; margin-left: auto; }
-.model-control select { max-width: 132px; overflow: hidden; padding: 3px 18px 3px 5px; border: 0; outline: 0; background: transparent; color: #dededb; font-size: 12px; text-overflow: ellipsis; }
+.model-control select { max-width: 132px; overflow: hidden; padding: 3px 18px 7px 5px; border: 0; outline: 0; background: transparent; color: #dededb; font-size: 13px; text-overflow: ellipsis; }
 .send-button { display: grid; flex: 0 0 35px; width: 35px; height: 35px; place-items: center; border: 0; border-radius: 50%; background: #efefec; color: #292929; font-size: 22px; font-weight: 750; line-height: 1; }
 .send-button:hover, .soft-button:hover { background: #fff; }
 
