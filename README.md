@@ -8,6 +8,8 @@
 
 Первый вертикальный сценарий — `system_status`: показать свободное место, CPU, RAM, батарею и процессы без каких-либо изменений в системе.
 
+Реализация MVP начинается с **Python 3.12+** и стандартной библиотеки: это позволяет разработать policy layer и тесты до готовности Ubuntu VM. Системный адаптер будет запускаться только в Ubuntu.
+
 ## Базовый принцип
 
 Модель не имеет прямого доступа к shell, `sudo` или D-Bus. Она создаёт структурированное намерение, а Permission Gateway проверяет риск, права и параметры инструмента.
@@ -21,4 +23,5 @@ intent → policy → tool → audit event → result
 - [Концепция v0.1](Architecture/AI-native-Linux-v0.1-концепция.md)
 - [Структура проекта и пути](Architecture/02-Структура-проекта-и-пути.md)
 - [Контракты намерений и инструментов](Architecture/api/intent-and-tool-contracts.md)
+- [Решение о портфолио-MVP](Architecture/decisions/ADR-001-portfolio-mvp-scope.md)
 - [Подготовка Ubuntu VM](docs/developer/Ubuntu-VM-setup.md)
