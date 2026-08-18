@@ -1,0 +1,122 @@
+"""Public indexing and retrieval API."""
+
+from __future__ import annotations
+
+import hashlib
+import os
+from pathlib import Path
+
+from .chunking import chunk_text
+from .contracts import IndexReport, SearchHit
+from .file_policy import FilePolicy, read_allowed_text
+from .storage import IndexStorage
+
+
+class IndexerService:
+    def __init__(self, database_path: Path, *, file_policy: FilePolicy | None = None) -> None:
+        self.storage = IndexStorage(database_path)
+        self.file_policy = file_policy or FilePolicy()
+
+    def index_directory(self, root: Path) -> IndexReport:
+        root = root.expanduser().resolve(strict=True)
+        if not root.is_dir():
+            raise NotADirectoryError(root)
+
+        root_text = str(root)
+        report = IndexReport(root=root_text)
+        present_paths: set[str] = set()
+
+        with self.storage.connect() as connection:
+            for current, directory_names, file_names in os.walk(root, followlinks=False):
+                current_path = Path(current)
+                kept_directories: list[str] = []
+                for name in directory_names:
+                    child = current_path / name
+                    reason = self.file_policy.directory_reason(child)
+                    if reason:
+                        report.add_skipped(reason)
+                    else:
+                        kept_directories.append(name)
+                directory_names[:] = kept_directories
+
+                for name in file_names:
+                    path = current_path / name
+                    reason = self.file_policy.file_reason(path)
+                    if reason:
+                        report.add_skipped(reason)
+                        continue
+
+                    path = path.resolve(strict=True)
+                    try:
+                        path.relative_to(root)
+                    except ValueError:
+                        report.add_skipped("outside_root")
+                        continue
+
+                    path_text = str(path)
+                    stat = path.stat()
+                    metadata = self.storage.source_metadata(connection, path_text)
+                    if metadata == (stat.st_size, stat.st_mtime_ns):
+                        present_paths.add(path_text)
+                        report.unchanged += 1
+                        continue
+
+                    text, reason = read_allowed_text(path, self.file_policy)
+                    if reason:
+                        report.add_skipped(reason)
+                        continue
+                    assert text is not None
+                    present_paths.add(path_text)
+                    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+                    was_update = self.storage.replace_source(
+                        connection,
+                        root_path=root_text,
+                        path=path_text,
+                        size_bytes=stat.st_size,
+                        mtime_ns=stat.st_mtime_ns,
+                        content_hash=digest,
+                        chunks=chunk_text(text),
+                    )
+                    if was_update:
+                        report.updated += 1
+                    else:
+                        report.indexed += 1
+
+            report.removed = self.storage.remove_missing(connection, root_text, present_paths)
+        return report
+
+    def search(self, query: str, *, limit: int = 5) -> list[SearchHit]:
+        if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 50:
+            raise ValueError("limit must be an integer from 1 to 50")
+        with self.storage.connect() as connection:
+            return self.storage.search(connection, query, limit)
+
+    def index_text(self, path: Path, text: str) -> bool:
+        """Index trusted text extracted by another capability module."""
+        path = path.expanduser()
+        if path.is_symlink():
+            raise ValueError("source must be a regular non-symlink file")
+        path = path.resolve(strict=True)
+        if not path.is_file():
+            raise ValueError("source must be a regular non-symlink file")
+        if not text.strip():
+            raise ValueError("extracted text must not be empty")
+        stat = path.stat()
+        digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        with self.storage.connect() as connection:
+            if self.storage.source_metadata(connection, str(path)) == (stat.st_size, stat.st_mtime_ns):
+                return False
+            self.storage.replace_source(
+                connection,
+                root_path=str(path.parent),
+                path=str(path),
+                size_bytes=stat.st_size,
+                mtime_ns=stat.st_mtime_ns,
+                content_hash=digest,
+                chunks=chunk_text(text),
+            )
+            return True
+
+    def get_index_status(self) -> dict[str, int]:
+        with self.storage.connect() as connection:
+            return self.storage.status(connection)

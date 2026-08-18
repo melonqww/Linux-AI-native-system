@@ -3,6 +3,7 @@ import Clutter from 'gi://Clutter';
 import GObject from 'gi://GObject';
 import GLib from 'gi://GLib';
 import Pango from 'gi://Pango';
+import Soup from 'gi://Soup?version=3.0';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
@@ -13,6 +14,42 @@ const MIN_PANEL_HEIGHT = 360;
 const TOGGLE_WIDTH = 26;
 const PANEL_MARGIN = 24;
 const TAB_HEIGHT = 43;
+const RUNTIME_URL = 'http://127.0.0.1:8765/v1/search';
+
+class RuntimeClient {
+    constructor() {
+        this._session = new Soup.Session({timeout: 15});
+    }
+
+    search(text) {
+        const message = Soup.Message.new('POST', RUNTIME_URL);
+        message.set_request_body_from_bytes(
+            'application/json',
+            new GLib.Bytes(new TextEncoder().encode(JSON.stringify({text, limit: 20}))),
+        );
+        return new Promise((resolve, reject) => {
+            this._session.send_and_read_async(
+                message,
+                GLib.PRIORITY_DEFAULT,
+                null,
+                (session, result) => {
+                    try {
+                        const bytes = session.send_and_read_finish(result);
+                        if (message.get_status() !== Soup.Status.OK)
+                            throw new Error(`Runtime HTTP ${message.get_status()}`);
+                        resolve(JSON.parse(new TextDecoder().decode(bytes.get_data())).results ?? []);
+                    } catch (error) {
+                        reject(error);
+                    }
+                },
+            );
+        });
+    }
+
+    destroy() {
+        this._session.abort();
+    }
+}
 
 const TabButton = GObject.registerClass(
 class TabButton extends St.Button {
@@ -71,7 +108,7 @@ class TabButton extends St.Button {
 
 const ChatView = GObject.registerClass(
 class ChatView extends St.BoxLayout {
-    _init() {
+    _init(runtime) {
         super._init({
             vertical: true,
             style_class: 'ai-chat-view',
@@ -79,6 +116,7 @@ class ChatView extends St.BoxLayout {
             y_expand: true,
         });
 
+        this._runtime = runtime;
         this._messages = new St.BoxLayout({
             vertical: true,
             style_class: 'ai-messages',
@@ -211,6 +249,7 @@ class ChatView extends St.BoxLayout {
 
         const send = new St.Button({label: '↑', style_class: 'ai-send', can_focus: true});
         send.connect('clicked', () => this._submitEntry(entry));
+        entry.clutter_text.connect('activate', () => this._submitEntry(entry));
         actions.add_child(send);
         composer.add_child(actions);
         return composer;
@@ -222,7 +261,14 @@ class ChatView extends St.BoxLayout {
             return;
         this._messages.add_child(this._user(text));
         entry.set_text('');
-        this._simulateResponse();
+        this._runtime.search(text).then(results => {
+            const answer = results.length
+                ? results.map(item => item.path).join('\n')
+                : 'Совпадений в доступном индексе не найдено.';
+            this._messages.add_child(this._assistant(answer));
+        }).catch(error => {
+            this._messages.add_child(this._assistant(`Runtime недоступен: ${error.message}`));
+        });
     }
 
     _simulateResponse() {
@@ -244,7 +290,7 @@ class WorkspaceView extends St.Widget {
 
 const Panel = GObject.registerClass(
 class Panel extends St.Widget {
-    _init() {
+    _init(runtime) {
         super._init({
             style_class: 'ai-native-shell',
             reactive: true,
@@ -292,7 +338,7 @@ class Panel extends St.Widget {
         this._views.set_size(PANEL_WIDTH - TOGGLE_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
         this._content.add_child(this._views);
 
-        this._chat = new ChatView();
+        this._chat = new ChatView(runtime);
         this._chat.set_position(0, 0);
         this._chat.set_size(PANEL_WIDTH - TOGGLE_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
         this._views.add_child(this._chat);
@@ -341,7 +387,8 @@ class Panel extends St.Widget {
 
 export default class AiNativeLinuxExtension extends Extension {
     enable() {
-        this._panel = new Panel();
+        this._runtime = new RuntimeClient();
+        this._panel = new Panel(this._runtime);
         Main.layoutManager.addChrome(this._panel, {trackFullscreen: false, affectsStruts: false});
         this._monitorChangedId = Main.layoutManager.connect('monitors-changed', () => this._positionPanel());
         this._positionPanel();
@@ -368,6 +415,8 @@ export default class AiNativeLinuxExtension extends Extension {
             this._monitorChangedId = 0;
         }
         this._panel?.destroy();
+        this._runtime?.destroy();
         this._panel = null;
+        this._runtime = null;
     }
 }

@@ -1,0 +1,34 @@
+# Local indexer
+
+Локальный opt-in индексатор для retrieval-сценариев AI-native Linux. Он читает
+только каталог, явно переданный пользователем, и сохраняет текстовые фрагменты в
+SQLite FTS5. Модель, сеть и embeddings для работы не нужны.
+
+## Что индексируется
+
+- `.md`, `.txt` и `.py`;
+- обычные UTF-8 файлы размером до 20 МиБ по умолчанию;
+- только реальные файлы внутри выбранного корня.
+
+Пропускаются симлинки, скрытые файлы и каталоги, `.git`, `node_modules`,
+виртуальные окружения, `.env`, приватные ключи, бинарные и неподдерживаемые
+файлы. Лимит размера — настраиваемый предохранитель, а не ограничение контракта.
+
+## Локальный запуск из корня репозитория
+
+```powershell
+$env:PYTHONPATH = "services\indexer\src"
+python -m ai_native_indexer --database data/index/index.sqlite3 index "C:\path\to\allowed-folder"
+python -m ai_native_indexer --database data/index/index.sqlite3 search "настройка Ubuntu"
+python -m ai_native_indexer --database data/index/index.sqlite3 status
+```
+
+Для больших текстовых источников можно изменить предохранитель:
+
+```powershell
+python -m ai_native_indexer --max-file-mb 100 index "C:\path\to\allowed-folder"
+```
+
+Повторная индексация сначала сравнивает размер и точное время изменения файла.
+Неизменённые файлы не читаются повторно. Исчезнувшие и ставшие запрещёнными
+источники удаляются из индекса при следующем проходе по тому же корню.

@@ -23,6 +23,11 @@ def demo_payload() -> dict[str, object]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="AI-native Linux portfolio MVP")
     parser.add_argument("--demo", action="store_true", help="validate the fixed read-only demo request")
+    parser.add_argument("--serve-panel", action="store_true", help="serve the loopback panel API")
+    parser.add_argument("--host", default="127.0.0.1", choices=("127.0.0.1",))
+    parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--storage-database", type=Path, default=Path("data/storage-catalog.sqlite3"))
+    parser.add_argument("--index-database", type=Path, default=Path("data/document-index.sqlite3"))
     parser.add_argument(
         "--audit-file",
         type=Path,
@@ -30,8 +35,28 @@ def main() -> int:
         help="local JSONL file for redacted audit events",
     )
     args = parser.parse_args()
+    if args.serve_panel:
+        from ai_native_query import QueryRuntimeApplication, QueryService
+
+        from .bridge import create_server
+
+        application = QueryRuntimeApplication(
+            QueryService(
+                storage_database=args.storage_database,
+                index_database=args.index_database,
+            )
+        )
+        server = create_server(application, host=args.host, port=args.port)
+        print(f"Panel runtime: http://{args.host}:{server.server_port}")
+        try:
+            server.serve_forever()
+        except KeyboardInterrupt:
+            pass
+        finally:
+            server.server_close()
+        return 0
     if not args.demo:
-        parser.error("only --demo is available before the Ubuntu system adapter is added")
+        parser.error("choose --demo or --serve-panel")
 
     proposal, decision = PolicyEngine().evaluate(demo_payload())
     event = create_audit_event(intent=proposal.intent, decision=decision, result="validated_no_execution")

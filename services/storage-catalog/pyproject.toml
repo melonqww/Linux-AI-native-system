@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-native-linux-storage-catalog"
+version = "0.1.0"
+description = "Volume registry, file catalog and virtual collections for AI-native Linux."
+requires-python = ">=3.12"
+
+[project.scripts]
+ai-native-storage = "ai_native_storage.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

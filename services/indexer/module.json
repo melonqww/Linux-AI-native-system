@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "module_id": "documents.index",
+  "display_name": "Document Text Index",
+  "description": "Indexes allowed text sources and provides local full-text retrieval.",
+  "module_version": "0.1.0",
+  "core_api": "1",
+  "capabilities": [
+    "documents.text.index",
+    "documents.text.search",
+    "documents.index.status"
+  ],
+  "dependencies": [
+    "storage.catalog"
+  ],
+  "optional_dependencies": [],
+  "requested_permissions": [
+    "filesystem.read-content"
+  ],
+  "lifecycle": "on-demand",
+  "resource_class": "medium",
+  "default_enabled": true,
+  "entrypoint": {
+    "kind": "python-service",
+    "module": "ai_native_indexer",
+    "python_path": "src"
+  }
+}

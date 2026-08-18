@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "module_id": "desktop.applications",
+  "display_name": "Desktop Applications",
+  "description": "Finds installed desktop applications and their launch metadata.",
+  "module_version": "0.1.0",
+  "core_api": "1",
+  "capabilities": ["desktop.applications.find"],
+  "dependencies": [],
+  "optional_dependencies": [],
+  "requested_permissions": ["applications.read-metadata"],
+  "lifecycle": "on-demand",
+  "resource_class": "tiny",
+  "default_enabled": true,
+  "entrypoint": {"kind": "python-service", "module": "ai_native_applications", "python_path": "src"}
+}

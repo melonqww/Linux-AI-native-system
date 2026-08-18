@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "module_id": "browser.navigation",
+  "display_name": "Browser Navigation",
+  "description": "Validates and opens HTTP or HTTPS URLs in the default browser.",
+  "module_version": "0.1.0",
+  "core_api": "1",
+  "capabilities": ["browser.url.plan", "browser.search.plan", "browser.url.open"],
+  "dependencies": [],
+  "optional_dependencies": ["desktop.applications"],
+  "requested_permissions": ["browser.open-url"],
+  "lifecycle": "on-demand",
+  "resource_class": "tiny",
+  "default_enabled": true,
+  "entrypoint": {"kind": "python-service", "module": "ai_native_browser", "python_path": "src"}
+}

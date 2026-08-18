@@ -29,6 +29,8 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "Qwen 3.5 2B",
             "Рабочая область",
             "Сообщение для вашего ИИ",
+            "http://127.0.0.1:8765/v1/search",
+            "set_request_body_from_bytes",
         ):
             self.assertIn(marker, source)
 

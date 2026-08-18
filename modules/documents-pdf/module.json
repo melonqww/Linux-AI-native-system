@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "module_id": "documents.pdf",
+  "display_name": "PDF Documents",
+  "description": "Safely extracts page-aware text from PDF documents for local indexing.",
+  "module_version": "0.1.0",
+  "core_api": "1",
+  "capabilities": [
+    "documents.pdf.extract"
+  ],
+  "dependencies": [
+    "storage.catalog",
+    "documents.index"
+  ],
+  "optional_dependencies": [],
+  "requested_permissions": [
+    "filesystem.read-content"
+  ],
+  "lifecycle": "on-demand",
+  "resource_class": "medium",
+  "default_enabled": true,
+  "entrypoint": {
+    "kind": "python-service",
+    "module": "ai_native_pdf",
+    "python_path": "src"
+  }
+}
