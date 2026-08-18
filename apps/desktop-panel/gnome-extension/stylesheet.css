@@ -1,0 +1,156 @@
+.ai-native-shell {
+    background-color: rgba(32, 32, 32, 0.98);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 22px 0 22px 22px;
+    box-shadow: 0 18px 52px rgba(0, 0, 0, 0.42);
+}
+
+.ai-panel-content {
+    background-color: #343434;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 22px 0 22px 22px;
+}
+
+.ai-toggle {
+    background-color: #3d3d3d;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-right-width: 0;
+    border-radius: 13px 0 0 13px;
+    color: #f2f2f2;
+    font-size: 16px;
+    font-weight: 700;
+    padding: 0;
+}
+
+.ai-toggle:hover,
+.ai-toggle:focus {
+    background-color: #535353;
+}
+
+.ai-tabs {
+    background-color: #242424;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+    padding: 3px 4px 0 4px;
+    spacing: 3px;
+}
+
+.ai-tab {
+    background-color: transparent;
+    border-radius: 14px 14px 0 0;
+    color: #c6c6c6;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 0 8px;
+}
+
+.ai-tab:hover,
+.ai-tab:focus,
+.ai-tab.active {
+    background-color: #4a4a4a;
+    color: #ffffff;
+}
+
+.ai-chat-view {
+    padding: 14px 14px 12px 18px;
+    spacing: 10px;
+}
+
+.ai-scroll {
+    -st-vfade-offset: 0px;
+}
+
+.ai-messages {
+    spacing: 12px;
+    padding-right: 6px;
+}
+
+.ai-assistant-message {
+    color: #f4f4f4;
+    font-size: 13px;
+    line-height: 1.35;
+}
+
+.ai-user-message {
+    background-color: #f1f1f1;
+    border-radius: 18px;
+    color: #303030;
+    font-size: 12px;
+    padding: 9px 14px;
+}
+
+.ai-plan-card {
+    background-color: #2d2d2d;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 16px;
+    padding: 14px;
+    spacing: 9px;
+}
+
+.ai-plan-title {
+    color: #b7d8ae;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.ai-plan-details {
+    color: #e2e2e2;
+    font-size: 12px;
+}
+
+.ai-plan-action {
+    background-color: #f1f1f1;
+    border-radius: 9px;
+    color: #282828;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 8px 11px;
+}
+
+.ai-composer {
+    background-color: #3b3b3b;
+    border: 1px solid rgba(255, 255, 255, 0.17);
+    border-radius: 18px;
+    padding: 10px 11px 8px 11px;
+    spacing: 6px;
+}
+
+.ai-entry {
+    background-color: transparent;
+    border: 0;
+    color: #f2f2f2;
+    font-size: 12px;
+    min-height: 28px;
+    padding: 0;
+}
+
+.ai-composer-actions {
+    spacing: 7px;
+}
+
+.ai-confirmation {
+    color: #d4d4d4;
+    font-size: 11px;
+}
+
+.ai-model {
+    background-color: transparent;
+    color: #dedede;
+    font-size: 11px;
+    padding: 5px 3px;
+}
+
+.ai-send {
+    background-color: #f1f1f1;
+    border-radius: 50%;
+    color: #383838;
+    font-size: 19px;
+    font-weight: 700;
+    min-height: 32px;
+    min-width: 32px;
+    padding: 0;
+}
+
+.ai-empty-view {
+    background-color: #343434;
+    border-radius: 0 0 20px 20px;
+}

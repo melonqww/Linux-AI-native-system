@@ -10,6 +10,8 @@
 
 Реализация MVP начинается с **Python 3.12+** и стандартной библиотеки: это позволяет разработать policy layer и тесты до готовности Ubuntu VM. Системный адаптер будет запускаться только в Ubuntu.
 
+Нативный UI-каркас для GNOME уже находится в `apps/desktop-panel/gnome-extension/`. Он повторяет текущий HTML-прототип, но работает как GNOME Shell Extension и не создаёт отдельное окно WebKit.
+
 ## Базовый принцип
 
 Модель не имеет прямого доступа к shell, `sudo` или D-Bus. Она создаёт структурированное намерение, а Permission Gateway проверяет риск, права и параметры инструмента.
@@ -29,6 +31,16 @@ python -m unittest discover -s services/agent-runtime/tests -v
 ```
 
 Команда `--demo` не читает и не изменяет систему: она проверяет заранее заданное R0-намерение и записывает обезличенное audit event в игнорируемую Git папку `data/`.
+
+## Запуск нативной панели в Ubuntu
+
+В Ubuntu с GNOME из корня репозитория выполните:
+
+```bash
+bash apps/desktop-panel/gnome-extension/install.sh
+```
+
+После установки расширение можно перезапустить командами `gnome-extensions disable ai-native-linux@melonqww` и `gnome-extensions enable ai-native-linux@melonqww`. Пока это UI-каркас: вкладки, сворачивание и локальное добавление сообщения работают без подключения модели.
 
 ## Документация
 
