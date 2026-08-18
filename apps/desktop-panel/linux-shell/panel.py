@@ -22,12 +22,11 @@ class PanelWindow(Gtk.Window):
         self.set_resizable(False)
         self.set_keep_above(True)
         self.set_default_size(460, 560)
-        self.set_size_request(320, 420)
         self.connect("destroy", Gtk.main_quit)
 
         self.webview = WebKit2.WebView()
         self.webview.get_settings().set_enable_developer_extras(True)
-        self.webview.load_uri(PROTOTYPE_INDEX.as_uri())
+        self.webview.load_uri(f"{PROTOTYPE_INDEX.as_uri()}?native=1")
         self.add(self.webview)
 
         self.show_all()

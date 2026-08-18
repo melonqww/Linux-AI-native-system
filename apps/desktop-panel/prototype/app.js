@@ -17,6 +17,10 @@ const panelShell = document.querySelector(".panel-shell");
 const panelToggle = document.querySelector("#panel-toggle");
 const panelToggleIcon = panelToggle.querySelector("span");
 
+if (new URLSearchParams(window.location.search).has("native")) {
+  document.body.classList.add("native-shell");
+}
+
 function setPanelCollapsed(collapsed) {
   panelShell.classList.toggle("is-collapsed", collapsed);
   panelToggle.setAttribute("aria-expanded", String(!collapsed));
