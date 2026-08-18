@@ -41,10 +41,8 @@ function selectView(view, activeTab) {
 
 function selectChat(tab) {
   const title = tab.querySelector(".chat-tab-title");
-  const tooltipTitle = tab.querySelector(".chat-tab-tooltip-title");
   const name = tab.dataset.chatName || "Рабочая область";
   if (title) title.innerHTML = `<span class="folder-icon" aria-hidden="true"></span>${name}`;
-  if (tooltipTitle) tooltipTitle.textContent = name;
   selectView(chatView, tab);
 }
 

@@ -117,10 +117,6 @@ button, label { cursor: pointer; }
 .chat-tab-title .folder-icon { margin-right: 5px; }
 .folder-icon { position: relative; display: inline-block; width: 11px; height: 8px; margin-right: 4px; border: 1px solid #c9c9c7; border-radius: 2px; vertical-align: -1px; }
 .folder-icon::before { position: absolute; top: -4px; left: 1px; width: 5px; height: 3px; border: 1px solid #c9c9c7; border-bottom: 0; border-radius: 2px 2px 0 0; content: ""; }
-.chat-tab-tooltip { position: absolute; top: calc(100% + 8px); left: 0; z-index: 10; display: flex; width: max-content; max-width: min(320px, calc(100vw - 32px)); flex-direction: column; gap: 3px; padding: 8px 10px; border: 1px solid rgba(255,255,255,.12); border-radius: 9px; background: #232323; color: #f3f3f1; box-shadow: 0 8px 20px rgba(0,0,0,.3); opacity: 0; pointer-events: none; transition: opacity .3s ease-out; }
-.chat-tab-tooltip-title { color: #f3f3f1; font-size: 11px; font-weight: 650; line-height: 1.2; }
-.chat-tab-tooltip-path { overflow-wrap: anywhere; color: #aaa; font-size: 10px; line-height: 1.25; }
-.chat-tab:hover .chat-tab-tooltip, .chat-tab:focus-visible .chat-tab-tooltip { opacity: 1; }
 
 .view { display: none; min-height: 0; flex: 1; }
 .view.active { display: flex; }
