@@ -36,7 +36,7 @@ button, label { cursor: pointer; }
 .panel-toggle {
   position: absolute;
   top: 50%;
-  left: -30px;
+  left: -26px;
   z-index: 20;
   display: grid;
   width: 26px;
@@ -55,7 +55,7 @@ button, label { cursor: pointer; }
   transition: background-color .2s ease-out, color .2s ease-out;
 }
 
-.panel-toggle-icon { display: block; line-height: 1; transform: translateY(-1px); }
+.panel-toggle-icon { display: block; line-height: 1; transform: translate(3px, -4px); }
 
 .panel-toggle:hover, .panel-toggle:focus-visible {
   background: #505050;
