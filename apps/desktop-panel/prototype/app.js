@@ -9,18 +9,14 @@ const backButton = document.querySelector("#back-to-chat");
 const composer = document.querySelector("#composer");
 const input = document.querySelector("#message-input");
 const messages = document.querySelector("#messages");
-const directoryButton = document.querySelector("#directory-button");
 const confirmationButton = document.querySelector("#confirmation-button");
 const modelButton = document.querySelector("#model-button");
 const modelLabel = document.querySelector("#model-label");
 const modelMenu = document.querySelector("#model-menu");
 const settingsModel = document.querySelector("#settings-model");
-const chatTitle = document.querySelector("#chat-title");
-const chatMeta = document.querySelector(".chat-meta");
 const toast = document.querySelector("#toast");
 let nextChatId = 2;
 let toastTimer;
-let metaBaseWidth = 0;
 
 function allViews() {
   return [chatView, settingsView, sidebarView];
@@ -37,45 +33,17 @@ function selectView(view, activeTab) {
   activeTab.classList.add("active-tab");
 }
 
-function resetMetaExpansion() {
-  chatMeta.classList.remove("meta-expanded");
-  chatMeta.style.removeProperty("width");
-  directoryButton.style.removeProperty("width");
-  directoryButton.style.removeProperty("max-width");
-  metaBaseWidth = 0;
-}
-
-function expandMeta() {
-  metaBaseWidth = chatMeta.getBoundingClientRect().width;
-  chatMeta.style.width = `${metaBaseWidth}px`;
-  chatMeta.classList.add("meta-expanded");
-  directoryButton.style.width = "max-content";
-  directoryButton.style.maxWidth = "none";
-  window.requestAnimationFrame(() => {
-    const availableWidth = chatMeta.parentElement.clientWidth - chatMeta.offsetLeft - 12;
-    const maxWidth = Math.min(metaBaseWidth * 2, availableWidth);
-    const targetWidth = Math.min(Math.max(metaBaseWidth, chatMeta.scrollWidth), maxWidth);
-    chatMeta.style.width = `${targetWidth}px`;
-    directoryButton.style.removeProperty("width");
-    directoryButton.style.removeProperty("max-width");
-  });
-}
-
-function collapseMeta() {
-  if (!chatMeta.classList.contains("meta-expanded")) return;
-  const currentWidth = chatMeta.getBoundingClientRect().width;
-  const targetWidth = metaBaseWidth || currentWidth;
-  chatMeta.style.width = `${currentWidth}px`;
-  chatMeta.classList.remove("meta-expanded");
-  window.requestAnimationFrame(() => { chatMeta.style.width = `${targetWidth}px`; });
-  chatMeta.addEventListener("transitionend", (event) => {
-    if (event.propertyName === "width" && !chatMeta.classList.contains("meta-expanded")) chatMeta.style.removeProperty("width");
-  }, { once: true });
-}
-
 function selectChat(tab) {
-  chatTitle.textContent = tab.dataset.chatName || tab.childNodes[0].textContent.trim();
+  const title = tab.querySelector(".chat-tab-title");
+  const tooltipTitle = tab.querySelector(".chat-tab-tooltip-title");
+  const name = tab.dataset.chatName || "Новый чат";
+  if (title) title.textContent = name;
+  if (tooltipTitle) tooltipTitle.textContent = name;
   selectView(chatView, tab);
+}
+
+function chatTabMarkup(name) {
+  return `<span class="chat-tab-info"><strong class="chat-tab-title">${name}</strong><span class="chat-tab-path"><span class="folder-icon" aria-hidden="true"></span> ~/Projects/Linux AI System</span></span><i aria-label="Закрыть чат">×</i><span class="chat-tab-tooltip" role="tooltip"><strong class="chat-tab-tooltip-title">${name}</strong><span class="chat-tab-tooltip-path"><span class="folder-icon" aria-hidden="true"></span> ~/Projects/Linux AI System</span></span>`;
 }
 
 function createChat() {
@@ -89,8 +57,7 @@ function createChat() {
   tab.dataset.chatId = id;
   tab.dataset.chatName = `Новый чат ${id}`;
   tab.setAttribute("aria-label", `Открыть чат Новый чат ${id}`);
-  tab.dataset.tooltip = `📁 Новый чат ${id}\n~/Projects/Linux AI System`;
-  tab.innerHTML = `<span class="tab-label">Новый чат ${id}</span> <i aria-label="Закрыть чат">×</i>`;
+  tab.innerHTML = chatTabMarkup(`Новый чат ${id}`);
   chatTabs.append(tab);
   selectChat(tab);
 }
@@ -178,6 +145,3 @@ modelMenu.addEventListener("click", (event) => {
   modelButton.setAttribute("aria-expanded", "false");
   modelMenu.hidden = true;
 });
-directoryButton.addEventListener("click", () => { directoryButton.innerHTML = "<span class=\"folder-icon\" aria-hidden=\"true\"></span> ~/Projects/Linux AI System/services/agent-runtime"; });
-chatMeta.addEventListener("mouseenter", expandMeta);
-chatMeta.addEventListener("mouseleave", collapseMeta);
