@@ -5,7 +5,9 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
 const PANEL_WIDTH = 460;
-const PANEL_HEIGHT = 560;
+const DEFAULT_PANEL_HEIGHT = 420;
+const MAX_PANEL_HEIGHT = 560;
+const MIN_PANEL_HEIGHT = 360;
 const TOGGLE_WIDTH = 28;
 const PANEL_MARGIN = 24;
 
@@ -156,7 +158,7 @@ class Panel extends St.Widget {
             reactive: true,
             layout_manager: new Clutter.FixedLayout(),
         });
-        this.set_size(PANEL_WIDTH, PANEL_HEIGHT);
+        this.set_size(PANEL_WIDTH, DEFAULT_PANEL_HEIGHT);
         this._collapsed = false;
 
         this._content = new St.Widget({
@@ -164,7 +166,7 @@ class Panel extends St.Widget {
             layout_manager: new Clutter.FixedLayout(),
         });
         this._content.set_position(TOGGLE_WIDTH, 0);
-        this._content.set_size(PANEL_WIDTH - TOGGLE_WIDTH, PANEL_HEIGHT);
+        this._content.set_size(PANEL_WIDTH - TOGGLE_WIDTH, DEFAULT_PANEL_HEIGHT);
         this.add_child(this._content);
 
         this._toggle = new St.Button({
@@ -173,11 +175,23 @@ class Panel extends St.Widget {
             can_focus: true,
         });
         this._toggle.set_size(TOGGLE_WIDTH, 42);
-        this._toggle.set_position(0, Math.floor((PANEL_HEIGHT - 42) / 2));
+        this._toggle.set_position(0, Math.floor((DEFAULT_PANEL_HEIGHT - 42) / 2));
         this._toggle.connect('clicked', () => this._togglePanel());
         this.add_child(this._toggle);
 
         this._buildTabs();
+    }
+
+    setPanelHeight(height) {
+        this.set_size(PANEL_WIDTH, height);
+        this._content.set_size(PANEL_WIDTH - TOGGLE_WIDTH, height);
+        this._toggle.set_position(0, Math.floor((height - 42) / 2));
+        if (!this._views)
+            return;
+        this._views.set_size(PANEL_WIDTH - TOGGLE_WIDTH, height - 44);
+        [this._chat, this._workspace, this._settings].forEach(view => {
+            view.set_size(PANEL_WIDTH - TOGGLE_WIDTH, height - 44);
+        });
     }
 
     _buildTabs() {
@@ -188,23 +202,23 @@ class Panel extends St.Widget {
 
         this._views = new St.Widget({layout_manager: new Clutter.FixedLayout()});
         this._views.set_position(0, 44);
-        this._views.set_size(PANEL_WIDTH - TOGGLE_WIDTH, PANEL_HEIGHT - 44);
+        this._views.set_size(PANEL_WIDTH - TOGGLE_WIDTH, DEFAULT_PANEL_HEIGHT - 44);
         this._content.add_child(this._views);
 
         this._chat = new ChatView();
         this._chat.set_position(0, 0);
-        this._chat.set_size(PANEL_WIDTH - TOGGLE_WIDTH, PANEL_HEIGHT - 44);
+        this._chat.set_size(PANEL_WIDTH - TOGGLE_WIDTH, DEFAULT_PANEL_HEIGHT - 44);
         this._views.add_child(this._chat);
 
         this._workspace = new WorkspaceView();
         this._workspace.set_position(0, 0);
-        this._workspace.set_size(PANEL_WIDTH - TOGGLE_WIDTH, PANEL_HEIGHT - 44);
+        this._workspace.set_size(PANEL_WIDTH - TOGGLE_WIDTH, DEFAULT_PANEL_HEIGHT - 44);
         this._workspace.hide();
         this._views.add_child(this._workspace);
 
         this._settings = new WorkspaceView();
         this._settings.set_position(0, 0);
-        this._settings.set_size(PANEL_WIDTH - TOGGLE_WIDTH, PANEL_HEIGHT - 44);
+        this._settings.set_size(PANEL_WIDTH - TOGGLE_WIDTH, DEFAULT_PANEL_HEIGHT - 44);
         this._settings.hide();
         this._views.add_child(this._settings);
 
@@ -213,11 +227,14 @@ class Panel extends St.Widget {
             new TabButton('Рабочая область', '▣'),
             new TabButton('Настройки', '⚙'),
         ];
+        const tabWidth = Math.floor((PANEL_WIDTH - TOGGLE_WIDTH - 14) / this._tabButtons.length);
         this._tabButtons.forEach((button, index) => {
+            button.set_width(tabWidth);
             button.connect('clicked', () => this._selectTab(index));
             this._tabs.add_child(button);
         });
         this._selectTab(0);
+        this.setPanelHeight(DEFAULT_PANEL_HEIGHT);
     }
 
     _selectTab(index) {
@@ -257,9 +274,14 @@ export default class AiNativeLinuxExtension extends Extension {
         const monitor = Main.layoutManager.primaryMonitor;
         if (!monitor || !this._panel)
             return;
+        const height = Math.min(
+            MAX_PANEL_HEIGHT,
+            Math.max(MIN_PANEL_HEIGHT, Math.round(monitor.height * 0.52)),
+        );
+        this._panel.setPanelHeight(height);
         this._panel.set_position(
             monitor.x + monitor.width - PANEL_WIDTH - PANEL_MARGIN,
-            monitor.y + monitor.height - PANEL_HEIGHT - PANEL_MARGIN,
+            monitor.y + monitor.height - height - PANEL_MARGIN,
         );
     }
 

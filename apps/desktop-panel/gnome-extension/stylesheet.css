@@ -28,7 +28,7 @@
 }
 
 .ai-tabs {
-    background-color: #242424;
+    background-color: rgba(38, 38, 38, 0.45);
     border-bottom: 1px solid rgba(255, 255, 255, 0.14);
     padding: 3px 4px 0 4px;
     spacing: 3px;
@@ -38,9 +38,11 @@
     background-color: transparent;
     border-radius: 14px 14px 0 0;
     color: #c6c6c6;
-    font-size: 12px;
-    font-weight: 600;
-    padding: 0 8px;
+    font-family: "Ubuntu", sans-serif;
+    font-size: 11px;
+    font-weight: 650;
+    min-width: 0;
+    padding: 0 7px;
 }
 
 .ai-tab:hover,
@@ -51,8 +53,8 @@
 }
 
 .ai-chat-view {
-    padding: 14px 14px 12px 18px;
-    spacing: 10px;
+    padding: 15px 14px 12px 20px;
+    spacing: 14px;
 }
 
 .ai-scroll {
@@ -65,16 +67,18 @@
 }
 
 .ai-assistant-message {
+    max-width: 355px;
     color: #f4f4f4;
     font-size: 13px;
-    line-height: 1.35;
+    line-height: 1.55;
 }
 
 .ai-user-message {
     background-color: #f1f1f1;
     border-radius: 18px;
     color: #303030;
-    font-size: 12px;
+    font-size: 13px;
+    max-width: 83%;
     padding: 9px 14px;
 }
 
@@ -82,6 +86,7 @@
     background-color: #2d2d2d;
     border: 1px solid rgba(255, 255, 255, 0.14);
     border-radius: 16px;
+    max-width: 355px;
     padding: 14px;
     spacing: 9px;
 }
@@ -110,8 +115,9 @@
     background-color: #3b3b3b;
     border: 1px solid rgba(255, 255, 255, 0.17);
     border-radius: 18px;
+    margin: 0 12px 12px;
     padding: 10px 11px 8px 11px;
-    spacing: 6px;
+    spacing: 7px;
 }
 
 .ai-entry {
@@ -119,11 +125,13 @@
     border: 0;
     color: #f2f2f2;
     font-size: 12px;
-    min-height: 28px;
-    padding: 0;
+    min-height: 20px;
+    padding: 0 3px;
 }
 
 .ai-composer-actions {
+    min-height: 34px;
+    margin-top: 4px;
     spacing: 7px;
 }
 
@@ -136,6 +144,7 @@
     background-color: transparent;
     color: #dedede;
     font-size: 11px;
+    min-width: 145px;
     padding: 5px 3px;
 }
 

@@ -22,6 +22,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "Main.layoutManager.addChrome",
             "monitors-changed",
             "this._scroll.set_child(this._messages)",
+            "monitor.height * 0.52",
             "this._toggle.set_label(this._collapsed ? '<' : '>')",
             "Рабочая область",
             "Сообщение для вашего ИИ",
