@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
 """Minimal GTK/WebKit shell for the desktop panel prototype."""
 
+import os
 from pathlib import Path
+
+# GTK3 cannot move a normal Wayland window. XWayland keeps this prototype
+# positionable until the GNOME Shell integration is implemented.
+if os.environ.get("XDG_SESSION_TYPE") == "wayland":
+    os.environ["GDK_BACKEND"] = "x11"
 
 import gi
 
+gi.require_version("Gdk", "3.0")
 gi.require_version("Gtk", "3.0")
 gi.require_version("WebKit2", "4.1")
 
-from gi.repository import GLib, Gtk, WebKit2
+from gi.repository import Gdk, GLib, Gtk, WebKit2
 
 
 DESKTOP_PANEL_ROOT = Path(__file__).resolve().parents[1]
@@ -24,12 +31,25 @@ class PanelWindow(Gtk.Window):
         self.set_default_size(460, 560)
         self.connect("destroy", Gtk.main_quit)
 
+        screen = self.get_screen()
+        if screen is not None and screen.is_composited():
+            visual = screen.get_rgba_visual()
+            if visual is not None:
+                self.set_visual(visual)
+
         self.webview = WebKit2.WebView()
+        background = Gdk.RGBA()
+        background.red = 0
+        background.green = 0
+        background.blue = 0
+        background.alpha = 0
+        self.webview.set_background_color(background)
         self.webview.get_settings().set_enable_developer_extras(True)
         self.webview.load_uri(f"{PROTOTYPE_INDEX.as_uri()}?native=1")
         self.add(self.webview)
 
         self.show_all()
+        self.resize(460, 560)
         GLib.idle_add(self.place_at_bottom_right)
 
     def place_at_bottom_right(self):

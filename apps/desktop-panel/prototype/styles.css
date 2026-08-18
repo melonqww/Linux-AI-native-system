@@ -18,8 +18,9 @@ button, label { cursor: pointer; }
 }
 
 body.native-shell { overflow: hidden; background: transparent; }
-body.native-shell .desktop { min-height: 100%; background: transparent; }
-body.native-shell .panel-shell { position: relative; inset: auto; width: 100%; height: 100%; }
+body.native-shell .desktop { min-height: 100%; height: 100%; background: transparent; }
+body.native-shell .panel-shell { position: relative; inset: auto; width: 100%; height: 100%; padding-left: 26px; }
+body.native-shell .panel-toggle { left: 0; }
 body.native-shell .panel { width: 100%; height: 100%; }
 
 .panel-shell {
