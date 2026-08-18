@@ -97,7 +97,7 @@ button, label { cursor: pointer; }
   border: 1px solid rgba(255,255,255,.08);
   border-radius: 18px;
   background: #414141;
-  overflow: hidden;
+  overflow: visible;
   transition: width .45s ease-in-out, max-width .45s ease-in-out, padding .45s ease-in-out, border-radius .45s ease-in-out, background-color .45s ease-in-out;
 }
 .chat-meta strong {
@@ -125,7 +125,7 @@ button, label { cursor: pointer; }
 .chat-scroll::-webkit-scrollbar-thumb, .settings-view::-webkit-scrollbar-thumb, .sidebar-view::-webkit-scrollbar-thumb { border-radius: 999px; background: #858585; }
 .chat-scroll::-webkit-scrollbar-thumb:hover, .settings-view::-webkit-scrollbar-thumb:hover, .sidebar-view::-webkit-scrollbar-thumb:hover { background: #a3a3a3; }
 .chat-scroll::-webkit-scrollbar-button, .settings-view::-webkit-scrollbar-button, .sidebar-view::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
-.chat-scroll { display: flex; min-height: 0; flex: 1; flex-direction: column; gap: 14px; overflow-y: auto; padding: 15px 14px 12px 20px; }
+.chat-scroll { display: flex; min-height: 0; flex: 1; flex-direction: column; gap: 14px; overflow-y: auto; padding: 25px 14px 12px 20px; }
 .assistant-message { max-width: 355px; margin: 0; color: #fbfbf9; font-size: 13px; line-height: 1.55; overflow-wrap: anywhere; }
 .user-message { align-self: flex-end; max-width: 83%; padding: 9px 13px; border-radius: 17px 17px 5px 17px; background: #f2f2ef; color: #292929; font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; }
 .plan-card { max-width: 355px; padding: 13px; border: 1px solid rgba(255,255,255,.11); border-radius: 13px; background: rgba(26,26,26,.3); }
