@@ -100,6 +100,7 @@ button, label { cursor: pointer; }
   overflow: visible;
   transition: width .45s ease-in-out, max-width .45s ease-in-out, padding .45s ease-in-out, border-radius .45s ease-in-out, background-color .45s ease-in-out;
 }
+.chat-meta-hidden { display: none; }
 .chat-meta strong {
   color: #f3f3f1;
   font-size: 13px;
