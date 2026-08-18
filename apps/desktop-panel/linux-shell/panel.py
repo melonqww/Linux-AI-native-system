@@ -2,6 +2,7 @@
 """Minimal GTK/WebKit shell for the desktop panel prototype."""
 
 import os
+import sys
 from pathlib import Path
 
 # GTK3 cannot move a normal Wayland window. XWayland keeps this prototype
@@ -11,11 +12,10 @@ if os.environ.get("XDG_SESSION_TYPE") == "wayland":
 
 import gi
 
-gi.require_version("Gdk", "3.0")
 gi.require_version("Gtk", "3.0")
 gi.require_version("WebKit2", "4.1")
 
-from gi.repository import Gdk, GLib, Gtk, WebKit2
+from gi.repository import GLib, Gtk, WebKit2
 
 
 DESKTOP_PANEL_ROOT = Path(__file__).resolve().parents[1]
@@ -31,26 +31,33 @@ class PanelWindow(Gtk.Window):
         self.set_default_size(460, 560)
         self.connect("destroy", Gtk.main_quit)
 
-        screen = self.get_screen()
-        if screen is not None and screen.is_composited():
-            visual = screen.get_rgba_visual()
-            if visual is not None:
-                self.set_visual(visual)
-
         self.webview = WebKit2.WebView()
-        background = Gdk.RGBA()
-        background.red = 0
-        background.green = 0
-        background.blue = 0
-        background.alpha = 0
-        self.webview.set_background_color(background)
         self.webview.get_settings().set_enable_developer_extras(True)
-        self.webview.load_uri(f"{PROTOTYPE_INDEX.as_uri()}?native=1")
+        self.webview.connect("load-changed", self.on_load_changed)
+        self.webview.connect("load-failed", self.on_load_failed)
+        self.webview.connect("web-process-terminated", self.on_web_process_terminated)
+        self.webview.load_uri(PROTOTYPE_INDEX.as_uri())
         self.add(self.webview)
 
         self.show_all()
         self.resize(460, 560)
         GLib.idle_add(self.place_at_bottom_right)
+
+    def on_load_changed(self, _webview, event):
+        if event == WebKit2.LoadEvent.FINISHED:
+            self.webview.run_javascript(
+                "document.body.classList.add('native-shell');",
+                None,
+                None,
+                None,
+            )
+
+    def on_load_failed(self, _webview, _event, failing_uri, error):
+        print(f"WebKit не загрузил {failing_uri}: {error.message}", file=sys.stderr)
+        return False
+
+    def on_web_process_terminated(self, _webview, reason):
+        print(f"WebKit-процесс завершился: {reason}", file=sys.stderr)
 
     def place_at_bottom_right(self):
         """Place the panel on X11; Wayland may let the compositor choose placement."""
