@@ -8,7 +8,7 @@ import gi
 gi.require_version("Gtk", "3.0")
 gi.require_version("WebKit2", "4.1")
 
-from gi.repository import Gdk, GLib, Gtk, WebKit2
+from gi.repository import GLib, Gtk, WebKit2
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
