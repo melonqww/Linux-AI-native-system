@@ -30,10 +30,10 @@ button, label { cursor: pointer; }
 
 .panel {
   position: relative;
-  display: flex;
+  display: grid;
   min-height: 0;
   flex: 1;
-  flex-direction: column;
+  grid-template-rows: auto auto minmax(0, 1fr);
   overflow: hidden;
   border: 1px solid rgba(255,255,255,.1);
   border-radius: 22px 0 22px 22px;
