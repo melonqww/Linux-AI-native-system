@@ -9,7 +9,10 @@
   <body>
     <main class="desktop" aria-label="Прототип AI-панели">
       <section class="panel-shell" aria-label="AI-native Linux">
-        <section class="panel">
+        <button class="panel-toggle" id="panel-toggle" type="button" aria-expanded="true" aria-controls="chat-panel" aria-label="Свернуть чат">
+          <span aria-hidden="true">‹</span>
+        </button>
+        <section class="panel" id="chat-panel">
           <nav class="panel-tabs" aria-label="Навигация чата">
             <button class="tab-control" id="menu-button" aria-label="Открыть боковую панель"><span>☰</span> <span class="tab-label">Боковая панель</span></button>
             <div class="chat-tabs" id="chat-tabs">

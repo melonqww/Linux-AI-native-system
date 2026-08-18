@@ -15,8 +15,18 @@ const modelLabel = document.querySelector("#model-label");
 const modelMenu = document.querySelector("#model-menu");
 const settingsModel = document.querySelector("#settings-model");
 const toast = document.querySelector("#toast");
+const panelShell = document.querySelector(".panel-shell");
+const panelToggle = document.querySelector("#panel-toggle");
+const panelToggleIcon = panelToggle.querySelector("span");
 let nextChatId = 2;
 let toastTimer;
+
+function setPanelCollapsed(collapsed) {
+  panelShell.classList.toggle("is-collapsed", collapsed);
+  panelToggle.setAttribute("aria-expanded", String(!collapsed));
+  panelToggle.setAttribute("aria-label", collapsed ? "Открыть чат" : "Свернуть чат");
+  panelToggleIcon.textContent = collapsed ? "›" : "‹";
+}
 
 function allViews() {
   return [chatView, settingsView, sidebarView];
@@ -104,6 +114,9 @@ backButton.addEventListener("click", () => {
   if (selected) selectChat(selected);
 });
 createChatButton.addEventListener("click", createChat);
+panelToggle.addEventListener("click", () => {
+  setPanelCollapsed(!panelShell.classList.contains("is-collapsed"));
+});
 
 chatTabs.addEventListener("click", (event) => {
   const tab = event.target.closest(".chat-tab");

@@ -26,6 +26,39 @@ button, label { cursor: pointer; }
   gap: 10px;
   width: min(460px, calc(100vw - 32px));
   height: min(52vh, 560px);
+  transition: transform .42s cubic-bezier(.2,.8,.25,1);
+}
+
+.panel-shell.is-collapsed {
+  transform: translateX(calc(100% + 30px));
+}
+
+.panel-toggle {
+  position: absolute;
+  top: 50%;
+  left: -30px;
+  z-index: 20;
+  display: grid;
+  width: 30px;
+  height: 46px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(255,255,255,.1);
+  border-right: 0;
+  border-radius: 12px 0 0 12px;
+  background: #3b3b3b;
+  color: #e2e2df;
+  box-shadow: 0 8px 20px rgba(0,0,0,.25);
+  font-size: 25px;
+  line-height: 1;
+  transform: translateY(-50%);
+  transition: background-color .2s ease-out, color .2s ease-out;
+}
+
+.panel-toggle:hover, .panel-toggle:focus-visible {
+  background: #505050;
+  color: #fff;
+  outline: none;
 }
 
 .panel {
