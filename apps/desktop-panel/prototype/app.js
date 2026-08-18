@@ -3,7 +3,6 @@ const settingsView = document.querySelector("#settings-view");
 const sidebarView = document.querySelector("#sidebar-view");
 const settingsButton = document.querySelector("#settings-button");
 const menuButton = document.querySelector("#menu-button");
-const createChatButton = document.querySelector("#create-chat-button");
 const chatTabs = document.querySelector("#chat-tabs");
 const backButton = document.querySelector("#back-to-chat");
 const composer = document.querySelector("#composer");
@@ -14,12 +13,9 @@ const modelButton = document.querySelector("#model-button");
 const modelLabel = document.querySelector("#model-label");
 const modelMenu = document.querySelector("#model-menu");
 const settingsModel = document.querySelector("#settings-model");
-const toast = document.querySelector("#toast");
 const panelShell = document.querySelector(".panel-shell");
 const panelToggle = document.querySelector("#panel-toggle");
 const panelToggleIcon = panelToggle.querySelector("span");
-let nextChatId = 2;
-let toastTimer;
 
 function setPanelCollapsed(collapsed) {
   panelShell.classList.toggle("is-collapsed", collapsed);
@@ -46,46 +42,10 @@ function selectView(view, activeTab) {
 function selectChat(tab) {
   const title = tab.querySelector(".chat-tab-title");
   const tooltipTitle = tab.querySelector(".chat-tab-tooltip-title");
-  const name = tab.dataset.chatName || "Новый чат";
-  if (title) title.textContent = name;
+  const name = tab.dataset.chatName || "Рабочая область";
+  if (title) title.innerHTML = `<span class="folder-icon" aria-hidden="true"></span>${name}`;
   if (tooltipTitle) tooltipTitle.textContent = name;
   selectView(chatView, tab);
-}
-
-function chatTabMarkup(name) {
-  return `<span class="chat-tab-info"><strong class="chat-tab-title">${name}</strong><span class="chat-tab-path"><span class="folder-icon" aria-hidden="true"></span> ~/Projects/Linux AI System</span></span><i aria-label="Закрыть чат">×</i><span class="chat-tab-tooltip" role="tooltip"><strong class="chat-tab-tooltip-title">${name}</strong><span class="chat-tab-tooltip-path"><span class="folder-icon" aria-hidden="true"></span> ~/Projects/Linux AI System</span></span>`;
-}
-
-function createChat() {
-  if (chatTabs.querySelector(".chat-tab")) {
-    showTransientNotice("Нельзя открыть больше одного нового чата.");
-    return;
-  }
-  const id = String(nextChatId++);
-  const tab = document.createElement("button");
-  tab.className = "tab-control chat-tab";
-  tab.dataset.chatId = id;
-  tab.dataset.chatName = `Новый чат ${id}`;
-  tab.setAttribute("aria-label", `Открыть чат Новый чат ${id}`);
-  tab.innerHTML = chatTabMarkup(`Новый чат ${id}`);
-  chatTabs.append(tab);
-  selectChat(tab);
-}
-
-function showTransientNotice(text) {
-  toast.textContent = text;
-  toast.hidden = false;
-  window.clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => { toast.hidden = true; }, 2600);
-}
-
-function closeChat(tab) {
-  const wasActive = tab.classList.contains("active-tab");
-  tab.remove();
-  if (!wasActive) return;
-  const fallback = chatTabs.querySelector(".chat-tab");
-  if (fallback) selectChat(fallback);
-  else selectView(sidebarView, menuButton);
 }
 
 function addAssistantMessage(text) {
@@ -115,7 +75,6 @@ if (backButton) {
     if (selected) selectChat(selected);
   });
 }
-createChatButton.addEventListener("click", createChat);
 panelToggle.addEventListener("click", () => {
   setPanelCollapsed(!panelShell.classList.contains("is-collapsed"));
 });
@@ -123,8 +82,7 @@ panelToggle.addEventListener("click", () => {
 chatTabs.addEventListener("click", (event) => {
   const tab = event.target.closest(".chat-tab");
   if (!tab) return;
-  if (event.target.closest("i")) closeChat(tab);
-  else selectChat(tab);
+  selectChat(tab);
 });
 
 composer.addEventListener("submit", (event) => {

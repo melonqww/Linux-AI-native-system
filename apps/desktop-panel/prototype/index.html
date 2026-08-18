@@ -16,17 +16,14 @@
           <nav class="panel-tabs" aria-label="Навигация чата">
             <button class="tab-control" id="menu-button" aria-label="Открыть боковую панель"><span>☰</span> <span class="tab-label">Боковая панель</span></button>
             <div class="chat-tabs" id="chat-tabs">
-              <button class="tab-control chat-tab active-tab" data-chat-id="1" data-chat-name="Новый чат" aria-label="Открыть чат Новый чат">
+              <button class="tab-control chat-tab active-tab" data-chat-id="1" data-chat-name="Рабочая область" aria-label="Открыть рабочую область">
                 <span class="chat-tab-info">
-                  <strong class="chat-tab-title">Новый чат</strong>
-                  <span class="chat-tab-path"><span class="folder-icon" aria-hidden="true"></span> ~/Projects/Linux AI System</span>
+                  <strong class="chat-tab-title"><span class="folder-icon" aria-hidden="true"></span>Рабочая область</strong>
                 </span>
-                <i aria-label="Закрыть чат">×</i>
-                <span class="chat-tab-tooltip" role="tooltip"><strong class="chat-tab-tooltip-title">Новый чат</strong><span class="chat-tab-tooltip-path"><span class="folder-icon" aria-hidden="true"></span> ~/Projects/Linux AI System</span></span>
+                <span class="chat-tab-tooltip" role="tooltip"><strong class="chat-tab-tooltip-title">Рабочая область</strong></span>
               </button>
             </div>
             <button class="tab-control" id="settings-button" aria-label="Открыть настройки"><span>⚙</span> <span class="tab-label">Настройки</span></button>
-            <button class="create-chat-button" id="create-chat-button" aria-label="Создать новый чат" data-tooltip="Создать новый чат">＋</button>
           </nav>
 
           <section class="chat-view view active" id="chat-view" aria-label="Чат">
@@ -67,14 +64,8 @@
           <section class="settings-view view" id="settings-view" aria-label="Настройки"></section>
 
           <section class="sidebar-view view" id="sidebar-view" aria-label="Боковая панель"></section>
-          <div class="toast" id="toast" role="status" hidden>Нельзя открыть больше одного нового чата.</div>
         </section>
 
-        <aside class="chat-menu" id="chat-menu" hidden>
-          <span class="eyebrow">ЧАТЫ</span>
-          <button class="chat-row active-row">Новый чат <small>сейчас</small></button>
-          <button class="new-chat-row">＋ Новый чат</button>
-        </aside>
       </section>
     </main>
     <script src="app.js"></script>
