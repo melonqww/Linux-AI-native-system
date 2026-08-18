@@ -1,6 +1,8 @@
 import St from 'gi://St';
 import Clutter from 'gi://Clutter';
 import GObject from 'gi://GObject';
+import GLib from 'gi://GLib';
+import Pango from 'gi://Pango';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
@@ -8,17 +10,61 @@ const PANEL_WIDTH = 460;
 const DEFAULT_PANEL_HEIGHT = 420;
 const MAX_PANEL_HEIGHT = 560;
 const MIN_PANEL_HEIGHT = 360;
-const TOGGLE_WIDTH = 28;
+const TOGGLE_WIDTH = 26;
 const PANEL_MARGIN = 24;
+const TAB_HEIGHT = 43;
 
 const TabButton = GObject.registerClass(
 class TabButton extends St.Button {
     _init(label, icon) {
-        super._init({
-            style_class: 'ai-tab',
-            can_focus: true,
+        super._init({style_class: 'ai-tab', can_focus: true, x_expand: true});
+        this._active = false;
+        this._hovered = false;
+
+        const content = new St.Widget({
+            layout_manager: new Clutter.BinLayout(),
             x_expand: true,
-            label: `${icon}  ${label}`,
+            y_expand: true,
+        });
+        this._highlight = new St.Widget({
+            style_class: 'ai-tab-highlight',
+            x_expand: true,
+            y_expand: true,
+        });
+        this._label = new St.Label({
+            text: `${icon}  ${label}`,
+            style_class: 'ai-tab-label',
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        content.add_child(this._highlight);
+        content.add_child(this._label);
+        this.set_child(content);
+        this._highlight.set_opacity(0);
+        this._highlight.set_scale(0.72, 0.72);
+
+        this.connect('enter-event', () => {
+            this._hovered = true;
+            this._animateHighlight(true);
+        });
+        this.connect('leave-event', () => {
+            this._hovered = false;
+            this._animateHighlight(this._active);
+        });
+    }
+
+    setActive(active) {
+        this._active = active;
+        this._animateHighlight(active || this._hovered);
+    }
+
+    _animateHighlight(visible) {
+        this._highlight.ease({
+            opacity: visible ? 255 : 0,
+            scale_x: visible ? 1 : 0.72,
+            scale_y: visible ? 1 : 0.72,
+            duration: 320,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
         });
     }
 });
@@ -46,7 +92,6 @@ class ChatView extends St.BoxLayout {
             y_expand: true,
         });
         this._scroll.set_policy(St.PolicyType.NEVER, St.PolicyType.AUTOMATIC);
-        // GNOME 46 exposes ScrollView as a single-child container.
         this._scroll.set_child(this._messages);
         this.add_child(this._scroll);
 
@@ -54,20 +99,30 @@ class ChatView extends St.BoxLayout {
         this.add_child(this._composer);
     }
 
-    _addInitialMessages() {
-        const intro = new St.Label({
-            text: 'Привет. Я локальный помощник Ubuntu. Могу показать состояние системы, подготовить workspace или объяснить ошибку.',
-            style_class: 'ai-assistant-message',
+    _assistant(text, styleClass = 'ai-assistant-message') {
+        const message = new St.Label({
+            text,
+            style_class: styleClass,
             x_expand: true,
         });
-        intro.clutter_text.line_wrap = true;
-        this._messages.add_child(intro);
+        message.clutter_text.line_wrap = true;
+        message.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
+        return message;
+    }
 
-        this._messages.add_child(new St.Button({
-            label: 'Покажи состояние системы',
+    _user(text) {
+        return new St.Label({
+            text,
             style_class: 'ai-user-message',
             x_align: Clutter.ActorAlign.END,
-        }));
+        });
+    }
+
+    _addInitialMessages() {
+        this._messages.add_child(this._assistant(
+            'Привет. Я локальный помощник Ubuntu. Могу показать состояние системы, подготовить workspace или объяснить ошибку.',
+        ));
+        this._messages.add_child(this._user('Покажи состояние системы'));
 
         const card = new St.BoxLayout({
             vertical: true,
@@ -78,18 +133,17 @@ class ChatView extends St.BoxLayout {
             text: 'БЕЗОПАСНЫЙ ПЛАН · R0',
             style_class: 'ai-plan-title',
         }));
-        const details = new St.Label({
-            text: 'Прочитаю информацию о диске, памяти и загрузке CPU. Ничего в системе не изменится.',
-            style_class: 'ai-plan-details',
-            x_expand: true,
-        });
-        details.clutter_text.line_wrap = true;
-        card.add_child(details);
-        card.add_child(new St.Button({
+        card.add_child(this._assistant(
+            'Прочитаю информацию о диске, памяти и загрузке CPU. Ничего в системе не изменится.',
+            'ai-plan-details',
+        ));
+        const runButton = new St.Button({
             label: 'Запустить проверку',
             style_class: 'ai-plan-action',
             x_align: Clutter.ActorAlign.START,
-        }));
+        });
+        runButton.connect('clicked', () => this._simulateResponse());
+        card.add_child(runButton);
         this._messages.add_child(card);
     }
 
@@ -105,41 +159,79 @@ class ChatView extends St.BoxLayout {
             can_focus: true,
             x_expand: true,
         });
+        entry.clutter_text.line_wrap = true;
+        entry.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
+        entry.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
         composer.add_child(entry);
 
-        const actions = new St.BoxLayout({
-            style_class: 'ai-composer-actions',
-            x_expand: true,
-        });
-        actions.add_child(new St.Label({
-            text: '◈  Подтверждать за меня',
+        const actions = new St.BoxLayout({style_class: 'ai-composer-actions', x_expand: true});
+        const confirmation = new St.Button({
+            label: '♢  Подтверждать за меня',
             style_class: 'ai-confirmation',
             x_expand: true,
             y_align: Clutter.ActorAlign.CENTER,
-        }));
-        actions.add_child(new St.Button({
-            label: 'Qwen 3.5 2B⌄',
+        });
+        confirmation.connect('clicked', () => {
+            confirmation._enabled = !confirmation._enabled;
+            if (confirmation._enabled)
+                confirmation.add_style_class_name('enabled');
+            else
+                confirmation.remove_style_class_name('enabled');
+        });
+        actions.add_child(confirmation);
+
+        const modelControl = new St.Widget({
+            style_class: 'ai-model-control',
+            layout_manager: new Clutter.FixedLayout(),
+        });
+        modelControl.set_size(145, 34);
+        const modelButton = new St.Button({
+            label: 'Qwen 3.5 2B ︾',
             style_class: 'ai-model',
-        }));
-        const send = new St.Button({
-            label: '↑',
-            style_class: 'ai-send',
             can_focus: true,
         });
-        send.connect('clicked', () => {
-            const text = entry.get_text().trim();
-            if (!text)
-                return;
-            this._messages.add_child(new St.Button({
-                label: text,
-                style_class: 'ai-user-message',
-                x_align: Clutter.ActorAlign.END,
-            }));
-            entry.set_text('');
+        modelButton.set_size(145, 34);
+        modelControl.add_child(modelButton);
+
+        const modelMenu = new St.BoxLayout({vertical: true, style_class: 'ai-model-menu'});
+        modelMenu.set_position(0, -116);
+        modelMenu.set_size(145, 110);
+        modelMenu.hide();
+        ['Qwen 3.5 2B', 'Gemma 2 2B', 'Qwen 3.5 4B'].forEach(model => {
+            const option = new St.Button({label: model, style_class: 'ai-model-option'});
+            option.connect('clicked', () => {
+                modelButton.set_label(`${model} ︾`);
+                modelMenu.hide();
+            });
+            modelMenu.add_child(option);
         });
+        modelControl.add_child(modelMenu);
+        modelButton.connect('clicked', () => modelMenu.visible = !modelMenu.visible);
+        actions.add_child(modelControl);
+
+        const send = new St.Button({label: '↑', style_class: 'ai-send', can_focus: true});
+        send.connect('clicked', () => this._submitEntry(entry));
         actions.add_child(send);
         composer.add_child(actions);
         return composer;
+    }
+
+    _submitEntry(entry) {
+        const text = entry.get_text().trim();
+        if (!text)
+            return;
+        this._messages.add_child(this._user(text));
+        entry.set_text('');
+        this._simulateResponse();
+    }
+
+    _simulateResponse() {
+        GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1100, () => {
+            this._messages.add_child(this._assistant(
+                'Готово. В рабочей версии здесь появится проверенный результат инструмента и запись в audit log.',
+            ));
+            return GLib.SOURCE_REMOVE;
+        });
     }
 });
 
@@ -169,56 +261,49 @@ class Panel extends St.Widget {
         this._content.set_size(PANEL_WIDTH - TOGGLE_WIDTH, DEFAULT_PANEL_HEIGHT);
         this.add_child(this._content);
 
-        this._toggle = new St.Button({
-            style_class: 'ai-toggle',
-            label: '>',
-            can_focus: true,
-        });
-        this._toggle.set_size(TOGGLE_WIDTH, 42);
-        this._toggle.set_position(0, Math.floor((DEFAULT_PANEL_HEIGHT - 42) / 2));
+        this._toggle = new St.Button({style_class: 'ai-toggle', label: '›', can_focus: true});
+        this._toggle.set_size(TOGGLE_WIDTH, 40);
+        this._toggle.set_position(0, Math.floor((DEFAULT_PANEL_HEIGHT - 40) / 2));
         this._toggle.connect('clicked', () => this._togglePanel());
         this.add_child(this._toggle);
-
         this._buildTabs();
     }
 
     setPanelHeight(height) {
         this.set_size(PANEL_WIDTH, height);
         this._content.set_size(PANEL_WIDTH - TOGGLE_WIDTH, height);
-        this._toggle.set_position(0, Math.floor((height - 42) / 2));
+        this._toggle.set_position(0, Math.floor((height - 40) / 2));
         if (!this._views)
             return;
-        this._views.set_size(PANEL_WIDTH - TOGGLE_WIDTH, height - 44);
+        this._views.set_size(PANEL_WIDTH - TOGGLE_WIDTH, height - TAB_HEIGHT);
         [this._chat, this._workspace, this._settings].forEach(view => {
-            view.set_size(PANEL_WIDTH - TOGGLE_WIDTH, height - 44);
+            view.set_size(PANEL_WIDTH - TOGGLE_WIDTH, height - TAB_HEIGHT);
         });
     }
 
     _buildTabs() {
         this._tabs = new St.BoxLayout({style_class: 'ai-tabs', x_expand: true});
         this._tabs.set_position(0, 0);
-        this._tabs.set_size(PANEL_WIDTH - TOGGLE_WIDTH, 44);
+        this._tabs.set_size(PANEL_WIDTH - TOGGLE_WIDTH, TAB_HEIGHT);
         this._content.add_child(this._tabs);
 
         this._views = new St.Widget({layout_manager: new Clutter.FixedLayout()});
-        this._views.set_position(0, 44);
-        this._views.set_size(PANEL_WIDTH - TOGGLE_WIDTH, DEFAULT_PANEL_HEIGHT - 44);
+        this._views.set_position(0, TAB_HEIGHT);
+        this._views.set_size(PANEL_WIDTH - TOGGLE_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
         this._content.add_child(this._views);
 
         this._chat = new ChatView();
         this._chat.set_position(0, 0);
-        this._chat.set_size(PANEL_WIDTH - TOGGLE_WIDTH, DEFAULT_PANEL_HEIGHT - 44);
+        this._chat.set_size(PANEL_WIDTH - TOGGLE_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
         this._views.add_child(this._chat);
-
         this._workspace = new WorkspaceView();
         this._workspace.set_position(0, 0);
-        this._workspace.set_size(PANEL_WIDTH - TOGGLE_WIDTH, DEFAULT_PANEL_HEIGHT - 44);
+        this._workspace.set_size(PANEL_WIDTH - TOGGLE_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
         this._workspace.hide();
         this._views.add_child(this._workspace);
-
         this._settings = new WorkspaceView();
         this._settings.set_position(0, 0);
-        this._settings.set_size(PANEL_WIDTH - TOGGLE_WIDTH, DEFAULT_PANEL_HEIGHT - 44);
+        this._settings.set_size(PANEL_WIDTH - TOGGLE_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
         this._settings.hide();
         this._views.add_child(this._settings);
 
@@ -240,17 +325,12 @@ class Panel extends St.Widget {
     _selectTab(index) {
         const views = [this._chat, this._workspace, this._settings];
         views.forEach((view, viewIndex) => view.visible = viewIndex === index);
-        this._tabButtons.forEach((button, buttonIndex) => {
-            if (buttonIndex === index)
-                button.add_style_class_name('active');
-            else
-                button.remove_style_class_name('active');
-        });
+        this._tabButtons.forEach((button, buttonIndex) => button.setActive(buttonIndex === index));
     }
 
     _togglePanel() {
         this._collapsed = !this._collapsed;
-        this._toggle.set_label(this._collapsed ? '<' : '>');
+        this._toggle.set_label(this._collapsed ? '‹' : '›');
         this.ease({
             translation_x: this._collapsed ? PANEL_WIDTH - TOGGLE_WIDTH : 0,
             duration: 420,
@@ -262,10 +342,7 @@ class Panel extends St.Widget {
 export default class AiNativeLinuxExtension extends Extension {
     enable() {
         this._panel = new Panel();
-        Main.layoutManager.addChrome(this._panel, {
-            trackFullscreen: false,
-            affectsStruts: false,
-        });
+        Main.layoutManager.addChrome(this._panel, {trackFullscreen: false, affectsStruts: false});
         this._monitorChangedId = Main.layoutManager.connect('monitors-changed', () => this._positionPanel());
         this._positionPanel();
     }
