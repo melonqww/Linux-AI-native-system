@@ -136,6 +136,12 @@ button, label { cursor: pointer; }
 
 .composer { flex: 0 0 auto; margin: 0 12px 12px; padding: 9px 11px 3px; border: 1px solid rgba(255,255,255,.1); border-radius: 21px; background: #3b3b3b; }
 .composer textarea { display: block; width: 100%; min-height: 20px; max-height: 142px; padding: 0 3px; resize: none; overflow-y: auto; border: 0; outline: 0; background: transparent; color: #f9f9f7; font-size: 12px; line-height: 20px; }
+.composer textarea { scrollbar-color: #858585 transparent; scrollbar-width: thin; }
+.composer textarea::-webkit-scrollbar { width: 6px; }
+.composer textarea::-webkit-scrollbar-track { background: transparent; }
+.composer textarea::-webkit-scrollbar-thumb { border-radius: 999px; background: #858585; }
+.composer textarea::-webkit-scrollbar-thumb:hover { background: #a3a3a3; }
+.composer textarea::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
 .composer textarea::placeholder { color: #a8a8a6; }
 .composer-actions { display: flex; min-height: 34px; gap: 5px; align-items: center; min-width: 0; margin-top: 11px; transform: translateY(2px); }
 .confirmation-control { display: flex; align-items: center; height: 34px; min-width: 0; overflow: hidden; padding: 0 2px; border: 0; background: transparent; color: #c7c7c4; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
