@@ -21,6 +21,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
         for marker in (
             "Main.layoutManager.addChrome",
             "monitors-changed",
+            "this._scroll.set_child(this._messages)",
             "this._toggle.set_label(this._collapsed ? '<' : '>')",
             "Рабочая область",
             "Сообщение для вашего ИИ",

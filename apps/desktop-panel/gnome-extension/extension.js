@@ -44,7 +44,8 @@ class ChatView extends St.BoxLayout {
             y_expand: true,
         });
         this._scroll.set_policy(St.PolicyType.NEVER, St.PolicyType.AUTOMATIC);
-        this._scroll.add_actor(this._messages);
+        // GNOME 46 exposes ScrollView as a single-child container.
+        this._scroll.set_child(this._messages);
         this.add_child(this._scroll);
 
         this._composer = this._buildComposer();
