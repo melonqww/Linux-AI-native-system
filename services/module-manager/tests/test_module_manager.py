@@ -19,7 +19,11 @@ class ModuleManagerTests(unittest.TestCase):
         self.root = root
         self.registry = CapabilityRegistry(root / "registry.sqlite3")
         self.registry.sync([PROJECT_ROOT / "services", PROJECT_ROOT / "modules"])
-        self.manager = ModuleProcessManager(self.registry, idle_seconds=0)
+        self.manager = ModuleProcessManager(
+            self.registry,
+            idle_seconds=0,
+            runtime_directory=self.root / "runtime",
+        )
 
     def tearDown(self) -> None:
         self.manager.stop_all()
@@ -49,6 +53,17 @@ class ModuleManagerTests(unittest.TestCase):
             self.manager.running_modules(),
             ("documents.index", "documents.pdf", "storage.catalog"),
         )
+
+    def test_starts_background_watcher_with_required_dependencies(self) -> None:
+        provider = self.manager.start_for_capability("storage.watch.events")
+        self.assertEqual(provider, "storage.watch")
+        self.assertEqual(
+            self.manager.running_modules(),
+            ("documents.index", "storage.catalog", "storage.watch"),
+        )
+        self.assertTrue(self.manager.health_details("storage.watch")["thread_alive"])
+        # Background modules are not removed by the on-demand idle reaper.
+        self.assertNotIn("storage.watch", self.manager.reap_idle(now=float("inf")))
 
 
 if __name__ == "__main__":

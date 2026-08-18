@@ -92,12 +92,12 @@ class CapabilityRegistryTests(RegistryTestCase):
     def test_registers_first_party_modules_and_publishes_capabilities(self) -> None:
         report = self.registry.sync([PROJECT_ROOT / "services"])
 
-        self.assertEqual(report.scanned, 2)
-        self.assertEqual(report.registered, 2)
+        self.assertEqual(report.scanned, 3)
+        self.assertEqual(report.registered, 3)
         self.assertEqual(report.issues, ())
         self.assertEqual(
             [module.state for module in self.registry.list_modules()],
-            [ModuleState.ENABLED, ModuleState.ENABLED],
+            [ModuleState.ENABLED, ModuleState.ENABLED, ModuleState.ENABLED],
         )
         providers = self.registry.providers("documents.text.search")
         self.assertEqual([provider.module_id for provider in providers], ["documents.index"])
@@ -105,7 +105,7 @@ class CapabilityRegistryTests(RegistryTestCase):
     def test_registers_complete_first_party_module_set(self) -> None:
         report = self.registry.sync([PROJECT_ROOT / "services", PROJECT_ROOT / "modules"])
 
-        self.assertEqual(report.scanned, 5)
+        self.assertEqual(report.scanned, 6)
         self.assertEqual(report.issues, ())
         self.assertEqual(
             [module.manifest.module_id for module in self.registry.list_modules()],
@@ -115,10 +115,12 @@ class CapabilityRegistryTests(RegistryTestCase):
                 "documents.index",
                 "documents.pdf",
                 "storage.catalog",
+                "storage.watch",
             ],
         )
         self.assertIn("documents.pdf.extract", self.registry.available_capabilities())
         self.assertIn("browser.search.plan", self.registry.available_capabilities())
+        self.assertIn("storage.index.status", self.registry.available_capabilities())
 
     def test_disabling_dependency_makes_dependent_module_unavailable(self) -> None:
         self.registry.sync([PROJECT_ROOT / "services"])

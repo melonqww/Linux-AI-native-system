@@ -23,6 +23,9 @@ class App:
     def search(self, payload):
         return [Result(path=f"result:{payload['text']}")]
 
+    def index_status(self):
+        return {"scheduler": {"state": "idle", "queued": 0}}
+
 
 class BridgeTests(unittest.TestCase):
     def test_rejects_non_loopback_binding(self):
@@ -36,6 +39,7 @@ class BridgeTests(unittest.TestCase):
         base = f"http://127.0.0.1:{server.server_port}"
         try:
             health = json.load(urllib.request.urlopen(base + "/v1/health"))
+            status = json.load(urllib.request.urlopen(base + "/v1/index-status"))
             request = urllib.request.Request(
                 base + "/v1/search",
                 data=json.dumps({"text": "math"}).encode(),
@@ -47,4 +51,5 @@ class BridgeTests(unittest.TestCase):
             server.server_close()
             thread.join()
         self.assertEqual(health, {"status": "ok"})
+        self.assertEqual(status["scheduler"]["state"], "idle")
         self.assertEqual(results["results"][0]["path"], "result:math")

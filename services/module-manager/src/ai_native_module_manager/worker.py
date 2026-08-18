@@ -14,7 +14,10 @@ def main() -> int:
         return 2
     module_name = sys.argv[1]
     try:
-        importlib.import_module(module_name)
+        module = importlib.import_module(module_name)
+        start = getattr(module, "worker_start", None)
+        if callable(start):
+            start()
     except Exception as error:
         emit({"event": "failed", "error": f"{type(error).__name__}: {error}"})
         return 1
@@ -27,12 +30,24 @@ def main() -> int:
             continue
         command = request.get("command")
         if command == "health":
-            emit({"event": "healthy", "module": module_name})
+            payload: dict[str, object] = {"event": "healthy", "module": module_name}
+            health = getattr(module, "worker_health", None)
+            if callable(health):
+                details = health()
+                if isinstance(details, dict):
+                    payload["details"] = details
+            emit(payload)
         elif command == "shutdown":
+            stop = getattr(module, "worker_stop", None)
+            if callable(stop):
+                stop()
             emit({"event": "stopped", "module": module_name})
             return 0
         else:
             emit({"event": "error", "error": "unknown_command"})
+    stop = getattr(module, "worker_stop", None)
+    if callable(stop):
+        stop()
     return 0
 
 

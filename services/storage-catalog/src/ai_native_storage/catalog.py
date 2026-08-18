@@ -124,6 +124,101 @@ class FileCatalog:
             duration_ms=round((perf_counter() - started) * 1_000, 3),
         )
 
+    def update_path(
+        self,
+        volume_id: str,
+        path: Path,
+        *,
+        scan_id: str | None = None,
+    ) -> CatalogEntry | None:
+        """Upsert or remove one path while enforcing its registered volume boundary."""
+        volume = self.registry.get_volume(volume_id)
+        if not volume.is_available:
+            raise RuntimeError(f"volume is not available: {volume_id}")
+        if volume.permission is PermissionLevel.NONE:
+            raise PermissionError(f"metadata access is not allowed for volume: {volume_id}")
+        root = Path(volume.mount_point).resolve(strict=True)
+        candidate = path.expanduser().absolute()
+        try:
+            candidate.relative_to(root)
+        except ValueError as error:
+            raise ValueError("event path is outside the registered volume") from error
+
+        if not candidate.exists() and not candidate.is_symlink():
+            self.remove_path(volume_id, candidate)
+            return None
+        resolved_parent = candidate.parent.resolve(strict=True)
+        try:
+            resolved_parent.relative_to(root)
+        except ValueError as error:
+            raise ValueError("event path escapes through a symbolic-link parent") from error
+        stat = candidate.lstat()
+        if stat.st_dev != root.stat().st_dev:
+            raise ValueError("event path crosses a filesystem boundary")
+        if candidate.is_symlink():
+            entry_type = EntryType.SYMLINK
+        elif candidate.is_dir():
+            entry_type = EntryType.DIRECTORY
+        elif candidate.is_file():
+            entry_type = EntryType.FILE
+        else:
+            self.remove_path(volume_id, candidate)
+            return None
+        if entry_type is not EntryType.SYMLINK:
+            resolved_candidate = candidate.resolve(strict=True)
+            try:
+                resolved_candidate.relative_to(root)
+            except ValueError as error:
+                raise ValueError("event path resolves outside the registered volume") from error
+        entry = self._entry_from_stat(volume_id, candidate, stat, entry_type)
+        with self.database.connect() as connection:
+            batch = [entry]
+            self._flush(connection, batch, scan_id or f"event:{uuid4()}")
+        return entry
+
+    def finish_incremental_scan(
+        self,
+        volume_id: str,
+        scan_id: str,
+        *,
+        protected_prefixes: list[str] | None = None,
+    ) -> tuple[str, ...]:
+        with self.database.connect() as connection:
+            prefixes = protected_prefixes or []
+            rows = connection.execute(
+                "SELECT id, path FROM catalog_entries WHERE volume_id = ? AND last_seen_scan != ?",
+                (volume_id, scan_id),
+            ).fetchall()
+            removable = [
+                row
+                for row in rows
+                if not any(
+                    str(row["path"]) == prefix
+                    or str(row["path"]).startswith(prefix + os.sep)
+                    for prefix in prefixes
+                )
+            ]
+            connection.executemany(
+                "DELETE FROM catalog_entries WHERE id = ?",
+                [(int(row["id"]),) for row in removable],
+            )
+        return tuple(str(row["path"]) for row in removable)
+
+    def remove_path(self, volume_id: str, path: Path) -> bool:
+        volume = self.registry.get_volume(volume_id)
+        root = Path(volume.mount_point).resolve(strict=True)
+        candidate = path.expanduser().absolute()
+        try:
+            candidate.relative_to(root)
+        except ValueError as error:
+            raise ValueError("event path is outside the registered volume") from error
+        with self.database.connect() as connection:
+            cursor = connection.execute(
+                "DELETE FROM catalog_entries WHERE volume_id = ? AND path = ?",
+                (volume_id, str(candidate)),
+            )
+        return cursor.rowcount == 1
+
     @staticmethod
     def _entry_from_stat(
         volume_id: str,

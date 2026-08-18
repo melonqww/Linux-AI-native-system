@@ -71,15 +71,28 @@ python -m unittest discover -s services/agent-runtime/tests -v
 6. `modules/desktop-applications` и `modules/browser-navigation` дают базовый
    поиск приложений, безопасное планирование URL и веб-поиска.
 
+Следующий background-слой реализован в `services/index-scheduler`: Linux
+`inotify`, mount monitoring, ограниченная coalescing-очередь, load pause и
+инкрементальное обновление каталога, текста и PDF. `Module Manager` действительно
+запускает его lifecycle в отдельном процессе; состояние доступно через
+`GET /v1/index-status`.
+
 Поиск не сканирует диск на каждый запрос. Каталог и индекс обновляются отдельно,
 а интерактивный путь читает SQLite/FTS — это принципиально для быстрой панели.
 
 Для запуска локального API панели из корня проекта:
 
 ```bash
-PYTHONPATH="services/agent-runtime/src:services/query-service/src:services/storage-catalog/src:services/indexer/src:modules/documents-pdf/src" \
+PYTHONPATH="services/agent-runtime/src:services/capability-registry/src:services/module-manager/src:services/query-service/src:services/storage-catalog/src:services/indexer/src:services/index-scheduler/src:modules/documents-pdf/src" \
 python -m ai_native_linux.cli --serve-panel
 ```
+
+## Автоматические проверки
+
+`python -m pytest -q` проверяет все сервисы, модули, структуру и safety-инварианты.
+GitHub Actions повторяет набор на Windows и Ubuntu 24.04, где дополнительно
+выполняется настоящий inotify integration test. Подробности находятся в
+[`docs/developer/testing.md`](docs/developer/testing.md).
 
 ## Запуск нативной панели в Ubuntu
 
@@ -97,6 +110,7 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [Структура проекта и пути](Architecture/02-Структура-проекта-и-пути.md)
 - [Контракты намерений и инструментов](Architecture/api/intent-and-tool-contracts.md)
 - [Контракты Storage Catalog](Architecture/api/storage-catalog-contracts.md)
+- [Контракт статуса индекса](Architecture/api/runtime-index-status.md)
 - [JSON Schema manifest модуля](packages/module-sdk/schema/module-manifest.schema.json)
 - [Решение о портфолио-MVP](Architecture/decisions/ADR-001-portfolio-mvp-scope.md)
 - [Решение о каталоге хранилищ и виртуальных коллекциях](Architecture/decisions/ADR-002-storage-catalog-and-virtual-collections.md)

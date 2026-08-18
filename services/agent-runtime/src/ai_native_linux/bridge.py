@@ -11,6 +11,7 @@ from typing import Protocol
 class RuntimeApplication(Protocol):
     def capabilities(self) -> list[str]: ...
     def search(self, payload: dict[str, object]) -> list[object]: ...
+    def index_status(self) -> dict[str, object]: ...
 
 
 def create_server(application: RuntimeApplication, host: str = "127.0.0.1", port: int = 0):
@@ -23,6 +24,8 @@ def create_server(application: RuntimeApplication, host: str = "127.0.0.1", port
                 self._send(200, {"status": "ok"})
             elif self.path == "/v1/capabilities":
                 self._send(200, {"capabilities": application.capabilities()})
+            elif self.path == "/v1/index-status":
+                self._send(200, application.index_status())
             else:
                 self._send(404, {"error": "not_found"})
 

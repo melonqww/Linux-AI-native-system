@@ -1,0 +1,30 @@
+name: Cross-platform safety and module tests
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test dependencies
+        run: python -m pip install --disable-pip-version-check pytest pypdf
+      - name: Run repository tests
+        run: python -m pytest -q
+      - name: Compile Python sources
+        run: python -m compileall -q services modules apps
+      - name: Validate GNOME extension JavaScript syntax
+        run: node --check apps/desktop-panel/gnome-extension/extension.js

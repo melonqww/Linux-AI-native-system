@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "module_id": "storage.watch",
+  "display_name": "Storage Watch and Index Scheduler",
+  "description": "Coalesces filesystem and mount events and incrementally refreshes allowed indexes.",
+  "module_version": "0.1.0",
+  "core_api": "1",
+  "capabilities": [
+    "storage.watch.events",
+    "storage.index.schedule",
+    "storage.index.status"
+  ],
+  "dependencies": [
+    "storage.catalog",
+    "documents.index"
+  ],
+  "optional_dependencies": [
+    "documents.pdf"
+  ],
+  "requested_permissions": [
+    "filesystem.watch",
+    "filesystem.read-metadata",
+    "filesystem.read-content"
+  ],
+  "lifecycle": "background",
+  "resource_class": "light",
+  "default_enabled": true,
+  "entrypoint": {
+    "kind": "python-service",
+    "module": "ai_native_scheduler",
+    "python_path": "src"
+  }
+}

@@ -32,6 +32,9 @@ class ModuleProcessManager:
         *,
         idle_seconds: float = 300.0,
         response_timeout: float = 5.0,
+        runtime_directory: Path | None = None,
+        storage_database: Path | None = None,
+        index_database: Path | None = None,
     ) -> None:
         if idle_seconds < 0:
             raise ValueError("idle_seconds must not be negative")
@@ -40,6 +43,15 @@ class ModuleProcessManager:
         self.registry = registry
         self.idle_seconds = idle_seconds
         self.response_timeout = response_timeout
+        self.runtime_directory = (
+            runtime_directory or self._default_runtime_directory()
+        ).expanduser().absolute()
+        self.storage_database = (
+            storage_database or self.runtime_directory / "storage-catalog.sqlite3"
+        ).expanduser().absolute()
+        self.index_database = (
+            index_database or self.runtime_directory / "document-index.sqlite3"
+        ).expanduser().absolute()
         self._running: dict[str, _RunningModule] = {}
 
     def start_for_capability(self, capability_id: str) -> str:
@@ -66,9 +78,28 @@ class ModuleProcessManager:
         manager_src = Path(__file__).resolve().parents[1]
         env = os.environ.copy()
         path_parts = [str(python_path), str(manager_src)]
+        # First-party orchestration modules may consume dependency contracts as
+        # Python packages during the MVP. Their processes still remain isolated.
+        for dependency_id in (
+            *module.manifest.dependencies,
+            *module.manifest.optional_dependencies,
+        ):
+            try:
+                dependency = self.registry.get_module(dependency_id)
+            except KeyError:
+                continue
+            if dependency.state is not ModuleState.ENABLED:
+                continue
+            dependency_root = Path(dependency.manifest_path).parent
+            dependency_path = (
+                dependency_root / dependency.manifest.entrypoint.python_path
+            ).resolve(strict=True)
+            path_parts.append(str(dependency_path))
         if env.get("PYTHONPATH"):
             path_parts.append(env["PYTHONPATH"])
         env["PYTHONPATH"] = os.pathsep.join(path_parts)
+        env["AI_NATIVE_STORAGE_DATABASE"] = str(self.storage_database)
+        env["AI_NATIVE_INDEX_DATABASE"] = str(self.index_database)
         process = subprocess.Popen(
             [
                 sys.executable,
@@ -104,10 +135,22 @@ class ModuleProcessManager:
         self._running[module_id] = _RunningModule(process=process, last_used=monotonic())
 
     def health(self, module_id: str) -> bool:
+        return self._health_response(module_id).get("event") == "healthy"
+
+    def health_details(self, module_id: str) -> dict[str, object]:
+        response = self._health_response(module_id)
+        if response.get("event") != "healthy":
+            raise ModuleProcessError(f"module health check failed: {module_id}")
+        details = response.get("details", {})
+        if not isinstance(details, dict):
+            raise ModuleProcessError("module health details must be an object")
+        return details
+
+    def _health_response(self, module_id: str) -> dict[str, object]:
         running = self._require_running(module_id)
         response = self._request(running.process, {"command": "health"})
         running.last_used = monotonic()
-        return response.get("event") == "healthy"
+        return response
 
     def stop_module(self, module_id: str) -> None:
         running = self._running.pop(module_id, None)
@@ -190,3 +233,11 @@ class ModuleProcessManager:
         for stream in (process.stdin, process.stdout, process.stderr):
             if stream is not None:
                 stream.close()
+
+    @staticmethod
+    def _default_runtime_directory() -> Path:
+        if os.name == "nt":
+            base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
+        else:
+            base = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
+        return base / "ai-native-linux"

@@ -116,6 +116,16 @@ class IndexStorage:
         return len(missing)
 
     @staticmethod
+    def remove_source(connection: sqlite3.Connection, path: str) -> bool:
+        row = connection.execute("SELECT id FROM sources WHERE path = ?", (path,)).fetchone()
+        if row is None:
+            return False
+        source_id = int(row["id"])
+        connection.execute("DELETE FROM chunks_fts WHERE source_id = ?", (source_id,))
+        connection.execute("DELETE FROM sources WHERE id = ?", (source_id,))
+        return True
+
+    @staticmethod
     def search(connection: sqlite3.Connection, query: str, limit: int) -> list[SearchHit]:
         terms = re.findall(r"[^\W_]+", query, flags=re.UNICODE)
         if not terms:

@@ -153,7 +153,9 @@ entrypoint каждого enabled-модуля в отдельном проце�
 startup и выгружает on-demand процессы после idle timeout.
 
 Первыми manifests зарегистрированы `storage.catalog`, `documents.index`,
-`documents.pdf`, `desktop.applications` и `browser.navigation`. Runtime bridge и
+`documents.pdf`, `storage.watch`, `desktop.applications` и `browser.navigation`.
+`storage.watch` является background-модулем: process worker вызывает его lifecycle-
+hooks, а bounded scheduler обновляет индекс вне интерактивного запроса. Runtime bridge и
 Query Service являются частью core/application layer и используют опубликованные
 capabilities, но сами не расширяют полномочия модулей.
 

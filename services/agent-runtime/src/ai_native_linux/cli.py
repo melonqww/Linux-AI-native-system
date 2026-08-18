@@ -28,6 +28,14 @@ def main() -> int:
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--storage-database", type=Path, default=Path("data/storage-catalog.sqlite3"))
     parser.add_argument("--index-database", type=Path, default=Path("data/document-index.sqlite3"))
+    parser.add_argument("--registry-database", type=Path, default=Path("data/capabilities.sqlite3"))
+    parser.add_argument(
+        "--module-root",
+        action="append",
+        type=Path,
+        dest="module_roots",
+        help="manifest root; defaults to ./services and ./modules",
+    )
     parser.add_argument(
         "--audit-file",
         type=Path,
@@ -36,24 +44,42 @@ def main() -> int:
     )
     args = parser.parse_args()
     if args.serve_panel:
+        from ai_native_capabilities import CapabilityRegistry
+        from ai_native_module_manager import ModuleProcessManager
         from ai_native_query import QueryRuntimeApplication, QueryService
 
         from .bridge import create_server
 
-        application = QueryRuntimeApplication(
-            QueryService(
+        roots = args.module_roots or [Path("services"), Path("modules")]
+        registry = CapabilityRegistry(args.registry_database)
+        report = registry.sync(roots)
+        if report.issues:
+            parser.error(f"module manifest errors: {report.issues}")
+        manager = ModuleProcessManager(
+            registry,
+            storage_database=args.storage_database,
+            index_database=args.index_database,
+        )
+        server = None
+        try:
+            manager.start_for_capability("storage.watch.events")
+            query_service = QueryService(
                 storage_database=args.storage_database,
                 index_database=args.index_database,
             )
-        )
-        server = create_server(application, host=args.host, port=args.port)
-        print(f"Panel runtime: http://{args.host}:{server.server_port}")
-        try:
+            application = QueryRuntimeApplication(
+                query_service,
+                scheduler_status=lambda: manager.health_details("storage.watch"),
+            )
+            server = create_server(application, host=args.host, port=args.port)
+            print(f"Panel runtime: http://{args.host}:{server.server_port}")
             server.serve_forever()
         except KeyboardInterrupt:
             pass
         finally:
-            server.server_close()
+            if server is not None:
+                server.server_close()
+            manager.stop_all()
         return 0
     if not args.demo:
         parser.error("choose --demo or --serve-panel")

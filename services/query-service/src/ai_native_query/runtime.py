@@ -2,13 +2,22 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict, is_dataclass
+from typing import Callable
+
 from .contracts import DocumentQuery, QueryResult
 from .service import QueryService
 
 
 class QueryRuntimeApplication:
-    def __init__(self, query_service: QueryService) -> None:
+    def __init__(
+        self,
+        query_service: QueryService,
+        *,
+        scheduler_status: Callable[[], object] | None = None,
+    ) -> None:
         self.query_service = query_service
+        self.scheduler_status = scheduler_status
 
     def capabilities(self) -> list[str]:
         return [
@@ -34,6 +43,16 @@ class QueryRuntimeApplication:
                 limit=limit,
             )
         )
+
+    def index_status(self) -> dict[str, object]:
+        status: dict[str, object] = {
+            "catalog": self.query_service.catalog.status(),
+            "content_index": self.query_service.indexer.get_index_status(),
+        }
+        if self.scheduler_status is not None:
+            scheduler = self.scheduler_status()
+            status["scheduler"] = asdict(scheduler) if is_dataclass(scheduler) else scheduler
+        return status
 
     @staticmethod
     def _string(payload: dict[str, object], key: str) -> str:

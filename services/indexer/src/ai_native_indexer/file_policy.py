@@ -28,6 +28,7 @@ SENSITIVE_NAMES = frozenset(
     }
 )
 SENSITIVE_EXTENSIONS = frozenset({".key", ".kdbx", ".p12", ".pfx", ".pem"})
+SENSITIVE_DIRECTORIES = frozenset({".gnupg", ".ssh", "keyrings", "password-store", "secrets"})
 
 
 @dataclass(frozen=True)
@@ -38,17 +39,24 @@ class FilePolicy:
     def directory_reason(self, path: Path) -> str | None:
         if path.is_symlink():
             return "symlink"
+        if path.name.casefold() in SENSITIVE_DIRECTORIES:
+            return "sensitive_directory"
         if path.name.startswith(".") or path.name in EXCLUDED_DIRECTORIES:
             return "excluded_directory"
         return None
 
     def file_reason(self, path: Path) -> str | None:
         name = path.name.lower()
+        parts = {part.casefold() for part in path.parts}
         if path.is_symlink():
             return "symlink"
         if name == ".env" or name.startswith(".env."):
             return "sensitive_file"
-        if name in SENSITIVE_NAMES or path.suffix.lower() in SENSITIVE_EXTENSIONS:
+        if (
+            name in SENSITIVE_NAMES
+            or path.suffix.lower() in SENSITIVE_EXTENSIONS
+            or parts & SENSITIVE_DIRECTORIES
+        ):
             return "sensitive_file"
         if name.startswith("."):
             return "hidden_file"

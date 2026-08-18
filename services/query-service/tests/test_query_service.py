@@ -88,6 +88,7 @@ class QueryServiceTests(unittest.TestCase):
     def test_runtime_adapter_validates_payload(self) -> None:
         application = QueryRuntimeApplication(self.service)
         self.assertIn("documents.query.search", application.capabilities())
+        self.assertIn("catalog", application.index_status())
         with self.assertRaises(ValueError):
             application.search({"text": [], "limit": 20})
 

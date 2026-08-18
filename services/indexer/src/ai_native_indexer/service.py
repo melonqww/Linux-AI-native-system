@@ -117,6 +117,48 @@ class IndexerService:
             )
             return True
 
+    def index_file(self, path: Path, *, root: Path | None = None) -> str:
+        """Incrementally index one allowed text file and report the outcome."""
+        path = path.expanduser()
+        reason = self.file_policy.file_reason(path)
+        if reason:
+            self.remove_path(path)
+            return f"skipped:{reason}"
+        path = path.resolve(strict=True)
+        root = path.parent if root is None else root.expanduser().resolve(strict=True)
+        try:
+            path.relative_to(root)
+        except ValueError as error:
+            raise ValueError("source is outside the declared root") from error
+        text, reason = read_allowed_text(path, self.file_policy)
+        if reason:
+            self.remove_path(path)
+            return f"skipped:{reason}"
+        assert text is not None
+        stat = path.stat()
+        with self.storage.connect() as connection:
+            if self.storage.source_metadata(connection, str(path)) == (
+                stat.st_size,
+                stat.st_mtime_ns,
+            ):
+                return "unchanged"
+            digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+            updated = self.storage.replace_source(
+                connection,
+                root_path=str(root),
+                path=str(path),
+                size_bytes=stat.st_size,
+                mtime_ns=stat.st_mtime_ns,
+                content_hash=digest,
+                chunks=chunk_text(text),
+            )
+        return "updated" if updated else "indexed"
+
+    def remove_path(self, path: Path) -> bool:
+        path_text = str(path.expanduser().resolve(strict=False))
+        with self.storage.connect() as connection:
+            return self.storage.remove_source(connection, path_text)
+
     def get_index_status(self) -> dict[str, int]:
         with self.storage.connect() as connection:
             return self.storage.status(connection)
