@@ -33,22 +33,8 @@ function clearActiveTabs() {
 function selectView(view, activeTab) {
   allViews().forEach((item) => item.classList.remove("active"));
   view.classList.add("active");
-  setMetaCompact(view !== chatView);
   clearActiveTabs();
   activeTab.classList.add("active-tab");
-}
-
-function setMetaCompact(compact) {
-  resetMetaExpansion();
-  const startWidth = chatMeta.getBoundingClientRect().width;
-  chatMeta.style.width = `${startWidth}px`;
-  chatMeta.classList.toggle("compact-meta", compact);
-  window.requestAnimationFrame(() => {
-    chatMeta.style.width = `${chatMeta.scrollWidth}px`;
-  });
-  chatMeta.addEventListener("transitionend", (event) => {
-    if (event.propertyName === "width") chatMeta.style.width = "";
-  }, { once: true });
 }
 
 function resetMetaExpansion() {
@@ -60,7 +46,6 @@ function resetMetaExpansion() {
 }
 
 function expandMeta() {
-  if (chatMeta.classList.contains("compact-meta")) return;
   metaBaseWidth = chatMeta.getBoundingClientRect().width;
   chatMeta.style.width = `${metaBaseWidth}px`;
   chatMeta.classList.add("meta-expanded");
@@ -104,6 +89,7 @@ function createChat() {
   tab.dataset.chatId = id;
   tab.dataset.chatName = `Новый чат ${id}`;
   tab.setAttribute("aria-label", `Открыть чат Новый чат ${id}`);
+  tab.dataset.tooltip = `📁 Новый чат ${id}\n~/Projects/Linux AI System`;
   tab.innerHTML = `<span class="tab-label">Новый чат ${id}</span> <i aria-label="Закрыть чат">×</i>`;
   chatTabs.append(tab);
   selectChat(tab);
