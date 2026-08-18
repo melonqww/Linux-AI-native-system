@@ -6,11 +6,6 @@ import sys
 import argparse
 from pathlib import Path
 
-# GTK3 cannot move a normal Wayland window. XWayland keeps this prototype
-# positionable until the GNOME Shell integration is implemented.
-if os.environ.get("XDG_SESSION_TYPE") == "wayland":
-    os.environ["GDK_BACKEND"] = "x11"
-
 import gi
 
 gi.require_version("Gtk", "3.0")
@@ -71,6 +66,9 @@ class PanelWindow(Gtk.Window):
 
     def place_at_bottom_right(self):
         """Place the panel on X11; Wayland may let the compositor choose placement."""
+        if os.environ.get("XDG_SESSION_TYPE") == "wayland":
+            return False
+
         window = self.get_window()
         screen = self.get_screen()
         if window is None or screen is None:
