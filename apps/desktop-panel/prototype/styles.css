@@ -89,13 +89,15 @@ button, label { cursor: pointer; }
   flex-direction: column;
   gap: 3px;
   align-self: flex-start;
+  flex: 0 0 auto;
   width: fit-content;
   max-width: calc(100% - 24px);
-  margin: 8px 0 3px 12px;
+  margin: 8px 0 12px 12px;
   padding: 8px 13px;
   border: 1px solid rgba(255,255,255,.08);
   border-radius: 18px;
   background: #414141;
+  overflow: hidden;
   transition: width .45s ease-in-out, max-width .45s ease-in-out, padding .45s ease-in-out, border-radius .45s ease-in-out, background-color .45s ease-in-out;
 }
 .chat-meta strong {
@@ -109,9 +111,10 @@ button, label { cursor: pointer; }
 .folder-icon::before { position: absolute; top: -4px; left: 1px; width: 5px; height: 3px; border: 1px solid #c9c9c7; border-bottom: 0; border-radius: 2px 2px 0 0; content: ""; }
 .chat-meta button:hover { color: #fff; }
 .chat-meta.compact-meta { max-width: 190px; padding: 6px 13px; border-radius: 999px; }
-.chat-meta.compact-meta strong { display: none; }
+.chat-meta.compact-meta strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chat-meta.compact-meta .compact-chat-label { display: block; }
 .chat-meta.compact-meta button { width: 0; max-width: 0; max-height: 0; opacity: 0; }
+.chat-meta.meta-expanded { z-index: 3; }
 
 .view { display: none; min-height: 0; flex: 1; }
 .view.active { display: flex; }

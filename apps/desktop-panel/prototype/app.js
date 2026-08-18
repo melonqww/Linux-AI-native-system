@@ -20,6 +20,7 @@ const chatMeta = document.querySelector(".chat-meta");
 const toast = document.querySelector("#toast");
 let nextChatId = 2;
 let toastTimer;
+let metaBaseWidth = 0;
 
 function allViews() {
   return [chatView, settingsView, sidebarView];
@@ -38,6 +39,7 @@ function selectView(view, activeTab) {
 }
 
 function setMetaCompact(compact) {
+  resetMetaExpansion();
   const startWidth = chatMeta.getBoundingClientRect().width;
   chatMeta.style.width = `${startWidth}px`;
   chatMeta.classList.toggle("compact-meta", compact);
@@ -46,6 +48,43 @@ function setMetaCompact(compact) {
   });
   chatMeta.addEventListener("transitionend", (event) => {
     if (event.propertyName === "width") chatMeta.style.width = "";
+  }, { once: true });
+}
+
+function resetMetaExpansion() {
+  chatMeta.classList.remove("meta-expanded");
+  chatMeta.style.removeProperty("width");
+  directoryButton.style.removeProperty("width");
+  directoryButton.style.removeProperty("max-width");
+  metaBaseWidth = 0;
+}
+
+function expandMeta() {
+  if (chatMeta.classList.contains("compact-meta")) return;
+  metaBaseWidth = chatMeta.getBoundingClientRect().width;
+  chatMeta.style.width = `${metaBaseWidth}px`;
+  chatMeta.classList.add("meta-expanded");
+  directoryButton.style.width = "max-content";
+  directoryButton.style.maxWidth = "none";
+  window.requestAnimationFrame(() => {
+    const availableWidth = chatMeta.parentElement.clientWidth - chatMeta.offsetLeft - 12;
+    const maxWidth = Math.min(metaBaseWidth * 2, availableWidth);
+    const targetWidth = Math.min(Math.max(metaBaseWidth, chatMeta.scrollWidth), maxWidth);
+    chatMeta.style.width = `${targetWidth}px`;
+    directoryButton.style.removeProperty("width");
+    directoryButton.style.removeProperty("max-width");
+  });
+}
+
+function collapseMeta() {
+  if (!chatMeta.classList.contains("meta-expanded")) return;
+  const currentWidth = chatMeta.getBoundingClientRect().width;
+  const targetWidth = metaBaseWidth || currentWidth;
+  chatMeta.style.width = `${currentWidth}px`;
+  chatMeta.classList.remove("meta-expanded");
+  window.requestAnimationFrame(() => { chatMeta.style.width = `${targetWidth}px`; });
+  chatMeta.addEventListener("transitionend", (event) => {
+    if (event.propertyName === "width" && !chatMeta.classList.contains("meta-expanded")) chatMeta.style.removeProperty("width");
   }, { once: true });
 }
 
@@ -154,3 +193,5 @@ modelMenu.addEventListener("click", (event) => {
   modelMenu.hidden = true;
 });
 directoryButton.addEventListener("click", () => { directoryButton.innerHTML = "<span class=\"folder-icon\" aria-hidden=\"true\"></span> ~/Projects/Linux AI System/services/agent-runtime"; });
+chatMeta.addEventListener("mouseenter", expandMeta);
+chatMeta.addEventListener("mouseleave", collapseMeta);
