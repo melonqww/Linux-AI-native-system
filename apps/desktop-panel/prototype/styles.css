@@ -18,8 +18,9 @@ button, label { cursor: pointer; }
 }
 
 .panel-shell {
+  --panel-right-offset: clamp(16px, 3vw, 42px);
   position: fixed;
-  right: clamp(16px, 3vw, 42px);
+  right: var(--panel-right-offset);
   bottom: clamp(16px, 3vh, 32px);
   display: flex;
   flex-direction: column;
@@ -30,7 +31,7 @@ button, label { cursor: pointer; }
 }
 
 .panel-shell.is-collapsed {
-  transform: translateX(calc(100% + 30px));
+  transform: translateX(calc(100% + var(--panel-right-offset)));
 }
 
 .panel-toggle {
@@ -189,7 +190,7 @@ button, label { cursor: pointer; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 @media (max-width: 600px) {
-  .panel-shell { right: 10px; bottom: 10px; width: calc(100vw - 20px); height: min(72vh, 560px); }
+  .panel-shell { --panel-right-offset: 10px; right: var(--panel-right-offset); bottom: 10px; width: calc(100vw - 20px); height: min(72vh, 560px); }
   .confirmation-control { max-width: 122px; }
   .model-button { width: 106px; font-size: 11px; }
 }
