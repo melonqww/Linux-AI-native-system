@@ -11,8 +11,8 @@ gi.require_version("WebKit2", "4.1")
 from gi.repository import GLib, Gtk, WebKit2
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
-PROTOTYPE_INDEX = PROJECT_ROOT / "prototype" / "index.html"
+DESKTOP_PANEL_ROOT = Path(__file__).resolve().parents[1]
+PROTOTYPE_INDEX = DESKTOP_PANEL_ROOT / "prototype" / "index.html"
 
 
 class PanelWindow(Gtk.Window):
