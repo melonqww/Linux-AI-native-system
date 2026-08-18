@@ -75,9 +75,9 @@ button, label { cursor: pointer; }
 .tab-control:hover, .active-tab { border-radius: 16px; }
 .chat-tabs { display: flex; min-width: 0; flex: 1 1 0; gap: 2px; overflow: visible; scrollbar-width: none; }
 .chat-tabs::-webkit-scrollbar { display: none; }
-.chat-tab { display: flex; width: 100%; align-items: center; justify-content: space-between; overflow: visible; text-overflow: ellipsis; }
-.chat-tab i { position: relative; z-index: 1; display: inline-grid; flex: 0 0 18px; width: 18px; height: 18px; margin: -3px -3px 0 5px; place-items: center; border-radius: 50%; color: #bdbdbb; font-size: 14px; font-style: normal; line-height: 1; }
-.chat-tab-info { display: flex; min-width: 0; flex: 1 1 auto; flex-direction: column; align-items: flex-start; gap: 1px; overflow: hidden; margin-right: 6px; text-align: left; }
+.chat-tab { display: grid; width: 100%; grid-template-columns: minmax(0, 1fr) 18px; align-items: center; overflow: visible; text-overflow: ellipsis; }
+.chat-tab i { position: relative; z-index: 1; display: inline-grid; width: 18px; height: 18px; margin: 0; place-items: center; border-radius: 50%; color: #bdbdbd; font-size: 14px; font-style: normal; line-height: 1; }
+.chat-tab-info { display: flex; min-width: 0; width: 100%; flex-direction: column; align-items: flex-start; gap: 1px; overflow: hidden; margin-right: 0; text-align: left; }
 .chat-tab-title { display: block; max-width: 100%; overflow: hidden; color: #f0f0ee; font-size: 11px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
 .chat-tab-path { display: block; max-width: 100%; overflow: hidden; color: #aaa; font-size: 9px; font-weight: 450; text-overflow: ellipsis; white-space: nowrap; }
 .folder-icon { position: relative; display: inline-block; width: 11px; height: 8px; margin-right: 4px; border: 1px solid #c9c9c7; border-radius: 2px; vertical-align: -1px; }
