@@ -25,7 +25,7 @@ function setPanelCollapsed(collapsed) {
   panelShell.classList.toggle("is-collapsed", collapsed);
   panelToggle.setAttribute("aria-expanded", String(!collapsed));
   panelToggle.setAttribute("aria-label", collapsed ? "Открыть чат" : "Свернуть чат");
-  panelToggleIcon.textContent = collapsed ? "›" : "‹";
+  panelToggleIcon.textContent = collapsed ? "‹" : "›";
 }
 
 function allViews() {
@@ -109,10 +109,12 @@ function resizeInput() {
 
 menuButton.addEventListener("click", () => selectView(sidebarView, menuButton));
 settingsButton.addEventListener("click", () => selectView(settingsView, settingsButton));
-backButton.addEventListener("click", () => {
-  const selected = chatTabs.querySelector(".chat-tab.active-tab") || chatTabs.querySelector(".chat-tab");
-  if (selected) selectChat(selected);
-});
+if (backButton) {
+  backButton.addEventListener("click", () => {
+    const selected = chatTabs.querySelector(".chat-tab.active-tab") || chatTabs.querySelector(".chat-tab");
+    if (selected) selectChat(selected);
+  });
+}
 createChatButton.addEventListener("click", createChat);
 panelToggle.addEventListener("click", () => {
   setPanelCollapsed(!panelShell.classList.contains("is-collapsed"));
@@ -154,7 +156,7 @@ modelMenu.addEventListener("click", (event) => {
   const option = event.target.closest("[data-model]");
   if (!option) return;
   modelLabel.textContent = option.dataset.model;
-  settingsModel.textContent = option.dataset.model;
+  if (settingsModel) settingsModel.textContent = option.dataset.model;
   modelButton.setAttribute("aria-expanded", "false");
   modelMenu.hidden = true;
 });

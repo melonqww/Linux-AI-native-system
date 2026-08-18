@@ -10,7 +10,7 @@
     <main class="desktop" aria-label="Прототип AI-панели">
       <section class="panel-shell" aria-label="AI-native Linux">
         <button class="panel-toggle" id="panel-toggle" type="button" aria-expanded="true" aria-controls="chat-panel" aria-label="Свернуть чат">
-          <span aria-hidden="true">‹</span>
+          <span class="panel-toggle-icon" aria-hidden="true">›</span>
         </button>
         <section class="panel" id="chat-panel">
           <nav class="panel-tabs" aria-label="Навигация чата">
@@ -64,30 +64,9 @@
             </form>
           </section>
 
-          <section class="settings-view view" id="settings-view" aria-label="Настройки">
-            <div class="settings-heading">
-              <span class="eyebrow">НАСТРОЙКИ</span>
-              <h1>Управление помощником</h1>
-              <p>Переключение на настройки не прерывает текущий ответ AI.</p>
-            </div>
-            <button class="setting-row"><span>OS &amp; интеграции</span><span>›</span></button>
-            <button class="setting-row"><span>Безопасность</span><span>›</span></button>
-            <button class="setting-row"><span>Модели</span><span class="setting-value" id="settings-model">Qwen 3.5 2B</span></button>
-            <button class="setting-row"><span>Приватность</span><span>›</span></button>
-            <button class="setting-row"><span>О приложении</span><span>›</span></button>
-            <button class="back-button" id="back-to-chat">← Вернуться в чат</button>
-          </section>
+          <section class="settings-view view" id="settings-view" aria-label="Настройки"></section>
 
-          <section class="sidebar-view view" id="sidebar-view" aria-label="Боковая панель">
-            <div class="settings-heading">
-              <span class="eyebrow">БОКОВАЯ ПАНЕЛЬ</span>
-              <h1>Ваши чаты</h1>
-              <p>Здесь появятся сохранённые задачи и быстрые действия.</p>
-            </div>
-            <button class="setting-row"><span>Сегодня</span><span>›</span></button>
-            <button class="setting-row"><span>Состояние системы</span><span>›</span></button>
-            <button class="setting-row"><span>Новый workspace</span><span>›</span></button>
-          </section>
+          <section class="sidebar-view view" id="sidebar-view" aria-label="Боковая панель"></section>
           <div class="toast" id="toast" role="status" hidden>Нельзя открыть больше одного нового чата.</div>
         </section>
 

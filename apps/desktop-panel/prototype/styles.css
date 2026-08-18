@@ -39,8 +39,8 @@ button, label { cursor: pointer; }
   left: -30px;
   z-index: 20;
   display: grid;
-  width: 30px;
-  height: 46px;
+  width: 26px;
+  height: 40px;
   place-items: center;
   padding: 0;
   border: 1px solid rgba(255,255,255,.1);
@@ -49,11 +49,13 @@ button, label { cursor: pointer; }
   background: #3b3b3b;
   color: #e2e2df;
   box-shadow: 0 8px 20px rgba(0,0,0,.25);
-  font-size: 25px;
+  font-size: 22px;
   line-height: 1;
   transform: translateY(-50%);
   transition: background-color .2s ease-out, color .2s ease-out;
 }
+
+.panel-toggle-icon { display: block; line-height: 1; transform: translateY(-1px); }
 
 .panel-toggle:hover, .panel-toggle:focus-visible {
   background: #505050;
