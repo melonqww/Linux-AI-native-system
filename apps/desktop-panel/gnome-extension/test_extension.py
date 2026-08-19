@@ -34,6 +34,13 @@ class GnomeExtensionFilesTest(unittest.TestCase):
         ):
             self.assertIn(marker, source)
 
+    def test_panel_surface_does_not_paint_behind_toggle(self):
+        stylesheet = (ROOT / "stylesheet.css").read_text(encoding="utf-8")
+        self.assertIn(".ai-native-shell", stylesheet)
+        self.assertIn("background-color: transparent;", stylesheet)
+        self.assertIn(".ai-panel-content", stylesheet)
+        self.assertIn("box-shadow: 0 18px 52px", stylesheet)
+
 
 if __name__ == "__main__":
     unittest.main()

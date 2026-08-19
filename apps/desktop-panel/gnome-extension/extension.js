@@ -12,6 +12,7 @@ const DEFAULT_PANEL_HEIGHT = 420;
 const MAX_PANEL_HEIGHT = 560;
 const MIN_PANEL_HEIGHT = 360;
 const TOGGLE_WIDTH = 26;
+const SHELL_WIDTH = PANEL_WIDTH + TOGGLE_WIDTH;
 const PANEL_MARGIN = 24;
 const TAB_HEIGHT = 43;
 const RUNTIME_URL = 'http://127.0.0.1:8765/v1/search';
@@ -204,11 +205,26 @@ class ChatView extends St.BoxLayout {
 
         const actions = new St.BoxLayout({style_class: 'ai-composer-actions', x_expand: true});
         const confirmation = new St.Button({
-            label: '♢  Подтверждать за меня',
             style_class: 'ai-confirmation',
             x_expand: true,
             y_align: Clutter.ActorAlign.CENTER,
         });
+        const confirmationContent = new St.BoxLayout({
+            style_class: 'ai-confirmation-content',
+            spacing: 6,
+            x_expand: true,
+        });
+        confirmationContent.add_child(new St.Icon({
+            icon_name: 'security-high-symbolic',
+            style_class: 'ai-confirmation-icon',
+        }));
+        confirmationContent.add_child(new St.Label({
+            text: 'Подтверждать за меня',
+            style_class: 'ai-confirmation-label',
+            x_expand: true,
+            x_align: Clutter.ActorAlign.START,
+        }));
+        confirmation.set_child(confirmationContent);
         confirmation.connect('clicked', () => {
             confirmation._enabled = !confirmation._enabled;
             if (confirmation._enabled)
@@ -224,11 +240,27 @@ class ChatView extends St.BoxLayout {
         });
         modelControl.set_size(145, 34);
         const modelButton = new St.Button({
-            label: 'Qwen 3.5 2B ︾',
             style_class: 'ai-model',
             can_focus: true,
         });
         modelButton.set_size(145, 34);
+        const modelContent = new St.BoxLayout({
+            style_class: 'ai-model-content',
+            spacing: 6,
+            x_expand: true,
+        });
+        const modelLabel = new St.Label({
+            text: 'Qwen 3.5 2B',
+            style_class: 'ai-model-label',
+            x_expand: true,
+            x_align: Clutter.ActorAlign.END,
+        });
+        modelContent.add_child(modelLabel);
+        modelContent.add_child(new St.Label({
+            text: '⌄',
+            style_class: 'ai-model-chevron',
+        }));
+        modelButton.set_child(modelContent);
         modelControl.add_child(modelButton);
 
         const modelMenu = new St.BoxLayout({vertical: true, style_class: 'ai-model-menu'});
@@ -238,7 +270,7 @@ class ChatView extends St.BoxLayout {
         ['Qwen 3.5 2B', 'Gemma 2 2B', 'Qwen 3.5 4B'].forEach(model => {
             const option = new St.Button({label: model, style_class: 'ai-model-option'});
             option.connect('clicked', () => {
-                modelButton.set_label(`${model} ︾`);
+                modelLabel.set_text(model);
                 modelMenu.hide();
             });
             modelMenu.add_child(option);
@@ -296,7 +328,7 @@ class Panel extends St.Widget {
             reactive: true,
             layout_manager: new Clutter.FixedLayout(),
         });
-        this.set_size(PANEL_WIDTH, DEFAULT_PANEL_HEIGHT);
+        this.set_size(SHELL_WIDTH, DEFAULT_PANEL_HEIGHT);
         this._collapsed = false;
 
         this._content = new St.Widget({
@@ -304,7 +336,7 @@ class Panel extends St.Widget {
             layout_manager: new Clutter.FixedLayout(),
         });
         this._content.set_position(TOGGLE_WIDTH, 0);
-        this._content.set_size(PANEL_WIDTH - TOGGLE_WIDTH, DEFAULT_PANEL_HEIGHT);
+        this._content.set_size(PANEL_WIDTH, DEFAULT_PANEL_HEIGHT);
         this.add_child(this._content);
 
         this._toggle = new St.Button({style_class: 'ai-toggle', label: '›', can_focus: true});
@@ -316,40 +348,40 @@ class Panel extends St.Widget {
     }
 
     setPanelHeight(height) {
-        this.set_size(PANEL_WIDTH, height);
-        this._content.set_size(PANEL_WIDTH - TOGGLE_WIDTH, height);
+        this.set_size(SHELL_WIDTH, height);
+        this._content.set_size(PANEL_WIDTH, height);
         this._toggle.set_position(0, Math.floor((height - 40) / 2));
         if (!this._views)
             return;
-        this._views.set_size(PANEL_WIDTH - TOGGLE_WIDTH, height - TAB_HEIGHT);
+        this._views.set_size(PANEL_WIDTH, height - TAB_HEIGHT);
         [this._chat, this._workspace, this._settings].forEach(view => {
-            view.set_size(PANEL_WIDTH - TOGGLE_WIDTH, height - TAB_HEIGHT);
+            view.set_size(PANEL_WIDTH, height - TAB_HEIGHT);
         });
     }
 
     _buildTabs() {
         this._tabs = new St.BoxLayout({style_class: 'ai-tabs', x_expand: true});
         this._tabs.set_position(0, 0);
-        this._tabs.set_size(PANEL_WIDTH - TOGGLE_WIDTH, TAB_HEIGHT);
+        this._tabs.set_size(PANEL_WIDTH, TAB_HEIGHT);
         this._content.add_child(this._tabs);
 
         this._views = new St.Widget({layout_manager: new Clutter.FixedLayout()});
         this._views.set_position(0, TAB_HEIGHT);
-        this._views.set_size(PANEL_WIDTH - TOGGLE_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
+        this._views.set_size(PANEL_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
         this._content.add_child(this._views);
 
         this._chat = new ChatView(runtime);
         this._chat.set_position(0, 0);
-        this._chat.set_size(PANEL_WIDTH - TOGGLE_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
+        this._chat.set_size(PANEL_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
         this._views.add_child(this._chat);
         this._workspace = new WorkspaceView();
         this._workspace.set_position(0, 0);
-        this._workspace.set_size(PANEL_WIDTH - TOGGLE_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
+        this._workspace.set_size(PANEL_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
         this._workspace.hide();
         this._views.add_child(this._workspace);
         this._settings = new WorkspaceView();
         this._settings.set_position(0, 0);
-        this._settings.set_size(PANEL_WIDTH - TOGGLE_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
+        this._settings.set_size(PANEL_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
         this._settings.hide();
         this._views.add_child(this._settings);
 
@@ -358,7 +390,7 @@ class Panel extends St.Widget {
             new TabButton('Рабочая область', '▣'),
             new TabButton('Настройки', '⚙'),
         ];
-        const tabWidth = Math.floor((PANEL_WIDTH - TOGGLE_WIDTH - 14) / this._tabButtons.length);
+        const tabWidth = Math.floor((PANEL_WIDTH - 14) / this._tabButtons.length);
         this._tabButtons.forEach((button, index) => {
             button.set_width(tabWidth);
             button.connect('clicked', () => this._selectTab(index));
@@ -378,7 +410,7 @@ class Panel extends St.Widget {
         this._collapsed = !this._collapsed;
         this._toggle.set_label(this._collapsed ? '‹' : '›');
         this.ease({
-            translation_x: this._collapsed ? PANEL_WIDTH - TOGGLE_WIDTH : 0,
+            translation_x: this._collapsed ? PANEL_WIDTH : 0,
             duration: 420,
             mode: Clutter.AnimationMode.EASE_OUT_QUAD,
         });
@@ -404,7 +436,7 @@ export default class AiNativeLinuxExtension extends Extension {
         );
         this._panel.setPanelHeight(height);
         this._panel.set_position(
-            monitor.x + monitor.width - PANEL_WIDTH - PANEL_MARGIN,
+            monitor.x + monitor.width - PANEL_WIDTH - PANEL_MARGIN - TOGGLE_WIDTH,
             monitor.y + monitor.height - height - PANEL_MARGIN,
         );
     }

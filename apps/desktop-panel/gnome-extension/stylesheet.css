@@ -1,8 +1,10 @@
 .ai-native-shell {
-    background-color: rgba(32, 32, 32, 0.98);
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    border-radius: 22px 0 22px 22px;
-    box-shadow: 0 18px 52px rgba(0, 0, 0, 0.42);
+    /* The shell is only the transparent positioning surface.  Painting it
+     * here creates the dark rectangle behind the left toggle.  The visible
+     * surface belongs to .ai-panel-content instead. */
+    background-color: transparent;
+    border: 0;
+    box-shadow: none;
     font-family: "Ubuntu", sans-serif;
 }
 
@@ -10,6 +12,7 @@
     background-color: #343434;
     border: 1px solid rgba(255, 255, 255, 0.14);
     border-radius: 22px 0 22px 22px;
+    box-shadow: 0 18px 52px rgba(0, 0, 0, 0.42);
 }
 
 .ai-toggle {
@@ -150,6 +153,20 @@
     padding: 0 2px;
 }
 
+.ai-confirmation-content {
+    spacing: 6px;
+}
+
+.ai-confirmation-icon {
+    icon-size: 15px;
+    color: #cfcfcd;
+}
+
+.ai-confirmation-label {
+    color: inherit;
+    font-size: 12px;
+}
+
 .ai-confirmation:hover,
 .ai-confirmation:focus {
     color: #ffffff;
@@ -169,6 +186,20 @@
     font-size: 11px;
     min-width: 145px;
     padding: 5px 3px;
+}
+
+.ai-model-content {
+    spacing: 6px;
+}
+
+.ai-model-label {
+    color: inherit;
+    font-size: 13px;
+}
+
+.ai-model-chevron {
+    color: #cfcfcd;
+    font-size: 14px;
 }
 
 .ai-model:hover,
