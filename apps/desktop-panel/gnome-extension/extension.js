@@ -6,14 +6,14 @@ import Pango from 'gi://Pango';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
-const PANEL_WIDTH = 478;
+const PANEL_WIDTH = 468;
 const DEFAULT_PANEL_HEIGHT = 420;
 const MAX_PANEL_HEIGHT = 560;
 const MIN_PANEL_HEIGHT = 360;
 const TOGGLE_WIDTH = 26;
 const SHELL_WIDTH = PANEL_WIDTH + TOGGLE_WIDTH;
-const PANEL_HORIZONTAL_MARGIN = 15;
-const PANEL_BOTTOM_MARGIN = 12;
+const PANEL_HORIZONTAL_MARGIN = 20;
+const PANEL_BOTTOM_MARGIN = 18;
 const TOGGLE_DURATION = 260;
 const TAB_HEIGHT = 43;
 const RUNTIME_URL = 'http://127.0.0.1:8765/v1/search';
@@ -187,7 +187,8 @@ class ChatView extends St.BoxLayout {
         entry.clutter_text.line_wrap = true;
         entry.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
         entry.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
-        entry.clutter_text.single_line_mode = false;
+        entry.clutter_text.editable = true;
+        entry.clutter_text.activatable = true;
         const resizeEntry = () => {
             const text = entry.get_text();
             const estimatedLines = text.split('\n').reduce((count, line) =>
@@ -196,8 +197,8 @@ class ChatView extends St.BoxLayout {
             entry.set_height(lines * 19 + 2);
         };
         entry.clutter_text.connect('text-changed', resizeEntry);
-        resizeEntry();
         composer.add_child(entry);
+        resizeEntry();
 
         const actions = new St.BoxLayout({style_class: 'ai-composer-actions', x_expand: true});
         const confirmation = new St.Button({

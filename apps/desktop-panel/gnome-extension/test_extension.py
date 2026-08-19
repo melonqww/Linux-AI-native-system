@@ -34,6 +34,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "preferences-system-symbolic",
             "folder-symbolic",
             "const resizeEntry = () =>",
+            "entry.clutter_text.editable = true",
             "_animateHighlight",
             "GLib.timeout_add",
             "Qwen 3.5 2B",
