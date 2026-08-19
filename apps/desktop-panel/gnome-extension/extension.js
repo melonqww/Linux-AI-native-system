@@ -355,7 +355,7 @@ function metricRow(label, value, extraClass = '') {
 
 function processRow(name, cpu, memory) {
     const row = new St.BoxLayout({style_class: 'ai-process-row', x_expand: true});
-    row.add_child(sidebarLabel(name, 'ai-process-name', {x_expand: true}));
+    row.add_child(sidebarLabel(`${name}:`, 'ai-process-name', {x_expand: true}));
     row.add_child(sidebarLabel(cpu, 'ai-process-cpu'));
     row.add_child(sidebarLabel(memory, 'ai-process-memory'));
     return row;
@@ -425,26 +425,33 @@ function createMetricRing(value) {
 }
 
 const SidebarView = GObject.registerClass(
-class SidebarView extends St.ScrollView {
+class SidebarView extends St.BoxLayout {
     _init() {
         super._init({
+            vertical: true,
             style_class: 'ai-sidebar-view',
             x_expand: true,
             y_expand: true,
         });
-        this.set_policy(St.PolicyType.NEVER, St.PolicyType.AUTOMATIC);
+        this._scroll = new St.ScrollView({
+            style_class: 'ai-sidebar-scroll',
+            x_expand: true,
+            y_expand: true,
+        });
+        this._scroll.set_policy(St.PolicyType.NEVER, St.PolicyType.AUTOMATIC);
 
         const content = new St.BoxLayout({
             vertical: true,
             style_class: 'ai-sidebar-content',
             x_expand: true,
         });
-        this.set_child(content);
+        this._scroll.set_child(content);
+        this.add_child(this._scroll);
 
         content.add_child(this._buildStatusCard());
         content.add_child(this._buildTaskCard());
         content.add_child(this._buildActionsCard());
-        content.add_child(this._buildHistoryButton());
+        this.add_child(this._buildHistoryButton());
     }
 
     _card(title) {
@@ -462,7 +469,7 @@ class SidebarView extends St.ScrollView {
         const metrics = new St.BoxLayout({style_class: 'ai-status-main', x_expand: true});
         metrics.add_child(metricBlock('Загрузка ЦП', 37, '54°C'));
         metrics.add_child(metricBlock('Оперативная память', 62, '4.9 из 7.8 ГБ · 46°C'));
-        metrics.add_child(metricBlock('Батарея', 82, 'от батареи', 'ai-battery-metric'));
+        metrics.add_child(metricBlock('Батарея', 82, '32°C · от батареи', 'ai-battery-metric'));
         card.add_child(metrics);
 
         card.add_child(sidebarLabel('Свободное место на дисках', 'ai-sidebar-kicker'));
