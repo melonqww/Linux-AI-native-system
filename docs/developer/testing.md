@@ -31,6 +31,17 @@ Workflow `.github/workflows/ci.yml` запускает эти проверки �
 показывается как `skipped`; успешный Ubuntu job является обязательной фактической
 проверкой адаптера.
 
+Локальный Qwen eval является opt-in, потому что CI не скачивает модель весом 1.4 ГБ:
+
+```powershell
+$env:AI_NATIVE_RUN_OLLAMA_EVALS = "1"
+python -m pytest -q services/intent-compiler/tests/test_ollama_live.py
+```
+
+Он проверяет RU/EN классификацию, составной search→copy, доверенные ссылки
+«их/туда» и containment prompt injection. Обычные mock-тесты Ollama API всегда
+остаются в CI.
+
 Тесты значительно снижают риск регрессий, но не доказывают абсолютную безопасность.
 Перед привилегированными модулями дополнительно потребуются threat model, sandbox-
 профили и отдельные security tests.

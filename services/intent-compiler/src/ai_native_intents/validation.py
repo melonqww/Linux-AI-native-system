@@ -27,9 +27,8 @@ _ARGUMENT_SCHEMAS: dict[OperationKind, dict[str, str]] = {
     OperationKind.SAVE_RESULTS: {"results_from": "reference", "title": "string"},
     OperationKind.COPY_RESULTS: {
         "results_from": "reference",
-        "destination_role": "destination_role",
-        "destination_name": "string",
-        "destination_ref": "reference",
+        "destination": "destination",
+        "directory_name": "string",
     },
 }
 
@@ -130,10 +129,15 @@ class IntentValidator:
                         raise IntentValidationError("extensions must be simple suffixes without dots")
                     items = tuple(item.casefold() for item in items)
                 result[key] = items
-            elif argument_type == "destination_role":
+            elif argument_type == "destination":
                 role = self._string(raw, key, maximum=32)
-                if role not in {"desktop", "documents", "downloads"}:
-                    raise IntentValidationError("unsupported destination_role")
+                if role not in {
+                    "desktop",
+                    "documents",
+                    "downloads",
+                    "context.last_destination",
+                }:
+                    raise IntentValidationError("unsupported destination")
                 result[key] = role
             elif argument_type == "url":
                 url = self._string(raw, key, maximum=2_000)
@@ -146,7 +150,7 @@ class IntentValidator:
                 ):
                     raise IntentValidationError("only credential-free HTTP(S) URLs are allowed")
                 result[key] = parsed.geturl()
-        destination_name = result.get("destination_name")
+        destination_name = result.get("directory_name")
         if isinstance(destination_name, str) and (
             destination_name in {".", ".."}
             or "/" in destination_name
@@ -168,23 +172,19 @@ class IntentValidator:
                     raise IntentValidationError(
                         f"dependency must reference an earlier operation: {dependency}"
                     )
-            for key in ("results_from", "destination_ref"):
-                reference = operation.arguments.get(key)
-                if not isinstance(reference, str):
-                    continue
-                if reference in {"context.active_results", "context.last_destination"}:
-                    continue
+            reference = operation.arguments.get("results_from")
+            if isinstance(reference, str) and reference != "context.active_results":
+                if reference.startswith("context."):
+                    raise IntentValidationError("results_from uses the wrong context reference")
                 if reference not in seen:
                     raise IntentValidationError(
-                        f"{key} must reference trusted context or an earlier operation"
+                        "results_from must reference trusted context or an earlier operation"
                     )
-                if key == "results_from" and output_kinds[reference] not in {
+                if output_kinds[reference] not in {
                     OperationKind.SEARCH_DOCUMENTS,
                     OperationKind.SAVE_RESULTS,
                 }:
                     raise IntentValidationError("results_from must reference a result-producing operation")
-                if key == "destination_ref":
-                    raise IntentValidationError("destination_ref must use trusted task context")
             seen.add(operation.operation_id)
             output_kinds[operation.operation_id] = operation.kind
 

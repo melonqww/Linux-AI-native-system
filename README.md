@@ -61,7 +61,9 @@ python -m unittest discover -s services/agent-runtime/tests -v
 `services/intent-compiler` переводит свободные русские и английские запросы в
 строго проверяемое намерение и preview-план. Языковой model provider здесь
 заменяемый, а capability, зависимости, риск и approval вычисляет
-детерминированное ядро. В production-коде нет таблицы заранее известных фраз.
+детерминированное ядро. Локальный adapter использует `qwen3:1.7b` через Ollama,
+`think=false` и semantic tool calls, которые сами ничего не исполняют. В
+production-коде нет таблицы заранее известных фраз.
 Подробности: [`services/intent-compiler/README.md`](services/intent-compiler/README.md)
 и [ADR-004](Architecture/decisions/ADR-004-model-neutral-intent-compiler.md).
 
@@ -92,7 +94,7 @@ python -m unittest discover -s services/agent-runtime/tests -v
 Для запуска локального API панели из корня проекта:
 
 ```bash
-PYTHONPATH="services/agent-runtime/src:services/capability-registry/src:services/module-manager/src:services/query-service/src:services/storage-catalog/src:services/indexer/src:services/index-scheduler/src:modules/documents-pdf/src" \
+PYTHONPATH="services/agent-runtime/src:services/intent-compiler/src:services/capability-registry/src:services/module-manager/src:services/query-service/src:services/storage-catalog/src:services/indexer/src:services/index-scheduler/src:modules/documents-pdf/src" \
 python -m ai_native_linux.cli --serve-panel
 ```
 

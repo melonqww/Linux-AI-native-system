@@ -10,7 +10,11 @@ from .clarification import ClarificationPolicy
 from .context import ContextResolver
 from .contracts import CompilationResult, CompilationState, ModelRequest, TaskContext
 from .planner import IntentPlanner
-from .provider import IntentModelProvider
+from .provider import (
+    IntentModelProvider,
+    IntentProviderResponseError,
+    IntentProviderUnavailableError,
+)
 from .schema import INTENT_OUTPUT_SCHEMA, MODEL_INSTRUCTIONS
 from .validation import IntentValidationError, IntentValidator
 
@@ -48,6 +52,10 @@ class IntentCompiler:
                     instructions=MODEL_INSTRUCTIONS,
                 )
             )
+        except IntentProviderResponseError:
+            return self._rejected(context)
+        except IntentProviderUnavailableError:
+            return self._rejected(context, diagnostic="provider_unavailable")
         except Exception:
             return self._rejected(context, diagnostic="provider_unavailable")
         try:

@@ -50,6 +50,6 @@ class ClarificationPolicy:
             if operation.kind is OperationKind.COPY_RESULTS:
                 if not arguments.get("results_from"):
                     return "Какие результаты скопировать?" if russian else "Which results should be copied?"
-                if not (arguments.get("destination_role") or arguments.get("destination_ref")):
+                if not arguments.get("destination"):
                     return "Куда скопировать результаты?" if russian else "Where should results be copied?"
         return None

@@ -29,6 +29,12 @@ def main() -> int:
     parser.add_argument("--storage-database", type=Path, default=Path("data/storage-catalog.sqlite3"))
     parser.add_argument("--index-database", type=Path, default=Path("data/document-index.sqlite3"))
     parser.add_argument("--registry-database", type=Path, default=Path("data/capabilities.sqlite3"))
+    parser.add_argument("--intent-model", default="qwen3:1.7b")
+    parser.add_argument("--ollama-url", default="http://127.0.0.1:11434")
+    parser.add_argument("--intent-timeout", type=float, default=45.0)
+    parser.add_argument("--intent-context-tokens", type=int, default=4_096)
+    parser.add_argument("--locale", default="ru", choices=("ru", "en"))
+    parser.add_argument("--no-intent-compiler", action="store_true")
     parser.add_argument(
         "--module-root",
         action="append",
@@ -67,9 +73,35 @@ def main() -> int:
                 storage_database=args.storage_database,
                 index_database=args.index_database,
             )
+            intent_pipeline = None
+            task_context = None
+            if not args.no_intent_compiler:
+                from ai_native_intents import (
+                    IntentCompiler,
+                    OllamaModelProvider,
+                    TaskContextStore,
+                )
+
+                provider = OllamaModelProvider(
+                    model=args.intent_model,
+                    base_url=args.ollama_url,
+                    timeout_seconds=args.intent_timeout,
+                    context_tokens=args.intent_context_tokens,
+                )
+                model_health = provider.health()
+                state = "ready" if model_health.available else f"unavailable ({model_health.reason})"
+                print(f"Intent model {args.intent_model}: {state}")
+                intent_pipeline = IntentCompiler(
+                    provider,
+                    capability_source=registry.available_capabilities,
+                )
+                context_store = TaskContextStore(locale=args.locale)
+                task_context = context_store.snapshot
             application = QueryRuntimeApplication(
                 query_service,
                 scheduler_status=lambda: manager.health_details("storage.watch"),
+                intent_pipeline=intent_pipeline,
+                task_context=task_context,
             )
             server = create_server(application, host=args.host, port=args.port)
             print(f"Panel runtime: http://{args.host}:{server.server_port}")

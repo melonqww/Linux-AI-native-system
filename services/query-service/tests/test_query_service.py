@@ -112,6 +112,7 @@ class QueryServiceTests(unittest.TestCase):
 
         result = application.compile_intent({"text": "скопируй их"})
 
+        self.assertIn("intent.compile", application.capabilities())
         self.assertEqual(result.clarification_question, "скопируй их")
         self.assertEqual(pipeline.context.active_collection_id, "trusted-results")
         with self.assertRaises(ValueError):

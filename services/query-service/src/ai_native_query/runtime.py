@@ -30,11 +30,14 @@ class QueryRuntimeApplication:
             raise ValueError("task_context is required with intent_pipeline")
 
     def capabilities(self) -> list[str]:
-        return [
+        capabilities = [
             "documents.query.search",
             "documents.pdf.extract",
             "storage.collection.snapshot",
         ]
+        if self.intent_pipeline is not None:
+            capabilities.append("intent.compile")
+        return capabilities
 
     def search(self, payload: dict[str, object]) -> list[QueryResult]:
         text = self._string(payload, "text")

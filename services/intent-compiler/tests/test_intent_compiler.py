@@ -6,6 +6,7 @@ from ai_native_intents import (
     IntentCompiler,
     RiskClass,
     TaskContext,
+    TaskContextStore,
 )
 
 
@@ -50,7 +51,7 @@ class IntentCompilerTests(unittest.TestCase):
                 operation(
                     "copy",
                     "copy_results",
-                    {"results_from": "search", "destination_role": "desktop"},
+                    {"results_from": "search", "destination": "desktop"},
                     "скопируй результаты на рабочий стол",
                     ["search"],
                 ),
@@ -73,7 +74,7 @@ class IntentCompilerTests(unittest.TestCase):
                 "copy_results",
                 {
                     "results_from": "context.active_results",
-                    "destination_ref": "context.last_destination",
+                    "destination": "context.last_destination",
                 },
                 "Copy them there",
             )],
@@ -86,7 +87,7 @@ class IntentCompilerTests(unittest.TestCase):
 
         self.assertEqual(result.state, CompilationState.READY)
         self.assertEqual(result.plan.steps[0].arguments["results_from"], "collection-7")
-        self.assertEqual(result.plan.steps[0].arguments["destination_ref"], "destination-3")
+        self.assertEqual(result.plan.steps[0].arguments["destination"], "destination-3")
 
     def test_model_never_receives_trusted_ids_or_document_contents(self):
         captured = []
@@ -129,7 +130,7 @@ class IntentCompilerTests(unittest.TestCase):
             [operation(
                 "copy",
                 "copy_results",
-                {"results_from": "context.active_results", "destination_role": "desktop"},
+                {"results_from": "context.active_results", "destination": "desktop"},
                 follow_up,
             )],
             language="en",
@@ -163,7 +164,7 @@ class IntentCompilerTests(unittest.TestCase):
         cases.append(unknown)
         cases.append(payload(text, [operation("search", "search_documents", {"text": "PDF"}, "not said")]))
         cases.append(payload(text, [operation(
-            "copy", "copy_results", {"results_from": "/home/user/private", "destination_role": "desktop"}, "PDF"
+            "copy", "copy_results", {"results_from": "/home/user/private", "destination": "desktop"}, "PDF"
         )]))
         cases.append(payload(text, [operation(
             "open", "plan_open_url", {"url": "https://user:pass@example.com"}, "PDF"
@@ -201,6 +202,16 @@ class IntentCompilerTests(unittest.TestCase):
         )
         self.assertEqual(result.state, CompilationState.NEEDS_CLARIFICATION)
         self.assertEqual(result.diagnostics, ("provider_unavailable",))
+
+    def test_task_context_store_is_server_owned_and_clearable(self):
+        store = TaskContextStore(locale="ru")
+        store.set_active_results("collection-7")
+        store.set_last_destination("destination-3")
+
+        self.assertEqual(store.snapshot(), TaskContext("collection-7", "destination-3", "ru"))
+        self.assertEqual(store.clear(), TaskContext(locale="ru"))
+        with self.assertRaises(ValueError):
+            store.set_active_results("bad\nidentifier")
 
 
 if __name__ == "__main__":

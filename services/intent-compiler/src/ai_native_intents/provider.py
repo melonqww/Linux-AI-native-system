@@ -8,6 +8,18 @@ from typing import Protocol
 from .contracts import ModelRequest
 
 
+class IntentProviderError(RuntimeError):
+    pass
+
+
+class IntentProviderUnavailableError(IntentProviderError):
+    pass
+
+
+class IntentProviderResponseError(IntentProviderError):
+    pass
+
+
 class IntentModelProvider(Protocol):
     def compile(self, request: ModelRequest) -> Mapping[str, object]: ...
 
@@ -21,5 +33,5 @@ class CallableIntentProvider:
     def compile(self, request: ModelRequest) -> Mapping[str, object]:
         result = self.function(request)
         if not isinstance(result, Mapping):
-            raise TypeError("intent provider must return an object")
+            raise IntentProviderResponseError("intent provider must return an object")
         return result

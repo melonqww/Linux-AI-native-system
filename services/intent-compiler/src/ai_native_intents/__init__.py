@@ -1,4 +1,5 @@
 from .compiler import IntentCompiler
+from .context import TaskContextStore
 from .contracts import (
     CompilationResult,
     CompilationState,
@@ -11,7 +12,19 @@ from .contracts import (
     TaskContext,
     UserIntent,
 )
-from .provider import CallableIntentProvider, IntentModelProvider
+from .provider import (
+    CallableIntentProvider,
+    IntentModelProvider,
+    IntentProviderError,
+    IntentProviderResponseError,
+    IntentProviderUnavailableError,
+)
+from .ollama import (
+    OllamaHealth,
+    OllamaModelProvider,
+    OllamaProviderError,
+    OllamaUnavailableError,
+)
 from .validation import IntentValidationError, IntentValidator
 
 __all__ = [
@@ -21,13 +34,21 @@ __all__ = [
     "ExecutionPlan",
     "IntentCompiler",
     "IntentModelProvider",
+    "IntentProviderError",
+    "IntentProviderResponseError",
+    "IntentProviderUnavailableError",
     "IntentValidationError",
     "IntentValidator",
     "ModelRequest",
+    "OllamaHealth",
+    "OllamaModelProvider",
+    "OllamaProviderError",
+    "OllamaUnavailableError",
     "OperationIntent",
     "OperationKind",
     "PlanStep",
     "RiskClass",
     "TaskContext",
+    "TaskContextStore",
     "UserIntent",
 ]
