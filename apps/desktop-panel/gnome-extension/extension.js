@@ -419,6 +419,12 @@ class Panel extends St.Widget {
 
 export default class AiNativeLinuxExtension extends Extension {
     enable() {
+        this._theme = St.ThemeContext.get_for_stage(global.stage).get_theme();
+        this._stylesheet = this.get_stylesheet();
+        if (this._stylesheet) {
+            this._theme.load_stylesheet(this._stylesheet);
+            this._stylesheetLoaded = true;
+        }
         this._runtime = new RuntimeClient();
         this._panel = new Panel(this._runtime);
         Main.layoutManager.addChrome(this._panel, {trackFullscreen: false, affectsStruts: false});
@@ -448,6 +454,12 @@ export default class AiNativeLinuxExtension extends Extension {
         }
         this._panel?.destroy();
         this._runtime?.destroy();
+        if (this._stylesheetLoaded && this._stylesheet) {
+            this._theme.unload_stylesheet(this._stylesheet);
+            this._stylesheetLoaded = false;
+        }
+        this._stylesheet = null;
+        this._theme = null;
         this._panel = null;
         this._runtime = null;
     }
