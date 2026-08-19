@@ -3,7 +3,6 @@ import Clutter from 'gi://Clutter';
 import GObject from 'gi://GObject';
 import GLib from 'gi://GLib';
 import Pango from 'gi://Pango';
-import Soup from 'gi://Soup?version=3.0';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
@@ -18,38 +17,14 @@ const TAB_HEIGHT = 43;
 const RUNTIME_URL = 'http://127.0.0.1:8765/v1/search';
 
 class RuntimeClient {
-    constructor() {
-        this._session = new Soup.Session({timeout: 15});
+    // The visual prototype must not depend on an optional Soup typelib.
+    // Runtime transport will be plugged back in after the shell surface is
+    // stable and the service package is installed on the target distro.
+    search(_text) {
+        return Promise.resolve([]);
     }
 
-    search(text) {
-        const message = Soup.Message.new('POST', RUNTIME_URL);
-        message.set_request_body_from_bytes(
-            'application/json',
-            new GLib.Bytes(new TextEncoder().encode(JSON.stringify({text, limit: 20}))),
-        );
-        return new Promise((resolve, reject) => {
-            this._session.send_and_read_async(
-                message,
-                GLib.PRIORITY_DEFAULT,
-                null,
-                (session, result) => {
-                    try {
-                        const bytes = session.send_and_read_finish(result);
-                        if (message.get_status() !== Soup.Status.OK)
-                            throw new Error(`Runtime HTTP ${message.get_status()}`);
-                        resolve(JSON.parse(new TextDecoder().decode(bytes.get_data())).results ?? []);
-                    } catch (error) {
-                        reject(error);
-                    }
-                },
-            );
-        });
-    }
-
-    destroy() {
-        this._session.abort();
-    }
+    destroy() {}
 }
 
 const TabButton = GObject.registerClass(
