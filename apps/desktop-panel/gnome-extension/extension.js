@@ -6,13 +6,15 @@ import Pango from 'gi://Pango';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
-const PANEL_WIDTH = 460;
+const PANEL_WIDTH = 468;
 const DEFAULT_PANEL_HEIGHT = 420;
 const MAX_PANEL_HEIGHT = 560;
 const MIN_PANEL_HEIGHT = 360;
 const TOGGLE_WIDTH = 26;
 const SHELL_WIDTH = PANEL_WIDTH + TOGGLE_WIDTH;
-const PANEL_MARGIN = 24;
+const PANEL_HORIZONTAL_MARGIN = 20;
+const PANEL_BOTTOM_MARGIN = 18;
+const TOGGLE_DURATION = 260;
 const TAB_HEIGHT = 43;
 const RUNTIME_URL = 'http://127.0.0.1:8765/v1/search';
 
@@ -315,7 +317,7 @@ class Panel extends St.Widget {
         this._runtime = runtime;
         this.set_size(SHELL_WIDTH, DEFAULT_PANEL_HEIGHT);
         this._collapsed = false;
-        this._collapsedTranslation = PANEL_WIDTH + PANEL_MARGIN;
+        this._collapsedTranslation = PANEL_WIDTH + PANEL_HORIZONTAL_MARGIN;
 
         this._content = new St.Widget({
             style_class: 'ai-panel-content',
@@ -349,7 +351,7 @@ class Panel extends St.Widget {
         if (!this._views)
             return;
         this._views.set_size(PANEL_WIDTH, height - TAB_HEIGHT);
-        [this._chat, this._workspace, this._settings].forEach(view => {
+        [this._sidebar, this._workspace, this._settings].forEach(view => {
             view.set_size(PANEL_WIDTH, height - TAB_HEIGHT);
         });
     }
@@ -365,11 +367,11 @@ class Panel extends St.Widget {
         this._views.set_size(PANEL_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
         this._content.add_child(this._views);
 
-        this._chat = new ChatView(this._runtime);
-        this._chat.set_position(0, 0);
-        this._chat.set_size(PANEL_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
-        this._views.add_child(this._chat);
-        this._workspace = new WorkspaceView();
+        this._sidebar = new WorkspaceView();
+        this._sidebar.set_position(0, 0);
+        this._sidebar.set_size(PANEL_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
+        this._views.add_child(this._sidebar);
+        this._workspace = new ChatView(this._runtime);
         this._workspace.set_position(0, 0);
         this._workspace.set_size(PANEL_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
         this._workspace.hide();
@@ -382,7 +384,7 @@ class Panel extends St.Widget {
 
         this._tabButtons = [
             new TabButton('Боковая панель', 'view-sidebar-symbolic'),
-            new TabButton('Рабочая область', 'briefcase-symbolic'),
+            new TabButton('Рабочая область', 'folder-symbolic'),
             new TabButton('Настройки', 'preferences-system-symbolic'),
         ];
         const tabWidth = Math.floor((PANEL_WIDTH - 14) / this._tabButtons.length);
@@ -392,12 +394,12 @@ class Panel extends St.Widget {
             button.connect('clicked', () => this._selectTab(index));
             this._tabs.add_child(button);
         });
-        this._selectTab(0);
+        this._selectTab(1);
         this.setPanelHeight(DEFAULT_PANEL_HEIGHT);
     }
 
     _selectTab(index) {
-        const views = [this._chat, this._workspace, this._settings];
+        const views = [this._sidebar, this._workspace, this._settings];
         views.forEach((view, viewIndex) => view.visible = viewIndex === index);
         this._tabButtons.forEach((button, buttonIndex) => button.setActive(buttonIndex === index));
     }
@@ -409,7 +411,7 @@ class Panel extends St.Widget {
         const toggleTarget = this._collapsed ? -4 : 0;
         this.ease({
             translation_x: target,
-            duration: 420,
+            duration: TOGGLE_DURATION,
             mode: Clutter.AnimationMode.EASE_OUT_QUAD,
             onComplete: () => {
                 // Keep the final position exact even if Shell interrupts the
@@ -419,7 +421,7 @@ class Panel extends St.Widget {
         });
         this._toggle.ease({
             translation_x: toggleTarget,
-            duration: 420,
+            duration: TOGGLE_DURATION,
             mode: Clutter.AnimationMode.EASE_OUT_QUAD,
             onComplete: () => {
                 this._toggle.translation_x = toggleTarget;
@@ -488,13 +490,13 @@ export default class AiNativeLinuxExtension extends Extension {
         );
         this._panel.setPanelHeight(height);
         this._panel.set_position(
-            monitor.x + monitor.width - PANEL_WIDTH - PANEL_MARGIN - TOGGLE_WIDTH,
-            monitor.y + monitor.height - height - PANEL_MARGIN,
+            monitor.x + monitor.width - PANEL_WIDTH - PANEL_HORIZONTAL_MARGIN - TOGGLE_WIDTH,
+            monitor.y + monitor.height - height - PANEL_BOTTOM_MARGIN,
         );
         // Keep only the toggle visible when collapsed.  The extra margin is
         // intentional: translating by PANEL_WIDTH alone leaves the panel's
         // right margin visible on every resolution.
-        this._collapsedTranslation = PANEL_WIDTH + PANEL_MARGIN;
+        this._collapsedTranslation = PANEL_WIDTH + PANEL_HORIZONTAL_MARGIN;
         this._panel.translation_x = this._collapsed ? this._collapsedTranslation : 0;
         this._panel._toggle.translation_x = this._collapsed ? -4 : 0;
     }
