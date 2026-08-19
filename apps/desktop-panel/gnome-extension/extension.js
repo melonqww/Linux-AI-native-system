@@ -160,6 +160,19 @@ class ChatView extends St.BoxLayout {
         entry.clutter_text.single_line_mode = false;
         entry.clutter_text.editable = true;
         entry.clutter_text.activatable = true;
+        // Shell chrome does not always route keyboard focus to an St.Entry
+        // after a pointer click.  Explicitly grabbing focus keeps the field
+        // editable even when the panel was opened over another application.
+        const focusEntry = () => {
+            entry.grab_key_focus();
+            entry.clutter_text.set_cursor_position(-1);
+        };
+        entry.connect('button-press-event', () => {
+            focusEntry();
+            return Clutter.EVENT_PROPAGATE;
+        });
+        entry.connect('key-focus-in', () => entry.add_style_class_name('focused'));
+        entry.connect('key-focus-out', () => entry.remove_style_class_name('focused'));
         const resizeEntry = () => {
             const text = entry.get_text();
             const estimatedLines = text.split('\n').reduce((count, line) =>
@@ -333,6 +346,18 @@ function processRow(name, details) {
     return row;
 }
 
+function metricBlock(title, value, detail) {
+    const block = new St.BoxLayout({
+        vertical: true,
+        style_class: 'ai-metric-block',
+        x_align: Clutter.ActorAlign.CENTER,
+    });
+    block.add_child(createMetricRing(value));
+    block.add_child(sidebarLabel(title, 'ai-metric-title'));
+    block.add_child(sidebarLabel(detail, 'ai-metric-detail'));
+    return block;
+}
+
 function cpuColor(value) {
     if (value >= 80)
         return [0.92, 0.27, 0.24, 1.0];
@@ -419,25 +444,20 @@ class SidebarView extends St.ScrollView {
 
     _buildStatusCard() {
         const card = this._card('Состояние системы');
-        const main = new St.BoxLayout({style_class: 'ai-status-main', x_expand: true});
-        main.add_child(createMetricRing(37));
+        const metrics = new St.BoxLayout({style_class: 'ai-status-main', x_expand: true});
+        metrics.add_child(metricBlock('Загрузка ЦП', 37, '54°C'));
+        metrics.add_child(metricBlock('Оперативная память', 62, '4.9 из 7.8 ГБ · 46°C'));
+        card.add_child(metrics);
 
-        const details = new St.BoxLayout({
-            vertical: true,
-            style_class: 'ai-status-details',
-            x_expand: true,
-        });
-        details.add_child(sidebarLabel('Загрузка ЦП', 'ai-sidebar-kicker'));
-        details.add_child(sidebarLabel('54°C', 'ai-sidebar-temperature'));
-        details.add_child(metricRow('RAM', '62%'));
-        details.add_child(sidebarLabel('4.9 из 7.8 ГБ · 46°C', 'ai-sidebar-caption'));
-        main.add_child(details);
-        card.add_child(main);
+        card.add_child(sidebarLabel('Свободное место на дисках', 'ai-sidebar-kicker'));
+        card.add_child(metricRow('/ · свободно', '42.1 ГБ · 38°C', 'ai-disk-row'));
+        card.add_child(metricRow('D: · свободно', '118 ГБ · 41°C', 'ai-disk-row'));
 
-        card.add_child(sidebarLabel('Диски', 'ai-sidebar-kicker'));
-        card.add_child(metricRow('/ · свободно', '42.1 ГБ · 38°C'));
-        card.add_child(metricRow('D: · свободно', '118 ГБ · 41°C'));
-        card.add_child(metricRow('Батарея', '82% · от батареи'));
+        const battery = new St.BoxLayout({style_class: 'ai-battery-row', x_expand: true});
+        battery.add_child(new St.Icon({icon_name: 'battery-full-symbolic', style_class: 'ai-battery-icon'}));
+        battery.add_child(sidebarLabel('Батарея', 'ai-battery-label', {x_expand: true}));
+        battery.add_child(sidebarLabel('82% · от батареи', 'ai-battery-value'));
+        card.add_child(battery);
         return card;
     }
 
@@ -446,6 +466,7 @@ class SidebarView extends St.ScrollView {
         card.add_child(processRow('Firefox', '12% · 820 МБ'));
         card.add_child(processRow('gnome-shell', '7% · 410 МБ'));
         card.add_child(processRow('Терминал', '3% · 160 МБ'));
+        card.add_child(processRow('systemd', '1% · 96 МБ'));
         const button = new St.Button({
             label: 'Показать все процессы',
             style_class: 'ai-sidebar-action',

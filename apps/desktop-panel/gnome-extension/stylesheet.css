@@ -169,6 +169,10 @@
     padding: 0 3px;
 }
 
+.ai-entry.focused {
+    color: #ffffff;
+}
+
 .ai-composer-actions {
     min-height: 34px;
     margin-top: 4px;
@@ -328,7 +332,25 @@
 }
 
 .ai-status-main {
-    spacing: 12px;
+    spacing: 10px;
+}
+
+.ai-metric-block {
+    spacing: 3px;
+    min-width: 124px;
+}
+
+.ai-metric-title {
+    color: #e9e9e9;
+    font-size: 10px;
+    font-weight: 700;
+    text-align: center;
+}
+
+.ai-metric-detail {
+    color: #c9c9c9;
+    font-size: 10px;
+    text-align: center;
 }
 
 .ai-status-details {
@@ -363,6 +385,35 @@
 }
 
 .ai-sidebar-metric-value {
+    font-weight: 700;
+}
+
+.ai-disk-row .ai-sidebar-metric-label,
+.ai-disk-row .ai-sidebar-metric-value {
+    font-size: 12px;
+}
+
+.ai-disk-row .ai-sidebar-metric-value {
+    color: #f0f0f0;
+}
+
+.ai-battery-row {
+    background-color: rgba(183, 216, 174, 0.11);
+    border: 1px solid rgba(183, 216, 174, 0.28);
+    border-radius: 11px;
+    padding: 8px 9px;
+    spacing: 7px;
+}
+
+.ai-battery-icon {
+    color: #b7d8ae;
+    icon-size: 18px;
+}
+
+.ai-battery-label,
+.ai-battery-value {
+    color: #f0f0f0;
+    font-size: 12px;
     font-weight: 700;
 }
 
