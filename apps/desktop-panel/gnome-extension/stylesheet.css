@@ -173,6 +173,15 @@
     color: #ffffff;
 }
 
+.ai-entry-scroll {
+    min-height: 20px;
+    max-height: 78px;
+}
+
+.ai-entry-scroll StScrollBar {
+    width: 6px;
+}
+
 .ai-composer-actions {
     min-height: 34px;
     margin-top: 4px;
@@ -337,7 +346,7 @@
 
 .ai-metric-block {
     spacing: 3px;
-    min-width: 124px;
+    min-width: 116px;
 }
 
 .ai-metric-title {
@@ -351,6 +360,10 @@
     color: #c9c9c9;
     font-size: 10px;
     text-align: center;
+}
+
+.ai-battery-metric .ai-ring-value {
+    color: #b7d8ae;
 }
 
 .ai-status-details {
@@ -417,18 +430,29 @@
     font-weight: 700;
 }
 
+.ai-process-header,
 .ai-process-row {
     spacing: 6px;
 }
 
+.ai-process-heading {
+    color: #a9a9a9;
+    font-size: 10px;
+    font-weight: 700;
+}
+
 .ai-process-name,
-.ai-process-details {
+.ai-process-cpu,
+.ai-process-memory {
     color: #dedede;
     font-size: 11px;
 }
 
-.ai-process-details {
+.ai-process-cpu,
+.ai-process-memory {
     color: #bdbdbd;
+    min-width: 52px;
+    text-align: right;
 }
 
 .ai-sidebar-action,

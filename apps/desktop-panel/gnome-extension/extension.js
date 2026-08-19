@@ -173,15 +173,22 @@ class ChatView extends St.BoxLayout {
         });
         entry.connect('key-focus-in', () => entry.add_style_class_name('focused'));
         entry.connect('key-focus-out', () => entry.remove_style_class_name('focused'));
+        const entryScroll = new St.ScrollView({
+            style_class: 'ai-entry-scroll',
+            x_expand: true,
+        });
+        entryScroll.set_policy(St.PolicyType.NEVER, St.PolicyType.AUTOMATIC);
         const resizeEntry = () => {
             const text = entry.get_text();
             const estimatedLines = text.split('\n').reduce((count, line) =>
                 count + Math.max(1, Math.ceil(line.length / 54)), 0);
-            const lines = Math.min(4, Math.max(1, estimatedLines));
-            entry.set_height(lines * 19 + 2);
+            const desiredHeight = Math.max(20, estimatedLines * 19 + 2);
+            entry.set_height(desiredHeight);
+            entryScroll.set_height(Math.min(78, desiredHeight));
         };
         entry.clutter_text.connect('text-changed', resizeEntry);
-        composer.add_child(entry);
+        entryScroll.set_child(entry);
+        composer.add_child(entryScroll);
         resizeEntry();
 
         const actions = new St.BoxLayout({style_class: 'ai-composer-actions', x_expand: true});
@@ -339,17 +346,18 @@ function metricRow(label, value, extraClass = '') {
     return row;
 }
 
-function processRow(name, details) {
+function processRow(name, cpu, memory) {
     const row = new St.BoxLayout({style_class: 'ai-process-row', x_expand: true});
     row.add_child(sidebarLabel(name, 'ai-process-name', {x_expand: true}));
-    row.add_child(sidebarLabel(details, 'ai-process-details'));
+    row.add_child(sidebarLabel(cpu, 'ai-process-cpu'));
+    row.add_child(sidebarLabel(memory, 'ai-process-memory'));
     return row;
 }
 
-function metricBlock(title, value, detail) {
+function metricBlock(title, value, detail, extraClass = '') {
     const block = new St.BoxLayout({
         vertical: true,
-        style_class: 'ai-metric-block',
+        style_class: `ai-metric-block ${extraClass}`.trim(),
         x_align: Clutter.ActorAlign.CENTER,
     });
     block.add_child(createMetricRing(value));
@@ -447,26 +455,27 @@ class SidebarView extends St.ScrollView {
         const metrics = new St.BoxLayout({style_class: 'ai-status-main', x_expand: true});
         metrics.add_child(metricBlock('Загрузка ЦП', 37, '54°C'));
         metrics.add_child(metricBlock('Оперативная память', 62, '4.9 из 7.8 ГБ · 46°C'));
+        metrics.add_child(metricBlock('Батарея', 82, 'от батареи', 'ai-battery-metric'));
         card.add_child(metrics);
 
         card.add_child(sidebarLabel('Свободное место на дисках', 'ai-sidebar-kicker'));
         card.add_child(metricRow('/ · свободно', '42.1 ГБ · 38°C', 'ai-disk-row'));
         card.add_child(metricRow('D: · свободно', '118 ГБ · 41°C', 'ai-disk-row'));
 
-        const battery = new St.BoxLayout({style_class: 'ai-battery-row', x_expand: true});
-        battery.add_child(new St.Icon({icon_name: 'battery-full-symbolic', style_class: 'ai-battery-icon'}));
-        battery.add_child(sidebarLabel('Батарея', 'ai-battery-label', {x_expand: true}));
-        battery.add_child(sidebarLabel('82% · от батареи', 'ai-battery-value'));
-        card.add_child(battery);
         return card;
     }
 
     _buildTaskCard() {
         const card = this._card('Мини-диспетчер задач');
-        card.add_child(processRow('Firefox', '12% · 820 МБ'));
-        card.add_child(processRow('gnome-shell', '7% · 410 МБ'));
-        card.add_child(processRow('Терминал', '3% · 160 МБ'));
-        card.add_child(processRow('systemd', '1% · 96 МБ'));
+        const header = new St.BoxLayout({style_class: 'ai-process-header', x_expand: true});
+        header.add_child(sidebarLabel('Приложение', 'ai-process-heading', {x_expand: true}));
+        header.add_child(sidebarLabel('ЦП', 'ai-process-heading'));
+        header.add_child(sidebarLabel('Память', 'ai-process-heading'));
+        card.add_child(header);
+        card.add_child(processRow('Firefox', '12%', '820 МБ'));
+        card.add_child(processRow('gnome-shell', '7%', '410 МБ'));
+        card.add_child(processRow('Терминал', '3%', '160 МБ'));
+        card.add_child(processRow('systemd', '1%', '96 МБ'));
         const button = new St.Button({
             label: 'Показать все процессы',
             style_class: 'ai-sidebar-action',
