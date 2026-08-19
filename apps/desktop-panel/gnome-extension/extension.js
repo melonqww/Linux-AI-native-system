@@ -421,11 +421,21 @@ class Panel extends St.Widget {
 
 export default class AiNativeLinuxExtension extends Extension {
     enable() {
-        this._theme = St.ThemeContext.get_for_stage(global.stage).get_theme();
-        this._stylesheet = this.dir.get_child('stylesheet.css');
-        if (this._stylesheet) {
-            this._theme.load_stylesheet(this._stylesheet);
-            this._stylesheetLoaded = true;
+        try {
+            this._theme = St.ThemeContext.get_for_stage(global.stage).get_theme();
+            this._stylesheet = this.dir.get_child('stylesheet.css');
+            if (this._stylesheet) {
+                this._theme.load_stylesheet(this._stylesheet);
+                this._stylesheetLoaded = true;
+            }
+        } catch (error) {
+            // A theme parser/API mismatch must not prevent the native panel
+            // from loading.  GNOME will log the style error, while the panel
+            // remains usable with its safe default theme.
+            logError(error, 'AI-native Linux: stylesheet load failed');
+            this._stylesheetLoaded = false;
+            this._stylesheet = null;
+            this._theme = null;
         }
         this._runtime = new RuntimeClient();
         this._panel = new Panel(this._runtime);
