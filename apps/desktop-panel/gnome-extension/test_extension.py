@@ -13,7 +13,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
         self.assertIn("46", metadata["shell-version"])
 
     def test_runtime_files_exist(self):
-        for filename in ("extension.js", "stylesheet.css", "install.sh", "README.md"):
+        for filename in ("extension.js", "stylesheet.css", "install.sh", "README.md", "TROUBLESHOOTING.md"):
             self.assertTrue((ROOT / filename).is_file(), filename)
 
     def test_install_reloads_live_extension_before_copy(self):

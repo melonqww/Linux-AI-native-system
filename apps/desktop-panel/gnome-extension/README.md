@@ -32,3 +32,6 @@ python3 apps/desktop-panel/gnome-extension/validate_extension.py --installed
 
 Изменяющие систему операции через этот read-only endpoint не выполняются:
 копирование проходит отдельный этап плана и явного подтверждения.
+
+При проблемах запуска см. [TROUBLESHOOTING.md](TROUBLESHOOTING.md): там
+зафиксированы особенности GNOME 46, ошибки совместимости и порядок диагностики.
