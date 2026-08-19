@@ -302,6 +302,180 @@ class WorkspaceView extends St.Widget {
     }
 });
 
+function sidebarLabel(text, styleClass, options = {}) {
+    const params = {
+        text,
+        style_class: styleClass,
+        x_expand: options.x_expand ?? false,
+        y_expand: options.y_expand ?? false,
+    };
+    if (options.x_align !== undefined)
+        params.x_align = options.x_align;
+    if (options.y_align !== undefined)
+        params.y_align = options.y_align;
+    return new St.Label(params);
+}
+
+function metricRow(label, value, extraClass = '') {
+    const row = new St.BoxLayout({
+        style_class: `ai-sidebar-metric-row ${extraClass}`.trim(),
+        x_expand: true,
+    });
+    row.add_child(sidebarLabel(label, 'ai-sidebar-metric-label', {x_expand: true}));
+    row.add_child(sidebarLabel(value, 'ai-sidebar-metric-value'));
+    return row;
+}
+
+function processRow(name, details) {
+    const row = new St.BoxLayout({style_class: 'ai-process-row', x_expand: true});
+    row.add_child(sidebarLabel(name, 'ai-process-name', {x_expand: true}));
+    row.add_child(sidebarLabel(details, 'ai-process-details'));
+    return row;
+}
+
+function cpuColor(value) {
+    if (value >= 80)
+        return [0.92, 0.27, 0.24, 1.0];
+    if (value >= 60)
+        return [0.96, 0.55, 0.18, 1.0];
+    if (value >= 40)
+        return [0.92, 0.78, 0.24, 1.0];
+    return [0.42, 0.78, 0.45, 1.0];
+}
+
+function createMetricRing(value) {
+    const wrap = new St.Widget({
+        style_class: 'ai-metric-ring-wrap',
+        layout_manager: new Clutter.BinLayout(),
+    });
+    wrap.set_size(94, 94);
+
+    const drawing = new St.DrawingArea({style_class: 'ai-metric-ring'});
+    drawing.set_size(94, 94);
+    drawing.connect('repaint', area => {
+        const [width, height] = area.get_surface_size();
+        if (!width || !height)
+            return;
+        const context = area.get_context();
+        const centerX = width / 2;
+        const centerY = height / 2;
+        const radius = Math.min(width, height) / 2 - 9;
+        const start = -Math.PI / 2;
+        const end = start + (Math.PI * 2 * value / 100);
+
+        context.setLineWidth(8);
+        context.setLineCap(1);
+        context.setSourceRGBA(0.17, 0.17, 0.17, 0.95);
+        context.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        context.stroke();
+
+        context.setSourceRGBA(...cpuColor(value));
+        context.arc(centerX, centerY, radius, start, end);
+        context.stroke();
+        context.$dispose();
+    });
+    wrap.add_child(drawing);
+
+    const valueLabel = sidebarLabel(`${value}%`, 'ai-ring-value', {
+        x_align: Clutter.ActorAlign.CENTER,
+        y_align: Clutter.ActorAlign.CENTER,
+    });
+    wrap.add_child(valueLabel);
+    return wrap;
+}
+
+const SidebarView = GObject.registerClass(
+class SidebarView extends St.ScrollView {
+    _init() {
+        super._init({
+            style_class: 'ai-sidebar-view',
+            x_expand: true,
+            y_expand: true,
+        });
+        this.set_policy(St.PolicyType.NEVER, St.PolicyType.AUTOMATIC);
+
+        const content = new St.BoxLayout({
+            vertical: true,
+            style_class: 'ai-sidebar-content',
+            x_expand: true,
+        });
+        this.set_child(content);
+
+        content.add_child(this._buildStatusCard());
+        content.add_child(this._buildTaskCard());
+        content.add_child(this._buildActionsCard());
+        content.add_child(this._buildHistoryButton());
+    }
+
+    _card(title) {
+        const card = new St.BoxLayout({
+            vertical: true,
+            style_class: 'ai-sidebar-card',
+            x_expand: true,
+        });
+        card.add_child(sidebarLabel(title, 'ai-sidebar-title'));
+        return card;
+    }
+
+    _buildStatusCard() {
+        const card = this._card('Состояние системы');
+        const main = new St.BoxLayout({style_class: 'ai-status-main', x_expand: true});
+        main.add_child(createMetricRing(37));
+
+        const details = new St.BoxLayout({
+            vertical: true,
+            style_class: 'ai-status-details',
+            x_expand: true,
+        });
+        details.add_child(sidebarLabel('Загрузка ЦП', 'ai-sidebar-kicker'));
+        details.add_child(sidebarLabel('54°C', 'ai-sidebar-temperature'));
+        details.add_child(metricRow('RAM', '62%'));
+        details.add_child(sidebarLabel('4.9 из 7.8 ГБ · 46°C', 'ai-sidebar-caption'));
+        main.add_child(details);
+        card.add_child(main);
+
+        card.add_child(sidebarLabel('Диски', 'ai-sidebar-kicker'));
+        card.add_child(metricRow('/ · свободно', '42.1 ГБ · 38°C'));
+        card.add_child(metricRow('D: · свободно', '118 ГБ · 41°C'));
+        card.add_child(metricRow('Батарея', '82% · от батареи'));
+        return card;
+    }
+
+    _buildTaskCard() {
+        const card = this._card('Мини-диспетчер задач');
+        card.add_child(processRow('Firefox', '12% · 820 МБ'));
+        card.add_child(processRow('gnome-shell', '7% · 410 МБ'));
+        card.add_child(processRow('Терминал', '3% · 160 МБ'));
+        const button = new St.Button({
+            label: 'Показать все процессы',
+            style_class: 'ai-sidebar-action',
+            x_align: Clutter.ActorAlign.START,
+        });
+        card.add_child(button);
+        return card;
+    }
+
+    _buildActionsCard() {
+        const card = this._card('Быстрые системные действия');
+        ['Проверить состояние', 'Открыть ошибки служб', 'Открыть настройки сети'].forEach(label => {
+            card.add_child(new St.Button({
+                label,
+                style_class: 'ai-sidebar-action ai-sidebar-action-wide',
+                x_expand: true,
+            }));
+        });
+        return card;
+    }
+
+    _buildHistoryButton() {
+        return new St.Button({
+            label: 'Последние действия',
+            style_class: 'ai-sidebar-history',
+            x_expand: true,
+        });
+    }
+});
+
 const Panel = GObject.registerClass(
 class Panel extends St.Widget {
     _init(runtime) {
@@ -363,7 +537,7 @@ class Panel extends St.Widget {
         this._views.set_size(PANEL_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
         this._content.add_child(this._views);
 
-        this._sidebar = new WorkspaceView();
+        this._sidebar = new SidebarView();
         this._sidebar.set_position(0, 0);
         this._sidebar.set_size(PANEL_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
         this._views.add_child(this._sidebar);

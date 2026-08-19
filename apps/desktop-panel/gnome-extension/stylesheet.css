@@ -285,3 +285,125 @@
     background-color: #343434;
     border-radius: 0 0 20px 20px;
 }
+
+.ai-sidebar-view {
+    background-color: #343434;
+    border-radius: 0 0 20px 20px;
+    padding: 10px 11px 15px 11px;
+}
+
+.ai-sidebar-content {
+    spacing: 10px;
+}
+
+.ai-sidebar-card {
+    background-color: #2d2d2d;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 16px;
+    padding: 12px;
+    spacing: 8px;
+}
+
+.ai-sidebar-title {
+    color: #f2f2f2;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.ai-sidebar-kicker {
+    color: #b7d8ae;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.ai-sidebar-caption {
+    color: #bdbdbd;
+    font-size: 10px;
+}
+
+.ai-sidebar-temperature {
+    color: #f0f0f0;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.ai-status-main {
+    spacing: 12px;
+}
+
+.ai-status-details {
+    spacing: 4px;
+    padding-top: 3px;
+}
+
+.ai-metric-ring-wrap {
+    min-width: 94px;
+    min-height: 94px;
+}
+
+.ai-metric-ring {
+    width: 94px;
+    height: 94px;
+}
+
+.ai-ring-value {
+    color: #f5f5f5;
+    font-size: 17px;
+    font-weight: 700;
+}
+
+.ai-sidebar-metric-row {
+    spacing: 5px;
+}
+
+.ai-sidebar-metric-label,
+.ai-sidebar-metric-value {
+    color: #dedede;
+    font-size: 11px;
+}
+
+.ai-sidebar-metric-value {
+    font-weight: 700;
+}
+
+.ai-process-row {
+    spacing: 6px;
+}
+
+.ai-process-name,
+.ai-process-details {
+    color: #dedede;
+    font-size: 11px;
+}
+
+.ai-process-details {
+    color: #bdbdbd;
+}
+
+.ai-sidebar-action,
+.ai-sidebar-history {
+    background-color: #454545;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 9px;
+    color: #eeeeee;
+    font-size: 11px;
+    padding: 7px 10px;
+}
+
+.ai-sidebar-action-wide {
+    x-align: start;
+}
+
+.ai-sidebar-action:hover,
+.ai-sidebar-action:focus,
+.ai-sidebar-history:hover,
+.ai-sidebar-history:focus {
+    background-color: #535353;
+}
+
+.ai-sidebar-history {
+    background-color: #383838;
+    border-radius: 12px;
+    font-weight: 700;
+    padding: 10px 12px;
+}
