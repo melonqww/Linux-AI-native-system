@@ -108,6 +108,11 @@ PYTHONPATH="services/agent-runtime/src:services/execution-orchestrator/src:servi
 python -m ai_native_linux.cli --serve-panel
 ```
 
+На Linux команда автоматически создаёт защищённый Unix socket
+`$XDG_RUNTIME_DIR/ai-native-linux/runtime.sock`, проверяет kernel-provided
+`PID/UID/GID` клиента и только через этот канал разрешает R1 confirmation.
+Loopback HTTP включается явно флагом `--transport http` и остаётся R0-only.
+
 ## Автоматические проверки
 
 `python -m pytest -q` проверяет все сервисы, модули, структуру и safety-инварианты.
@@ -123,7 +128,7 @@ GitHub Actions повторяет набор на Windows и Ubuntu 24.04, гд�
 bash apps/desktop-panel/gnome-extension/install.sh
 ```
 
-После установки расширение можно перезапустить командами `gnome-extensions disable ai-native-linux@melonqww` и `gnome-extensions enable ai-native-linux@melonqww`. Поисковое поле обращается к read-only runtime на `127.0.0.1:8765`; изменяющие операции этим endpoint недоступны.
+После установки расширение можно перезапустить командами `gnome-extensions disable ai-native-linux@melonqww` и `gnome-extensions enable ai-native-linux@melonqww`. Production runtime использует Unix socket с peer credentials; TCP fallback не разрешает изменяющие операции.
 
 ## Документация
 
@@ -132,6 +137,7 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [Контракты намерений и инструментов](Architecture/api/intent-and-tool-contracts.md)
 - [Intent Compiler API v1](Architecture/api/intent-compiler-v1.md)
 - [Execution Orchestrator API v1](Architecture/api/execution-orchestrator-v1.md)
+- [Runtime Unix IPC v1](Architecture/api/runtime-unix-ipc-v1.md)
 - [Контракты Storage Catalog](Architecture/api/storage-catalog-contracts.md)
 - [Контракт статуса индекса](Architecture/api/runtime-index-status.md)
 - [JSON Schema manifest модуля](packages/module-sdk/schema/module-manifest.schema.json)
@@ -140,5 +146,6 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [Решение о модульном capability-ядре](Architecture/decisions/ADR-003-modular-capability-core.md)
 - [Решение об Intent Compiler](Architecture/decisions/ADR-004-model-neutral-intent-compiler.md)
 - [Решение об оркестрации серверных планов](Architecture/decisions/ADR-005-server-owned-execution-orchestration.md)
+- [Решение об authenticated Unix transport](Architecture/decisions/ADR-006-authenticated-unix-runtime-transport.md)
 - [Желаемые будущие возможности системы](Architecture/product/future-system-capabilities.md)
 - [Подготовка Ubuntu VM](docs/developer/Ubuntu-VM-setup.md)

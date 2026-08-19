@@ -3,38 +3,22 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Protocol
-from uuid import uuid4
 
-
-class RuntimeApplication(Protocol):
-    def capabilities(self) -> list[str]: ...
-    def search(self, payload: dict[str, object]) -> list[object]: ...
-    def index_status(self) -> dict[str, object]: ...
-    def compile_intent(self, payload: dict[str, object]) -> object: ...
-    def execute_plan(self, payload: dict[str, object]) -> object: ...
-    def respond_to_approval(self, payload: dict[str, object]) -> object: ...
+from .routing import RuntimeApplication, RuntimeRouter
 
 
 def create_server(application: RuntimeApplication, host: str = "127.0.0.1", port: int = 0):
     if host != "127.0.0.1":
         raise ValueError("panel bridge must bind to IPv4 loopback")
+    # TCP loopback is a development fallback. It can inspect and execute R0,
+    # but it must never confirm a filesystem-changing R1 operation.
+    router = RuntimeRouter(application, allow_r1=False)
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
-            try:
-                if self.path == "/v1/health":
-                    self._send(200, {"status": "ok"})
-                elif self.path == "/v1/capabilities":
-                    self._send(200, {"capabilities": application.capabilities()})
-                elif self.path == "/v1/index-status":
-                    self._send(200, application.index_status())
-                else:
-                    self._send_error(404, "not_found", retryable=False)
-            except Exception:
-                self._send_error(500, "internal_error", retryable=True)
+            response = router.dispatch("GET", self.path)
+            self._send(response.status, response.payload)
 
         def do_POST(self) -> None:
             try:
@@ -49,25 +33,14 @@ def create_server(application: RuntimeApplication, host: str = "127.0.0.1", port
                 payload = json.loads(self.rfile.read(length))
                 if not isinstance(payload, dict):
                     raise ValueError("body_must_be_object")
-                if self.path == "/v1/search":
-                    self._send(200, {"results": [asdict(item) for item in application.search(payload)]})
-                elif self.path == "/v1/intent/compile":
-                    result = application.compile_intent(payload)
-                    self._send(200, asdict(result))
-                elif self.path == "/v1/plan/execute":
-                    result = application.execute_plan(payload)
-                    self._send(200, asdict(result))
-                elif self.path == "/v1/approval/respond":
-                    result = application.respond_to_approval(payload)
-                    self._send(200, asdict(result))
-                else:
-                    self._send_error(404, "not_found", retryable=False)
-            except RuntimeError:
-                self._send_error(503, "service_unavailable", retryable=True)
+                response = router.dispatch("POST", self.path, payload)
+                self._send(response.status, response.payload)
             except (ValueError, json.JSONDecodeError):
-                self._send_error(400, "invalid_request", retryable=False)
+                response = router.error(400, "invalid_request", False)
+                self._send(response.status, response.payload)
             except Exception:
-                self._send_error(500, "internal_error", retryable=True)
+                response = router.error(500, "internal_error", True)
+                self._send(response.status, response.payload)
 
         def log_message(self, _format: str, *args: object) -> None:
             return
@@ -79,23 +52,6 @@ def create_server(application: RuntimeApplication, host: str = "127.0.0.1", port
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
-
-        def _send_error(
-            self,
-            status: int,
-            code: str,
-            *,
-            retryable: bool,
-            detail: str | None = None,
-        ) -> None:
-            error: dict[str, object] = {
-                "code": code,
-                "request_id": str(uuid4()),
-                "retryable": retryable,
-            }
-            if detail is not None:
-                error["detail"] = detail
-            self._send(status, {"error": error})
 
     server = ThreadingHTTPServer((host, port), Handler)
     server.daemon_threads = True

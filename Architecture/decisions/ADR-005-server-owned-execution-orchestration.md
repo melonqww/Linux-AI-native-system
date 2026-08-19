@@ -29,7 +29,6 @@ Audit остаётся metadata-only.
 ## Последствия
 
 Replay plan/approval ID блокируется, а restart runtime инвалидирует pending-планы.
-Это приемлемо для панели v0.1. Loopback HTTP не аутентифицирует процессы одного
-пользователя, поэтому следующая security-граница — Unix socket и проверка peer
-credentials системной панели. Горизонтальное масштабирование потребует общего
-защищённого plan store.
+Это приемлемо для панели v0.1. R1 теперь доступен только через Unix socket с peer
+credentials согласно ADR-006; same-user client binding остаётся следующим
+усилением. Горизонтальное масштабирование потребует общего защищённого plan store.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 from uuid import uuid4
 
@@ -23,7 +24,14 @@ def demo_payload() -> dict[str, object]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="AI-native Linux portfolio MVP")
     parser.add_argument("--demo", action="store_true", help="validate the fixed read-only demo request")
-    parser.add_argument("--serve-panel", action="store_true", help="serve the loopback panel API")
+    parser.add_argument("--serve-panel", action="store_true", help="serve the panel runtime API")
+    parser.add_argument(
+        "--transport",
+        choices=("auto", "unix", "http"),
+        default="auto",
+        help="auto uses authenticated Unix IPC on Linux and loopback HTTP elsewhere",
+    )
+    parser.add_argument("--socket-path", type=Path, help="override the Linux Unix socket path")
     parser.add_argument("--host", default="127.0.0.1", choices=("127.0.0.1",))
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--storage-database", type=Path, default=Path("data/storage-catalog.sqlite3"))
@@ -53,8 +61,6 @@ def main() -> int:
         from ai_native_capabilities import CapabilityRegistry
         from ai_native_module_manager import ModuleProcessManager
         from ai_native_query import QueryRuntimeApplication, QueryService
-
-        from .bridge import create_server
 
         roots = args.module_roots or [Path("services"), Path("modules")]
         registry = CapabilityRegistry(args.registry_database)
@@ -125,8 +131,21 @@ def main() -> int:
                 plan_store=plan_store,
                 plan_executor=plan_executor,
             )
-            server = create_server(application, host=args.host, port=args.port)
-            print(f"Panel runtime: http://{args.host}:{server.server_port}")
+            transport = (
+                "unix" if args.transport == "auto" and sys.platform.startswith("linux")
+                else "http" if args.transport == "auto"
+                else args.transport
+            )
+            if transport == "unix":
+                from .unix_socket import create_unix_server
+
+                server = create_unix_server(application, args.socket_path)
+                print(f"Panel runtime: unix://{server.socket_path}")
+            else:
+                from .bridge import create_server
+
+                server = create_server(application, host=args.host, port=args.port)
+                print(f"Panel runtime (development fallback): http://{args.host}:{server.server_port}")
             server.serve_forever()
         except KeyboardInterrupt:
             pass

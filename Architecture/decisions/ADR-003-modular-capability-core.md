@@ -170,10 +170,15 @@ capabilities, но сами не расширяют полномочия мод�
 - Слишком мелкое дробление увеличит задержки и сложность, поэтому модули должны
   соответствовать крупным capability-доменам, а не каждой отдельной функции.
 
+Production IPC core→panel теперь выбран в
+[ADR-006](ADR-006-authenticated-unix-runtime-transport.md): Unix socket,
+filesystem permissions и Linux `SO_PEERCRED`. IPC отдельных capability-процессов
+и дополнительная same-user client binding остаются отдельными решениями.
+
 ## Отложенные решения
 
 - формат подписи и канал распространения сторонних модулей;
-- точный IPC transport для production;
+- transport/sandbox отдельных capability-модулей;
 - политика автоматического обновления;
 - конкретные CPU/RAM budgets для классов ресурсов;
 - публичный SDK и правила совместимости сторонних разработчиков.
