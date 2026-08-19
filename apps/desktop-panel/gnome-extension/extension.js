@@ -192,7 +192,6 @@ class ChatView extends St.BoxLayout {
             icon_name: 'security-high-symbolic',
             style_class: 'ai-confirmation-icon',
         });
-        confirmationIcon.translation_y = 5;
         confirmationContent.add_child(confirmationIcon);
         const confirmationLabel = new St.Label({
             text: 'Подтверждать за меня',
@@ -200,7 +199,6 @@ class ChatView extends St.BoxLayout {
             x_expand: true,
             x_align: Clutter.ActorAlign.START,
         });
-        confirmationLabel.translation_y = 5;
         confirmationContent.add_child(confirmationLabel);
         confirmation.set_child(confirmationContent);
         confirmation.connect('clicked', () => {
@@ -232,7 +230,6 @@ class ChatView extends St.BoxLayout {
             x_expand: true,
             x_align: Clutter.ActorAlign.END,
         });
-        modelLabel.translation_y = 5;
         modelContent.add_child(modelLabel);
         modelContent.add_child(new St.Label({
             text: '⌄',
@@ -399,10 +396,16 @@ class Panel extends St.Widget {
     _togglePanel() {
         this._collapsed = !this._collapsed;
         this._toggleLabel.set_text(this._collapsed ? '‹' : '›');
+        const target = this._collapsed ? this._collapsedTranslation : 0;
         this.ease({
-            translation_x: this._collapsed ? this._collapsedTranslation : 0,
+            translation_x: target,
             duration: 420,
             mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            onComplete: () => {
+                // Keep the final position exact even if Shell interrupts the
+                // transition during a monitor/layout update.
+                this.translation_x = target;
+            },
         });
     }
 });

@@ -30,8 +30,6 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "monitor.height * 0.52",
             "this._toggleLabel.set_text(this._collapsed ? '‹' : '›')",
             "this._collapsedTranslation = PANEL_WIDTH + PANEL_MARGIN",
-            "confirmationLabel.translation_y = 5",
-            "modelLabel.translation_y = 5",
             "_animateHighlight",
             "GLib.timeout_add",
             "Qwen 3.5 2B",
@@ -54,6 +52,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
         self.assertIn("background-color: transparent;", stylesheet)
         self.assertIn(".ai-panel-content", stylesheet)
         self.assertIn("box-shadow: 0 18px 52px", stylesheet)
+        self.assertIn("margin-top: 5px", stylesheet)
 
 
 if __name__ == "__main__":

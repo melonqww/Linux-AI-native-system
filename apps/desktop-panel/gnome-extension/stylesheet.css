@@ -177,11 +177,13 @@
 .ai-confirmation-icon {
     icon-size: 15px;
     color: #cfcfcd;
+    margin-top: 5px;
 }
 
 .ai-confirmation-label {
     color: inherit;
     font-size: 12px;
+    margin-top: 5px;
 }
 
 .ai-confirmation:hover,
@@ -212,6 +214,7 @@
 .ai-model-label {
     color: inherit;
     font-size: 13px;
+    margin-top: 5px;
 }
 
 .ai-model-chevron {
