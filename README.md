@@ -15,7 +15,8 @@
 GNOME-панель подключена к ядру через authenticated Unix IPC: центральная вкладка
 использует Intent Compiler, Execution Orchestrator и R1 approval, левая показывает
 health, индекс и Task Ledger. CPU/RAM/батарея и процессы намеренно остаются без
-фиктивных значений до подключения отдельного system-monitor модуля.
+фиктивных значений: first-party `system.monitor` уже отдельным worker-процессом читает
+ограниченные Linux-метрики и отдаёт их панели через runtime API.
 
 ## Базовый принцип
 
@@ -58,7 +59,7 @@ python -m unittest discover -s services/agent-runtime/tests -v
 и зависимости и публикует доступные capabilities. Формальная manifest schema
 находится в `packages/module-sdk`. Зарегистрированы `storage.catalog`,
 `documents.index`, `documents.pdf`, `desktop.applications` и
-`browser.navigation`; команды описаны в
+`browser.navigation` и `system.monitor`; команды описаны в
 [`services/capability-registry/README.md`](services/capability-registry/README.md).
 
 ## Intent Compiler v1
@@ -117,6 +118,10 @@ model reasoning и технические причины ошибок в пол�
 6. `modules/desktop-applications` и `modules/browser-navigation` дают базовый
    поиск приложений, безопасное планирование URL и веб-поиска.
 
+`modules/system-monitor` реализует read-only диспетчер: CPU, load average,
+uptime, RAM/swap, thermal zones, батарею, диски и процессы. Контракт:
+[`Architecture/api/system-monitor-v1.md`](Architecture/api/system-monitor-v1.md).
+
 Следующий background-слой реализован в `services/index-scheduler`: Linux
 `inotify`, mount monitoring, ограниченная coalescing-очередь, load pause и
 инкрементальное обновление каталога, текста и PDF. `Module Manager` действительно
@@ -165,6 +170,7 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [Runtime Unix IPC v1](Architecture/api/runtime-unix-ipc-v1.md)
 - [Permission Gateway v1](Architecture/api/permission-gateway-v1.md)
 - [Task Ledger v1](Architecture/api/task-ledger-v1.md)
+- [System Monitor API v1](Architecture/api/system-monitor-v1.md)
 - [Контракты Storage Catalog](Architecture/api/storage-catalog-contracts.md)
 - [Контракт статуса индекса](Architecture/api/runtime-index-status.md)
 - [JSON Schema manifest модуля](packages/module-sdk/schema/module-manifest.schema.json)

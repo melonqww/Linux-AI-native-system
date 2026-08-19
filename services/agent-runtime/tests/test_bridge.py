@@ -45,6 +45,9 @@ class App:
     def index_status(self):
         return {"scheduler": {"state": "idle", "queued": 0}}
 
+    def system_status(self):
+        return {"schema_version": 1, "supported": True, "processes": []}
+
     def compile_intent(self, payload):
         return Compilation(state="ready", text=payload["text"])
 
@@ -86,6 +89,7 @@ class BridgeTests(unittest.TestCase):
             health = json.load(urllib.request.urlopen(base + "/v1/health"))
             capabilities = json.load(urllib.request.urlopen(base + "/v1/capabilities"))
             status = json.load(urllib.request.urlopen(base + "/v1/index-status"))
+            system_status = json.load(urllib.request.urlopen(base + "/v1/system-status"))
             tasks = json.load(urllib.request.urlopen(base + "/v1/tasks"))
             request = urllib.request.Request(
                 base + "/v1/search",
@@ -129,6 +133,8 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(health, {"status": "ok"})
         self.assertNotIn("execution.r1.copy", capabilities["capabilities"])
         self.assertEqual(status["scheduler"]["state"], "idle")
+        self.assertEqual(system_status["schema_version"], 1)
+        self.assertTrue(system_status["supported"])
         self.assertEqual(tasks, {"tasks": [{"task_id": "task-1", "state": "completed"}]})
         self.assertEqual(results["results"][0]["path"], "result:math")
         self.assertEqual(compilation, {"state": "ready", "text": "find math PDFs"})

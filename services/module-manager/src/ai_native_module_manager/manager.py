@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -17,6 +18,10 @@ from ai_native_capabilities import CapabilityRegistry, ModuleState
 
 class ModuleProcessError(RuntimeError):
     pass
+
+
+_OPERATION = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
+_MAX_REQUEST_BYTES = 64 * 1024
 
 
 @dataclass
@@ -146,6 +151,31 @@ class ModuleProcessManager:
             raise ModuleProcessError("module health details must be an object")
         return details
 
+    def invoke(
+        self,
+        module_id: str,
+        operation: str,
+        payload: dict[str, object] | None = None,
+    ) -> dict[str, object]:
+        if not isinstance(operation, str) or _OPERATION.fullmatch(operation) is None:
+            raise ValueError("invalid module operation")
+        body = {} if payload is None else payload
+        if not isinstance(body, dict):
+            raise ValueError("module payload must be an object")
+        running = self._require_running(module_id)
+        response = self._request(
+            running.process,
+            {"command": "invoke", "operation": operation, "payload": body},
+        )
+        running.last_used = monotonic()
+        if response.get("event") != "result":
+            code = response.get("error", "module invocation failed")
+            raise ModuleProcessError(f"module invocation failed: {code}")
+        result = response.get("result")
+        if not isinstance(result, dict):
+            raise ModuleProcessError("module result must be an object")
+        return result
+
     def _health_response(self, module_id: str) -> dict[str, object]:
         running = self._require_running(module_id)
         response = self._request(running.process, {"command": "health"})
@@ -200,7 +230,13 @@ class ModuleProcessManager:
     def _request(self, process: subprocess.Popen[str], payload: dict[str, object]) -> dict[str, object]:
         if process.stdin is None:
             raise ModuleProcessError("worker stdin is closed")
-        process.stdin.write(json.dumps(payload) + "\n")
+        try:
+            encoded = json.dumps(payload, separators=(",", ":"))
+        except (TypeError, ValueError) as error:
+            raise ModuleProcessError("worker request is not JSON-safe") from error
+        if len(encoded.encode("utf-8")) > _MAX_REQUEST_BYTES:
+            raise ModuleProcessError("worker request is too large")
+        process.stdin.write(encoded + "\n")
         process.stdin.flush()
         return self._read_response(process, self.response_timeout)
 
@@ -210,7 +246,7 @@ class ModuleProcessManager:
             raise ModuleProcessError("worker stdout is closed")
         queue: Queue[str] = Queue(maxsize=1)
         threading.Thread(
-            target=lambda: queue.put(process.stdout.readline()),
+            target=lambda: queue.put(process.stdout.readline(_MAX_REQUEST_BYTES + 1)),
             daemon=True,
         ).start()
         try:
@@ -220,6 +256,10 @@ class ModuleProcessManager:
         if not line:
             stderr = process.stderr.read() if process.stderr else ""
             raise ModuleProcessError(f"worker exited without response: {stderr.strip()}")
+        if len(line.encode("utf-8")) > _MAX_REQUEST_BYTES:
+            if process.poll() is None:
+                process.kill()
+            raise ModuleProcessError("worker response is too large")
         try:
             payload = json.loads(line)
         except json.JSONDecodeError as error:

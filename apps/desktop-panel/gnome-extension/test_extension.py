@@ -12,6 +12,11 @@ from pathlib import Path
 ROOT = Path(__file__).parent
 
 
+class MonitorProbeApplication:
+    def system_status(self):
+        return {"schema_version": 1, "supported": True}
+
+
 class GnomeExtensionFilesTest(unittest.TestCase):
     def test_metadata_is_valid(self):
         metadata = json.loads((ROOT / "metadata.json").read_text(encoding="utf-8"))
@@ -98,7 +103,9 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "this._runtime.indexStatus()",
             "this._runtime.tasks()",
             "this._runtime.taskDetail(taskId)",
+            "this._runtime.systemStatus()",
             "executionPresentation(result)",
+            "monitorPresentation(snapshot)",
             "systemPresentation(health, capabilities, index)",
             "taskDetailPresentation(task)",
         ):
@@ -118,6 +125,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "'/v1/plan/execute'",
             "'/v1/approval/respond'",
             "'/v1/index-status'",
+            "'/v1/system-status'",
             "'/v1/tasks'",
             "'/v1/tasks/detail'",
         ):
@@ -181,7 +189,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
 
         root = Path(tempfile.mkdtemp(prefix="ai-native-gjs-"))
         os.chmod(root, 0o700)
-        server = create_unix_server(object(), root / "runtime.sock")
+        server = create_unix_server(MonitorProbeApplication(), root / "runtime.sock")
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         try:
@@ -193,7 +201,10 @@ class GnomeExtensionFilesTest(unittest.TestCase):
                 timeout=15,
             )
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(json.loads(result.stdout.strip()), {"status": "ok"})
+            self.assertEqual(
+                json.loads(result.stdout.strip()),
+                {"status": "ok", "system": {"schema_version": 1, "supported": True}},
+            )
         finally:
             server.shutdown()
             server.server_close()

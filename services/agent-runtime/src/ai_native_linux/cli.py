@@ -60,7 +60,7 @@ def main() -> int:
     args = parser.parse_args()
     if args.serve_panel:
         from ai_native_capabilities import CapabilityRegistry
-        from ai_native_module_manager import ModuleProcessManager
+        from ai_native_module_manager import ModuleProcessError, ModuleProcessManager
         from ai_native_query import QueryRuntimeApplication, QueryService
 
         roots = args.module_roots or [Path("services"), Path("modules")]
@@ -76,6 +76,15 @@ def main() -> int:
         server = None
         try:
             manager.start_for_capability("storage.watch.events")
+            system_monitor_status = None
+            try:
+                monitor_module_id = manager.start_for_capability("system.monitor.snapshot")
+            except ModuleProcessError:
+                print("System monitor: unavailable")
+            else:
+                system_monitor_status = lambda: manager.invoke(
+                    monitor_module_id, "snapshot", {"process_limit": 20}
+                )
             query_service = QueryService(
                 storage_database=args.storage_database,
                 index_database=args.index_database,
@@ -149,6 +158,7 @@ def main() -> int:
             application = QueryRuntimeApplication(
                 query_service,
                 scheduler_status=lambda: manager.health_details("storage.watch"),
+                system_monitor_status=system_monitor_status,
                 intent_pipeline=intent_pipeline,
                 task_context=task_context,
                 plan_store=plan_store,

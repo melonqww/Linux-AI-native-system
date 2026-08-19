@@ -33,7 +33,9 @@ python3 apps/desktop-panel/gnome-extension/validate_extension.py --installed
 
 Центральная вкладка использует полный путь `intent/compile → plan/execute →
 approval/respond`, а не прямой поиск. Левая вкладка читает health, capabilities,
-состояние индекса и Task Ledger. Если runtime не запущен, ошибка остаётся внутри
+состояние индекса, Task Ledger и read-only snapshot `system.monitor`: CPU, RAM/swap,
+батарею, температуры, диски и процессы. Во время показа вкладки метрики
+обновляются каждые три секунды. Если runtime не запущен, ошибка остаётся внутри
 панели и GNOME Shell продолжает работать.
 
 Loopback HTTP в расширении не используется. Изменяющие операции выполняются

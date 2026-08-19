@@ -126,6 +126,17 @@ class QueryServiceTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             application.search({"text": [], "limit": 20})
 
+    def test_runtime_exposes_optional_system_monitor_snapshot(self) -> None:
+        snapshot = {"schema_version": 1, "supported": True, "processes": []}
+        application = QueryRuntimeApplication(
+            self.service, system_monitor_status=lambda: snapshot
+        )
+
+        self.assertEqual(application.system_status(), snapshot)
+        self.assertIn("system.monitor.snapshot", application.capabilities())
+        with self.assertRaises(RuntimeError):
+            QueryRuntimeApplication(self.service).system_status()
+
     def test_revoked_content_permission_hides_stale_index_snippets(self) -> None:
         self.make_pdf("Private mathematics theorem")
         self.service.catalog.scan_volume("test-volume")

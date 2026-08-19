@@ -2,7 +2,11 @@
 
 import importlib
 import json
+import re
 import sys
+
+
+_OPERATION = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
 
 
 def emit(payload: dict[str, object]) -> None:
@@ -43,6 +47,32 @@ def main() -> int:
                 stop()
             emit({"event": "stopped", "module": module_name})
             return 0
+        elif command == "invoke":
+            operation = request.get("operation")
+            payload = request.get("payload")
+            invoke = getattr(module, "worker_invoke", None)
+            if (
+                not isinstance(operation, str)
+                or _OPERATION.fullmatch(operation) is None
+                or not isinstance(payload, dict)
+                or not callable(invoke)
+            ):
+                emit({"event": "error", "error": "invalid_invocation"})
+                continue
+            try:
+                result = invoke(operation, payload)
+            except (OSError, RuntimeError, ValueError):
+                emit({"event": "error", "error": "invocation_failed"})
+                continue
+            if not isinstance(result, dict):
+                emit({"event": "error", "error": "invalid_result"})
+                continue
+            try:
+                json.dumps(result)
+            except (TypeError, ValueError):
+                emit({"event": "error", "error": "invalid_result"})
+                continue
+            emit({"event": "result", "module": module_name, "result": result})
         else:
             emit({"event": "error", "error": "unknown_command"})
     stop = getattr(module, "worker_stop", None)

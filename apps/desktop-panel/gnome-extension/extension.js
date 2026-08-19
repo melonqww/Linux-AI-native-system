@@ -10,6 +10,7 @@ import {
     approvalPresentation,
     compilationMessage,
     executionPresentation,
+    monitorPresentation,
     runtimeErrorMessage,
     systemPresentation,
     taskDetailPresentation,
@@ -419,6 +420,10 @@ function sidebarLabel(text, styleClass, options = {}) {
         label.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
         label.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
     }
+    if (options.ellipsize) {
+        label.clutter_text.single_line_mode = true;
+        label.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+    }
     return label;
 }
 
@@ -427,14 +432,14 @@ function metricRow(label, value, extraClass = '') {
         style_class: `ai-sidebar-metric-row ${extraClass}`.trim(),
         x_expand: true,
     });
-    row.add_child(sidebarLabel(label, 'ai-sidebar-metric-label', {x_expand: true}));
+    row.add_child(sidebarLabel(label, 'ai-sidebar-metric-label', {x_expand: true, ellipsize: true}));
     row.add_child(sidebarLabel(value, 'ai-sidebar-metric-value'));
     return row;
 }
 
 function processRow(name, cpu, memory) {
     const row = new St.BoxLayout({style_class: 'ai-process-row', x_expand: true});
-    row.add_child(sidebarLabel(`${name}:`, 'ai-process-name', {x_expand: true}));
+    row.add_child(sidebarLabel(`${name}:`, 'ai-process-name', {x_expand: true, ellipsize: true}));
     row.add_child(sidebarLabel(cpu, 'ai-process-cpu ai-process-column-cpu'));
     row.add_child(sidebarLabel(memory, 'ai-process-memory ai-process-column-memory'));
     return row;
@@ -446,9 +451,15 @@ function metricBlock(title, value, detail, extraClass = '') {
         style_class: `ai-metric-block ${extraClass}`.trim(),
         x_align: Clutter.ActorAlign.CENTER,
     });
-    block.add_child(createMetricRing(value));
+    const ring = createMetricRing(value);
+    block.add_child(ring);
     block.add_child(sidebarLabel(title, 'ai-metric-title'));
-    block.add_child(sidebarLabel(detail, 'ai-metric-detail', {wrap: true}));
+    const detailLabel = sidebarLabel(detail, 'ai-metric-detail', {wrap: true});
+    block.add_child(detailLabel);
+    block.setMetric = (nextValue, nextDetail) => {
+        ring.setMetric(nextValue);
+        detailLabel.set_text(nextDetail);
+    };
     return block;
 }
 
@@ -463,7 +474,7 @@ function cpuColor(value) {
 }
 
 function createMetricRing(value) {
-    const numericValue = Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : null;
+    let numericValue = Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : null;
     const wrap = new St.Widget({
         style_class: 'ai-metric-ring-wrap',
         layout_manager: new Clutter.BinLayout(),
@@ -505,6 +516,11 @@ function createMetricRing(value) {
         y_align: Clutter.ActorAlign.CENTER,
     });
     wrap.add_child(valueLabel);
+    wrap.setMetric = nextValue => {
+        numericValue = Number.isFinite(nextValue) ? Math.max(0, Math.min(100, nextValue)) : null;
+        valueLabel.set_text(numericValue === null ? '—' : `${numericValue}%`);
+        drawing.queue_repaint();
+    };
     return wrap;
 }
 
@@ -520,7 +536,24 @@ class SidebarView extends St.BoxLayout {
         this._runtime = runtime;
         this._refreshing = false;
         this._disposed = false;
-        this.connect('destroy', () => this._disposed = true);
+        this.connect('destroy', () => {
+            this._disposed = true;
+            if (this._refreshSourceId) {
+                GLib.Source.remove(this._refreshSourceId);
+                this._refreshSourceId = 0;
+            }
+        });
+        this._refreshSourceId = GLib.timeout_add_seconds(
+            GLib.PRIORITY_DEFAULT,
+            3,
+            () => {
+                if (this._disposed)
+                    return GLib.SOURCE_REMOVE;
+                if (this.visible)
+                    this.refresh();
+                return GLib.SOURCE_CONTINUE;
+            },
+        );
         this._scroll = new St.ScrollView({
             style_class: 'ai-sidebar-scroll',
             x_expand: true,
@@ -544,6 +577,8 @@ class SidebarView extends St.BoxLayout {
         this._content.add_child(this._historyCard);
         this._historyButton = this._buildHistoryButton();
         this.add_child(this._historyButton);
+        this._processes = [];
+        this._showAllProcesses = false;
     }
 
     _card(title) {
@@ -563,11 +598,19 @@ class SidebarView extends St.BoxLayout {
         this._indexState = this._boundMetricRow(card, 'Индекс', '—');
         this._schedulerState = this._boundMetricRow(card, 'Фоновая обработка', '—');
         card.add_child(sidebarLabel('Системный монитор', 'ai-sidebar-kicker'));
+        this._monitorSummary = sidebarLabel('подключение…', 'ai-sidebar-caption');
+        card.add_child(this._monitorSummary);
         const metrics = new St.BoxLayout({style_class: 'ai-status-main', x_expand: true});
-        metrics.add_child(metricBlock('Загрузка ЦП', null, 'модуль не подключён'));
-        metrics.add_child(metricBlock('Оперативная память', null, 'модуль не подключён'));
-        metrics.add_child(metricBlock('Батарея', null, 'модуль не подключён', 'ai-battery-metric'));
+        this._cpuMetric = metricBlock('Загрузка ЦП', null, 'модуль не подключён');
+        this._memoryMetric = metricBlock('Оперативная память', null, 'модуль не подключён');
+        this._batteryMetric = metricBlock('Батарея', null, 'модуль не подключён', 'ai-battery-metric');
+        metrics.add_child(this._cpuMetric);
+        metrics.add_child(this._memoryMetric);
+        metrics.add_child(this._batteryMetric);
         card.add_child(metrics);
+        card.add_child(sidebarLabel('Свободное место на дисках', 'ai-sidebar-kicker'));
+        this._diskList = new St.BoxLayout({vertical: true, x_expand: true});
+        card.add_child(this._diskList);
         return card;
     }
 
@@ -587,23 +630,30 @@ class SidebarView extends St.BoxLayout {
         header.add_child(sidebarLabel('ЦП', 'ai-process-heading ai-process-heading-cpu'));
         header.add_child(sidebarLabel('Память', 'ai-process-heading ai-process-heading-memory'));
         card.add_child(header);
-        card.add_child(sidebarLabel(
+        this._processList = new St.BoxLayout({vertical: true, x_expand: true});
+        card.add_child(this._processList);
+        this._processCaption = sidebarLabel(
             'Данные появятся после подключения модуля системного мониторинга.',
             'ai-sidebar-caption',
-        ));
-        const button = new St.Button({
+        );
+        card.add_child(this._processCaption);
+        this._processButton = new St.Button({
             label: 'Показать все процессы',
             style_class: 'ai-sidebar-action',
             x_align: Clutter.ActorAlign.START,
             reactive: false,
         });
-        card.add_child(button);
+        this._processButton.connect('clicked', () => {
+            this._showAllProcesses = !this._showAllProcesses;
+            this._renderProcesses();
+        });
+        card.add_child(this._processButton);
         return card;
     }
 
     _buildActionsCard() {
         const card = this._card('Быстрые системные действия');
-        ['Проверить состояние', 'Открыть ошибки служб', 'Открыть настройки сети'].forEach((label, index) => {
+        ['Обновить системные данные', 'Открыть ошибки служб', 'Открыть настройки сети'].forEach((label, index) => {
             const button = new St.Button({
                 label,
                 style_class: 'ai-sidebar-action ai-sidebar-action-wide',
@@ -648,31 +698,65 @@ class SidebarView extends St.BoxLayout {
             return;
         this._refreshing = true;
         try {
-            const [health, capabilities, index, tasks] = await Promise.all([
+            const [coreResult, monitorResult] = await Promise.allSettled([
+                Promise.all([
                 this._runtime.health(),
                 this._runtime.capabilities(),
                 this._runtime.indexStatus(),
                 this._runtime.tasks(),
+                ]),
+                this._runtime.systemStatus(),
             ]);
             if (this._disposed)
                 return;
-            const status = systemPresentation(health, capabilities, index);
-            this._runtimeState.set_text(status.runtime);
-            this._capabilityState.set_text(status.capabilities);
-            this._indexState.set_text(status.index);
-            this._schedulerState.set_text(status.scheduler);
-            this._renderTasks(tasks.tasks ?? []);
-        } catch (_error) {
-            if (this._disposed)
-                return;
-            this._runtimeState.set_text('недоступно');
-            this._capabilityState.set_text('—');
-            this._indexState.set_text('—');
-            this._schedulerState.set_text('—');
-            this._renderTasks([]);
+            if (coreResult.status === 'fulfilled') {
+                const [health, capabilities, index, tasks] = coreResult.value;
+                const status = systemPresentation(health, capabilities, index);
+                this._runtimeState.set_text(status.runtime);
+                this._capabilityState.set_text(status.capabilities);
+                this._indexState.set_text(status.index);
+                this._schedulerState.set_text(status.scheduler);
+                this._renderTasks(tasks.tasks ?? []);
+            } else {
+                this._runtimeState.set_text('недоступно');
+                this._capabilityState.set_text('—');
+                this._indexState.set_text('—');
+                this._schedulerState.set_text('—');
+                this._renderTasks([]);
+            }
+            this._renderMonitor(monitorResult.status === 'fulfilled' ? monitorResult.value : null);
         } finally {
             this._refreshing = false;
         }
+    }
+
+    _renderMonitor(snapshot) {
+        const view = monitorPresentation(snapshot);
+        this._monitorSummary.set_text(view.summary);
+        this._cpuMetric.setMetric(view.cpu.value, view.cpu.detail);
+        this._memoryMetric.setMetric(view.memory.value, view.memory.detail);
+        this._batteryMetric.setMetric(view.battery.value, view.battery.detail);
+        this._diskList.destroy_all_children();
+        if (!view.disks.length) {
+            this._diskList.add_child(sidebarLabel('Диски недоступны.', 'ai-sidebar-caption'));
+        } else {
+            for (const disk of view.disks)
+                this._diskList.add_child(metricRow(disk.label, disk.value, 'ai-disk-row'));
+        }
+        this._processes = view.processes;
+        this._showAllProcesses = false;
+        this._renderProcesses();
+    }
+
+    _renderProcesses() {
+        this._processList.destroy_all_children();
+        const visible = this._showAllProcesses ? this._processes : this._processes.slice(0, 5);
+        for (const process of visible)
+            this._processList.add_child(processRow(`${process.name} (${process.pid})`, process.cpu, process.memory));
+        this._processCaption.visible = this._processes.length === 0;
+        this._processButton.reactive = this._processes.length > 5;
+        this._processButton.visible = this._processes.length > 5;
+        this._processButton.label = this._showAllProcesses ? 'Скрыть процессы' : 'Показать все процессы';
     }
 
     async refreshTasks() {

@@ -37,6 +37,9 @@ class App:
     def index_status(self):
         return {"state": "idle"}
 
+    def system_status(self):
+        return {"schema_version": 1, "supported": True}
+
     def compile_intent(self, payload):
         return Result(payload["text"])
 

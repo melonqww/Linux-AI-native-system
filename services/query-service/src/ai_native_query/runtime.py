@@ -46,6 +46,7 @@ class QueryRuntimeApplication:
         query_service: QueryService,
         *,
         scheduler_status: Callable[[], object] | None = None,
+        system_monitor_status: Callable[[], dict[str, object]] | None = None,
         intent_pipeline: IntentPipeline | None = None,
         task_context: Callable[[], object] | None = None,
         plan_store: PlanStore | None = None,
@@ -54,6 +55,7 @@ class QueryRuntimeApplication:
     ) -> None:
         self.query_service = query_service
         self.scheduler_status = scheduler_status
+        self.system_monitor_status = system_monitor_status
         self.intent_pipeline = intent_pipeline
         self.task_context = task_context
         self.plan_store = plan_store
@@ -84,7 +86,17 @@ class QueryRuntimeApplication:
                     "tasks.activity.control",
                 )
             )
+        if self.system_monitor_status is not None:
+            capabilities.append("system.monitor.snapshot")
         return capabilities
+
+    def system_status(self) -> dict[str, object]:
+        if self.system_monitor_status is None:
+            raise RuntimeError("system_monitor_unavailable")
+        status = self.system_monitor_status()
+        if not isinstance(status, dict):
+            raise RuntimeError("system_monitor_invalid_response")
+        return status
 
     def tasks(self) -> tuple[object, ...]:
         if self.task_ledger is None:

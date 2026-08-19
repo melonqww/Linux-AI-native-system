@@ -45,6 +45,10 @@ export class RuntimeClient {
         return this.request('GET', '/v1/index-status');
     }
 
+    systemStatus() {
+        return this.request('GET', '/v1/system-status');
+    }
+
     tasks() {
         return this.request('GET', '/v1/tasks');
     }

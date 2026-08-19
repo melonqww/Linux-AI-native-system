@@ -6,6 +6,8 @@ import {
     approvalPresentation,
     compilationMessage,
     executionPresentation,
+    formatBytes,
+    monitorPresentation,
     runtimeErrorMessage,
     schedulerLabel,
     systemPresentation,
@@ -132,6 +134,54 @@ test('system status formats runtime, capabilities, index and scheduler', () => {
         index: '0 документов · 0 файлов',
         scheduler: 'нет данных · очередь 0',
     });
+});
+
+test('system monitor snapshot formats metrics, disks and processes', () => {
+    const view = monitorPresentation({
+        supported: true,
+        uptime_seconds: 90061,
+        cpu: {
+            usage_percent: 37.4,
+            load_average: [1.25, 0.5, 0.25],
+            temperature_celsius: 54.2,
+        },
+        memory: {
+            usage_percent: 62.1,
+            used_bytes: 5 * 1024 ** 3,
+            total_bytes: 8 * 1024 ** 3,
+            swap_used_bytes: 256 * 1024 ** 2,
+            swap_total_bytes: 2 * 1024 ** 3,
+        },
+        battery: {present: true, percent: 82, status: 'discharging', temperature_celsius: 31},
+        disks: [{mount_point: '/', free_bytes: 40 * 1024 ** 3, total_bytes: 100 * 1024 ** 3}],
+        processes: [{pid: 42, name: 'gnome-shell', cpu_percent: 7.2, memory_bytes: 410 * 1024 ** 2}],
+    });
+
+    assert.equal(view.available, true);
+    assert.deepEqual(view.cpu, {value: 37, detail: '54°C · load 1.25 / 0.5 / 0.25'});
+    assert.deepEqual(view.memory, {value: 62, detail: '5.0 ГБ из 8.0 ГБ · swap 256 МБ'});
+    assert.deepEqual(view.battery, {value: 82, detail: 'от батареи · 31°C'});
+    assert.deepEqual(view.disks, [{label: '/ · свободно', value: '40.0 ГБ из 100.0 ГБ'}]);
+    assert.deepEqual(view.processes, [{pid: 42, name: 'gnome-shell', cpu: '7%', memory: '410 МБ'}]);
+    assert.equal(view.summary, 'работает 1 д. 1 ч.');
+});
+
+test('system monitor degrades deterministically when unavailable', () => {
+    const view = monitorPresentation(null);
+    assert.equal(view.available, false);
+    assert.equal(view.cpu.value, null);
+    assert.equal(view.memory.value, null);
+    assert.equal(view.battery.detail, 'не обнаружена');
+    assert.deepEqual(view.disks, []);
+    assert.deepEqual(view.processes, []);
+});
+
+test('byte formatting is stable across system metric units', () => {
+    assert.equal(formatBytes(0), '0 Б');
+    assert.equal(formatBytes(1024), '1 КБ');
+    assert.equal(formatBytes(5 * 1024 ** 2), '5 МБ');
+    assert.equal(formatBytes(1.5 * 1024 ** 3), '1.5 ГБ');
+    assert.equal(formatBytes(-1), '0 Б');
 });
 
 test('all public task and scheduler states have stable labels', () => {

@@ -122,6 +122,109 @@ export function systemPresentation(health, capabilities, index) {
     };
 }
 
+export function monitorPresentation(snapshot) {
+    if (snapshot?.supported !== true) {
+        return {
+            available: false,
+            cpu: {value: null, detail: 'модуль недоступен'},
+            memory: {value: null, detail: 'модуль недоступен'},
+            battery: {value: null, detail: 'не обнаружена'},
+            disks: [],
+            processes: [],
+            summary: 'системные метрики недоступны',
+        };
+    }
+    const cpu = snapshot.cpu ?? {};
+    const memory = snapshot.memory ?? {};
+    const battery = snapshot.battery ?? {};
+    const cpuTemperature = formatTemperature(cpu.temperature_celsius);
+    const load = safeArray(cpu.load_average).slice(0, 3).join(' / ');
+    const cpuDetails = [
+        cpuTemperature,
+        load ? `load ${load}` : '',
+    ].filter(Boolean).join(' · ') || 'датчики недоступны';
+    const usedMemory = safeCount(memory.used_bytes);
+    const totalMemory = safeCount(memory.total_bytes);
+    const swapUsed = safeCount(memory.swap_used_bytes);
+    const swapTotal = safeCount(memory.swap_total_bytes);
+    const memoryDetails = totalMemory > 0
+        ? `${formatBytes(usedMemory)} из ${formatBytes(totalMemory)}` +
+            (swapTotal > 0 ? ` · swap ${formatBytes(swapUsed)}` : '')
+        : 'данные недоступны';
+    const batteryDetails = battery.present === true
+        ? [batteryStatusLabel(battery.status), formatTemperature(battery.temperature_celsius)]
+            .filter(Boolean).join(' · ')
+        : 'не обнаружена';
+    const uptime = formatDuration(snapshot.uptime_seconds);
+    return {
+        available: true,
+        cpu: {value: safePercent(cpu.usage_percent), detail: cpuDetails},
+        memory: {value: safePercent(memory.usage_percent), detail: memoryDetails},
+        battery: {
+            value: battery.present === true ? safePercent(battery.percent) : null,
+            detail: batteryDetails,
+        },
+        disks: safeArray(snapshot.disks).slice(0, 16).map(disk => ({
+            label: `${safeText(disk?.mount_point)} · свободно`,
+            value: `${formatBytes(safeCount(disk?.free_bytes))} из ${formatBytes(safeCount(disk?.total_bytes))}`,
+        })),
+        processes: safeArray(snapshot.processes).slice(0, 20).map(process => ({
+            pid: safeCount(process?.pid),
+            name: safeText(process?.name, `PID ${safeCount(process?.pid)}`),
+            cpu: `${safePercent(process?.cpu_percent) ?? 0}%`,
+            memory: formatBytes(safeCount(process?.memory_bytes)),
+        })),
+        summary: uptime ? `работает ${uptime}` : 'данные обновлены',
+    };
+}
+
+export function formatBytes(value) {
+    const bytes = safeCount(value);
+    if (bytes >= 1024 ** 3)
+        return `${(bytes / 1024 ** 3).toFixed(1)} ГБ`;
+    if (bytes >= 1024 ** 2)
+        return `${Math.round(bytes / 1024 ** 2)} МБ`;
+    if (bytes >= 1024)
+        return `${Math.round(bytes / 1024)} КБ`;
+    return `${bytes} Б`;
+}
+
+function safePercent(value) {
+    return typeof value === 'number' && Number.isFinite(value)
+        ? Math.round(Math.max(0, Math.min(100, value)))
+        : null;
+}
+
+function formatTemperature(value) {
+    return typeof value === 'number' && Number.isFinite(value)
+        ? `${Math.round(value)}°C`
+        : '';
+}
+
+function batteryStatusLabel(status) {
+    return {
+        charging: 'заряжается',
+        discharging: 'от батареи',
+        full: 'заряжена',
+        'not charging': 'не заряжается',
+        mixed: 'смешанное состояние',
+    }[status] ?? 'состояние неизвестно';
+}
+
+function formatDuration(seconds) {
+    if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds < 0)
+        return '';
+    const totalMinutes = Math.floor(seconds / 60);
+    const days = Math.floor(totalMinutes / 1440);
+    const hours = Math.floor(totalMinutes % 1440 / 60);
+    const minutes = totalMinutes % 60;
+    if (days > 0)
+        return `${days} д. ${hours} ч.`;
+    if (hours > 0)
+        return `${hours} ч. ${minutes} мин.`;
+    return `${minutes} мин.`;
+}
+
 export function taskRowLabel(task) {
     return `${activityLabel(task?.activity)} · ${taskStateLabel(task?.state)} · ` +
         `${safeCount(task?.processed_count)} обработано · ${safeCount(task?.skipped_count)} пропущено`;

@@ -12,7 +12,8 @@ if (!socketPath) {
 const client = new RuntimeClient({socketPath, timeoutMs: 5_000});
 try {
     const response = await client.health();
-    print(JSON.stringify(response));
+    const system = await client.systemStatus();
+    print(JSON.stringify({status: response.status, system}));
 } catch (error) {
     printerr(error.code ?? 'runtime_probe_failed');
     System.exit(1);

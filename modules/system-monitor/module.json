@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "module_id": "system.monitor",
+  "display_name": "System Monitor",
+  "description": "Reads bounded Linux CPU, memory, thermal, battery, disk and process metrics for the native panel.",
+  "module_version": "0.1.0",
+  "core_api": "1",
+  "capabilities": ["system.monitor.snapshot"],
+  "dependencies": [],
+  "optional_dependencies": [],
+  "requested_permissions": ["system.read-metrics", "system.read-processes"],
+  "lifecycle": "background",
+  "resource_class": "tiny",
+  "default_enabled": true,
+  "entrypoint": {"kind": "python-service", "module": "ai_native_system_monitor", "python_path": "src"}
+}
