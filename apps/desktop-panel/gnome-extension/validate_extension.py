@@ -73,7 +73,7 @@ def main() -> int:
     ok &= check(".ai-send" in styles and "border-radius: 50%" in styles, "send button is circular")
     ok &= check(".ai-tab-highlight" in styles, "tab highlight styles exist")
     ok &= check(".ai-native-fallback" in styles, "fallback style exists")
-    ok &= check("spacing:" not in source, "StBoxLayout spacing uses compatible setter API")
+    ok &= check("set_spacing" not in source, "StBoxLayout spacing is provided by CSS")
 
     node = shutil.which("node")
     if node:
