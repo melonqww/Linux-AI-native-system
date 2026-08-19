@@ -33,6 +33,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "const toggleTarget = this._collapsed ? -4 : 0",
             "preferences-system-symbolic",
             "folder-symbolic",
+            "const resizeEntry = () =>",
             "_animateHighlight",
             "GLib.timeout_add",
             "Qwen 3.5 2B",
@@ -60,6 +61,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
         self.assertIn("margin-top: 5px", stylesheet)
         self.assertIn("border-radius: 22px;", stylesheet)
         self.assertIn("font-weight: 700;", stylesheet)
+        self.assertIn("border-radius: 21px 21px 0 0;", stylesheet)
 
 
 if __name__ == "__main__":
