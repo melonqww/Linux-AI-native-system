@@ -42,6 +42,7 @@
     background-color: transparent;
     border-radius: 10px;
     min-width: 0;
+    min-height: 40px;
     padding: 0;
 }
 
@@ -231,13 +232,18 @@
 
 .ai-send {
     background-color: #f1f1f1;
+    background-image: none;
+    border: 0;
     border-radius: 50%;
+    box-shadow: none;
     color: #383838;
     font-size: 21px;
     font-weight: 700;
+    height: 33px;
     min-height: 33px;
     min-width: 33px;
     padding: 0;
+    width: 33px;
 }
 
 .ai-empty-view {

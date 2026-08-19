@@ -6,6 +6,14 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${EXTENSION_UUID}"
 
 mkdir -p "${TARGET_DIR}"
+
+if command -v gnome-extensions >/dev/null 2>&1; then
+    # Stop the live module before replacing its files.  Otherwise GNOME Shell
+    # can keep the previous JavaScript object tree until the next session.
+    gnome-extensions disable "${EXTENSION_UUID}" >/dev/null 2>&1 || true
+    sleep 1
+fi
+
 cp "${SCRIPT_DIR}/metadata.json" "${TARGET_DIR}/metadata.json"
 cp "${SCRIPT_DIR}/extension.js" "${TARGET_DIR}/extension.js"
 cp "${SCRIPT_DIR}/stylesheet.css" "${TARGET_DIR}/stylesheet.css"

@@ -393,6 +393,7 @@ class Panel extends St.Widget {
         const tabWidth = Math.floor((PANEL_WIDTH - 14) / this._tabButtons.length);
         this._tabButtons.forEach((button, index) => {
             button.set_width(tabWidth);
+            button.set_height(TAB_HEIGHT - 3);
             button.connect('clicked', () => this._selectTab(index));
             this._tabs.add_child(button);
         });

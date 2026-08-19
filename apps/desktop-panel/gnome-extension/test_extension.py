@@ -16,6 +16,11 @@ class GnomeExtensionFilesTest(unittest.TestCase):
         for filename in ("extension.js", "stylesheet.css", "install.sh", "README.md"):
             self.assertTrue((ROOT / filename).is_file(), filename)
 
+    def test_install_reloads_live_extension_before_copy(self):
+        script = (ROOT / "install.sh").read_text(encoding="utf-8")
+        self.assertIn('gnome-extensions disable "${EXTENSION_UUID}"', script)
+        self.assertIn('gnome-extensions enable "${EXTENSION_UUID}"', script)
+
     def test_native_panel_contract_is_present(self):
         source = (ROOT / "extension.js").read_text(encoding="utf-8")
         for marker in (
