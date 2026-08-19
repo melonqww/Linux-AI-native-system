@@ -63,6 +63,8 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "const entryScrollContent = new St.BoxLayout",
             "entryScrollContent.add_child(entry)",
             "entryScroll.set_height(Math.min(78, desiredHeight))",
+            "const entryAdjustment = entryScroll.get_vadjustment()",
+            "entryAdjustment.set_value(bottom)",
             "metricBlock('Батарея', 82",
             "32°C · от батареи",
             "ai-process-header",
@@ -73,6 +75,8 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "panel construction failed",
         ):
             self.assertIn(marker, source)
+        self.assertNotIn("Подтверждать за меня", source)
+        self.assertNotIn("security-high-symbolic", source)
 
     def test_panel_surface_does_not_paint_behind_toggle(self):
         stylesheet = (ROOT / "stylesheet.css").read_text(encoding="utf-8")

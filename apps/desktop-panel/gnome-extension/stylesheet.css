@@ -188,42 +188,9 @@
     spacing: 7px;
 }
 
-.ai-confirmation {
-    background-color: transparent;
-    border: 0;
-    color: #d4d4d4;
-    font-size: 11px;
-    padding: 0 2px;
-}
-
-.ai-confirmation-content {
-    spacing: 6px;
-}
-
-.ai-confirmation-icon {
-    icon-size: 15px;
-    color: #cfcfcd;
-    margin-top: 5px;
-}
-
-.ai-confirmation-label {
-    color: inherit;
-    font-size: 12px;
-    font-weight: 700;
-    margin-top: 5px;
-}
-
-.ai-confirmation:hover,
-.ai-confirmation:focus {
-    color: #ffffff;
-}
-
-.ai-confirmation.enabled {
-    color: #c8e2b5;
-}
-
 .ai-model-control {
     background-color: transparent;
+    margin-left: auto;
 }
 
 .ai-model {

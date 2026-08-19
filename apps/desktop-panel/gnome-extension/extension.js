@@ -195,40 +195,21 @@ class ChatView extends St.BoxLayout {
         entry.clutter_text.connect('text-changed', resizeEntry);
         entryScrollContent.add_child(entry);
         entryScroll.set_child(entryScrollContent);
+        const entryAdjustment = entryScroll.get_vadjustment();
+        const keepEntryAtEnd = () => {
+            const bottom = Math.max(
+                entryAdjustment.get_lower(),
+                entryAdjustment.get_upper() - entryAdjustment.get_page_size(),
+            );
+            entryAdjustment.set_value(bottom);
+        };
+        entryAdjustment.connect('notify::upper', keepEntryAtEnd);
+        entryAdjustment.connect('notify::page-size', keepEntryAtEnd);
         composer.add_child(entryScroll);
         resizeEntry();
+        keepEntryAtEnd();
 
         const actions = new St.BoxLayout({style_class: 'ai-composer-actions', x_expand: true});
-        const confirmation = new St.Button({
-            style_class: 'ai-confirmation',
-            x_expand: true,
-            y_align: Clutter.ActorAlign.CENTER,
-        });
-        const confirmationContent = new St.BoxLayout({
-            style_class: 'ai-confirmation-content',
-            x_expand: true,
-        });
-        const confirmationIcon = new St.Icon({
-            icon_name: 'security-high-symbolic',
-            style_class: 'ai-confirmation-icon',
-        });
-        confirmationContent.add_child(confirmationIcon);
-        const confirmationLabel = new St.Label({
-            text: 'Подтверждать за меня',
-            style_class: 'ai-confirmation-label',
-            x_expand: true,
-            x_align: Clutter.ActorAlign.START,
-        });
-        confirmationContent.add_child(confirmationLabel);
-        confirmation.set_child(confirmationContent);
-        confirmation.connect('clicked', () => {
-            confirmation._enabled = !confirmation._enabled;
-            if (confirmation._enabled)
-                confirmation.add_style_class_name('enabled');
-            else
-                confirmation.remove_style_class_name('enabled');
-        });
-        actions.add_child(confirmation);
 
         const modelControl = new St.Widget({
             style_class: 'ai-model-control',
