@@ -55,6 +55,37 @@ class PdfExtractorTests(unittest.TestCase):
         with self.assertRaises(PdfExtractionError):
             PdfExtractor().extract(path)
 
+    def test_rejects_broken_pdf_without_crashing(self) -> None:
+        path = self.root / "broken.pdf"
+        path.write_bytes(b"%PDF-1.7\nthis is truncated")
+        with self.assertRaisesRegex(PdfExtractionError, "cannot open PDF"):
+            PdfExtractor().extract(path)
+
+    def test_rejects_pdf_over_configured_byte_budget_before_parsing(self) -> None:
+        path = self.root / "huge.pdf"
+        path.write_bytes(b"%PDF-1.7\n123456789")
+        with self.assertRaisesRegex(PdfExtractionError, "size limit"):
+            PdfExtractor(max_bytes=8).extract(path)
+
+    def test_rejects_pdf_over_configured_page_budget(self) -> None:
+        path = self.root / "many-pages.pdf"
+        writer = PdfWriter()
+        writer.add_blank_page(width=100, height=100)
+        writer.add_blank_page(width=100, height=100)
+        with path.open("wb") as output:
+            writer.write(output)
+        with self.assertRaisesRegex(PdfExtractionError, "page limit"):
+            PdfExtractor(max_pages=1).extract(path)
+
+    def test_routes_image_only_pdf_to_future_ocr_module(self) -> None:
+        path = self.root / "image-only.pdf"
+        writer = PdfWriter()
+        writer.add_blank_page(width=100, height=100)
+        with path.open("wb") as output:
+            writer.write(output)
+        with self.assertRaisesRegex(PdfExtractionError, "OCR module is required"):
+            PdfExtractor().extract(path)
+
 
 if __name__ == "__main__":
     unittest.main()

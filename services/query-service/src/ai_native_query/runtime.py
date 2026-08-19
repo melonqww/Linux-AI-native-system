@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import asdict, is_dataclass
-from typing import Callable
+from typing import Callable, Protocol
 
 from .contracts import DocumentQuery, QueryResult
 from .service import QueryService
+
+
+class IntentPipeline(Protocol):
+    def compile_and_plan(self, text: str, *, context: object) -> object: ...
 
 
 class QueryRuntimeApplication:
@@ -15,9 +19,15 @@ class QueryRuntimeApplication:
         query_service: QueryService,
         *,
         scheduler_status: Callable[[], object] | None = None,
+        intent_pipeline: IntentPipeline | None = None,
+        task_context: Callable[[], object] | None = None,
     ) -> None:
         self.query_service = query_service
         self.scheduler_status = scheduler_status
+        self.intent_pipeline = intent_pipeline
+        self.task_context = task_context
+        if intent_pipeline is not None and task_context is None:
+            raise ValueError("task_context is required with intent_pipeline")
 
     def capabilities(self) -> list[str]:
         return [
@@ -53,6 +63,19 @@ class QueryRuntimeApplication:
             scheduler = self.scheduler_status()
             status["scheduler"] = asdict(scheduler) if is_dataclass(scheduler) else scheduler
         return status
+
+    def compile_intent(self, payload: dict[str, object]) -> object:
+        if self.intent_pipeline is None:
+            raise RuntimeError("intent_compiler_unavailable")
+        unknown = set(payload) - {"text"}
+        if unknown:
+            raise ValueError(f"unknown fields: {sorted(unknown)}")
+        text = self._string(payload, "text")
+        if not text.strip():
+            raise ValueError("text is required")
+        if self.task_context is None:
+            raise RuntimeError("intent_context_unavailable")
+        return self.intent_pipeline.compile_and_plan(text, context=self.task_context())
 
     @staticmethod
     def _string(payload: dict[str, object], key: str) -> str:

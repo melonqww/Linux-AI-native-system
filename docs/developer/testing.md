@@ -20,6 +20,8 @@ node --check apps/desktop-panel/gnome-extension/extension.js
 - permissions, path containment, symlinks и исключение чувствительных файлов;
 - одноразовое подтверждение и rollback materialize/copy;
 - loopback-only runtime bridge и валидация JSON;
+- закрытая intent schema, RU/EN планы, доверенный task context и prompt injection;
+- битые, слишком большие, многостраничные и требующие OCR PDF;
 - coalescing/overflow очереди, load pause и инкрементальные create/modify/delete;
 - чистый декодер inotify на каждой ОС;
 - настоящий inotify event на Ubuntu runner.

@@ -56,6 +56,15 @@ python -m unittest discover -s services/agent-runtime/tests -v
 `browser.navigation`; команды описаны в
 [`services/capability-registry/README.md`](services/capability-registry/README.md).
 
+## Intent Compiler v1
+
+`services/intent-compiler` переводит свободные русские и английские запросы в
+строго проверяемое намерение и preview-план. Языковой model provider здесь
+заменяемый, а capability, зависимости, риск и approval вычисляет
+детерминированное ядро. В production-коде нет таблицы заранее известных фраз.
+Подробности: [`services/intent-compiler/README.md`](services/intent-compiler/README.md)
+и [ADR-004](Architecture/decisions/ADR-004-model-neutral-intent-compiler.md).
+
 ## Шесть базовых компонентов
 
 Текущий фундамент собран в один модульный контур:
@@ -109,11 +118,13 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [Концепция v0.1](Architecture/AI-native-Linux-v0.1-концепция.md)
 - [Структура проекта и пути](Architecture/02-Структура-проекта-и-пути.md)
 - [Контракты намерений и инструментов](Architecture/api/intent-and-tool-contracts.md)
+- [Intent Compiler API v1](Architecture/api/intent-compiler-v1.md)
 - [Контракты Storage Catalog](Architecture/api/storage-catalog-contracts.md)
 - [Контракт статуса индекса](Architecture/api/runtime-index-status.md)
 - [JSON Schema manifest модуля](packages/module-sdk/schema/module-manifest.schema.json)
 - [Решение о портфолио-MVP](Architecture/decisions/ADR-001-portfolio-mvp-scope.md)
 - [Решение о каталоге хранилищ и виртуальных коллекциях](Architecture/decisions/ADR-002-storage-catalog-and-virtual-collections.md)
 - [Решение о модульном capability-ядре](Architecture/decisions/ADR-003-modular-capability-core.md)
+- [Решение об Intent Compiler](Architecture/decisions/ADR-004-model-neutral-intent-compiler.md)
 - [Желаемые будущие возможности системы](Architecture/product/future-system-capabilities.md)
 - [Подготовка Ubuntu VM](docs/developer/Ubuntu-VM-setup.md)

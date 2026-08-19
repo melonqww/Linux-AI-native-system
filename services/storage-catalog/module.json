@@ -10,13 +10,16 @@
     "storage.volumes.permissions",
     "storage.catalog.scan",
     "storage.catalog.search",
-    "storage.collections.manage"
+    "storage.collections.manage",
+    "storage.materialize.plan-copy",
+    "storage.materialize.execute-copy"
   ],
   "dependencies": [],
   "optional_dependencies": [],
   "requested_permissions": [
     "storage.enumerate",
-    "filesystem.read-metadata"
+    "filesystem.read-metadata",
+    "filesystem.write-content"
   ],
   "lifecycle": "on-demand",
   "resource_class": "light",

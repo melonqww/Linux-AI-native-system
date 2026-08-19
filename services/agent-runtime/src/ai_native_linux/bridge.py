@@ -12,6 +12,7 @@ class RuntimeApplication(Protocol):
     def capabilities(self) -> list[str]: ...
     def search(self, payload: dict[str, object]) -> list[object]: ...
     def index_status(self) -> dict[str, object]: ...
+    def compile_intent(self, payload: dict[str, object]) -> object: ...
 
 
 def create_server(application: RuntimeApplication, host: str = "127.0.0.1", port: int = 0):
@@ -44,8 +45,13 @@ def create_server(application: RuntimeApplication, host: str = "127.0.0.1", port
                     raise ValueError("body_must_be_object")
                 if self.path == "/v1/search":
                     self._send(200, {"results": [asdict(item) for item in application.search(payload)]})
+                elif self.path == "/v1/intent/compile":
+                    result = application.compile_intent(payload)
+                    self._send(200, asdict(result))
                 else:
                     self._send(404, {"error": "not_found"})
+            except RuntimeError as error:
+                self._send(503, {"error": str(error)})
             except (ValueError, json.JSONDecodeError) as error:
                 self._send(400, {"error": str(error)})
 

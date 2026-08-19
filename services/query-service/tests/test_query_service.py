@@ -16,6 +16,7 @@ for source in (
 ):
     sys.path.insert(0, str(source))
 
+from ai_native_intents import CompilationResult, CompilationState, TaskContext
 from ai_native_query import DocumentQuery, QueryRuntimeApplication, QueryService
 from ai_native_storage import VolumeRegistry
 from ai_native_storage.contracts import DiscoveredVolume
@@ -27,6 +28,15 @@ class Discovery:
 
     def discover(self):
         return [self.volume]
+
+
+class FakeIntentPipeline:
+    def __init__(self):
+        self.context = None
+
+    def compile_and_plan(self, text, *, context):
+        self.context = context
+        return CompilationResult(CompilationState.NEEDS_CLARIFICATION, None, None, text)
 
 
 class QueryServiceTests(unittest.TestCase):
@@ -91,6 +101,21 @@ class QueryServiceTests(unittest.TestCase):
         self.assertIn("catalog", application.index_status())
         with self.assertRaises(ValueError):
             application.search({"text": [], "limit": 20})
+
+    def test_runtime_compiles_with_server_owned_task_context(self) -> None:
+        pipeline = FakeIntentPipeline()
+        application = QueryRuntimeApplication(
+            self.service,
+            intent_pipeline=pipeline,
+            task_context=lambda: TaskContext("trusted-results", None, "ru"),
+        )
+
+        result = application.compile_intent({"text": "скопируй их"})
+
+        self.assertEqual(result.clarification_question, "скопируй их")
+        self.assertEqual(pipeline.context.active_collection_id, "trusted-results")
+        with self.assertRaises(ValueError):
+            application.compile_intent({"text": "поиск", "active_collection_id": "forged"})
 
 
 if __name__ == "__main__":

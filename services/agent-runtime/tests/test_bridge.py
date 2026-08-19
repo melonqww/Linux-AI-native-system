@@ -16,6 +16,12 @@ class Result:
     path: str
 
 
+@dataclass
+class Compilation:
+    state: str
+    text: str
+
+
 class App:
     def capabilities(self):
         return ["storage.catalog.search"]
@@ -25,6 +31,9 @@ class App:
 
     def index_status(self):
         return {"scheduler": {"state": "idle", "queued": 0}}
+
+    def compile_intent(self, payload):
+        return Compilation(state="ready", text=payload["text"])
 
 
 class BridgeTests(unittest.TestCase):
@@ -46,6 +55,12 @@ class BridgeTests(unittest.TestCase):
                 headers={"Content-Type": "application/json"},
             )
             results = json.load(urllib.request.urlopen(request))
+            intent_request = urllib.request.Request(
+                base + "/v1/intent/compile",
+                data=json.dumps({"text": "find math PDFs"}).encode(),
+                headers={"Content-Type": "application/json"},
+            )
+            compilation = json.load(urllib.request.urlopen(intent_request))
         finally:
             server.shutdown()
             server.server_close()
@@ -53,3 +68,4 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(health, {"status": "ok"})
         self.assertEqual(status["scheduler"]["state"], "idle")
         self.assertEqual(results["results"][0]["path"], "result:math")
+        self.assertEqual(compilation, {"state": "ready", "text": "find math PDFs"})
