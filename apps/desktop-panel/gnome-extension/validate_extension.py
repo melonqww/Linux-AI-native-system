@@ -48,7 +48,13 @@ def main() -> int:
     args = parser.parse_args()
 
     ok = True
-    required = ("metadata.json", "extension.js", "stylesheet.css", "install.sh")
+    required = (
+        "metadata.json",
+        "extension.js",
+        "runtime-client.js",
+        "stylesheet.css",
+        "install.sh",
+    )
     for filename in required:
         ok &= check((ROOT / filename).is_file(), f"repository has {filename}")
 
@@ -57,6 +63,7 @@ def main() -> int:
     ok &= check("46" in metadata.get("shell-version", []), "GNOME 46 is declared")
 
     source = (ROOT / "extension.js").read_text(encoding="utf-8")
+    runtime_source = (ROOT / "runtime-client.js").read_text(encoding="utf-8")
     styles = (ROOT / "stylesheet.css").read_text(encoding="utf-8")
     contracts = (
         ("this.dir.get_child('stylesheet.css')", "stylesheet is resolved from extension directory"),
@@ -66,6 +73,7 @@ def main() -> int:
         ("new ChatView(this._runtime)", "chat receives the runtime client"),
         ("Main.layoutManager.addChrome", "panel is attached to GNOME Shell"),
         ("this._scroll.set_child(this._messages)", "scroll view uses the GNOME 46 child API"),
+        ("new SidebarView(this._runtime)", "sidebar receives the runtime client"),
     )
     for marker, description in contracts:
         ok &= check(marker in source, description)
@@ -74,6 +82,8 @@ def main() -> int:
     ok &= check(".ai-tab-highlight" in styles, "tab highlight styles exist")
     ok &= check(".ai-native-fallback" in styles, "fallback style exists")
     ok &= check("set_spacing" not in source, "StBoxLayout spacing is provided by CSS")
+    ok &= check("new Gio.UnixSocketAddress" in runtime_source, "runtime uses Unix IPC")
+    ok &= check("http://" not in runtime_source, "runtime client has no TCP fallback")
 
     node = shutil.which("node")
     if node:
@@ -90,7 +100,7 @@ def main() -> int:
 
     if args.installed:
         installed = Path.home() / ".local" / "share" / "gnome-shell" / "extensions" / UUID
-        for filename in required[:3]:
+        for filename in required[:4]:
             installed_file = installed / filename
             ok &= check(installed_file.is_file(), f"installed copy has {filename}")
             if installed_file.is_file():

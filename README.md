@@ -12,6 +12,11 @@
 
 Нативный UI-каркас для GNOME уже находится в `apps/desktop-panel/gnome-extension/`. Он повторяет текущий HTML-прототип, но работает как GNOME Shell Extension и не создаёт отдельное окно WebKit.
 
+GNOME-панель подключена к ядру через authenticated Unix IPC: центральная вкладка
+использует Intent Compiler, Execution Orchestrator и R1 approval, левая показывает
+health, индекс и Task Ledger. CPU/RAM/батарея и процессы намеренно остаются без
+фиктивных значений до подключения отдельного system-monitor модуля.
+
 ## Базовый принцип
 
 Модель не имеет прямого доступа к shell, `sudo` или D-Bus. Она создаёт структурированное намерение, а Permission Gateway проверяет риск, права и параметры инструмента.

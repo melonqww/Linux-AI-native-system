@@ -1,9 +1,11 @@
 import St from 'gi://St';
 import Clutter from 'gi://Clutter';
 import GObject from 'gi://GObject';
+import GLib from 'gi://GLib';
 import Pango from 'gi://Pango';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
+import {RuntimeClient, RuntimeRequestError} from './runtime-client.js';
 
 const PANEL_WIDTH = 468;
 const DEFAULT_PANEL_HEIGHT = 420;
@@ -15,19 +17,6 @@ const PANEL_HORIZONTAL_MARGIN = 20;
 const PANEL_BOTTOM_MARGIN = 18;
 const TOGGLE_DURATION = 260;
 const TAB_HEIGHT = 43;
-const RUNTIME_URL = 'http://127.0.0.1:8765/v1/search';
-
-class RuntimeClient {
-    // The visual prototype must not depend on an optional Soup typelib.
-    // Runtime transport will be plugged back in after the shell surface is
-    // stable and the service package is installed on the target distro.
-    search(_text) {
-        return Promise.resolve([]);
-    }
-
-    destroy() {}
-}
-
 const TabButton = GObject.registerClass(
 class TabButton extends St.Button {
     _init(label, icon) {
@@ -103,6 +92,9 @@ class ChatView extends St.BoxLayout {
         });
 
         this._runtime = runtime;
+        this._busy = false;
+        this._disposed = false;
+        this.connect('destroy', () => this._disposed = true);
         this._messages = new St.BoxLayout({
             vertical: true,
             style_class: 'ai-messages',
@@ -281,28 +273,157 @@ class ChatView extends St.BoxLayout {
         actions.add_child(new St.Widget({style_class: 'ai-composer-spacer', x_expand: true}));
         actions.add_child(modelControl);
 
-        const send = new St.Button({label: '↑', style_class: 'ai-send', can_focus: true});
-        send.connect('clicked', () => this._submitEntry(entry));
+        this._send = new St.Button({label: '↑', style_class: 'ai-send', can_focus: true});
+        this._send.connect('clicked', () => this._submitEntry(entry));
         entry.clutter_text.connect('activate', () => this._submitEntry(entry));
-        actions.add_child(send);
+        actions.add_child(this._send);
         composer.add_child(actions);
         return composer;
     }
 
-    _submitEntry(entry) {
+    async _submitEntry(entry) {
         const text = entry.get_text().trim();
-        if (!text)
+        if (!text || this._busy)
             return;
-        this._messages.add_child(this._user(text));
+        this._append(this._user(text));
         entry.set_text('');
-        this._runtime.search(text).then(results => {
-            const answer = results.length
-                ? results.map(item => item.path).join('\n')
-                : 'Совпадений в доступном индексе не найдено.';
-            this._messages.add_child(this._assistant(answer));
-        }).catch(error => {
-            this._messages.add_child(this._assistant(`Runtime недоступен: ${error.message}`));
+        this._setBusy(entry, true);
+        const pending = this._assistant('Обрабатываю запрос…', 'ai-assistant-message ai-pending');
+        this._append(pending);
+        try {
+            const compilation = await this._runtime.compileIntent(text);
+            if (this._disposed)
+                return;
+            if (compilation.state !== 'ready' || !compilation.plan?.plan_id) {
+                const question = compilation.clarification_question ??
+                    'Не удалось надёжно подготовить план. Уточните запрос.';
+                this._append(this._assistant(question));
+                return;
+            }
+            const result = await this._runtime.executePlan(compilation.plan.plan_id);
+            if (!this._disposed)
+                this._renderExecution(result);
+        } catch (error) {
+            if (!this._disposed)
+                this._append(this._assistant(this._friendlyError(error)));
+        } finally {
+            if (!this._disposed) {
+                pending.destroy();
+                this._setBusy(entry, false);
+            }
+        }
+    }
+
+    _append(actor) {
+        if (this._disposed)
+            return;
+        this._messages.add_child(actor);
+        GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+            if (!this._disposed) {
+                const adjustment = this._scroll.get_vadjustment();
+                adjustment.value = Math.max(
+                    Number(adjustment.lower ?? 0),
+                    Number(adjustment.upper ?? 0) - Number(adjustment.page_size ?? 0),
+                );
+            }
+            return GLib.SOURCE_REMOVE;
         });
+    }
+
+    _setBusy(entry, busy) {
+        this._busy = busy;
+        this._send.reactive = !busy;
+        entry.reactive = !busy;
+    }
+
+    _renderExecution(result) {
+        if (result.state === 'awaiting_approval' && result.approval_request) {
+            this._append(this._approvalCard(result.approval_request));
+            return;
+        }
+        if (result.state === 'cancelled') {
+            this._append(this._assistant('Действие отменено.'));
+            return;
+        }
+        if (result.state !== 'completed') {
+            this._append(this._assistant('Задачу не удалось выполнить.'));
+            return;
+        }
+        const lines = [];
+        for (const step of result.steps ?? []) {
+            const output = step.output;
+            if (!output)
+                continue;
+            if (Array.isArray(output.results)) {
+                lines.push(`Найдено файлов: ${output.result_count ?? output.results.length}`);
+                for (const item of output.results.slice(0, 20))
+                    lines.push(item.path);
+                if (output.results.length > 20)
+                    lines.push(`…и ещё ${output.results.length - 20}`);
+            } else if (Array.isArray(output.copied_paths)) {
+                lines.push(`Скопировано файлов: ${output.copied_count ?? output.copied_paths.length}`);
+                lines.push(`Папка: ${output.destination}`);
+            }
+        }
+        this._append(this._assistant(
+            lines.length ? lines.join('\n') : 'Готово.',
+        ));
+    }
+
+    _approvalCard(request) {
+        const card = new St.BoxLayout({
+            vertical: true,
+            style_class: 'ai-plan-card',
+            x_expand: true,
+        });
+        card.add_child(this._assistant('ТРЕБУЕТСЯ ПОДТВЕРЖДЕНИЕ · R1', 'ai-plan-title'));
+        const names = (request.item_names ?? []).slice(0, 5).join(', ');
+        const details = [
+            `Скопировать файлов: ${request.item_count}`,
+            `Назначение: ${request.destination}`,
+        ];
+        if (names)
+            details.push(`Файлы: ${names}${request.item_count > 5 ? '…' : ''}`);
+        card.add_child(this._assistant(details.join('\n'), 'ai-plan-details'));
+
+        const actions = new St.BoxLayout({style_class: 'ai-plan-actions'});
+        const confirm = new St.Button({label: 'Подтвердить', style_class: 'ai-plan-action'});
+        const cancel = new St.Button({label: 'Отменить', style_class: 'ai-plan-action ai-plan-cancel'});
+        const respond = async confirmed => {
+            confirm.reactive = false;
+            cancel.reactive = false;
+            try {
+                const result = await this._runtime.respondToApproval(
+                    request.approval_request_id,
+                    confirmed,
+                );
+                if (!this._disposed)
+                    this._renderExecution(result);
+            } catch (error) {
+                if (!this._disposed)
+                    this._append(this._assistant(this._friendlyError(error)));
+            }
+        };
+        confirm.connect('clicked', () => respond(true));
+        cancel.connect('clicked', () => respond(false));
+        actions.add_child(confirm);
+        actions.add_child(cancel);
+        card.add_child(actions);
+        return card;
+    }
+
+    _friendlyError(error) {
+        if (!(error instanceof RuntimeRequestError))
+            return 'Ядро временно недоступно.';
+        const messages = {
+            runtime_unavailable: 'Ядро не запущено или недоступно.',
+            runtime_timeout: 'Ядро не ответило вовремя.',
+            service_unavailable: 'Нужный компонент ядра сейчас недоступен.',
+            invalid_request: 'Запрос не удалось обработать.',
+            secure_transport_required: 'Действие требует защищённого соединения.',
+            task_action_not_available: 'Это действие сейчас недоступно.',
+        };
+        return messages[error.code] ?? 'Задачу не удалось выполнить.';
     }
 
 });
@@ -325,7 +446,13 @@ function sidebarLabel(text, styleClass, options = {}) {
         params.x_align = options.x_align;
     if (options.y_align !== undefined)
         params.y_align = options.y_align;
-    return new St.Label(params);
+    const label = new St.Label(params);
+    if (options.wrap) {
+        label.clutter_text.line_wrap = true;
+        label.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
+        label.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
+    }
+    return label;
 }
 
 function metricRow(label, value, extraClass = '') {
@@ -354,7 +481,7 @@ function metricBlock(title, value, detail, extraClass = '') {
     });
     block.add_child(createMetricRing(value));
     block.add_child(sidebarLabel(title, 'ai-metric-title'));
-    block.add_child(sidebarLabel(detail, 'ai-metric-detail'));
+    block.add_child(sidebarLabel(detail, 'ai-metric-detail', {wrap: true}));
     return block;
 }
 
@@ -369,6 +496,7 @@ function cpuColor(value) {
 }
 
 function createMetricRing(value) {
+    const numericValue = Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : null;
     const wrap = new St.Widget({
         style_class: 'ai-metric-ring-wrap',
         layout_manager: new Clutter.BinLayout(),
@@ -386,7 +514,7 @@ function createMetricRing(value) {
         const centerY = height / 2;
         const radius = Math.min(width, height) / 2 - 9;
         const start = -Math.PI / 2;
-        const end = start + (Math.PI * 2 * value / 100);
+        const end = start + (Math.PI * 2 * (numericValue ?? 0) / 100);
 
         context.setLineWidth(8);
         context.setLineCap(1);
@@ -394,14 +522,18 @@ function createMetricRing(value) {
         context.arc(centerX, centerY, radius, 0, Math.PI * 2);
         context.stroke();
 
-        context.setSourceRGBA(...cpuColor(value));
-        context.arc(centerX, centerY, radius, start, end);
-        context.stroke();
+        if (numericValue !== null) {
+            context.setSourceRGBA(...cpuColor(numericValue));
+            context.arc(centerX, centerY, radius, start, end);
+            context.stroke();
+        }
         context.$dispose();
     });
     wrap.add_child(drawing);
 
-    const valueLabel = sidebarLabel(`${value}%`, 'ai-ring-value', {
+    const valueLabel = sidebarLabel(
+        numericValue === null ? '—' : `${numericValue}%`,
+        'ai-ring-value', {
         x_align: Clutter.ActorAlign.CENTER,
         y_align: Clutter.ActorAlign.CENTER,
     });
@@ -411,13 +543,17 @@ function createMetricRing(value) {
 
 const SidebarView = GObject.registerClass(
 class SidebarView extends St.BoxLayout {
-    _init() {
+    _init(runtime) {
         super._init({
             vertical: true,
             style_class: 'ai-sidebar-view',
             x_expand: true,
             y_expand: true,
         });
+        this._runtime = runtime;
+        this._refreshing = false;
+        this._disposed = false;
+        this.connect('destroy', () => this._disposed = true);
         this._scroll = new St.ScrollView({
             style_class: 'ai-sidebar-scroll',
             x_expand: true,
@@ -425,18 +561,22 @@ class SidebarView extends St.BoxLayout {
         });
         this._scroll.set_policy(St.PolicyType.NEVER, St.PolicyType.AUTOMATIC);
 
-        const content = new St.BoxLayout({
+        this._content = new St.BoxLayout({
             vertical: true,
             style_class: 'ai-sidebar-content',
             x_expand: true,
         });
-        this._scroll.set_child(content);
+        this._scroll.set_child(this._content);
         this.add_child(this._scroll);
 
-        content.add_child(this._buildStatusCard());
-        content.add_child(this._buildTaskCard());
-        content.add_child(this._buildActionsCard());
-        this.add_child(this._buildHistoryButton());
+        this._content.add_child(this._buildStatusCard());
+        this._content.add_child(this._buildTaskCard());
+        this._content.add_child(this._buildActionsCard());
+        this._historyCard = this._buildHistoryCard();
+        this._historyCard.hide();
+        this._content.add_child(this._historyCard);
+        this._historyButton = this._buildHistoryButton();
+        this.add_child(this._historyButton);
     }
 
     _card(title) {
@@ -451,17 +591,26 @@ class SidebarView extends St.BoxLayout {
 
     _buildStatusCard() {
         const card = this._card('Состояние системы');
+        this._runtimeState = this._boundMetricRow(card, 'Ядро', 'проверка…');
+        this._capabilityState = this._boundMetricRow(card, 'Возможности', '—');
+        this._indexState = this._boundMetricRow(card, 'Индекс', '—');
+        this._schedulerState = this._boundMetricRow(card, 'Фоновая обработка', '—');
+        card.add_child(sidebarLabel('Системный монитор', 'ai-sidebar-kicker'));
         const metrics = new St.BoxLayout({style_class: 'ai-status-main', x_expand: true});
-        metrics.add_child(metricBlock('Загрузка ЦП', 37, '54°C'));
-        metrics.add_child(metricBlock('Оперативная память', 62, '4.9 из 7.8 ГБ · 46°C'));
-        metrics.add_child(metricBlock('Батарея', 82, '32°C · от батареи', 'ai-battery-metric'));
+        metrics.add_child(metricBlock('Загрузка ЦП', null, 'модуль не подключён'));
+        metrics.add_child(metricBlock('Оперативная память', null, 'модуль не подключён'));
+        metrics.add_child(metricBlock('Батарея', null, 'модуль не подключён', 'ai-battery-metric'));
         card.add_child(metrics);
-
-        card.add_child(sidebarLabel('Свободное место на дисках', 'ai-sidebar-kicker'));
-        card.add_child(metricRow('/ · свободно', '42.1 ГБ · 38°C', 'ai-disk-row'));
-        card.add_child(metricRow('D: · свободно', '118 ГБ · 41°C', 'ai-disk-row'));
-
         return card;
+    }
+
+    _boundMetricRow(card, label, initial) {
+        const row = new St.BoxLayout({style_class: 'ai-sidebar-metric-row', x_expand: true});
+        row.add_child(sidebarLabel(label, 'ai-sidebar-metric-label', {x_expand: true}));
+        const value = sidebarLabel(initial, 'ai-sidebar-metric-value');
+        row.add_child(value);
+        card.add_child(row);
+        return value;
     }
 
     _buildTaskCard() {
@@ -471,14 +620,15 @@ class SidebarView extends St.BoxLayout {
         header.add_child(sidebarLabel('ЦП', 'ai-process-heading ai-process-heading-cpu'));
         header.add_child(sidebarLabel('Память', 'ai-process-heading ai-process-heading-memory'));
         card.add_child(header);
-        card.add_child(processRow('Firefox', '12%', '820 МБ'));
-        card.add_child(processRow('gnome-shell', '7%', '410 МБ'));
-        card.add_child(processRow('Терминал', '3%', '160 МБ'));
-        card.add_child(processRow('systemd', '1%', '96 МБ'));
+        card.add_child(sidebarLabel(
+            'Данные появятся после подключения модуля системного мониторинга.',
+            'ai-sidebar-caption',
+        ));
         const button = new St.Button({
             label: 'Показать все процессы',
             style_class: 'ai-sidebar-action',
             x_align: Clutter.ActorAlign.START,
+            reactive: false,
         });
         card.add_child(button);
         return card;
@@ -486,22 +636,175 @@ class SidebarView extends St.BoxLayout {
 
     _buildActionsCard() {
         const card = this._card('Быстрые системные действия');
-        ['Проверить состояние', 'Открыть ошибки служб', 'Открыть настройки сети'].forEach(label => {
-            card.add_child(new St.Button({
+        ['Проверить состояние', 'Открыть ошибки служб', 'Открыть настройки сети'].forEach((label, index) => {
+            const button = new St.Button({
                 label,
                 style_class: 'ai-sidebar-action ai-sidebar-action-wide',
                 x_expand: true,
-            }));
+                reactive: index === 0,
+            });
+            if (index === 0)
+                button.connect('clicked', () => this.refresh());
+            card.add_child(button);
         });
         return card;
     }
 
+    _buildHistoryCard() {
+        const card = this._card('Последние действия');
+        this._taskList = new St.BoxLayout({
+            vertical: true,
+            style_class: 'ai-task-list',
+            x_expand: true,
+        });
+        card.add_child(this._taskList);
+        return card;
+    }
+
     _buildHistoryButton() {
-        return new St.Button({
+        const button = new St.Button({
             label: 'Последние действия',
             style_class: 'ai-sidebar-history',
             x_expand: true,
         });
+        button.connect('clicked', () => {
+            this._historyCard.visible = !this._historyCard.visible;
+            button.label = this._historyCard.visible ? 'Скрыть последние действия' : 'Последние действия';
+            if (this._historyCard.visible)
+                this.refreshTasks();
+        });
+        return button;
+    }
+
+    async refresh() {
+        if (this._refreshing)
+            return;
+        this._refreshing = true;
+        try {
+            const [health, capabilities, index, tasks] = await Promise.all([
+                this._runtime.health(),
+                this._runtime.capabilities(),
+                this._runtime.indexStatus(),
+                this._runtime.tasks(),
+            ]);
+            if (this._disposed)
+                return;
+            this._runtimeState.set_text(health.status === 'ok' ? 'подключено' : 'недоступно');
+            this._capabilityState.set_text(`${capabilities.capabilities?.length ?? 0}`);
+            const sources = index.content_index?.sources ?? 0;
+            const entries = index.catalog?.entries ?? 0;
+            this._indexState.set_text(`${sources} документов · ${entries} файлов`);
+            const scheduler = index.scheduler ?? {};
+            const queued = scheduler.queued ?? 0;
+            this._schedulerState.set_text(`${this._schedulerLabel(scheduler.state)} · очередь ${queued}`);
+            this._renderTasks(tasks.tasks ?? []);
+        } catch (_error) {
+            if (this._disposed)
+                return;
+            this._runtimeState.set_text('недоступно');
+            this._capabilityState.set_text('—');
+            this._indexState.set_text('—');
+            this._schedulerState.set_text('—');
+            this._renderTasks([]);
+        } finally {
+            this._refreshing = false;
+        }
+    }
+
+    async refreshTasks() {
+        try {
+            const response = await this._runtime.tasks();
+            if (!this._disposed)
+                this._renderTasks(response.tasks ?? []);
+        } catch (_error) {
+            if (!this._disposed)
+                this._renderTasks([]);
+        }
+    }
+
+    _renderTasks(tasks) {
+        this._taskList.destroy_all_children();
+        if (!tasks.length) {
+            this._taskList.add_child(sidebarLabel(
+                'Последних действий пока нет.',
+                'ai-sidebar-caption',
+            ));
+            return;
+        }
+        for (const task of tasks.slice(0, 10)) {
+            const processed = task.processed_count ?? 0;
+            const skipped = task.skipped_count ?? 0;
+            const label = `${this._activityLabel(task.activity)} · ${this._stateLabel(task.state)} · ${processed} обработано · ${skipped} пропущено`;
+            const button = new St.Button({
+                label,
+                style_class: 'ai-task-row',
+                x_expand: true,
+            });
+            button.connect('clicked', () => this._showTaskDetail(task.task_id));
+            this._taskList.add_child(button);
+        }
+    }
+
+    async _showTaskDetail(taskId) {
+        try {
+            const task = await this._runtime.taskDetail(taskId);
+            if (this._disposed)
+                return;
+            this._taskList.destroy_all_children();
+            const back = new St.Button({label: '← К списку', style_class: 'ai-task-row'});
+            back.connect('clicked', () => this.refreshTasks());
+            this._taskList.add_child(back);
+            this._taskList.add_child(sidebarLabel(
+                `${this._activityLabel(task.activity)} · ${this._stateLabel(task.state)}`,
+                'ai-sidebar-title',
+            ));
+            this._taskList.add_child(sidebarLabel(
+                `Обработано: ${task.processed_count} · успешно: ${task.succeeded_count} · пропущено: ${task.skipped_count}`,
+                'ai-sidebar-caption',
+            ));
+            for (const reference of task.references ?? []) {
+                const availability = reference.available ? '' : ' · недоступен';
+                this._taskList.add_child(sidebarLabel(
+                    `${reference.display_name}${availability}\n${reference.locator}`,
+                    'ai-task-reference',
+                    {wrap: true},
+                ));
+            }
+        } catch (_error) {
+            if (!this._disposed)
+                this._renderTasks([]);
+        }
+    }
+
+    _activityLabel(activity) {
+        return {
+            'documents.search': 'Поиск документов',
+            'files.copy': 'Копирование файлов',
+            'documents.scan': 'Сканирование документов',
+            'documents.ocr': 'Распознавание документов',
+        }[activity] ?? 'Системная задача';
+    }
+
+    _stateLabel(state) {
+        return {
+            planned: 'запланировано',
+            running: 'выполняется',
+            awaiting_approval: 'ожидает подтверждения',
+            interrupted: 'прервано',
+            completed: 'завершено',
+            completed_with_skips: 'завершено с пропусками',
+            failed: 'не выполнено',
+            cancelled: 'отменено',
+        }[state] ?? 'неизвестно';
+    }
+
+    _schedulerLabel(state) {
+        return {
+            idle: 'ожидание',
+            updating: 'обновление',
+            paused_load: 'пауза из-за нагрузки',
+            degraded: 'ограниченный режим',
+        }[state] ?? 'нет данных';
     }
 });
 
@@ -566,7 +869,7 @@ class Panel extends St.Widget {
         this._views.set_size(PANEL_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
         this._content.add_child(this._views);
 
-        this._sidebar = new SidebarView();
+        this._sidebar = new SidebarView(this._runtime);
         this._sidebar.set_position(0, 0);
         this._sidebar.set_size(PANEL_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
         this._views.add_child(this._sidebar);
@@ -601,6 +904,8 @@ class Panel extends St.Widget {
         const views = [this._sidebar, this._workspace, this._settings];
         views.forEach((view, viewIndex) => view.visible = viewIndex === index);
         this._tabButtons.forEach((button, buttonIndex) => button.setActive(buttonIndex === index));
+        if (index === 0)
+            this._sidebar.refresh();
     }
 
     _togglePanel() {

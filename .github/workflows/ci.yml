@@ -20,6 +20,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install GJS runtime for native IPC integration
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install --yes gjs
       - name: Install test dependencies
         run: python -m pip install --disable-pip-version-check pytest pypdf
       - name: Run repository tests

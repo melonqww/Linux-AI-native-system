@@ -1,4 +1,10 @@
 import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import threading
 import unittest
 from pathlib import Path
 
@@ -13,13 +19,21 @@ class GnomeExtensionFilesTest(unittest.TestCase):
         self.assertIn("46", metadata["shell-version"])
 
     def test_runtime_files_exist(self):
-        for filename in ("extension.js", "stylesheet.css", "install.sh", "README.md", "TROUBLESHOOTING.md"):
+        for filename in (
+            "extension.js",
+            "runtime-client.js",
+            "stylesheet.css",
+            "install.sh",
+            "README.md",
+            "TROUBLESHOOTING.md",
+        ):
             self.assertTrue((ROOT / filename).is_file(), filename)
 
     def test_install_reloads_live_extension_before_copy(self):
         script = (ROOT / "install.sh").read_text(encoding="utf-8")
         self.assertIn('gnome-extensions disable "${EXTENSION_UUID}"', script)
         self.assertIn('gnome-extensions enable "${EXTENSION_UUID}"', script)
+        self.assertIn('runtime-client.js" "${TARGET_DIR}/runtime-client.js', script)
 
     def test_native_panel_contract_is_present(self):
         source = (ROOT / "extension.js").read_text(encoding="utf-8")
@@ -40,7 +54,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "Qwen 3.5 2B",
             "Рабочая область",
             "Сообщение для вашего ИИ",
-            "Runtime transport will be plugged back in",
+            "import {RuntimeClient, RuntimeRequestError} from './runtime-client.js'",
             "this._stylesheet = this.dir.get_child('stylesheet.css')",
             "this._theme.load_stylesheet(this._stylesheet)",
             "this._theme.unload_stylesheet(this._stylesheet)",
@@ -50,10 +64,10 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "modelChevron.set_text(open ? '⌃' : '⌄')",
             "const SidebarView = GObject.registerClass",
             "class SidebarView extends St.BoxLayout",
-            "this._sidebar = new SidebarView()",
+            "this._sidebar = new SidebarView(this._runtime)",
             "Состояние системы",
-            "metricBlock('Загрузка ЦП', 37",
-            "metricBlock('Оперативная память', 62",
+            "metricBlock('Загрузка ЦП', null",
+            "metricBlock('Оперативная память', null",
             "Мини-диспетчер задач",
             "Быстрые системные действия",
             "Последние действия",
@@ -66,18 +80,45 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "const entryAdjustment = entryScroll.get_vadjustment()",
             "entryAdjustment.value = bottom",
             "ai-composer-spacer",
-            "metricBlock('Батарея', 82",
-            "32°C · от батареи",
+            "metricBlock('Батарея', null",
             "ai-process-header",
             "ai-process-heading-cpu",
             "ai-process-column-memory",
             "style_class: 'ai-sidebar-scroll'",
-            "this.add_child(this._buildHistoryButton())",
+            "this._historyButton = this._buildHistoryButton()",
             "this._workspace = new ChatView(this._runtime)",
             "_attachFallback(error)",
             "panel construction failed",
+            "this._runtime.compileIntent(text)",
+            "this._runtime.executePlan(compilation.plan.plan_id)",
+            "this._runtime.respondToApproval",
+            "this._runtime.indexStatus()",
+            "this._runtime.tasks()",
+            "this._runtime.taskDetail(taskId)",
         ):
             self.assertIn(marker, source)
+
+    def test_runtime_client_uses_closed_authenticated_ipc_contract(self):
+        source = (ROOT / "runtime-client.js").read_text(encoding="utf-8")
+        for marker in (
+            "GLib.get_user_runtime_dir()",
+            "new Gio.UnixSocketAddress",
+            "GLib.uuid_string_random()",
+            "version: IPC_VERSION",
+            "request_id: requestId",
+            "MAX_MESSAGE_BYTES = 64 * 1024",
+            "envelope.request_id !== requestId",
+            "'/v1/intent/compile'",
+            "'/v1/plan/execute'",
+            "'/v1/approval/respond'",
+            "'/v1/index-status'",
+            "'/v1/tasks'",
+            "'/v1/tasks/detail'",
+        ):
+            self.assertIn(marker, source)
+        self.assertNotIn("http://", source)
+        extension = (ROOT / "extension.js").read_text(encoding="utf-8")
+        self.assertNotIn("Подтверждать за меня", extension)
         self.assertNotIn("Подтверждать за меня", source)
         self.assertNotIn("security-high-symbolic", source)
 
@@ -94,6 +135,34 @@ class GnomeExtensionFilesTest(unittest.TestCase):
         self.assertIn("margin: 0 7px 6px 4px;", stylesheet)
         self.assertIn("max-height: 78px;", stylesheet)
         self.assertIn("margin-top: 2px;", stylesheet)
+
+    @unittest.skipUnless(sys.platform.startswith("linux"), "requires Linux Unix IPC")
+    def test_gjs_runtime_client_reaches_authenticated_unix_server(self):
+        gjs = shutil.which("gjs")
+        if gjs is None:
+            self.skipTest("gjs is not installed")
+        from ai_native_linux.unix_socket import create_unix_server
+
+        root = Path(tempfile.mkdtemp(prefix="ai-native-gjs-"))
+        os.chmod(root, 0o700)
+        server = create_unix_server(object(), root / "runtime.sock")
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            probe = ROOT / "tests" / "runtime_client_probe.js"
+            result = subprocess.run(
+                [gjs, "-m", str(probe), str(server.socket_path)],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(result.stdout.strip()), {"status": "ok"})
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+            shutil.rmtree(root, ignore_errors=True)
 
 
 if __name__ == "__main__":

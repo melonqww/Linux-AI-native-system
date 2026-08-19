@@ -26,12 +26,18 @@ python3 apps/desktop-panel/gnome-extension/validate_extension.py --installed
 
 Расширение устанавливается в `~/.local/share/gnome-shell/extensions/ai-native-linux@melonqww`.
 
-Панель отправляет поисковые запросы в локальный runtime по
-`http://127.0.0.1:8765/v1/search` и отображает найденные пути. Если runtime не
-запущен, ошибка остаётся внутри панели и GNOME Shell продолжает работать.
+Панель подключается к production runtime через пользовательский Unix socket
+`$XDG_RUNTIME_DIR/ai-native-linux/runtime.sock`. `RuntimeClient` создаёт одно
+соединение на один bounded JSON request; сервер проверяет UID/GID/PID клиента
+через Linux `SO_PEERCRED`.
 
-Изменяющие систему операции через этот read-only endpoint не выполняются:
-копирование проходит отдельный этап плана и явного подтверждения.
+Центральная вкладка использует полный путь `intent/compile → plan/execute →
+approval/respond`, а не прямой поиск. Левая вкладка читает health, capabilities,
+состояние индекса и Task Ledger. Если runtime не запущен, ошибка остаётся внутри
+панели и GNOME Shell продолжает работать.
+
+Loopback HTTP в расширении не используется. Изменяющие операции выполняются
+только после проверки Permission Gateway и явного подтверждения R1 preview.
 
 При проблемах запуска см. [TROUBLESHOOTING.md](TROUBLESHOOTING.md): там
 зафиксированы особенности GNOME 46, ошибки совместимости и порядок диагностики.

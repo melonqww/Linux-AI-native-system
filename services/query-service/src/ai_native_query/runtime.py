@@ -24,13 +24,6 @@ class PlanExecutor(Protocol):
     def execute(
         self, plan: object, *, transport_context: TransportContext | None = None
     ) -> object: ...
-
-
-class TaskHistory(Protocol):
-    def list_recent(self, *, limit: int = 200) -> tuple[object, ...]: ...
-    def get(self, task_id: str, *, include_references: bool = True) -> object: ...
-    def request_cancel(self, task_id: str) -> object: ...
-    def request_continue(self, task_id: str) -> object: ...
     def respond_to_approval(
         self,
         approval_request_id: str,
@@ -38,6 +31,13 @@ class TaskHistory(Protocol):
         confirmed: bool,
         transport_context: TransportContext | None = None,
     ) -> object: ...
+
+
+class TaskHistory(Protocol):
+    def list_recent(self, *, limit: int = 200) -> tuple[object, ...]: ...
+    def get(self, task_id: str, *, include_references: bool = True) -> object: ...
+    def request_cancel(self, task_id: str) -> object: ...
+    def request_continue(self, task_id: str) -> object: ...
 
 
 class QueryRuntimeApplication:
@@ -89,7 +89,9 @@ class QueryRuntimeApplication:
     def tasks(self) -> tuple[object, ...]:
         if self.task_ledger is None:
             raise RuntimeError("task_ledger_unavailable")
-        return self.task_ledger.list_recent()
+        # Keep the single-frame Unix response comfortably below 64 KiB.
+        # The panel currently renders only the first ten records.
+        return self.task_ledger.list_recent(limit=50)
 
     def task_detail(self, payload: dict[str, object]) -> object:
         if self.task_ledger is None:
