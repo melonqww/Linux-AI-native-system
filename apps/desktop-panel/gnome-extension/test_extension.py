@@ -35,6 +35,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "folder-symbolic",
             "const resizeEntry = () =>",
             "entry.clutter_text.editable = true",
+            "entry.clutter_text.single_line_mode = false",
             "_animateHighlight",
             "GLib.timeout_add",
             "Qwen 3.5 2B",
@@ -63,6 +64,8 @@ class GnomeExtensionFilesTest(unittest.TestCase):
         self.assertIn("border-radius: 22px;", stylesheet)
         self.assertIn("font-weight: 700;", stylesheet)
         self.assertIn("border-radius: 21px 21px 0 0;", stylesheet)
+        self.assertIn("margin: 0 7px 6px 4px;", stylesheet)
+        self.assertIn("max-height: 78px;", stylesheet)
 
 
 if __name__ == "__main__":

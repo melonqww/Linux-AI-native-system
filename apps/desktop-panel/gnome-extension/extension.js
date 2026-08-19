@@ -187,6 +187,7 @@ class ChatView extends St.BoxLayout {
         entry.clutter_text.line_wrap = true;
         entry.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
         entry.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
+        entry.clutter_text.single_line_mode = false;
         entry.clutter_text.editable = true;
         entry.clutter_text.activatable = true;
         const resizeEntry = () => {

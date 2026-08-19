@@ -154,7 +154,7 @@
     background-color: #3b3b3b;
     border: 1px solid rgba(255, 255, 255, 0.17);
     border-radius: 21px;
-    margin: 0 7px 6px;
+    margin: 0 7px 6px 4px;
     padding: 10px 11px 8px 11px;
     spacing: 7px;
 }
@@ -164,7 +164,7 @@
     border: 0;
     color: #f2f2f2;
     font-size: 13px;
-    max-height: 142px;
+    max-height: 78px;
     min-height: 20px;
     padding: 0 3px;
 }
