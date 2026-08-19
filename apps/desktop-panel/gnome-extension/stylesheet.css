@@ -35,6 +35,13 @@
     padding: 0;
 }
 
+.ai-toggle-label {
+    color: #f2f2f2;
+    font-size: 18px;
+    font-weight: 700;
+    text-align: center;
+}
+
 .ai-toggle:hover,
 .ai-toggle:focus {
     background-color: #535353;

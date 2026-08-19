@@ -313,7 +313,16 @@ class Panel extends St.Widget {
         this._content.set_size(PANEL_WIDTH, DEFAULT_PANEL_HEIGHT);
         this.add_child(this._content);
 
-        this._toggle = new St.Button({style_class: 'ai-toggle', label: '›', can_focus: true});
+        this._toggle = new St.Button({style_class: 'ai-toggle', can_focus: true});
+        this._toggleLabel = new St.Label({
+            text: '›',
+            style_class: 'ai-toggle-label',
+            x_expand: true,
+            y_expand: true,
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        this._toggle.set_child(this._toggleLabel);
         this._toggle.set_size(TOGGLE_WIDTH, 40);
         this._toggle.set_position(0, Math.floor((DEFAULT_PANEL_HEIGHT - 40) / 2));
         this._toggle.connect('clicked', () => this._togglePanel());
@@ -383,9 +392,9 @@ class Panel extends St.Widget {
 
     _togglePanel() {
         this._collapsed = !this._collapsed;
-        this._toggle.set_label(this._collapsed ? '‹' : '›');
+        this._toggleLabel.set_text(this._collapsed ? '‹' : '›');
         this.ease({
-            translation_x: this._collapsed ? PANEL_WIDTH : 0,
+            translation_x: this._collapsed ? this._collapsedTranslation : 0,
             duration: 420,
             mode: Clutter.AnimationMode.EASE_OUT_QUAD,
         });
@@ -455,6 +464,11 @@ export default class AiNativeLinuxExtension extends Extension {
             monitor.x + monitor.width - PANEL_WIDTH - PANEL_MARGIN - TOGGLE_WIDTH,
             monitor.y + monitor.height - height - PANEL_MARGIN,
         );
+        // Keep only the toggle visible when collapsed.  The extra margin is
+        // intentional: translating by PANEL_WIDTH alone leaves the panel's
+        // right margin visible on every resolution.
+        this._collapsedTranslation = PANEL_WIDTH + PANEL_MARGIN;
+        this._panel.translation_x = this._collapsed ? this._collapsedTranslation : 0;
     }
 
     disable() {

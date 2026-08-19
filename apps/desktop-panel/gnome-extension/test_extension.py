@@ -28,7 +28,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "monitors-changed",
             "this._scroll.set_child(this._messages)",
             "monitor.height * 0.52",
-            "this._toggle.set_label(this._collapsed ? '‹' : '›')",
+            "this._toggleLabel.set_text(this._collapsed ? '‹' : '›')",
             "_animateHighlight",
             "GLib.timeout_add",
             "Qwen 3.5 2B",
