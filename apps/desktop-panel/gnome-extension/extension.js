@@ -278,6 +278,7 @@ class ChatView extends St.BoxLayout {
         });
         modelControl.add_child(modelMenu);
         modelButton.connect('clicked', () => setModelMenuOpen(!modelMenu.visible));
+        actions.add_child(new St.Widget({style_class: 'ai-composer-spacer', x_expand: true}));
         actions.add_child(modelControl);
 
         const send = new St.Button({label: '↑', style_class: 'ai-send', can_focus: true});
@@ -340,8 +341,8 @@ function metricRow(label, value, extraClass = '') {
 function processRow(name, cpu, memory) {
     const row = new St.BoxLayout({style_class: 'ai-process-row', x_expand: true});
     row.add_child(sidebarLabel(`${name}:`, 'ai-process-name', {x_expand: true}));
-    row.add_child(sidebarLabel(cpu, 'ai-process-cpu'));
-    row.add_child(sidebarLabel(memory, 'ai-process-memory'));
+    row.add_child(sidebarLabel(cpu, 'ai-process-cpu ai-process-column-cpu'));
+    row.add_child(sidebarLabel(memory, 'ai-process-memory ai-process-column-memory'));
     return row;
 }
 
@@ -467,8 +468,8 @@ class SidebarView extends St.BoxLayout {
         const card = this._card('Мини-диспетчер задач');
         const header = new St.BoxLayout({style_class: 'ai-process-header', x_expand: true});
         header.add_child(sidebarLabel('Приложение', 'ai-process-heading', {x_expand: true}));
-        header.add_child(sidebarLabel('ЦП', 'ai-process-heading'));
-        header.add_child(sidebarLabel('Память', 'ai-process-heading'));
+        header.add_child(sidebarLabel('ЦП', 'ai-process-heading ai-process-heading-cpu'));
+        header.add_child(sidebarLabel('Память', 'ai-process-heading ai-process-heading-memory'));
         card.add_child(header);
         card.add_child(processRow('Firefox', '12%', '820 МБ'));
         card.add_child(processRow('gnome-shell', '7%', '410 МБ'));

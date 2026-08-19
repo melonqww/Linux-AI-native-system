@@ -190,7 +190,10 @@
 
 .ai-model-control {
     background-color: transparent;
-    margin-left: auto;
+}
+
+.ai-composer-spacer {
+    min-width: 0;
 }
 
 .ai-model {
@@ -413,8 +416,8 @@
 }
 
 .ai-process-heading {
-    color: #a9a9a9;
-    font-size: 10px;
+    color: #e2e2df;
+    font-size: 12px;
     font-weight: 700;
 }
 
@@ -422,19 +425,38 @@
 .ai-process-cpu,
 .ai-process-memory {
     color: #eeeeec;
-    font-size: 11px;
+    font-size: 12px;
 }
 
 .ai-process-name {
-    font-weight: 650;
+    font-weight: 700;
 }
 
 .ai-process-cpu,
 .ai-process-memory {
     color: #c8ddb9;
-    font-weight: 650;
-    min-width: 52px;
+    font-weight: 700;
+    min-width: 66px;
     text-align: right;
+}
+
+.ai-process-row {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 5px 0;
+}
+
+.ai-process-heading-cpu,
+.ai-process-column-cpu {
+    border-right: 1px solid rgba(255, 255, 255, 0.18);
+    min-width: 66px;
+    padding-right: 9px;
+    text-align: right;
+}
+
+.ai-process-heading-memory,
+.ai-process-column-memory {
+    min-width: 70px;
+    padding-left: 2px;
 }
 
 .ai-sidebar-action,
