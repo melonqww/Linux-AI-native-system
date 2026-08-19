@@ -328,6 +328,7 @@ class Panel extends St.Widget {
             reactive: true,
             layout_manager: new Clutter.FixedLayout(),
         });
+        this._runtime = runtime;
         this.set_size(SHELL_WIDTH, DEFAULT_PANEL_HEIGHT);
         this._collapsed = false;
 

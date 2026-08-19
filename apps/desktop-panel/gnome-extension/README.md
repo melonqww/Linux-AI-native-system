@@ -18,6 +18,12 @@ gnome-extensions disable ai-native-linux@melonqww
 gnome-extensions enable ai-native-linux@melonqww
 ```
 
+Перед включением можно проверить файлы без загрузки GNOME Shell:
+
+```bash
+python3 apps/desktop-panel/gnome-extension/validate_extension.py --installed
+```
+
 Расширение устанавливается в `~/.local/share/gnome-shell/extensions/ai-native-linux@melonqww`.
 
 Панель отправляет поисковые запросы в локальный runtime по
