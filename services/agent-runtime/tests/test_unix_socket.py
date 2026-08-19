@@ -16,6 +16,7 @@ from ai_native_linux.unix_socket import (
     PeerCredentials,
     create_unix_server,
 )
+from ai_native_permissions import TransportKind
 
 
 @dataclass
@@ -24,6 +25,9 @@ class Result:
 
 
 class App:
+    def __init__(self):
+        self.transport_contexts = []
+
     def capabilities(self):
         return ["documents.query.search"]
 
@@ -36,10 +40,11 @@ class App:
     def compile_intent(self, payload):
         return Result(payload["text"])
 
-    def execute_plan(self, payload):
+    def execute_plan(self, payload, *, transport_context):
+        self.transport_contexts.append(transport_context)
         return Result(payload["plan_id"])
 
-    def respond_to_approval(self, payload):
+    def respond_to_approval(self, payload, *, transport_context):
         return Result(payload["approval_request_id"])
 
 
@@ -99,6 +104,23 @@ class UnixSocketTests(unittest.TestCase):
 
         self.assertEqual(response["status"], 403)
         self.assertEqual(response["body"]["error"]["code"], "peer_not_authorized")
+
+    def test_passes_kernel_peer_identity_to_execution_layer(self):
+        app = App()
+        server = create_unix_server(app, self.path)
+
+        _request_id, response = self._request(
+            server,
+            method="POST",
+            path="/v1/plan/execute",
+            body={"plan_id": "trusted"},
+        )
+
+        self.assertEqual(response["status"], 200)
+        context = app.transport_contexts[0]
+        self.assertEqual(context.transport, TransportKind.UNIX_PEER)
+        self.assertEqual(context.peer_uid, os.getuid())
+        self.assertGreater(context.peer_pid, 0)
 
     def test_policy_rejects_invalid_pid_and_other_uid(self):
         policy = PeerCredentialPolicy(expected_uid=1000, expected_gid=1000)

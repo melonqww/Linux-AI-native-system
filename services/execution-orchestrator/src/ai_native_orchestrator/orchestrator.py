@@ -2,11 +2,23 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
+from dataclasses import dataclass
+from time import monotonic
 from uuid import UUID, uuid4
 
-from ai_native_intents import CompilationState, ExecutionPlan, PlanStep, RiskClass, TaskContextStore
+from ai_native_intents import CompilationState, ExecutionPlan, PlanStep, TaskContextStore
 from ai_native_query import DocumentQuery, QueryService
+from ai_native_permissions import (
+    CapabilityExecutionRegistry,
+    CapabilityInvocation,
+    ExecutionContext,
+    ExecutionPhase,
+    PermissionGateway,
+    ScopeGrantStore,
+    TransportContext,
+    builtin_policies,
+)
 from ai_native_storage import (
     MaterializeDestinationError,
     MaterializeIntegrityError,
@@ -39,10 +51,23 @@ class PlanValidationError(ValueError):
     pass
 
 
-class ExecutionOrchestrator:
-    """Executes the narrow v1 allowlist; it never dynamically invokes model names."""
+@dataclass(frozen=True)
+class _CopyPreparePayload:
+    run_id: str
+    plan: ExecutionPlan
+    step: PlanStep
+    prior_steps: tuple[StepExecution, ...]
+    outputs: dict[str, SearchOutput]
+    active_collection_id: str | None
 
-    SEARCH_CAPABILITY = "documents.query.search"
+
+@dataclass(frozen=True)
+class _CopyCommitPayload:
+    session: ApprovalSession
+
+
+class ExecutionOrchestrator:
+    """Executes plans only through trusted policy and handler registries."""
 
     def __init__(
         self,
@@ -53,6 +78,9 @@ class ExecutionOrchestrator:
         materialize_service: MaterializeService | None = None,
         destination_resolver: DestinationResolver | None = None,
         approval_sessions: ApprovalSessionStore | None = None,
+        capability_source: Callable[[], Iterable[str]] | None = None,
+        granted_scopes: frozenset[str] | None = None,
+        scope_source: Callable[[], Iterable[str]] | None = None,
     ) -> None:
         self._query_service = query_service
         self._context_store = context_store
@@ -60,8 +88,40 @@ class ExecutionOrchestrator:
         self._materialize = materialize_service
         self._destinations = destination_resolver or DestinationResolver()
         self._approval_sessions = approval_sessions or ApprovalSessionStore()
+        initial_scopes = (
+            frozenset(
+                {
+                    "filesystem.read-metadata",
+                    "filesystem.read-content",
+                    "filesystem.write-content",
+                }
+            )
+            if granted_scopes is None
+            else granted_scopes
+        )
+        self.scope_grants = ScopeGrantStore(initial_scopes)
+        self._scope_source = scope_source or self.scope_grants.snapshot
+        self.permission_gateway = PermissionGateway(
+            builtin_policies(), capability_source=capability_source
+        )
+        self.capabilities = CapabilityExecutionRegistry(self.permission_gateway)
+        self.capabilities.register("documents.query.search", self._handle_search)
+        self.capabilities.register("storage.materialize.plan-copy", self._handle_copy)
 
-    def execute(self, plan: ExecutionPlan) -> OrchestrationResult:
+    def available_capabilities(self) -> tuple[str, ...]:
+        registered = set(self.capabilities.registered_capabilities())
+        return tuple(
+            capability
+            for capability in self.permission_gateway.available_capabilities()
+            if capability in registered
+        )
+
+    def execute(
+        self,
+        plan: ExecutionPlan,
+        *,
+        transport_context: TransportContext | None = None,
+    ) -> OrchestrationResult:
         run_id = str(uuid4())
         try:
             self._validate(plan)
@@ -77,6 +137,7 @@ class ExecutionOrchestrator:
         completed: set[str] = set()
         outputs_by_operation: dict[str, SearchOutput] = {}
         active_collection_id = self._context_store.snapshot().active_collection_id
+        transport = transport_context or TransportContext.internal()
         self._audit("orchestration.started", run_id, plan.plan_id)
 
         for index, step in enumerate(plan.steps):
@@ -84,10 +145,37 @@ class ExecutionOrchestrator:
                 return self._failure(run_id, plan, executions, step, "dependency_not_completed")
             if step.approval_required:
                 try:
-                    approval = self._prepare_copy_approval(
-                        run_id, plan, step, tuple(executions), outputs_by_operation,
-                        active_collection_id,
+                    invocation = self._invocation(
+                        plan,
+                        step,
+                        ExecutionPhase.PREPARE,
+                        transport,
+                        trusted_payload=_CopyPreparePayload(
+                            run_id,
+                            plan,
+                            step,
+                            tuple(executions),
+                            dict(outputs_by_operation),
+                            active_collection_id,
+                        ),
                     )
+                    dispatch = self.capabilities.dispatch(
+                        invocation,
+                        decision_observer=lambda decision: self._audit_permission(
+                            run_id, plan.plan_id, step, invocation, decision
+                        ),
+                    )
+                    if not dispatch.decision.allowed:
+                        return self._failure(
+                            run_id,
+                            plan,
+                            executions,
+                            step,
+                            f"policy_{dispatch.decision.reason_code}",
+                        )
+                    if not isinstance(dispatch.output, ApprovalRequest):
+                        raise TypeError("R1 prepare handler returned an invalid output")
+                    approval = dispatch.output
                 except Exception as error:
                     return self._failure(
                         run_id, plan, executions, step, self._classify_error(error)
@@ -106,7 +194,26 @@ class ExecutionOrchestrator:
                     approval_request=approval,
                 )
             try:
-                output = self._execute_search(step, plan.plan_id)
+                invocation = self._invocation(
+                    plan, step, ExecutionPhase.EXECUTE, transport
+                )
+                dispatch = self.capabilities.dispatch(
+                    invocation,
+                    decision_observer=lambda decision: self._audit_permission(
+                        run_id, plan.plan_id, step, invocation, decision
+                    ),
+                )
+                if not dispatch.decision.allowed:
+                    return self._failure(
+                        run_id,
+                        plan,
+                        executions,
+                        step,
+                        f"policy_{dispatch.decision.reason_code}",
+                    )
+                if not isinstance(dispatch.output, SearchOutput):
+                    raise TypeError("R0 handler returned an invalid output")
+                output = dispatch.output
                 active_collection_id = output.collection_id
                 self._context_store.set_active_results(active_collection_id)
             except Exception as error:
@@ -139,7 +246,11 @@ class ExecutionOrchestrator:
         )
 
     def respond_to_approval(
-        self, approval_request_id: str, *, confirmed: bool
+        self,
+        approval_request_id: str,
+        *,
+        confirmed: bool,
+        transport_context: TransportContext | None = None,
     ) -> OrchestrationResult:
         try:
             session, expired = self._approval_sessions.claim(approval_request_id)
@@ -167,11 +278,49 @@ class ExecutionOrchestrator:
                 diagnostics=("user_declined",),
             )
         try:
-            grant = self._materialize.approval.approve(
-                session.materialize_plan.plan_id, user_confirmed=True
+            invocation = self._invocation(
+                None,
+                step,
+                ExecutionPhase.COMMIT,
+                transport_context or TransportContext.internal(),
+                approval_granted=True,
+                plan_id=session.request.plan_id,
+                trusted_payload=_CopyCommitPayload(session),
             )
-            copied = self._materialize.execute(session.materialize_plan.plan_id, grant)
-            self._context_store.set_last_destination(session.materialize_plan.destination)
+            dispatch = self.capabilities.dispatch(
+                invocation,
+                decision_observer=lambda decision: self._audit_permission(
+                    session.run_id,
+                    session.request.plan_id,
+                    step,
+                    invocation,
+                    decision,
+                ),
+            )
+            if not dispatch.decision.allowed:
+                self._materialize.discard(session.materialize_plan.plan_id)
+                code = f"policy_{dispatch.decision.reason_code}"
+                execution = StepExecution(
+                    step.step_id, step.capability, StepState.FAILED, error_code=code
+                )
+                self._audit(
+                    "orchestration.denied",
+                    session.run_id,
+                    session.request.plan_id,
+                    step.step_id,
+                    error_code=code,
+                )
+                return OrchestrationResult(
+                    session.run_id,
+                    session.request.plan_id,
+                    OrchestrationState.FAILED,
+                    (*session.prior_steps, execution),
+                    active_collection_id=session.active_collection_id,
+                    diagnostics=(code,),
+                )
+            if not isinstance(dispatch.output, CopyOutput):
+                raise TypeError("R1 commit handler returned an invalid output")
+            output = dispatch.output
         except Exception as error:
             self._materialize.discard(session.materialize_plan.plan_id)
             code = self._classify_error(error)
@@ -193,16 +342,13 @@ class ExecutionOrchestrator:
                 active_collection_id=session.active_collection_id,
                 diagnostics=(code,),
             )
-        output = CopyOutput(
-            session.materialize_plan.destination, len(copied), tuple(copied)
-        )
         execution = StepExecution(step.step_id, step.capability, StepState.COMPLETED, output)
         self._audit(
             "orchestration.step_completed",
             session.run_id,
             session.request.plan_id,
             step.step_id,
-            copied_count=len(copied),
+            copied_count=output.copied_count,
         )
         self._audit("orchestration.completed", session.run_id, session.request.plan_id)
         return OrchestrationResult(
@@ -213,6 +359,89 @@ class ExecutionOrchestrator:
             active_collection_id=session.active_collection_id,
         )
 
+    def _invocation(
+        self,
+        plan: ExecutionPlan | None,
+        step: PlanStep,
+        phase: ExecutionPhase,
+        transport: TransportContext,
+        *,
+        approval_granted: bool = False,
+        plan_id: str | None = None,
+        trusted_payload: object | None = None,
+    ) -> CapabilityInvocation:
+        resolved_plan_id = plan.plan_id if plan is not None else plan_id
+        if resolved_plan_id is None:
+            raise ValueError("plan_id is required for capability invocation")
+        return CapabilityInvocation(
+            request_id=str(uuid4()),
+            plan_id=resolved_plan_id,
+            step_id=step.step_id,
+            capability_id=step.capability,
+            phase=phase,
+            arguments=dict(step.arguments),
+            declared_risk=step.risk.value,
+            declared_approval_required=step.approval_required,
+            context=ExecutionContext(
+                transport,
+                frozenset(self._scope_source()),
+                approval_granted=approval_granted,
+            ),
+            trusted_payload=trusted_payload,
+        )
+
+    def _handle_search(self, invocation: CapabilityInvocation) -> SearchOutput:
+        self._ensure_deadline(invocation)
+        if invocation.phase is not ExecutionPhase.EXECUTE:
+            raise ValueError("search handler only supports execute")
+        return self._execute_search(
+            invocation.arguments, invocation.plan_id, invocation.deadline_monotonic
+        )
+
+    def _handle_copy(self, invocation: CapabilityInvocation) -> ApprovalRequest | CopyOutput:
+        self._ensure_deadline(invocation)
+        if invocation.phase is ExecutionPhase.PREPARE:
+            payload = invocation.trusted_payload
+            if not isinstance(payload, _CopyPreparePayload):
+                raise TypeError("copy prepare requires trusted orchestration state")
+            return self._prepare_copy_approval(
+                payload.run_id,
+                payload.plan,
+                payload.step,
+                payload.prior_steps,
+                payload.outputs,
+                payload.active_collection_id,
+                deadline_monotonic=invocation.deadline_monotonic,
+            )
+        if invocation.phase is ExecutionPhase.COMMIT:
+            payload = invocation.trusted_payload
+            if not isinstance(payload, _CopyCommitPayload):
+                raise TypeError("copy commit requires trusted approval state")
+            if self._materialize is None:
+                raise RuntimeError("materialize_service_unavailable")
+            session = payload.session
+            grant = self._materialize.approval.approve(
+                session.materialize_plan.plan_id, user_confirmed=True
+            )
+            copied = self._materialize.execute(
+                session.materialize_plan.plan_id,
+                grant,
+                deadline_monotonic=invocation.deadline_monotonic,
+            )
+            self._context_store.set_last_destination(session.materialize_plan.destination)
+            return CopyOutput(
+                session.materialize_plan.destination, len(copied), tuple(copied)
+            )
+        raise ValueError("copy handler does not support this phase")
+
+    @staticmethod
+    def _ensure_deadline(invocation: CapabilityInvocation) -> None:
+        if (
+            invocation.deadline_monotonic is not None
+            and monotonic() >= invocation.deadline_monotonic
+        ):
+            raise TimeoutError("capability deadline expired before execution")
+
     def _prepare_copy_approval(
         self,
         run_id: str,
@@ -221,6 +450,8 @@ class ExecutionOrchestrator:
         prior_steps: tuple[StepExecution, ...],
         outputs: dict[str, SearchOutput],
         active_collection_id: str | None,
+        *,
+        deadline_monotonic: float | None = None,
     ) -> ApprovalRequest:
         if self._materialize is None:
             raise RuntimeError("materialize service is unavailable")
@@ -245,7 +476,9 @@ class ExecutionOrchestrator:
             directory_name=raw_name,
             trusted_last_destination=context.last_destination,
         )
-        materialize_plan = self._materialize.create_copy_plan(collection_id, destination)
+        materialize_plan = self._materialize.create_copy_plan(
+            collection_id, destination, deadline_monotonic=deadline_monotonic
+        )
         request = ApprovalRequest(
             approval_request_id=str(uuid4()),
             plan_id=plan.plan_id,
@@ -276,8 +509,12 @@ class ExecutionOrchestrator:
         for session in sessions:
             self._materialize.discard(session.materialize_plan.plan_id)
 
-    def _execute_search(self, step: PlanStep, plan_id: str) -> SearchOutput:
-        arguments = step.arguments
+    def _execute_search(
+        self,
+        arguments: dict[str, object],
+        plan_id: str,
+        deadline_monotonic: float | None,
+    ) -> SearchOutput:
         allowed = {"text", "name_terms", "extensions", "volume_ids", "languages"}
         unknown = set(arguments) - allowed
         if unknown:
@@ -298,6 +535,8 @@ class ExecutionOrchestrator:
                 limit=50,
             )
         )
+        if deadline_monotonic is not None and monotonic() >= deadline_monotonic:
+            raise TimeoutError("search deadline expired before snapshot")
         collection_id = self._query_service.save_snapshot(
             f"Search {plan_id[:8]}", results
         )
@@ -329,20 +568,27 @@ class ExecutionOrchestrator:
                 raise PlanValidationError("step_operation_identity_mismatch")
             if any(dependency not in known for dependency in step.depends_on):
                 raise PlanValidationError("dependency_order_invalid")
-            if step.capability == self.SEARCH_CAPABILITY:
-                if step.risk is not RiskClass.READ_ONLY or step.approval_required:
-                    raise PlanValidationError("search_risk_mismatch")
-            elif step.capability == "storage.materialize.plan-copy":
-                if step.risk is not RiskClass.REVERSIBLE_WRITE or not step.approval_required:
-                    raise PlanValidationError("copy_risk_mismatch")
-                if index != len(plan.steps) - 1:
-                    raise PlanValidationError("copy_must_be_final_in_v1")
-                reference = step.arguments.get("results_from")
-                earlier_operations = set(operation_ids[:index])
-                if reference in earlier_operations and f"step_{reference}" not in step.depends_on:
-                    raise PlanValidationError("copy_result_dependency_missing")
-            else:
-                raise PlanValidationError("capability_not_executable_in_v1")
+            try:
+                policy = self.permission_gateway.policy(step.capability)
+            except ValueError as error:
+                raise PlanValidationError("capability_has_no_trusted_policy") from error
+            if step.risk.value != policy.risk.value:
+                raise PlanValidationError("step_risk_mismatch")
+            if step.approval_required != policy.plan_approval_required:
+                raise PlanValidationError("step_approval_mismatch")
+            phase = (
+                ExecutionPhase.PREPARE
+                if step.approval_required
+                else ExecutionPhase.EXECUTE
+            )
+            if policy.rule_for(phase) is None:
+                raise PlanValidationError("capability_phase_not_supported")
+            if step.approval_required and index != len(plan.steps) - 1:
+                raise PlanValidationError("approval_step_must_be_final_in_v1")
+            reference = step.arguments.get("results_from")
+            earlier_operations = set(operation_ids[:index])
+            if reference in earlier_operations and f"step_{reference}" not in step.depends_on:
+                raise PlanValidationError("result_dependency_missing")
             known.add(step.step_id)
         if plan.approval_required != any(step.approval_required for step in plan.steps):
             raise PlanValidationError("approval_flag_mismatch")
@@ -390,6 +636,22 @@ class ExecutionOrchestrator:
             payload["step_id"] = step_id
         payload.update(metadata)
         self._audit_sink(payload)
+
+    def _audit_permission(
+        self, run_id, plan_id, step, invocation, decision
+    ) -> None:
+        self._audit(
+            "permission.decision",
+            run_id,
+            plan_id,
+            step.step_id,
+            capability=step.capability,
+            phase=invocation.phase.value,
+            transport=invocation.context.transport.transport.value,
+            risk=None if decision.risk is None else decision.risk.value,
+            decision=decision.kind.value,
+            reason_code=decision.reason_code,
+        )
 
     @staticmethod
     def _string(arguments, key) -> str:

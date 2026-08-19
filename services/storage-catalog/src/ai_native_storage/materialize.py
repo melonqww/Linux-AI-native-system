@@ -114,7 +114,13 @@ class MaterializeService:
         self._plans: dict[str, tuple[MaterializePlan, float]] = {}
         self._lock = RLock()
 
-    def create_copy_plan(self, collection_id: str, destination: Path) -> MaterializePlan:
+    def create_copy_plan(
+        self,
+        collection_id: str,
+        destination: Path,
+        *,
+        deadline_monotonic: float | None = None,
+    ) -> MaterializePlan:
         destination = destination.expanduser().absolute()
         if destination.name in {"", ".", ".."}:
             raise ValueError("destination must name a child directory")
@@ -126,6 +132,7 @@ class MaterializeService:
         items: list[MaterializeItem] = []
         used_names: set[str] = set()
         for reference in self.collections.resolve(collection_id):
+            self._check_deadline(deadline_monotonic)
             source = Path(reference.path)
             if not reference.available or source.is_symlink() or not source.is_file():
                 continue
@@ -139,7 +146,7 @@ class MaterializeService:
                     stat.st_mtime_ns,
                     stat.st_dev,
                     stat.st_ino,
-                    self._digest(source),
+                    self._digest(source, deadline_monotonic),
                 )
             )
             used_names.add(name.casefold())
@@ -157,7 +164,13 @@ class MaterializeService:
             self._plans[plan.plan_id] = (plan, monotonic() + self._plan_ttl_seconds)
         return plan
 
-    def execute(self, plan_id: str, grant: ApprovalGrant) -> tuple[str, ...]:
+    def execute(
+        self,
+        plan_id: str,
+        grant: ApprovalGrant,
+        *,
+        deadline_monotonic: float | None = None,
+    ) -> tuple[str, ...]:
         with self._lock:
             self._purge_plans()
             stored = self._plans.pop(plan_id, None)
@@ -180,6 +193,7 @@ class MaterializeService:
         created: list[Path] = []
         try:
             for item in plan.items:
+                self._check_deadline(deadline_monotonic)
                 source = Path(item.source)
                 stat = source.stat()
                 if (
@@ -188,7 +202,7 @@ class MaterializeService:
                     or stat.st_mtime_ns != item.mtime_ns
                     or stat.st_dev != item.device
                     or stat.st_ino != item.inode
-                    or self._digest(source) != item.sha256
+                    or self._digest(source, deadline_monotonic) != item.sha256
                 ):
                     raise MaterializeIntegrityError("source changed after approval")
                 target = destination / item.destination_name
@@ -205,12 +219,14 @@ class MaterializeService:
                 os.close(handle)
                 temporary = Path(temporary_name)
                 try:
-                    shutil.copy2(source, temporary)
-                    if self._digest(temporary) != item.sha256:
+                    self._copy_with_deadline(source, temporary, deadline_monotonic)
+                    if self._digest(temporary, deadline_monotonic) != item.sha256:
                         raise MaterializeIntegrityError(
                             "source changed while it was being copied"
                         )
-                    self._publish_no_clobber(temporary, target, created)
+                    self._publish_no_clobber(
+                        temporary, target, created, deadline_monotonic
+                    )
                 finally:
                     temporary.unlink(missing_ok=True)
         except Exception as error:
@@ -243,16 +259,37 @@ class MaterializeService:
             self.approval.revoke(plan_id)
 
     @staticmethod
-    def _digest(path: Path) -> str:
+    def _digest(path: Path, deadline_monotonic: float | None = None) -> str:
         digest = sha256()
         with path.open("rb") as stream:
             while chunk := stream.read(1024 * 1024):
+                MaterializeService._check_deadline(deadline_monotonic)
                 digest.update(chunk)
         return digest.hexdigest()
 
     @staticmethod
+    def _copy_with_deadline(
+        source: Path, destination: Path, deadline_monotonic: float | None
+    ) -> None:
+        with source.open("rb") as input_stream, destination.open("wb") as output_stream:
+            while chunk := input_stream.read(1024 * 1024):
+                MaterializeService._check_deadline(deadline_monotonic)
+                output_stream.write(chunk)
+            output_stream.flush()
+            os.fsync(output_stream.fileno())
+        shutil.copystat(source, destination, follow_symlinks=False)
+
+    @staticmethod
+    def _check_deadline(deadline_monotonic: float | None) -> None:
+        if deadline_monotonic is not None and monotonic() >= deadline_monotonic:
+            raise TimeoutError("materialize operation deadline expired")
+
+    @staticmethod
     def _publish_no_clobber(
-        temporary: Path, target: Path, created: list[Path]
+        temporary: Path,
+        target: Path,
+        created: list[Path],
+        deadline_monotonic: float | None,
     ) -> None:
         try:
             # Hard-link publication is atomic and cannot replace an existing
@@ -280,7 +317,9 @@ class MaterializeService:
         created.append(target)
         try:
             with temporary.open("rb") as source, os.fdopen(descriptor, "wb") as output:
-                shutil.copyfileobj(source, output, length=1024 * 1024)
+                while chunk := source.read(1024 * 1024):
+                    MaterializeService._check_deadline(deadline_monotonic)
+                    output.write(chunk)
                 output.flush()
                 os.fsync(output.fileno())
             shutil.copystat(temporary, target, follow_symlinks=False)

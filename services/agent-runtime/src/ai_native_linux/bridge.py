@@ -6,6 +6,7 @@ import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from .routing import RuntimeApplication, RuntimeRouter
+from ai_native_permissions import TransportContext, TransportKind
 
 
 def create_server(application: RuntimeApplication, host: str = "127.0.0.1", port: int = 0):
@@ -13,7 +14,11 @@ def create_server(application: RuntimeApplication, host: str = "127.0.0.1", port
         raise ValueError("panel bridge must bind to IPv4 loopback")
     # TCP loopback is a development fallback. It can inspect and execute R0,
     # but it must never confirm a filesystem-changing R1 operation.
-    router = RuntimeRouter(application, allow_r1=False)
+    router = RuntimeRouter(
+        application,
+        transport_context=TransportContext(TransportKind.LOOPBACK_HTTP, "loopback-http"),
+        allow_r1=False,
+    )
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:

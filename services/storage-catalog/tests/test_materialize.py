@@ -4,6 +4,7 @@ import sys
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+from time import monotonic
 from uuid import uuid4
 
 
@@ -110,6 +111,17 @@ class MaterializeTests(unittest.TestCase):
             copied = self.service.execute(plan.plan_id, grant)
 
         self.assertEqual(Path(copied[0]).read_bytes(), b"pdf-content")
+
+    def test_expired_deadline_stops_before_write_and_rolls_back_directory(self) -> None:
+        _source, plan = self._plan()
+        grant = self.approval.approve(plan.plan_id, user_confirmed=True)
+
+        with self.assertRaises(TimeoutError):
+            self.service.execute(
+                plan.plan_id, grant, deadline_monotonic=monotonic() - 1
+            )
+
+        self.assertFalse((self.root / "result").exists())
 
 
 if __name__ == "__main__":

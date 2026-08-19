@@ -175,6 +175,10 @@ Production IPC core→panel теперь выбран в
 filesystem permissions и Linux `SO_PEERCRED`. IPC отдельных capability-процессов
 и дополнительная same-user client binding остаются отдельными решениями.
 
+Доверенная policy/dispatch граница реализована в
+[ADR-007](ADR-007-trusted-permission-gateway.md). Manifest может запросить права,
+но risk, scopes, transport и approval назначает только core policy.
+
 ## Отложенные решения
 
 - формат подписи и канал распространения сторонних модулей;

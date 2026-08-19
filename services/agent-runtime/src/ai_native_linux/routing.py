@@ -6,14 +6,20 @@ from dataclasses import asdict, dataclass
 from typing import Protocol
 from uuid import uuid4
 
+from ai_native_permissions import TransportContext
+
 
 class RuntimeApplication(Protocol):
     def capabilities(self) -> list[str]: ...
     def search(self, payload: dict[str, object]) -> list[object]: ...
     def index_status(self) -> dict[str, object]: ...
     def compile_intent(self, payload: dict[str, object]) -> object: ...
-    def execute_plan(self, payload: dict[str, object]) -> object: ...
-    def respond_to_approval(self, payload: dict[str, object]) -> object: ...
+    def execute_plan(
+        self, payload: dict[str, object], *, transport_context: TransportContext
+    ) -> object: ...
+    def respond_to_approval(
+        self, payload: dict[str, object], *, transport_context: TransportContext
+    ) -> object: ...
 
 
 @dataclass(frozen=True)
@@ -23,8 +29,15 @@ class RuntimeResponse:
 
 
 class RuntimeRouter:
-    def __init__(self, application: RuntimeApplication, *, allow_r1: bool = True) -> None:
+    def __init__(
+        self,
+        application: RuntimeApplication,
+        *,
+        transport_context: TransportContext | None = None,
+        allow_r1: bool = True,
+    ) -> None:
         self.application = application
+        self.transport_context = transport_context or TransportContext.internal()
         self.allow_r1 = allow_r1
 
     def dispatch(
@@ -34,6 +47,7 @@ class RuntimeRouter:
         payload: dict[str, object] | None = None,
         *,
         request_id: str | None = None,
+        transport_context: TransportContext | None = None,
     ) -> RuntimeResponse:
         correlation_id = request_id or str(uuid4())
         try:
@@ -42,7 +56,12 @@ class RuntimeRouter:
             if method == "POST":
                 if payload is None:
                     raise ValueError("request_body_required")
-                return self._post(path, payload, correlation_id)
+                return self._post(
+                    path,
+                    payload,
+                    correlation_id,
+                    transport_context or self.transport_context,
+                )
             return self.error(405, "method_not_allowed", False, correlation_id)
         except RuntimeError:
             return self.error(503, "service_unavailable", True, correlation_id)
@@ -64,7 +83,11 @@ class RuntimeRouter:
         return self.error(404, "not_found", False, request_id)
 
     def _post(
-        self, path: str, payload: dict[str, object], request_id: str
+        self,
+        path: str,
+        payload: dict[str, object],
+        request_id: str,
+        transport_context: TransportContext,
     ) -> RuntimeResponse:
         if path == "/v1/search":
             return RuntimeResponse(
@@ -73,11 +96,25 @@ class RuntimeRouter:
         if path == "/v1/intent/compile":
             return RuntimeResponse(200, asdict(self.application.compile_intent(payload)))
         if path == "/v1/plan/execute":
-            return RuntimeResponse(200, asdict(self.application.execute_plan(payload)))
+            return RuntimeResponse(
+                200,
+                asdict(
+                    self.application.execute_plan(
+                        payload, transport_context=transport_context
+                    )
+                ),
+            )
         if path == "/v1/approval/respond":
             if not self.allow_r1:
                 return self.error(403, "secure_transport_required", False, request_id)
-            return RuntimeResponse(200, asdict(self.application.respond_to_approval(payload)))
+            return RuntimeResponse(
+                200,
+                asdict(
+                    self.application.respond_to_approval(
+                        payload, transport_context=transport_context
+                    )
+                ),
+            )
         return self.error(404, "not_found", False, request_id)
 
     @staticmethod

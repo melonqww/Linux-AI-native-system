@@ -19,6 +19,7 @@
   "requested_permissions": [
     "storage.enumerate",
     "filesystem.read-metadata",
+    "filesystem.read-content",
     "filesystem.write-content"
   ],
   "lifecycle": "on-demand",

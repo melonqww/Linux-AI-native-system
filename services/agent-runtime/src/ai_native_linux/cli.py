@@ -122,7 +122,25 @@ def main() -> int:
                         args.storage_database, ApprovalAuthority()
                     ),
                     destination_resolver=DestinationResolver(),
+                    capability_source=lambda: (
+                        *registry.available_capabilities(),
+                        "documents.query.search",
+                    ),
                 )
+                for capability in plan_executor.available_capabilities():
+                    required_scopes = plan_executor.permission_gateway.required_scopes(
+                        capability
+                    )
+                    for provider_info in registry.providers(capability):
+                        provider_module = registry.get_module(provider_info.module_id)
+                        missing = required_scopes - set(
+                            provider_module.manifest.requested_permissions
+                        )
+                        if missing:
+                            parser.error(
+                                f"module {provider_info.module_id} does not declare "
+                                f"required policy scopes for {capability}: {sorted(missing)}"
+                            )
             application = QueryRuntimeApplication(
                 query_service,
                 scheduler_status=lambda: manager.health_details("storage.watch"),

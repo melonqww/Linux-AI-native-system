@@ -18,7 +18,7 @@ for source in (
 
 from ai_native_intents import CompilationResult, CompilationState, TaskContext
 from ai_native_query import DocumentQuery, QueryRuntimeApplication, QueryService
-from ai_native_storage import VolumeRegistry
+from ai_native_storage import PermissionLevel, VolumeRegistry
 from ai_native_storage.contracts import DiscoveredVolume
 
 
@@ -51,10 +51,15 @@ class FakePlanStore:
 
 
 class FakeExecutor:
-    def execute(self, plan):
+    def available_capabilities(self):
+        return ("storage.materialize.plan-copy",)
+
+    def execute(self, plan, *, transport_context=None):
         return {"executed": plan}
 
-    def respond_to_approval(self, approval_request_id, *, confirmed):
+    def respond_to_approval(
+        self, approval_request_id, *, confirmed, transport_context=None
+    ):
         return {"approval_request_id": approval_request_id, "confirmed": confirmed}
 
 
@@ -120,6 +125,19 @@ class QueryServiceTests(unittest.TestCase):
         self.assertIn("catalog", application.index_status())
         with self.assertRaises(ValueError):
             application.search({"text": [], "limit": 20})
+
+    def test_revoked_content_permission_hides_stale_index_snippets(self) -> None:
+        self.make_pdf("Private mathematics theorem")
+        self.service.catalog.scan_volume("test-volume")
+        self.service.ingest_pdfs()
+        self.service.volumes.set_permission("test-volume", PermissionLevel.METADATA)
+
+        content = self.service.search(DocumentQuery(text="theorem"))
+        metadata = self.service.search(DocumentQuery(name_contains=("study",)))
+
+        self.assertEqual(content, [])
+        self.assertEqual(len(metadata), 1)
+        self.assertIsNone(metadata[0].snippet)
 
     def test_runtime_compiles_with_server_owned_task_context(self) -> None:
         pipeline = FakeIntentPipeline()

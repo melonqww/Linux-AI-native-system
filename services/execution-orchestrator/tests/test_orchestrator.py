@@ -22,6 +22,7 @@ from ai_native_orchestrator import (
     PlanValidationError,
 )
 from ai_native_query import QueryResult
+from ai_native_permissions import TransportContext, TransportKind
 from ai_native_storage import ApprovalAuthority, CollectionItem, MaterializeService
 
 
@@ -193,6 +194,29 @@ class OrchestratorTests(unittest.TestCase):
         self.assertFalse((self.desktop / "math.pdf").exists())
         self.assertIsNone(self.context.snapshot().last_destination)
 
+    def test_r1_commit_is_denied_again_if_transport_is_not_secure(self):
+        self.context.set_active_results("collection-trusted-1")
+        copy = step(
+            "copy",
+            capability="storage.materialize.plan-copy",
+            arguments={"results_from": "collection-trusted-1", "destination": "desktop"},
+            risk=RiskClass.REVERSIBLE_WRITE,
+            approval_required=True,
+        )
+        waiting = self.orchestrator.execute(plan(copy))
+
+        result = self.orchestrator.respond_to_approval(
+            waiting.approval_request.approval_request_id,
+            confirmed=True,
+            transport_context=TransportContext(
+                TransportKind.LOOPBACK_HTTP, "loopback-http"
+            ),
+        )
+
+        self.assertEqual(result.state, OrchestrationState.FAILED)
+        self.assertEqual(result.steps[-1].error_code, "policy_transport_not_allowed")
+        self.assertFalse((self.desktop / "math.pdf").exists())
+
     def test_changed_source_after_preview_fails_and_rolls_back(self):
         self.context.set_active_results("collection-trusted-1")
         copy = step(
@@ -215,7 +239,7 @@ class OrchestratorTests(unittest.TestCase):
 
     def test_revalidates_risk_and_dependency_order(self):
         unsafe = step(risk=RiskClass.REVERSIBLE_WRITE, approval_required=True)
-        with self.assertRaisesRegex(PlanValidationError, "search_risk_mismatch"):
+        with self.assertRaisesRegex(PlanValidationError, "step_risk_mismatch"):
             self.orchestrator.execute(plan(unsafe))
 
         invalid_dependency = step(depends_on=("step_later",))
@@ -232,13 +256,58 @@ class OrchestratorTests(unittest.TestCase):
             risk=RiskClass.REVERSIBLE_WRITE,
             approval_required=True,
         )
-        with self.assertRaisesRegex(PlanValidationError, "copy_result_dependency_missing"):
+        with self.assertRaisesRegex(PlanValidationError, "result_dependency_missing"):
             self.orchestrator.execute(plan(search, copy))
 
     def test_rejects_capability_outside_v1_allowlist(self):
         browser = step(capability="browser.search.plan")
-        with self.assertRaisesRegex(PlanValidationError, "capability_not_executable"):
+        with self.assertRaisesRegex(PlanValidationError, "capability_has_no_trusted_policy"):
             self.orchestrator.execute(plan(browser))
+
+    def test_gateway_denies_missing_scope_before_handler(self):
+        orchestrator = ExecutionOrchestrator(
+            self.query,
+            self.context,
+            materialize_service=self.materialize,
+            destination_resolver=DestinationResolver(
+                home=self.root, roles={"desktop": self.desktop}
+            ),
+            granted_scopes=frozenset(),
+        )
+
+        result = orchestrator.execute(plan())
+
+        self.assertEqual(result.state, OrchestrationState.FAILED)
+        self.assertEqual(result.steps[0].error_code, "policy_scope_not_granted")
+        self.assertFalse(self.query.queries)
+
+    def test_gateway_rechecks_module_availability_after_compile(self):
+        available = {"documents.query.search", "storage.materialize.plan-copy"}
+        orchestrator = ExecutionOrchestrator(
+            self.query,
+            self.context,
+            materialize_service=self.materialize,
+            destination_resolver=DestinationResolver(
+                home=self.root, roles={"desktop": self.desktop}
+            ),
+            capability_source=lambda: available,
+        )
+        value = plan()
+        available.remove("documents.query.search")
+
+        result = orchestrator.execute(value)
+
+        self.assertEqual(result.steps[0].error_code, "policy_capability_unavailable")
+        self.assertFalse(self.query.queries)
+
+    def test_gateway_rechecks_scope_revocation_after_compile(self):
+        value = plan()
+        self.orchestrator.scope_grants.revoke("filesystem.read-content")
+
+        result = self.orchestrator.execute(value)
+
+        self.assertEqual(result.steps[0].error_code, "policy_scope_not_granted")
+        self.assertFalse(self.query.queries)
 
     def test_audit_contains_metadata_but_not_query_or_paths(self):
         self.orchestrator.execute(plan())
@@ -247,6 +316,10 @@ class OrchestratorTests(unittest.TestCase):
         self.assertNotIn("/private/math.pdf", serialized)
         self.assertNotIn("secret snippet", serialized)
         self.assertIn("result_count", serialized)
+        decisions = [event for event in self.events if event["event"] == "permission.decision"]
+        self.assertEqual(decisions[0]["decision"], "allow")
+        self.assertEqual(decisions[0]["risk"], "R0")
+        self.assertNotIn("arguments", decisions[0])
 
     def test_language_filter_is_explicitly_reported_as_advisory(self):
         result = self.orchestrator.execute(plan(step(arguments={"text": "math", "languages": ("ru",)})))
@@ -264,6 +337,13 @@ class OrchestratorTests(unittest.TestCase):
         self.assertEqual(result.steps[0].error_code, "capability_internal_error")
         serialized = json.dumps((result, events), default=str)
         self.assertNotIn("database password", serialized)
+        self.assertTrue(
+            any(
+                event["event"] == "permission.decision"
+                and event["decision"] == "allow"
+                for event in events
+            )
+        )
 
 
 class PlanStoreTests(unittest.TestCase):

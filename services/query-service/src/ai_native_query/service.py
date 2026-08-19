@@ -72,6 +72,7 @@ class QueryService:
         catalog_for_hits = self.catalog.entries_by_paths([hit.path for hit in content_hits])
         maximum_content_score = max((hit.score for hit in content_hits), default=1.0) or 1.0
         merged: dict[str, QueryResult] = {}
+        content_allowed: dict[str, bool] = {}
 
         # Extension and volume are filters, not relevance signals.  When content text
         # is present, do not return every file of the requested type as a weak hit.
@@ -91,6 +92,16 @@ class QueryService:
         for hit in content_hits:
             entry = catalog_for_hits.get(hit.path)
             if entry is None:
+                continue
+            if entry.volume_id not in content_allowed:
+                try:
+                    content_allowed[entry.volume_id] = (
+                        self.volumes.get_volume(entry.volume_id).permission
+                        is PermissionLevel.CONTENT
+                    )
+                except KeyError:
+                    content_allowed[entry.volume_id] = False
+            if not content_allowed[entry.volume_id]:
                 continue
             if query.extensions and entry.extension not in {
                 extension.casefold() if extension.startswith(".") else f".{extension.casefold()}"

@@ -77,6 +77,15 @@ rollback при сбое; подмена шагов через HTTP и replay з
 [контракт API](Architecture/api/execution-orchestrator-v1.md)
 и [ADR-005](Architecture/decisions/ADR-005-server-owned-execution-orchestration.md).
 
+## Permission Gateway v1
+
+`services/permission-gateway` назначает risk, phases, secure transports, scopes,
+argument contracts, concurrency и deadlines независимо от модели и manifests.
+Search/copy выполняются через общий bounded handler registry; availability и
+scopes проверяются повторно непосредственно перед каждым шагом. Подробнее:
+[контракты](Architecture/api/permission-gateway-v1.md) и
+[ADR-007](Architecture/decisions/ADR-007-trusted-permission-gateway.md).
+
 ## Шесть базовых компонентов
 
 Текущий фундамент собран в один модульный контур:
@@ -104,7 +113,7 @@ rollback при сбое; подмена шагов через HTTP и replay з
 Для запуска локального API панели из корня проекта:
 
 ```bash
-PYTHONPATH="services/agent-runtime/src:services/execution-orchestrator/src:services/intent-compiler/src:services/capability-registry/src:services/module-manager/src:services/query-service/src:services/storage-catalog/src:services/indexer/src:services/index-scheduler/src:modules/documents-pdf/src" \
+PYTHONPATH="services/agent-runtime/src:services/permission-gateway/src:services/execution-orchestrator/src:services/intent-compiler/src:services/capability-registry/src:services/module-manager/src:services/query-service/src:services/storage-catalog/src:services/indexer/src:services/index-scheduler/src:modules/documents-pdf/src" \
 python -m ai_native_linux.cli --serve-panel
 ```
 
@@ -138,6 +147,7 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [Intent Compiler API v1](Architecture/api/intent-compiler-v1.md)
 - [Execution Orchestrator API v1](Architecture/api/execution-orchestrator-v1.md)
 - [Runtime Unix IPC v1](Architecture/api/runtime-unix-ipc-v1.md)
+- [Permission Gateway v1](Architecture/api/permission-gateway-v1.md)
 - [Контракты Storage Catalog](Architecture/api/storage-catalog-contracts.md)
 - [Контракт статуса индекса](Architecture/api/runtime-index-status.md)
 - [JSON Schema manifest модуля](packages/module-sdk/schema/module-manifest.schema.json)
@@ -147,5 +157,6 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [Решение об Intent Compiler](Architecture/decisions/ADR-004-model-neutral-intent-compiler.md)
 - [Решение об оркестрации серверных планов](Architecture/decisions/ADR-005-server-owned-execution-orchestration.md)
 - [Решение об authenticated Unix transport](Architecture/decisions/ADR-006-authenticated-unix-runtime-transport.md)
+- [Решение о доверенном Permission Gateway](Architecture/decisions/ADR-007-trusted-permission-gateway.md)
 - [Желаемые будущие возможности системы](Architecture/product/future-system-capabilities.md)
 - [Подготовка Ubuntu VM](docs/developer/Ubuntu-VM-setup.md)

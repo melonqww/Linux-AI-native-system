@@ -7,6 +7,7 @@ from typing import Callable, Protocol
 
 from .contracts import DocumentQuery, QueryResult
 from .service import QueryService
+from ai_native_permissions import TransportContext
 
 
 class IntentPipeline(Protocol):
@@ -19,8 +20,17 @@ class PlanStore(Protocol):
 
 
 class PlanExecutor(Protocol):
-    def execute(self, plan: object) -> object: ...
-    def respond_to_approval(self, approval_request_id: str, *, confirmed: bool) -> object: ...
+    def available_capabilities(self) -> tuple[str, ...]: ...
+    def execute(
+        self, plan: object, *, transport_context: TransportContext | None = None
+    ) -> object: ...
+    def respond_to_approval(
+        self,
+        approval_request_id: str,
+        *,
+        confirmed: bool,
+        transport_context: TransportContext | None = None,
+    ) -> object: ...
 
 
 class QueryRuntimeApplication:
@@ -55,7 +65,8 @@ class QueryRuntimeApplication:
             capabilities.append("intent.compile")
         if self.plan_executor is not None:
             capabilities.append("execution.plan.execute")
-            capabilities.append("execution.r1.copy")
+            if "storage.materialize.plan-copy" in self.plan_executor.available_capabilities():
+                capabilities.append("execution.r1.copy")
         return capabilities
 
     def search(self, payload: dict[str, object]) -> list[QueryResult]:
@@ -103,7 +114,12 @@ class QueryRuntimeApplication:
             self.plan_store.put(plan)
         return result
 
-    def execute_plan(self, payload: dict[str, object]) -> object:
+    def execute_plan(
+        self,
+        payload: dict[str, object],
+        *,
+        transport_context: TransportContext | None = None,
+    ) -> object:
         if self.plan_store is None or self.plan_executor is None:
             raise RuntimeError("execution_orchestrator_unavailable")
         unknown = set(payload) - {"plan_id"}
@@ -111,9 +127,14 @@ class QueryRuntimeApplication:
             raise ValueError(f"unknown fields: {sorted(unknown)}")
         plan_id = self._string(payload, "plan_id")
         plan = self.plan_store.claim(plan_id)
-        return self.plan_executor.execute(plan)
+        return self.plan_executor.execute(plan, transport_context=transport_context)
 
-    def respond_to_approval(self, payload: dict[str, object]) -> object:
+    def respond_to_approval(
+        self,
+        payload: dict[str, object],
+        *,
+        transport_context: TransportContext | None = None,
+    ) -> object:
         if self.plan_executor is None:
             raise RuntimeError("execution_orchestrator_unavailable")
         unknown = set(payload) - {"approval_request_id", "confirmed"}
@@ -123,7 +144,11 @@ class QueryRuntimeApplication:
         confirmed = payload.get("confirmed")
         if not isinstance(confirmed, bool):
             raise ValueError("confirmed must be a boolean")
-        return self.plan_executor.respond_to_approval(request_id, confirmed=confirmed)
+        return self.plan_executor.respond_to_approval(
+            request_id,
+            confirmed=confirmed,
+            transport_context=transport_context,
+        )
 
     @staticmethod
     def _string(payload: dict[str, object], key: str) -> str:

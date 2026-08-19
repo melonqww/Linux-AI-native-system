@@ -14,6 +14,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from uuid import UUID, uuid4
 
+from ai_native_permissions import TransportContext, TransportKind
+
 from .routing import RuntimeApplication, RuntimeRouter
 
 
@@ -108,7 +110,17 @@ class _UnixHandler(socketserver.StreamRequestHandler):
             request = json.loads(raw)
             method, path, body, request_id = self._validate_request(request)
             response = self.server.router.dispatch(
-                method, path, body if method == "POST" else None, request_id=request_id
+                method,
+                path,
+                body if method == "POST" else None,
+                request_id=request_id,
+                transport_context=TransportContext(
+                    TransportKind.UNIX_PEER,
+                    f"uid:{peer.uid}",
+                    peer.pid,
+                    peer.uid,
+                    peer.gid,
+                ),
             )
             self._send(response.status, response.payload, request_id)
         except (ValueError, UnicodeError, json.JSONDecodeError):

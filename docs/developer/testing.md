@@ -21,6 +21,8 @@ node --check apps/desktop-panel/gnome-extension/extension.js
 - одноразовое подтверждение и rollback materialize/copy;
 - R0-only loopback bridge, Unix socket modes/stale cleanup, IPC schema и настоящий
   Linux `SO_PEERCRED` allow/deny;
+- fail-closed Permission Gateway: risk/approval/phase/transport/scopes/arguments,
+  runtime revoke, disabled providers, handler concurrency и cooperative deadlines;
 - закрытая intent schema, RU/EN планы, доверенный task context и prompt injection;
 - битые, слишком большие, многостраничные и требующие OCR PDF;
 - coalescing/overflow очереди, load pause и инкрементальные create/modify/delete;

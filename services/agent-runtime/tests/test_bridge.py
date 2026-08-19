@@ -42,12 +42,12 @@ class App:
     def compile_intent(self, payload):
         return Compilation(state="ready", text=payload["text"])
 
-    def execute_plan(self, payload):
+    def execute_plan(self, payload, *, transport_context):
         if payload["plan_id"] == "explode":
             raise LookupError("sensitive internal detail")
         return Execution(state="completed", plan_id=payload["plan_id"])
 
-    def respond_to_approval(self, payload):
+    def respond_to_approval(self, payload, *, transport_context):
         return Execution(
             state="completed" if payload["confirmed"] else "cancelled",
             plan_id=payload["approval_request_id"],
