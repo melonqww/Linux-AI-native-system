@@ -6,6 +6,15 @@ import Pango from 'gi://Pango';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import {RuntimeClient, RuntimeRequestError} from './runtime-client.js';
+import {
+    approvalPresentation,
+    compilationMessage,
+    executionPresentation,
+    runtimeErrorMessage,
+    systemPresentation,
+    taskDetailPresentation,
+    taskRowLabel,
+} from './panel-presenter.js';
 
 const PANEL_WIDTH = 468;
 const DEFAULT_PANEL_HEIGHT = 420;
@@ -294,10 +303,9 @@ class ChatView extends St.BoxLayout {
             const compilation = await this._runtime.compileIntent(text);
             if (this._disposed)
                 return;
-            if (compilation.state !== 'ready' || !compilation.plan?.plan_id) {
-                const question = compilation.clarification_question ??
-                    'Не удалось надёжно подготовить план. Уточните запрос.';
-                this._append(this._assistant(question));
+            const compileMessage = compilationMessage(compilation);
+            if (compileMessage !== null) {
+                this._append(this._assistant(compileMessage));
                 return;
             }
             const result = await this._runtime.executePlan(compilation.plan.plan_id);
@@ -337,37 +345,12 @@ class ChatView extends St.BoxLayout {
     }
 
     _renderExecution(result) {
-        if (result.state === 'awaiting_approval' && result.approval_request) {
-            this._append(this._approvalCard(result.approval_request));
+        const presentation = executionPresentation(result);
+        if (presentation.kind === 'approval') {
+            this._append(this._approvalCard(presentation.request));
             return;
         }
-        if (result.state === 'cancelled') {
-            this._append(this._assistant('Действие отменено.'));
-            return;
-        }
-        if (result.state !== 'completed') {
-            this._append(this._assistant('Задачу не удалось выполнить.'));
-            return;
-        }
-        const lines = [];
-        for (const step of result.steps ?? []) {
-            const output = step.output;
-            if (!output)
-                continue;
-            if (Array.isArray(output.results)) {
-                lines.push(`Найдено файлов: ${output.result_count ?? output.results.length}`);
-                for (const item of output.results.slice(0, 20))
-                    lines.push(item.path);
-                if (output.results.length > 20)
-                    lines.push(`…и ещё ${output.results.length - 20}`);
-            } else if (Array.isArray(output.copied_paths)) {
-                lines.push(`Скопировано файлов: ${output.copied_count ?? output.copied_paths.length}`);
-                lines.push(`Папка: ${output.destination}`);
-            }
-        }
-        this._append(this._assistant(
-            lines.length ? lines.join('\n') : 'Готово.',
-        ));
+        this._append(this._assistant(presentation.text));
     }
 
     _approvalCard(request) {
@@ -376,19 +359,13 @@ class ChatView extends St.BoxLayout {
             style_class: 'ai-plan-card',
             x_expand: true,
         });
-        card.add_child(this._assistant('ТРЕБУЕТСЯ ПОДТВЕРЖДЕНИЕ · R1', 'ai-plan-title'));
-        const names = (request.item_names ?? []).slice(0, 5).join(', ');
-        const details = [
-            `Скопировать файлов: ${request.item_count}`,
-            `Назначение: ${request.destination}`,
-        ];
-        if (names)
-            details.push(`Файлы: ${names}${request.item_count > 5 ? '…' : ''}`);
-        card.add_child(this._assistant(details.join('\n'), 'ai-plan-details'));
+        const presentation = approvalPresentation(request);
+        card.add_child(this._assistant(presentation.title, 'ai-plan-title'));
+        card.add_child(this._assistant(presentation.details, 'ai-plan-details'));
 
         const actions = new St.BoxLayout({style_class: 'ai-plan-actions'});
-        const confirm = new St.Button({label: 'Подтвердить', style_class: 'ai-plan-action'});
-        const cancel = new St.Button({label: 'Отменить', style_class: 'ai-plan-action ai-plan-cancel'});
+        const confirm = new St.Button({label: presentation.confirmLabel, style_class: 'ai-plan-action'});
+        const cancel = new St.Button({label: presentation.cancelLabel, style_class: 'ai-plan-action ai-plan-cancel'});
         const respond = async confirmed => {
             confirm.reactive = false;
             cancel.reactive = false;
@@ -413,17 +390,7 @@ class ChatView extends St.BoxLayout {
     }
 
     _friendlyError(error) {
-        if (!(error instanceof RuntimeRequestError))
-            return 'Ядро временно недоступно.';
-        const messages = {
-            runtime_unavailable: 'Ядро не запущено или недоступно.',
-            runtime_timeout: 'Ядро не ответило вовремя.',
-            service_unavailable: 'Нужный компонент ядра сейчас недоступен.',
-            invalid_request: 'Запрос не удалось обработать.',
-            secure_transport_required: 'Действие требует защищённого соединения.',
-            task_action_not_available: 'Это действие сейчас недоступно.',
-        };
-        return messages[error.code] ?? 'Задачу не удалось выполнить.';
+        return runtimeErrorMessage(error instanceof RuntimeRequestError ? error.code : null);
     }
 
 });
@@ -689,14 +656,11 @@ class SidebarView extends St.BoxLayout {
             ]);
             if (this._disposed)
                 return;
-            this._runtimeState.set_text(health.status === 'ok' ? 'подключено' : 'недоступно');
-            this._capabilityState.set_text(`${capabilities.capabilities?.length ?? 0}`);
-            const sources = index.content_index?.sources ?? 0;
-            const entries = index.catalog?.entries ?? 0;
-            this._indexState.set_text(`${sources} документов · ${entries} файлов`);
-            const scheduler = index.scheduler ?? {};
-            const queued = scheduler.queued ?? 0;
-            this._schedulerState.set_text(`${this._schedulerLabel(scheduler.state)} · очередь ${queued}`);
+            const status = systemPresentation(health, capabilities, index);
+            this._runtimeState.set_text(status.runtime);
+            this._capabilityState.set_text(status.capabilities);
+            this._indexState.set_text(status.index);
+            this._schedulerState.set_text(status.scheduler);
             this._renderTasks(tasks.tasks ?? []);
         } catch (_error) {
             if (this._disposed)
@@ -732,11 +696,8 @@ class SidebarView extends St.BoxLayout {
             return;
         }
         for (const task of tasks.slice(0, 10)) {
-            const processed = task.processed_count ?? 0;
-            const skipped = task.skipped_count ?? 0;
-            const label = `${this._activityLabel(task.activity)} · ${this._stateLabel(task.state)} · ${processed} обработано · ${skipped} пропущено`;
             const button = new St.Button({
-                label,
+                label: taskRowLabel(task),
                 style_class: 'ai-task-row',
                 x_expand: true,
             });
@@ -754,18 +715,18 @@ class SidebarView extends St.BoxLayout {
             const back = new St.Button({label: '← К списку', style_class: 'ai-task-row'});
             back.connect('clicked', () => this.refreshTasks());
             this._taskList.add_child(back);
+            const presentation = taskDetailPresentation(task);
             this._taskList.add_child(sidebarLabel(
-                `${this._activityLabel(task.activity)} · ${this._stateLabel(task.state)}`,
+                presentation.title,
                 'ai-sidebar-title',
             ));
             this._taskList.add_child(sidebarLabel(
-                `Обработано: ${task.processed_count} · успешно: ${task.succeeded_count} · пропущено: ${task.skipped_count}`,
+                presentation.counts,
                 'ai-sidebar-caption',
             ));
-            for (const reference of task.references ?? []) {
-                const availability = reference.available ? '' : ' · недоступен';
+            for (const reference of presentation.references) {
                 this._taskList.add_child(sidebarLabel(
-                    `${reference.display_name}${availability}\n${reference.locator}`,
+                    reference.text,
                     'ai-task-reference',
                     {wrap: true},
                 ));
@@ -776,36 +737,6 @@ class SidebarView extends St.BoxLayout {
         }
     }
 
-    _activityLabel(activity) {
-        return {
-            'documents.search': 'Поиск документов',
-            'files.copy': 'Копирование файлов',
-            'documents.scan': 'Сканирование документов',
-            'documents.ocr': 'Распознавание документов',
-        }[activity] ?? 'Системная задача';
-    }
-
-    _stateLabel(state) {
-        return {
-            planned: 'запланировано',
-            running: 'выполняется',
-            awaiting_approval: 'ожидает подтверждения',
-            interrupted: 'прервано',
-            completed: 'завершено',
-            completed_with_skips: 'завершено с пропусками',
-            failed: 'не выполнено',
-            cancelled: 'отменено',
-        }[state] ?? 'неизвестно';
-    }
-
-    _schedulerLabel(state) {
-        return {
-            idle: 'ожидание',
-            updating: 'обновление',
-            paused_load: 'пауза из-за нагрузки',
-            degraded: 'ограниченный режим',
-        }[state] ?? 'нет данных';
-    }
 });
 
 const Panel = GObject.registerClass(

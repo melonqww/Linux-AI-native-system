@@ -52,6 +52,7 @@ def main() -> int:
         "metadata.json",
         "extension.js",
         "runtime-client.js",
+        "panel-presenter.js",
         "stylesheet.css",
         "install.sh",
     )
@@ -64,6 +65,7 @@ def main() -> int:
 
     source = (ROOT / "extension.js").read_text(encoding="utf-8")
     runtime_source = (ROOT / "runtime-client.js").read_text(encoding="utf-8")
+    presenter_source = (ROOT / "panel-presenter.js").read_text(encoding="utf-8")
     styles = (ROOT / "stylesheet.css").read_text(encoding="utf-8")
     contracts = (
         ("this.dir.get_child('stylesheet.css')", "stylesheet is resolved from extension directory"),
@@ -84,23 +86,26 @@ def main() -> int:
     ok &= check("set_spacing" not in source, "StBoxLayout spacing is provided by CSS")
     ok &= check("new Gio.UnixSocketAddress" in runtime_source, "runtime uses Unix IPC")
     ok &= check("http://" not in runtime_source, "runtime client has no TCP fallback")
+    ok &= check("executionPresentation" in presenter_source, "panel presenter is installed")
+    ok &= check("traceback" not in presenter_source.lower(), "presenter has no diagnostic rendering")
 
     node = shutil.which("node")
     if node:
-        result = subprocess.run(
-            [node, "--check", str(ROOT / "extension.js")],
-            capture_output=True,
-            text=True,
-        )
-        ok &= check(result.returncode == 0, "JavaScript syntax check passes")
-        if result.returncode:
-            print(result.stderr.strip())
+        for filename in ("extension.js", "runtime-client.js", "panel-presenter.js"):
+            result = subprocess.run(
+                [node, "--check", str(ROOT / filename)],
+                capture_output=True,
+                text=True,
+            )
+            ok &= check(result.returncode == 0, f"{filename} syntax check passes")
+            if result.returncode:
+                print(result.stderr.strip())
     else:
         print("SKIP: node is not installed; JavaScript syntax check unavailable")
 
     if args.installed:
         installed = Path.home() / ".local" / "share" / "gnome-shell" / "extensions" / UUID
-        for filename in required[:4]:
+        for filename in required[:5]:
             installed_file = installed / filename
             ok &= check(installed_file.is_file(), f"installed copy has {filename}")
             if installed_file.is_file():

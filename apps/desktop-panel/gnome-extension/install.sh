@@ -17,6 +17,7 @@ fi
 cp "${SCRIPT_DIR}/metadata.json" "${TARGET_DIR}/metadata.json"
 cp "${SCRIPT_DIR}/extension.js" "${TARGET_DIR}/extension.js"
 cp "${SCRIPT_DIR}/runtime-client.js" "${TARGET_DIR}/runtime-client.js"
+cp "${SCRIPT_DIR}/panel-presenter.js" "${TARGET_DIR}/panel-presenter.js"
 cp "${SCRIPT_DIR}/stylesheet.css" "${TARGET_DIR}/stylesheet.css"
 
 echo "Установлено в ${TARGET_DIR}"

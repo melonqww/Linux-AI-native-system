@@ -22,8 +22,10 @@ class GnomeExtensionFilesTest(unittest.TestCase):
         for filename in (
             "extension.js",
             "runtime-client.js",
+            "panel-presenter.js",
             "stylesheet.css",
             "install.sh",
+            "smoke-test.sh",
             "README.md",
             "TROUBLESHOOTING.md",
         ):
@@ -34,6 +36,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
         self.assertIn('gnome-extensions disable "${EXTENSION_UUID}"', script)
         self.assertIn('gnome-extensions enable "${EXTENSION_UUID}"', script)
         self.assertIn('runtime-client.js" "${TARGET_DIR}/runtime-client.js', script)
+        self.assertIn('panel-presenter.js" "${TARGET_DIR}/panel-presenter.js', script)
 
     def test_native_panel_contract_is_present(self):
         source = (ROOT / "extension.js").read_text(encoding="utf-8")
@@ -95,6 +98,9 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "this._runtime.indexStatus()",
             "this._runtime.tasks()",
             "this._runtime.taskDetail(taskId)",
+            "executionPresentation(result)",
+            "systemPresentation(health, capabilities, index)",
+            "taskDetailPresentation(task)",
         ):
             self.assertIn(marker, source)
 
@@ -121,6 +127,36 @@ class GnomeExtensionFilesTest(unittest.TestCase):
         self.assertNotIn("Подтверждать за меня", extension)
         self.assertNotIn("Подтверждать за меня", source)
         self.assertNotIn("security-high-symbolic", source)
+
+    def test_panel_presenter_scenarios(self):
+        node = shutil.which("node")
+        if node is None:
+            self.skipTest("node is not installed")
+        result = subprocess.run(
+            [node, str(ROOT / "tests" / "panel_presenter.test.js")],
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_linux_smoke_script_checks_real_shell_state(self):
+        script = ROOT / "smoke-test.sh"
+        source = script.read_text(encoding="utf-8")
+        for marker in (
+            "gnome-shell --version",
+            'gnome-extensions enable "${EXTENSION_UUID}"',
+            "gnome-extensions list --enabled",
+            "journalctl --user",
+            "RESULT: READY FOR VISUAL CHECK",
+        ):
+            self.assertIn(marker, source)
+        bash = shutil.which("bash") if sys.platform.startswith("linux") else None
+        if bash is not None:
+            result = subprocess.run(
+                [bash, "-n", str(script)], capture_output=True, text=True, timeout=10
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_panel_surface_does_not_paint_behind_toggle(self):
         stylesheet = (ROOT / "stylesheet.css").read_text(encoding="utf-8")
@@ -163,6 +199,21 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             server.server_close()
             thread.join(timeout=5)
             shutil.rmtree(root, ignore_errors=True)
+
+    @unittest.skipUnless(sys.platform.startswith("linux"), "requires Linux GJS")
+    def test_panel_presenter_loads_in_gjs(self):
+        gjs = shutil.which("gjs")
+        if gjs is None:
+            self.skipTest("gjs is not installed")
+        probe = ROOT / "tests" / "presenter_probe.js"
+        result = subprocess.run(
+            [gjs, "-m", str(probe)],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout.strip()), {"status": "ok"})
 
 
 if __name__ == "__main__":
