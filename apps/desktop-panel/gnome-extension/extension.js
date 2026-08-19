@@ -421,7 +421,7 @@ class Panel extends St.Widget {
 export default class AiNativeLinuxExtension extends Extension {
     enable() {
         this._theme = St.ThemeContext.get_for_stage(global.stage).get_theme();
-        this._stylesheet = this.get_stylesheet();
+        this._stylesheet = this.dir.get_child('stylesheet.css');
         if (this._stylesheet) {
             this._theme.load_stylesheet(this._stylesheet);
             this._stylesheetLoaded = true;

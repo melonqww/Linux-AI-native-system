@@ -36,6 +36,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "Сообщение для вашего ИИ",
             "http://127.0.0.1:8765/v1/search",
             "set_request_body_from_bytes",
+            "this._stylesheet = this.dir.get_child('stylesheet.css')",
             "this._theme.load_stylesheet(this._stylesheet)",
             "this._theme.unload_stylesheet(this._stylesheet)",
         ):
