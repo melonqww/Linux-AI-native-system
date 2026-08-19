@@ -59,6 +59,8 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "entry.grab_key_focus()",
             "entry.connect('button-press-event'",
             "const entryScroll = new St.ScrollView",
+            "const entryScrollContent = new St.BoxLayout",
+            "entryScrollContent.add_child(entry)",
             "entryScroll.set_height(Math.min(78, desiredHeight))",
             "metricBlock('Батарея', 82",
             "ai-process-header",

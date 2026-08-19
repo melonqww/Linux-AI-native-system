@@ -178,16 +178,23 @@ class ChatView extends St.BoxLayout {
             x_expand: true,
         });
         entryScroll.set_policy(St.PolicyType.NEVER, St.PolicyType.AUTOMATIC);
+        const entryScrollContent = new St.BoxLayout({
+            vertical: true,
+            style_class: 'ai-entry-scroll-content',
+            x_expand: true,
+        });
         const resizeEntry = () => {
             const text = entry.get_text();
             const estimatedLines = text.split('\n').reduce((count, line) =>
                 count + Math.max(1, Math.ceil(line.length / 54)), 0);
             const desiredHeight = Math.max(20, estimatedLines * 19 + 2);
             entry.set_height(desiredHeight);
+            entryScrollContent.set_height(desiredHeight);
             entryScroll.set_height(Math.min(78, desiredHeight));
         };
         entry.clutter_text.connect('text-changed', resizeEntry);
-        entryScroll.set_child(entry);
+        entryScrollContent.add_child(entry);
+        entryScroll.set_child(entryScrollContent);
         composer.add_child(entryScroll);
         resizeEntry();
 
