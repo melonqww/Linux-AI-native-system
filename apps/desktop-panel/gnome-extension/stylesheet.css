@@ -234,7 +234,8 @@
 
 .ai-model-chevron {
     color: #cfcfcd;
-    font-size: 14px;
+    font-size: 16px;
+    margin-top: 2px;
 }
 
 .ai-model:hover,

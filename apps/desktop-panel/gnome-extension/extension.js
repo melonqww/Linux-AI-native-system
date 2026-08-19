@@ -1,7 +1,6 @@
 import St from 'gi://St';
 import Clutter from 'gi://Clutter';
 import GObject from 'gi://GObject';
-import GLib from 'gi://GLib';
 import Pango from 'gi://Pango';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
@@ -109,7 +108,6 @@ class ChatView extends St.BoxLayout {
             style_class: 'ai-messages',
             x_expand: true,
         });
-        this._addInitialMessages();
 
         this._scroll = new St.ScrollView({
             style_class: 'ai-scroll',
@@ -143,35 +141,6 @@ class ChatView extends St.BoxLayout {
         });
     }
 
-    _addInitialMessages() {
-        this._messages.add_child(this._assistant(
-            'Привет. Я локальный помощник Ubuntu. Могу показать состояние системы, подготовить workspace или объяснить ошибку.',
-        ));
-        this._messages.add_child(this._user('Покажи состояние системы'));
-
-        const card = new St.BoxLayout({
-            vertical: true,
-            style_class: 'ai-plan-card',
-            x_expand: true,
-        });
-        card.add_child(new St.Label({
-            text: 'БЕЗОПАСНЫЙ ПЛАН · R0',
-            style_class: 'ai-plan-title',
-        }));
-        card.add_child(this._assistant(
-            'Прочитаю информацию о диске, памяти и загрузке CPU. Ничего в системе не изменится.',
-            'ai-plan-details',
-        ));
-        const runButton = new St.Button({
-            label: 'Запустить проверку',
-            style_class: 'ai-plan-action',
-            x_align: Clutter.ActorAlign.START,
-        });
-        runButton.connect('clicked', () => this._simulateResponse());
-        card.add_child(runButton);
-        this._messages.add_child(card);
-    }
-
     _buildComposer() {
         const composer = new St.BoxLayout({
             vertical: true,
@@ -182,6 +151,7 @@ class ChatView extends St.BoxLayout {
             style_class: 'ai-entry',
             hint_text: 'Сообщение для вашего ИИ',
             can_focus: true,
+            reactive: true,
             x_expand: true,
         });
         entry.clutter_text.line_wrap = true;
@@ -254,27 +224,49 @@ class ChatView extends St.BoxLayout {
             x_align: Clutter.ActorAlign.END,
         });
         modelContent.add_child(modelLabel);
-        modelContent.add_child(new St.Label({
+        const modelChevron = new St.Label({
             text: '⌄',
             style_class: 'ai-model-chevron',
-        }));
+        });
+        modelContent.add_child(modelChevron);
         modelButton.set_child(modelContent);
         modelControl.add_child(modelButton);
 
         const modelMenu = new St.BoxLayout({vertical: true, style_class: 'ai-model-menu'});
         modelMenu.set_position(0, -116);
         modelMenu.set_size(145, 110);
+        modelMenu.set_opacity(0);
         modelMenu.hide();
+        const setModelMenuOpen = open => {
+            modelChevron.ease({
+                opacity: 0,
+                duration: 90,
+                onComplete: () => {
+                    modelChevron.set_text(open ? '⌃' : '⌄');
+                    modelChevron.ease({opacity: 255, duration: 90});
+                },
+            });
+            if (open) {
+                modelMenu.show();
+                modelMenu.ease({opacity: 255, duration: 180});
+            } else {
+                modelMenu.ease({
+                    opacity: 0,
+                    duration: 140,
+                    onComplete: () => modelMenu.hide(),
+                });
+            }
+        };
         ['Qwen 3.5 2B', 'Gemma 2 2B', 'Qwen 3.5 4B'].forEach(model => {
             const option = new St.Button({label: model, style_class: 'ai-model-option'});
             option.connect('clicked', () => {
                 modelLabel.set_text(model);
-                modelMenu.hide();
+                setModelMenuOpen(false);
             });
             modelMenu.add_child(option);
         });
         modelControl.add_child(modelMenu);
-        modelButton.connect('clicked', () => modelMenu.visible = !modelMenu.visible);
+        modelButton.connect('clicked', () => setModelMenuOpen(!modelMenu.visible));
         actions.add_child(modelControl);
 
         const send = new St.Button({label: '↑', style_class: 'ai-send', can_focus: true});
@@ -301,14 +293,6 @@ class ChatView extends St.BoxLayout {
         });
     }
 
-    _simulateResponse() {
-        GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1100, () => {
-            this._messages.add_child(this._assistant(
-                'Готово. В рабочей версии здесь появится проверенный результат инструмента и запись в audit log.',
-            ));
-            return GLib.SOURCE_REMOVE;
-        });
-    }
 });
 
 const WorkspaceView = GObject.registerClass(

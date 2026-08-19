@@ -37,7 +37,6 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "entry.clutter_text.editable = true",
             "entry.clutter_text.single_line_mode = false",
             "_animateHighlight",
-            "GLib.timeout_add",
             "Qwen 3.5 2B",
             "Рабочая область",
             "Сообщение для вашего ИИ",
@@ -47,6 +46,8 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "this._theme.unload_stylesheet(this._stylesheet)",
             "stylesheet load failed",
             "new ChatView(this._runtime)",
+            "const setModelMenuOpen = open =>",
+            "modelChevron.set_text(open ? '⌃' : '⌄')",
             "this._sidebar = new WorkspaceView()",
             "this._workspace = new ChatView(this._runtime)",
             "_attachFallback(error)",
@@ -66,6 +67,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
         self.assertIn("border-radius: 21px 21px 0 0;", stylesheet)
         self.assertIn("margin: 0 7px 6px 4px;", stylesheet)
         self.assertIn("max-height: 78px;", stylesheet)
+        self.assertIn("margin-top: 2px;", stylesheet)
 
 
 if __name__ == "__main__":
