@@ -370,7 +370,7 @@ class Panel extends St.Widget {
         this._views.set_size(PANEL_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
         this._content.add_child(this._views);
 
-        this._chat = new ChatView(runtime);
+        this._chat = new ChatView(this._runtime);
         this._chat.set_position(0, 0);
         this._chat.set_size(PANEL_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
         this._views.add_child(this._chat);

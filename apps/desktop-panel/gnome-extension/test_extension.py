@@ -39,6 +39,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "this._stylesheet = this.dir.get_child('stylesheet.css')",
             "this._theme.load_stylesheet(this._stylesheet)",
             "this._theme.unload_stylesheet(this._stylesheet)",
+            "new ChatView(this._runtime)",
         ):
             self.assertIn(marker, source)
 
