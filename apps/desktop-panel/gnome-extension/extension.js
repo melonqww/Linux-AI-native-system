@@ -197,11 +197,14 @@ class ChatView extends St.BoxLayout {
         entryScroll.set_child(entryScrollContent);
         const entryAdjustment = entryScroll.get_vadjustment();
         const keepEntryAtEnd = () => {
+            const lower = Number(entryAdjustment.lower ?? 0);
+            const upper = Number(entryAdjustment.upper ?? 0);
+            const pageSize = Number(entryAdjustment.page_size ?? 0);
             const bottom = Math.max(
-                entryAdjustment.get_lower(),
-                entryAdjustment.get_upper() - entryAdjustment.get_page_size(),
+                lower,
+                upper - pageSize,
             );
-            entryAdjustment.set_value(bottom);
+            entryAdjustment.value = bottom;
         };
         entryAdjustment.connect('notify::upper', keepEntryAtEnd);
         entryAdjustment.connect('notify::page-size', keepEntryAtEnd);

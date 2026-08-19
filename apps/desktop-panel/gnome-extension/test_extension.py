@@ -64,7 +64,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "entryScrollContent.add_child(entry)",
             "entryScroll.set_height(Math.min(78, desiredHeight))",
             "const entryAdjustment = entryScroll.get_vadjustment()",
-            "entryAdjustment.set_value(bottom)",
+            "entryAdjustment.value = bottom",
             "metricBlock('Батарея', 82",
             "32°C · от батареи",
             "ai-process-header",
