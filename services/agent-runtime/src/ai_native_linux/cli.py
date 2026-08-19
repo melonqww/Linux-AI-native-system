@@ -75,6 +75,8 @@ def main() -> int:
             )
             intent_pipeline = None
             task_context = None
+            plan_store = None
+            plan_executor = None
             if not args.no_intent_compiler:
                 from ai_native_intents import (
                     IntentCompiler,
@@ -97,11 +99,25 @@ def main() -> int:
                 )
                 context_store = TaskContextStore(locale=args.locale)
                 task_context = context_store.snapshot
+                from ai_native_orchestrator import (
+                    CompiledPlanStore,
+                    ExecutionOrchestrator,
+                    OrchestrationAuditLog,
+                )
+
+                plan_store = CompiledPlanStore()
+                plan_executor = ExecutionOrchestrator(
+                    query_service,
+                    context_store,
+                    audit_sink=OrchestrationAuditLog(args.audit_file).append,
+                )
             application = QueryRuntimeApplication(
                 query_service,
                 scheduler_status=lambda: manager.health_details("storage.watch"),
                 intent_pipeline=intent_pipeline,
                 task_context=task_context,
+                plan_store=plan_store,
+                plan_executor=plan_executor,
             )
             server = create_server(application, host=args.host, port=args.port)
             print(f"Panel runtime: http://{args.host}:{server.server_port}")

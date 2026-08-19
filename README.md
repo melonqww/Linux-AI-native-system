@@ -67,6 +67,15 @@ production-коде нет таблицы заранее известных фр
 Подробности: [`services/intent-compiler/README.md`](services/intent-compiler/README.md)
 и [ADR-004](Architecture/decisions/ADR-004-model-neutral-intent-compiler.md).
 
+## Execution Orchestrator v1
+
+`services/execution-orchestrator` принимает только серверный `plan_id`, повторно
+проверяет план и исполняет R0-поиск. Результаты сразу фиксируются snapshot-коллекцией
+и становятся доверенным контекстом следующего запроса. Перед R1-копированием v1
+останавливается с `awaiting_approval`; подмена шагов через HTTP и повторный запуск
+одного плана запрещены. Подробнее: [контракт API](Architecture/api/execution-orchestrator-v1.md)
+и [ADR-005](Architecture/decisions/ADR-005-server-owned-execution-orchestration.md).
+
 ## Шесть базовых компонентов
 
 Текущий фундамент собран в один модульный контур:
@@ -94,7 +103,7 @@ production-коде нет таблицы заранее известных фр
 Для запуска локального API панели из корня проекта:
 
 ```bash
-PYTHONPATH="services/agent-runtime/src:services/intent-compiler/src:services/capability-registry/src:services/module-manager/src:services/query-service/src:services/storage-catalog/src:services/indexer/src:services/index-scheduler/src:modules/documents-pdf/src" \
+PYTHONPATH="services/agent-runtime/src:services/execution-orchestrator/src:services/intent-compiler/src:services/capability-registry/src:services/module-manager/src:services/query-service/src:services/storage-catalog/src:services/indexer/src:services/index-scheduler/src:modules/documents-pdf/src" \
 python -m ai_native_linux.cli --serve-panel
 ```
 
@@ -121,6 +130,7 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [Структура проекта и пути](Architecture/02-Структура-проекта-и-пути.md)
 - [Контракты намерений и инструментов](Architecture/api/intent-and-tool-contracts.md)
 - [Intent Compiler API v1](Architecture/api/intent-compiler-v1.md)
+- [Execution Orchestrator API v1](Architecture/api/execution-orchestrator-v1.md)
 - [Контракты Storage Catalog](Architecture/api/storage-catalog-contracts.md)
 - [Контракт статуса индекса](Architecture/api/runtime-index-status.md)
 - [JSON Schema manifest модуля](packages/module-sdk/schema/module-manifest.schema.json)
@@ -128,5 +138,6 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [Решение о каталоге хранилищ и виртуальных коллекциях](Architecture/decisions/ADR-002-storage-catalog-and-virtual-collections.md)
 - [Решение о модульном capability-ядре](Architecture/decisions/ADR-003-modular-capability-core.md)
 - [Решение об Intent Compiler](Architecture/decisions/ADR-004-model-neutral-intent-compiler.md)
+- [Решение об оркестрации серверных планов](Architecture/decisions/ADR-005-server-owned-execution-orchestration.md)
 - [Желаемые будущие возможности системы](Architecture/product/future-system-capabilities.md)
 - [Подготовка Ubuntu VM](docs/developer/Ubuntu-VM-setup.md)

@@ -39,6 +39,22 @@ class FakeIntentPipeline:
         return CompilationResult(CompilationState.NEEDS_CLARIFICATION, None, None, text)
 
 
+class FakePlanStore:
+    def __init__(self):
+        self.plan = None
+
+    def put(self, plan):
+        self.plan = plan
+
+    def claim(self, plan_id):
+        return self.plan
+
+
+class FakeExecutor:
+    def execute(self, plan):
+        return {"executed": plan}
+
+
 class QueryServiceTests(unittest.TestCase):
     def setUp(self) -> None:
         self.root = PROJECT_ROOT / "tmp" / "query-service-tests" / str(uuid4())
@@ -117,6 +133,21 @@ class QueryServiceTests(unittest.TestCase):
         self.assertEqual(pipeline.context.active_collection_id, "trusted-results")
         with self.assertRaises(ValueError):
             application.compile_intent({"text": "поиск", "active_collection_id": "forged"})
+
+    def test_runtime_execution_accepts_only_server_owned_plan_id(self) -> None:
+        store = FakePlanStore()
+        executor = FakeExecutor()
+        store.plan = "trusted-plan-object"
+        application = QueryRuntimeApplication(
+            self.service, plan_store=store, plan_executor=executor
+        )
+
+        result = application.execute_plan({"plan_id": "plan-id"})
+
+        self.assertEqual(result, {"executed": "trusted-plan-object"})
+        self.assertIn("execution.plan.execute", application.capabilities())
+        with self.assertRaises(ValueError):
+            application.execute_plan({"plan_id": "plan-id", "steps": []})
 
 
 if __name__ == "__main__":

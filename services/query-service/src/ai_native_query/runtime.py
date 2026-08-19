@@ -13,6 +13,15 @@ class IntentPipeline(Protocol):
     def compile_and_plan(self, text: str, *, context: object) -> object: ...
 
 
+class PlanStore(Protocol):
+    def put(self, plan: object) -> None: ...
+    def claim(self, plan_id: str) -> object: ...
+
+
+class PlanExecutor(Protocol):
+    def execute(self, plan: object) -> object: ...
+
+
 class QueryRuntimeApplication:
     def __init__(
         self,
@@ -21,13 +30,19 @@ class QueryRuntimeApplication:
         scheduler_status: Callable[[], object] | None = None,
         intent_pipeline: IntentPipeline | None = None,
         task_context: Callable[[], object] | None = None,
+        plan_store: PlanStore | None = None,
+        plan_executor: PlanExecutor | None = None,
     ) -> None:
         self.query_service = query_service
         self.scheduler_status = scheduler_status
         self.intent_pipeline = intent_pipeline
         self.task_context = task_context
+        self.plan_store = plan_store
+        self.plan_executor = plan_executor
         if intent_pipeline is not None and task_context is None:
             raise ValueError("task_context is required with intent_pipeline")
+        if (plan_store is None) != (plan_executor is None):
+            raise ValueError("plan_store and plan_executor must be configured together")
 
     def capabilities(self) -> list[str]:
         capabilities = [
@@ -37,6 +52,8 @@ class QueryRuntimeApplication:
         ]
         if self.intent_pipeline is not None:
             capabilities.append("intent.compile")
+        if self.plan_executor is not None:
+            capabilities.append("execution.plan.execute")
         return capabilities
 
     def search(self, payload: dict[str, object]) -> list[QueryResult]:
@@ -78,7 +95,21 @@ class QueryRuntimeApplication:
             raise ValueError("text is required")
         if self.task_context is None:
             raise RuntimeError("intent_context_unavailable")
-        return self.intent_pipeline.compile_and_plan(text, context=self.task_context())
+        result = self.intent_pipeline.compile_and_plan(text, context=self.task_context())
+        plan = getattr(result, "plan", None)
+        if plan is not None and self.plan_store is not None:
+            self.plan_store.put(plan)
+        return result
+
+    def execute_plan(self, payload: dict[str, object]) -> object:
+        if self.plan_store is None or self.plan_executor is None:
+            raise RuntimeError("execution_orchestrator_unavailable")
+        unknown = set(payload) - {"plan_id"}
+        if unknown:
+            raise ValueError(f"unknown fields: {sorted(unknown)}")
+        plan_id = self._string(payload, "plan_id")
+        plan = self.plan_store.claim(plan_id)
+        return self.plan_executor.execute(plan)
 
     @staticmethod
     def _string(payload: dict[str, object], key: str) -> str:
