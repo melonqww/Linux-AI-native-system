@@ -395,6 +395,30 @@ class Panel extends St.Widget {
 });
 
 export default class AiNativeLinuxExtension extends Extension {
+    _attachPanel() {
+        this._panel = new Panel(this._runtime);
+        Main.layoutManager.addChrome(this._panel, {trackFullscreen: false, affectsStruts: false});
+        this._monitorChangedId = Main.layoutManager.connect('monitors-changed', () => this._positionPanel());
+        this._positionPanel();
+    }
+
+    _attachFallback(error) {
+        logError(error, 'AI-native Linux: panel construction failed');
+        // Keep the extension ACTIVE even when a single Shell API changes.  A
+        // visible fallback makes the failure diagnosable and avoids leaving a
+        // stale ERROR state with no UI at all.
+        this._panel = new St.Button({
+            label: 'AI-native Linux: ошибка панели',
+            style_class: 'ai-native-fallback',
+            reactive: true,
+        });
+        this._panel.connect('clicked', () => log('AI-native Linux: fallback is alive'));
+        Main.layoutManager.addChrome(this._panel, {trackFullscreen: false, affectsStruts: false});
+        const monitor = Main.layoutManager.primaryMonitor;
+        if (monitor)
+            this._panel.set_position(monitor.x + monitor.width - 330, monitor.y + 24);
+    }
+
     enable() {
         try {
             this._theme = St.ThemeContext.get_for_stage(global.stage).get_theme();
@@ -413,10 +437,11 @@ export default class AiNativeLinuxExtension extends Extension {
             this._theme = null;
         }
         this._runtime = new RuntimeClient();
-        this._panel = new Panel(this._runtime);
-        Main.layoutManager.addChrome(this._panel, {trackFullscreen: false, affectsStruts: false});
-        this._monitorChangedId = Main.layoutManager.connect('monitors-changed', () => this._positionPanel());
-        this._positionPanel();
+        try {
+            this._attachPanel();
+        } catch (error) {
+            this._attachFallback(error);
+        }
     }
 
     _positionPanel() {

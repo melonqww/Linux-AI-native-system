@@ -8,6 +8,15 @@
     font-family: "Ubuntu", sans-serif;
 }
 
+.ai-native-fallback {
+    background-color: #343434;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    color: #f4f4f4;
+    font-size: 13px;
+    padding: 10px 14px;
+}
+
 .ai-panel-content {
     background-color: #343434;
     border: 1px solid rgba(255, 255, 255, 0.14);

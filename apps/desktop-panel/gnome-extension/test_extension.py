@@ -40,6 +40,8 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "this._theme.unload_stylesheet(this._stylesheet)",
             "stylesheet load failed",
             "new ChatView(this._runtime)",
+            "_attachFallback(error)",
+            "panel construction failed",
         ):
             self.assertIn(marker, source)
 

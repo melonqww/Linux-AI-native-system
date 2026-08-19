@@ -72,6 +72,7 @@ def main() -> int:
     ok &= check("this.get_stylesheet" not in source, "removed unsupported get_stylesheet API")
     ok &= check(".ai-send" in styles and "border-radius: 50%" in styles, "send button is circular")
     ok &= check(".ai-tab-highlight" in styles, "tab highlight styles exist")
+    ok &= check(".ai-native-fallback" in styles, "fallback style exists")
 
     node = shutil.which("node")
     if node:
