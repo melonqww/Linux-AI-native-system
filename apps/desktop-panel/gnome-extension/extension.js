@@ -34,25 +34,34 @@ class TabButton extends St.Button {
         this._active = false;
         this._hovered = false;
 
-        const content = new St.Widget({
-            layout_manager: new Clutter.BinLayout(),
-            x_expand: true,
-            y_expand: true,
+        const content = new St.BoxLayout({
+            style_class: 'ai-tab-content',
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.CENTER,
         });
         this._highlight = new St.Widget({
             style_class: 'ai-tab-highlight',
             x_expand: true,
             y_expand: true,
         });
+        this._icon = new St.Icon({
+            icon_name: icon,
+            style_class: icon === 'preferences-system-symbolic'
+                ? 'ai-tab-icon ai-tab-icon-settings'
+                : 'ai-tab-icon',
+        });
         this._label = new St.Label({
-            text: `${icon}  ${label}`,
+            text: label,
             style_class: 'ai-tab-label',
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER,
         });
-        content.add_child(this._highlight);
+        content.add_child(this._icon);
         content.add_child(this._label);
-        this.set_child(content);
+        const layeredContent = new St.Widget({layout_manager: new Clutter.BinLayout(), x_expand: true, y_expand: true});
+        layeredContent.add_child(this._highlight);
+        layeredContent.add_child(content);
+        this.set_child(layeredContent);
         this._highlight.set_opacity(0);
         this._highlight.set_scale(0.72, 0.72);
 
@@ -372,9 +381,9 @@ class Panel extends St.Widget {
         this._views.add_child(this._settings);
 
         this._tabButtons = [
-            new TabButton('Боковая панель', '☰'),
-            new TabButton('Рабочая область', '▣'),
-            new TabButton('Настройки', '⚙'),
+            new TabButton('Боковая панель', 'view-sidebar-symbolic'),
+            new TabButton('Рабочая область', 'briefcase-symbolic'),
+            new TabButton('Настройки', 'preferences-system-symbolic'),
         ];
         const tabWidth = Math.floor((PANEL_WIDTH - 14) / this._tabButtons.length);
         this._tabButtons.forEach((button, index) => {
@@ -397,6 +406,7 @@ class Panel extends St.Widget {
         this._collapsed = !this._collapsed;
         this._toggleLabel.set_text(this._collapsed ? '‹' : '›');
         const target = this._collapsed ? this._collapsedTranslation : 0;
+        const toggleTarget = this._collapsed ? -4 : 0;
         this.ease({
             translation_x: target,
             duration: 420,
@@ -405,6 +415,14 @@ class Panel extends St.Widget {
                 // Keep the final position exact even if Shell interrupts the
                 // transition during a monitor/layout update.
                 this.translation_x = target;
+            },
+        });
+        this._toggle.ease({
+            translation_x: toggleTarget,
+            duration: 420,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            onComplete: () => {
+                this._toggle.translation_x = toggleTarget;
             },
         });
     }
@@ -478,6 +496,7 @@ export default class AiNativeLinuxExtension extends Extension {
         // right margin visible on every resolution.
         this._collapsedTranslation = PANEL_WIDTH + PANEL_MARGIN;
         this._panel.translation_x = this._collapsed ? this._collapsedTranslation : 0;
+        this._panel._toggle.translation_x = this._collapsed ? -4 : 0;
     }
 
     disable() {
