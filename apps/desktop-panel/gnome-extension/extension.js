@@ -186,9 +186,9 @@ class ChatView extends St.BoxLayout {
         });
         const confirmationContent = new St.BoxLayout({
             style_class: 'ai-confirmation-content',
-            spacing: 6,
             x_expand: true,
         });
+        confirmationContent.set_spacing(6);
         confirmationContent.add_child(new St.Icon({
             icon_name: 'security-high-symbolic',
             style_class: 'ai-confirmation-icon',
@@ -221,9 +221,9 @@ class ChatView extends St.BoxLayout {
         modelButton.set_size(145, 34);
         const modelContent = new St.BoxLayout({
             style_class: 'ai-model-content',
-            spacing: 6,
             x_expand: true,
         });
+        modelContent.set_spacing(6);
         const modelLabel = new St.Label({
             text: 'Qwen 3.5 2B',
             style_class: 'ai-model-label',
