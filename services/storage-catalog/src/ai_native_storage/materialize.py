@@ -7,6 +7,7 @@ import errno
 import secrets
 import shutil
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
@@ -120,6 +121,7 @@ class MaterializeService:
         destination: Path,
         *,
         deadline_monotonic: float | None = None,
+        cancellation_check: Callable[[], None] | None = None,
     ) -> MaterializePlan:
         destination = destination.expanduser().absolute()
         if destination.name in {"", ".", ".."}:
@@ -132,7 +134,7 @@ class MaterializeService:
         items: list[MaterializeItem] = []
         used_names: set[str] = set()
         for reference in self.collections.resolve(collection_id):
-            self._check_deadline(deadline_monotonic)
+            self._check_interrupt(deadline_monotonic, cancellation_check)
             source = Path(reference.path)
             if not reference.available or source.is_symlink() or not source.is_file():
                 continue
@@ -146,7 +148,7 @@ class MaterializeService:
                     stat.st_mtime_ns,
                     stat.st_dev,
                     stat.st_ino,
-                    self._digest(source, deadline_monotonic),
+                    self._digest(source, deadline_monotonic, cancellation_check),
                 )
             )
             used_names.add(name.casefold())
@@ -170,6 +172,7 @@ class MaterializeService:
         grant: ApprovalGrant,
         *,
         deadline_monotonic: float | None = None,
+        cancellation_check: Callable[[], None] | None = None,
     ) -> tuple[str, ...]:
         with self._lock:
             self._purge_plans()
@@ -193,7 +196,7 @@ class MaterializeService:
         created: list[Path] = []
         try:
             for item in plan.items:
-                self._check_deadline(deadline_monotonic)
+                self._check_interrupt(deadline_monotonic, cancellation_check)
                 source = Path(item.source)
                 stat = source.stat()
                 if (
@@ -202,7 +205,7 @@ class MaterializeService:
                     or stat.st_mtime_ns != item.mtime_ns
                     or stat.st_dev != item.device
                     or stat.st_ino != item.inode
-                    or self._digest(source, deadline_monotonic) != item.sha256
+                    or self._digest(source, deadline_monotonic, cancellation_check) != item.sha256
                 ):
                     raise MaterializeIntegrityError("source changed after approval")
                 target = destination / item.destination_name
@@ -219,13 +222,21 @@ class MaterializeService:
                 os.close(handle)
                 temporary = Path(temporary_name)
                 try:
-                    self._copy_with_deadline(source, temporary, deadline_monotonic)
-                    if self._digest(temporary, deadline_monotonic) != item.sha256:
+                    self._copy_with_deadline(
+                        source, temporary, deadline_monotonic, cancellation_check
+                    )
+                    if self._digest(
+                        temporary, deadline_monotonic, cancellation_check
+                    ) != item.sha256:
                         raise MaterializeIntegrityError(
                             "source changed while it was being copied"
                         )
                     self._publish_no_clobber(
-                        temporary, target, created, deadline_monotonic
+                        temporary,
+                        target,
+                        created,
+                        deadline_monotonic,
+                        cancellation_check,
                     )
                 finally:
                     temporary.unlink(missing_ok=True)
@@ -259,21 +270,28 @@ class MaterializeService:
             self.approval.revoke(plan_id)
 
     @staticmethod
-    def _digest(path: Path, deadline_monotonic: float | None = None) -> str:
+    def _digest(
+        path: Path,
+        deadline_monotonic: float | None = None,
+        cancellation_check: Callable[[], None] | None = None,
+    ) -> str:
         digest = sha256()
         with path.open("rb") as stream:
             while chunk := stream.read(1024 * 1024):
-                MaterializeService._check_deadline(deadline_monotonic)
+                MaterializeService._check_interrupt(deadline_monotonic, cancellation_check)
                 digest.update(chunk)
         return digest.hexdigest()
 
     @staticmethod
     def _copy_with_deadline(
-        source: Path, destination: Path, deadline_monotonic: float | None
+        source: Path,
+        destination: Path,
+        deadline_monotonic: float | None,
+        cancellation_check: Callable[[], None] | None = None,
     ) -> None:
         with source.open("rb") as input_stream, destination.open("wb") as output_stream:
             while chunk := input_stream.read(1024 * 1024):
-                MaterializeService._check_deadline(deadline_monotonic)
+                MaterializeService._check_interrupt(deadline_monotonic, cancellation_check)
                 output_stream.write(chunk)
             output_stream.flush()
             os.fsync(output_stream.fileno())
@@ -285,11 +303,21 @@ class MaterializeService:
             raise TimeoutError("materialize operation deadline expired")
 
     @staticmethod
+    def _check_interrupt(
+        deadline_monotonic: float | None,
+        cancellation_check: Callable[[], None] | None,
+    ) -> None:
+        MaterializeService._check_deadline(deadline_monotonic)
+        if cancellation_check is not None:
+            cancellation_check()
+
+    @staticmethod
     def _publish_no_clobber(
         temporary: Path,
         target: Path,
         created: list[Path],
         deadline_monotonic: float | None,
+        cancellation_check: Callable[[], None] | None = None,
     ) -> None:
         try:
             # Hard-link publication is atomic and cannot replace an existing
@@ -318,7 +346,9 @@ class MaterializeService:
         try:
             with temporary.open("rb") as source, os.fdopen(descriptor, "wb") as output:
                 while chunk := source.read(1024 * 1024):
-                    MaterializeService._check_deadline(deadline_monotonic)
+                    MaterializeService._check_interrupt(
+                        deadline_monotonic, cancellation_check
+                    )
                     output.write(chunk)
                 output.flush()
                 os.fsync(output.fileno())

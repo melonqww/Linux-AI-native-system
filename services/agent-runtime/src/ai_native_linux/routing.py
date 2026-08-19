@@ -7,6 +7,7 @@ from typing import Protocol
 from uuid import uuid4
 
 from ai_native_permissions import TransportContext
+from ai_native_ledger import InvalidTransitionError, TaskNotFoundError
 
 
 class RuntimeApplication(Protocol):
@@ -20,6 +21,10 @@ class RuntimeApplication(Protocol):
     def respond_to_approval(
         self, payload: dict[str, object], *, transport_context: TransportContext
     ) -> object: ...
+    def tasks(self) -> tuple[object, ...]: ...
+    def task_detail(self, payload: dict[str, object]) -> object: ...
+    def cancel_task(self, payload: dict[str, object]) -> object: ...
+    def continue_task(self, payload: dict[str, object]) -> object: ...
 
 
 @dataclass(frozen=True)
@@ -63,6 +68,10 @@ class RuntimeRouter:
                     transport_context or self.transport_context,
                 )
             return self.error(405, "method_not_allowed", False, correlation_id)
+        except TaskNotFoundError:
+            return self.error(404, "task_not_found", False, correlation_id)
+        except InvalidTransitionError:
+            return self.error(409, "task_action_not_available", False, correlation_id)
         except RuntimeError:
             return self.error(503, "service_unavailable", True, correlation_id)
         except (ValueError, KeyError):
@@ -76,10 +85,19 @@ class RuntimeRouter:
         if path == "/v1/capabilities":
             capabilities = self.application.capabilities()
             if not self.allow_r1:
-                capabilities = [item for item in capabilities if item != "execution.r1.copy"]
+                restricted = {
+                    "execution.r1.copy",
+                    "tasks.activity.detail",
+                    "tasks.activity.control",
+                }
+                capabilities = [item for item in capabilities if item not in restricted]
             return RuntimeResponse(200, {"capabilities": capabilities})
         if path == "/v1/index-status":
             return RuntimeResponse(200, self.application.index_status())
+        if path == "/v1/tasks":
+            return RuntimeResponse(
+                200, {"tasks": [asdict(item) for item in self.application.tasks()]}
+            )
         return self.error(404, "not_found", False, request_id)
 
     def _post(
@@ -115,6 +133,19 @@ class RuntimeRouter:
                     )
                 ),
             )
+        if path in {
+            "/v1/tasks/detail",
+            "/v1/tasks/cancel",
+            "/v1/tasks/continue",
+        }:
+            if not self.allow_r1:
+                return self.error(403, "secure_transport_required", False, request_id)
+            operation = {
+                "/v1/tasks/detail": self.application.task_detail,
+                "/v1/tasks/cancel": self.application.cancel_task,
+                "/v1/tasks/continue": self.application.continue_task,
+            }[path]
+            return RuntimeResponse(200, asdict(operation(payload)))
         return self.error(404, "not_found", False, request_id)
 
     @staticmethod

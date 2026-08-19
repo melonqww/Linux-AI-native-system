@@ -24,6 +24,13 @@ class PlanExecutor(Protocol):
     def execute(
         self, plan: object, *, transport_context: TransportContext | None = None
     ) -> object: ...
+
+
+class TaskHistory(Protocol):
+    def list_recent(self, *, limit: int = 200) -> tuple[object, ...]: ...
+    def get(self, task_id: str, *, include_references: bool = True) -> object: ...
+    def request_cancel(self, task_id: str) -> object: ...
+    def request_continue(self, task_id: str) -> object: ...
     def respond_to_approval(
         self,
         approval_request_id: str,
@@ -43,6 +50,7 @@ class QueryRuntimeApplication:
         task_context: Callable[[], object] | None = None,
         plan_store: PlanStore | None = None,
         plan_executor: PlanExecutor | None = None,
+        task_ledger: TaskHistory | None = None,
     ) -> None:
         self.query_service = query_service
         self.scheduler_status = scheduler_status
@@ -50,6 +58,7 @@ class QueryRuntimeApplication:
         self.task_context = task_context
         self.plan_store = plan_store
         self.plan_executor = plan_executor
+        self.task_ledger = task_ledger
         if intent_pipeline is not None and task_context is None:
             raise ValueError("task_context is required with intent_pipeline")
         if (plan_store is None) != (plan_executor is None):
@@ -67,7 +76,38 @@ class QueryRuntimeApplication:
             capabilities.append("execution.plan.execute")
             if "storage.materialize.plan-copy" in self.plan_executor.available_capabilities():
                 capabilities.append("execution.r1.copy")
+        if self.task_ledger is not None:
+            capabilities.extend(
+                (
+                    "tasks.activity.read",
+                    "tasks.activity.detail",
+                    "tasks.activity.control",
+                )
+            )
         return capabilities
+
+    def tasks(self) -> tuple[object, ...]:
+        if self.task_ledger is None:
+            raise RuntimeError("task_ledger_unavailable")
+        return self.task_ledger.list_recent()
+
+    def task_detail(self, payload: dict[str, object]) -> object:
+        if self.task_ledger is None:
+            raise RuntimeError("task_ledger_unavailable")
+        self._only_task_id(payload)
+        return self.task_ledger.get(self._string(payload, "task_id"))
+
+    def cancel_task(self, payload: dict[str, object]) -> object:
+        if self.task_ledger is None:
+            raise RuntimeError("task_ledger_unavailable")
+        self._only_task_id(payload)
+        return self.task_ledger.request_cancel(self._string(payload, "task_id"))
+
+    def continue_task(self, payload: dict[str, object]) -> object:
+        if self.task_ledger is None:
+            raise RuntimeError("task_ledger_unavailable")
+        self._only_task_id(payload)
+        return self.task_ledger.request_continue(self._string(payload, "task_id"))
 
     def search(self, payload: dict[str, object]) -> list[QueryResult]:
         text = self._string(payload, "text")
@@ -149,6 +189,11 @@ class QueryRuntimeApplication:
             confirmed=confirmed,
             transport_context=transport_context,
         )
+
+    @staticmethod
+    def _only_task_id(payload: dict[str, object]) -> None:
+        if set(payload) != {"task_id"}:
+            raise ValueError("exactly task_id is required")
 
     @staticmethod
     def _string(payload: dict[str, object], key: str) -> str:

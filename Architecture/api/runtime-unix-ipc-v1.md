@@ -45,8 +45,9 @@ Owned stale socket удаляется только после неуспешно
 ```
 
 Маршруты и payload совпадают с runtime API; маршрутизация общая для транспортов.
-R1 confirmation разрешён только в authenticated Unix transport. Loopback HTTP
-является R0/dev fallback и отвечает `403 secure_transport_required`.
+R1 confirmation, Task Ledger detail с локальными путями, cancel и continue
+разрешены только в authenticated Unix transport. Loopback HTTP является R0/dev
+fallback и отвечает `403 secure_transport_required` на эти маршруты.
 
 ## Граница защиты
 

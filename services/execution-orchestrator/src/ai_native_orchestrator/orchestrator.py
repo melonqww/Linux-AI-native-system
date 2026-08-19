@@ -8,6 +8,7 @@ from time import monotonic
 from uuid import UUID, uuid4
 
 from ai_native_intents import CompilationState, ExecutionPlan, PlanStep, TaskContextStore
+from ai_native_ledger import CancellationRequested, ItemOutcome, TaskLedger
 from ai_native_query import DocumentQuery, QueryService
 from ai_native_permissions import (
     CapabilityExecutionRegistry,
@@ -81,6 +82,7 @@ class ExecutionOrchestrator:
         capability_source: Callable[[], Iterable[str]] | None = None,
         granted_scopes: frozenset[str] | None = None,
         scope_source: Callable[[], Iterable[str]] | None = None,
+        task_ledger: TaskLedger | None = None,
     ) -> None:
         self._query_service = query_service
         self._context_store = context_store
@@ -88,6 +90,7 @@ class ExecutionOrchestrator:
         self._materialize = materialize_service
         self._destinations = destination_resolver or DestinationResolver()
         self._approval_sessions = approval_sessions or ApprovalSessionStore()
+        self._task_ledger = task_ledger
         initial_scopes = (
             frozenset(
                 {
@@ -139,8 +142,14 @@ class ExecutionOrchestrator:
         active_collection_id = self._context_store.snapshot().active_collection_id
         transport = transport_context or TransportContext.internal()
         self._audit("orchestration.started", run_id, plan.plan_id)
+        self._ledger_start(run_id, plan)
 
         for index, step in enumerate(plan.steps):
+            if self._task_ledger is not None:
+                try:
+                    self._task_ledger.raise_if_cancelled(run_id)
+                except CancellationRequested:
+                    return self._cancelled(run_id, plan, executions, step)
             if not set(step.depends_on).issubset(completed):
                 return self._failure(run_id, plan, executions, step, "dependency_not_completed")
             if step.approval_required:
@@ -184,6 +193,8 @@ class ExecutionOrchestrator:
                     StepExecution(step.step_id, step.capability, StepState.AWAITING_APPROVAL)
                 )
                 self._audit("orchestration.awaiting_approval", run_id, plan.plan_id, step.step_id)
+                if self._task_ledger is not None:
+                    self._task_ledger.awaiting_approval(run_id)
                 return OrchestrationResult(
                     run_id,
                     plan.plan_id,
@@ -228,6 +239,7 @@ class ExecutionOrchestrator:
             executions.append(
                 StepExecution(step.step_id, step.capability, StepState.COMPLETED, output=output)
             )
+            self._ledger_search_results(run_id, plan, output)
             self._audit(
                 "orchestration.step_completed",
                 run_id,
@@ -237,6 +249,8 @@ class ExecutionOrchestrator:
             )
 
         self._audit("orchestration.completed", run_id, plan.plan_id)
+        if self._task_ledger is not None:
+            self._task_ledger.complete(run_id)
         return OrchestrationResult(
             run_id,
             plan.plan_id,
@@ -269,6 +283,8 @@ class ExecutionOrchestrator:
             self._audit(
                 "orchestration.cancelled", session.run_id, session.request.plan_id, step.step_id
             )
+            if self._task_ledger is not None:
+                self._task_ledger.cancelled(session.run_id)
             return OrchestrationResult(
                 session.run_id,
                 session.request.plan_id,
@@ -278,6 +294,8 @@ class ExecutionOrchestrator:
                 diagnostics=("user_declined",),
             )
         try:
+            if self._task_ledger is not None:
+                self._task_ledger.approval_received(session.run_id)
             invocation = self._invocation(
                 None,
                 step,
@@ -310,6 +328,8 @@ class ExecutionOrchestrator:
                     step.step_id,
                     error_code=code,
                 )
+                if self._task_ledger is not None:
+                    self._task_ledger.fail(session.run_id)
                 return OrchestrationResult(
                     session.run_id,
                     session.request.plan_id,
@@ -334,6 +354,8 @@ class ExecutionOrchestrator:
                 step.step_id,
                 error_code=code,
             )
+            if self._task_ledger is not None:
+                self._task_ledger.fail(session.run_id)
             return OrchestrationResult(
                 session.run_id,
                 session.request.plan_id,
@@ -343,6 +365,14 @@ class ExecutionOrchestrator:
                 diagnostics=(code,),
             )
         execution = StepExecution(step.step_id, step.capability, StepState.COMPLETED, output)
+        if self._task_ledger is not None:
+            for copied_path in output.copied_paths:
+                self._task_ledger.record_item(
+                    session.run_id,
+                    outcome=ItemOutcome.SUCCEEDED,
+                    locator=copied_path,
+                    kind="copied-file",
+                )
         self._audit(
             "orchestration.step_completed",
             session.run_id,
@@ -351,6 +381,8 @@ class ExecutionOrchestrator:
             copied_count=output.copied_count,
         )
         self._audit("orchestration.completed", session.run_id, session.request.plan_id)
+        if self._task_ledger is not None:
+            self._task_ledger.complete(session.run_id)
         return OrchestrationResult(
             session.run_id,
             session.request.plan_id,
@@ -427,6 +459,7 @@ class ExecutionOrchestrator:
                 session.materialize_plan.plan_id,
                 grant,
                 deadline_monotonic=invocation.deadline_monotonic,
+                cancellation_check=self._cancellation_check(session.run_id),
             )
             self._context_store.set_last_destination(session.materialize_plan.destination)
             return CopyOutput(
@@ -477,7 +510,10 @@ class ExecutionOrchestrator:
             trusted_last_destination=context.last_destination,
         )
         materialize_plan = self._materialize.create_copy_plan(
-            collection_id, destination, deadline_monotonic=deadline_monotonic
+            collection_id,
+            destination,
+            deadline_monotonic=deadline_monotonic,
+            cancellation_check=self._cancellation_check(run_id),
         )
         request = ApprovalRequest(
             approval_request_id=str(uuid4()),
@@ -508,6 +544,8 @@ class ExecutionOrchestrator:
             return
         for session in sessions:
             self._materialize.discard(session.materialize_plan.plan_id)
+            if self._task_ledger is not None:
+                self._task_ledger.fail(session.run_id)
 
     def _execute_search(
         self,
@@ -594,8 +632,12 @@ class ExecutionOrchestrator:
             raise PlanValidationError("approval_flag_mismatch")
 
     def _failure(self, run_id, plan, executions, step, code) -> OrchestrationResult:
+        if code == "user_cancelled":
+            return self._cancelled(run_id, plan, executions, step)
         executions.append(StepExecution(step.step_id, step.capability, StepState.FAILED, error_code=code))
         self._audit("orchestration.failed", run_id, plan.plan_id, step.step_id, error_code=code)
+        if self._task_ledger is not None:
+            self._task_ledger.fail(run_id)
         return OrchestrationResult(
             run_id,
             plan.plan_id,
@@ -604,8 +646,65 @@ class ExecutionOrchestrator:
             diagnostics=(code,),
         )
 
+    def _cancelled(self, run_id, plan, executions, step) -> OrchestrationResult:
+        executions.append(
+            StepExecution(
+                step.step_id,
+                step.capability,
+                StepState.CANCELLED,
+                error_code="user_cancelled",
+            )
+        )
+        self._audit("orchestration.cancelled", run_id, plan.plan_id, step.step_id)
+        if self._task_ledger is not None:
+            self._task_ledger.cancelled(run_id)
+        return OrchestrationResult(
+            run_id,
+            plan.plan_id,
+            OrchestrationState.CANCELLED,
+            tuple(executions),
+        )
+
+    def _ledger_start(self, run_id: str, plan: ExecutionPlan) -> None:
+        if self._task_ledger is None:
+            return
+        activity = (
+            "files.copy"
+            if any(step.capability == "storage.materialize.plan-copy" for step in plan.steps)
+            else "documents.search"
+        )
+        self._task_ledger.create(activity, task_id=run_id)
+        self._task_ledger.start(run_id)
+
+    def _ledger_search_results(
+        self, run_id: str, plan: ExecutionPlan, output: SearchOutput
+    ) -> None:
+        if self._task_ledger is None:
+            return
+        has_copy = any(
+            step.capability == "storage.materialize.plan-copy" for step in plan.steps
+        )
+        for result in output.results:
+            arguments = {
+                "locator": result.path,
+                "display_name": result.name,
+                "kind": "found-file",
+                "outcome": ItemOutcome.SUCCEEDED,
+            }
+            if has_copy:
+                self._task_ledger.add_reference(run_id, **arguments)
+            else:
+                self._task_ledger.record_item(run_id, **arguments)
+
+    def _cancellation_check(self, run_id: str):
+        if self._task_ledger is None:
+            return None
+        return lambda: self._task_ledger.raise_if_cancelled(run_id)
+
     @staticmethod
     def _classify_error(error: Exception) -> str:
+        if isinstance(error, CancellationRequested):
+            return "user_cancelled"
         if isinstance(error, TimeoutError):
             return "capability_timeout"
         if isinstance(error, MaterializeIntegrityError):

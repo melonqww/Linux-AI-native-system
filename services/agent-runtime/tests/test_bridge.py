@@ -29,6 +29,12 @@ class Execution:
     plan_id: str
 
 
+@dataclass
+class Task:
+    task_id: str
+    state: str
+
+
 class App:
     def capabilities(self):
         return ["storage.catalog.search", "execution.r1.copy"]
@@ -53,6 +59,18 @@ class App:
             plan_id=payload["approval_request_id"],
         )
 
+    def tasks(self):
+        return (Task(task_id="task-1", state="completed"),)
+
+    def task_detail(self, payload):
+        return Task(task_id=payload["task_id"], state="completed")
+
+    def cancel_task(self, payload):
+        return Task(task_id=payload["task_id"], state="running")
+
+    def continue_task(self, payload):
+        return Task(task_id=payload["task_id"], state="interrupted")
+
 
 class BridgeTests(unittest.TestCase):
     def test_rejects_non_loopback_binding(self):
@@ -68,6 +86,7 @@ class BridgeTests(unittest.TestCase):
             health = json.load(urllib.request.urlopen(base + "/v1/health"))
             capabilities = json.load(urllib.request.urlopen(base + "/v1/capabilities"))
             status = json.load(urllib.request.urlopen(base + "/v1/index-status"))
+            tasks = json.load(urllib.request.urlopen(base + "/v1/tasks"))
             request = urllib.request.Request(
                 base + "/v1/search",
                 data=json.dumps({"text": "math"}).encode(),
@@ -96,6 +115,13 @@ class BridgeTests(unittest.TestCase):
             with self.assertRaises(urllib.error.HTTPError) as approval_error:
                 urllib.request.urlopen(approval_request)
             approval = json.load(approval_error.exception)
+            cancel_request = urllib.request.Request(
+                base + "/v1/tasks/cancel",
+                data=json.dumps({"task_id": "task-1"}).encode(),
+                headers={"Content-Type": "application/json"},
+            )
+            with self.assertRaises(urllib.error.HTTPError) as cancel_error:
+                urllib.request.urlopen(cancel_request)
         finally:
             server.shutdown()
             server.server_close()
@@ -103,11 +129,13 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(health, {"status": "ok"})
         self.assertNotIn("execution.r1.copy", capabilities["capabilities"])
         self.assertEqual(status["scheduler"]["state"], "idle")
+        self.assertEqual(tasks, {"tasks": [{"task_id": "task-1", "state": "completed"}]})
         self.assertEqual(results["results"][0]["path"], "result:math")
         self.assertEqual(compilation, {"state": "ready", "text": "find math PDFs"})
         self.assertEqual(execution, {"state": "completed", "plan_id": "trusted-plan"})
         self.assertEqual(approval_error.exception.code, 403)
         self.assertEqual(approval["error"]["code"], "secure_transport_required")
+        self.assertEqual(cancel_error.exception.code, 403)
 
     def test_global_error_envelope_redacts_unexpected_failures(self):
         server = create_server(App())

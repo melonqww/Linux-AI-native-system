@@ -37,6 +37,7 @@ def main() -> int:
     parser.add_argument("--storage-database", type=Path, default=Path("data/storage-catalog.sqlite3"))
     parser.add_argument("--index-database", type=Path, default=Path("data/document-index.sqlite3"))
     parser.add_argument("--registry-database", type=Path, default=Path("data/capabilities.sqlite3"))
+    parser.add_argument("--task-ledger-database", type=Path, default=Path("data/task-ledger.sqlite3"))
     parser.add_argument("--intent-model", default="qwen3:1.7b")
     parser.add_argument("--ollama-url", default="http://127.0.0.1:11434")
     parser.add_argument("--intent-timeout", type=float, default=45.0)
@@ -83,6 +84,9 @@ def main() -> int:
             task_context = None
             plan_store = None
             plan_executor = None
+            from ai_native_ledger import TaskLedger
+
+            task_ledger = TaskLedger(args.task_ledger_database)
             if not args.no_intent_compiler:
                 from ai_native_intents import (
                     IntentCompiler,
@@ -126,6 +130,7 @@ def main() -> int:
                         *registry.available_capabilities(),
                         "documents.query.search",
                     ),
+                    task_ledger=task_ledger,
                 )
                 for capability in plan_executor.available_capabilities():
                     required_scopes = plan_executor.permission_gateway.required_scopes(
@@ -148,6 +153,7 @@ def main() -> int:
                 task_context=task_context,
                 plan_store=plan_store,
                 plan_executor=plan_executor,
+                task_ledger=task_ledger,
             )
             transport = (
                 "unix" if args.transport == "auto" and sys.platform.startswith("linux")
@@ -164,6 +170,11 @@ def main() -> int:
 
                 server = create_server(application, host=args.host, port=args.port)
                 print(f"Panel runtime (development fallback): http://{args.host}:{server.server_port}")
+            # Recovery is deliberately delayed until this process has acquired
+            # the unique runtime transport. A losing second instance must not
+            # mark the active daemon's tasks as interrupted.
+            task_ledger.recover_after_restart()
+            task_ledger.purge_expired()
             server.serve_forever()
         except KeyboardInterrupt:
             pass

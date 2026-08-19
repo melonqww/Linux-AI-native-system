@@ -23,6 +23,8 @@ node --check apps/desktop-panel/gnome-extension/extension.js
   Linux `SO_PEERCRED` allow/deny;
 - fail-closed Permission Gateway: risk/approval/phase/transport/scopes/arguments,
   runtime revoke, disabled providers, handler concurrency и cooperative deadlines;
+- Task Ledger: закрытые переходы состояний, cooperative cancel, checkpoint resume,
+  restart recovery, семидневный retention, redacted events и конкурентный progress;
 - закрытая intent schema, RU/EN планы, доверенный task context и prompt injection;
 - битые, слишком большие, многостраничные и требующие OCR PDF;
 - coalescing/overflow очереди, load pause и инкрементальные create/modify/delete;

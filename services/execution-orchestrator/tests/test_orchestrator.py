@@ -23,6 +23,7 @@ from ai_native_orchestrator import (
 )
 from ai_native_query import QueryResult
 from ai_native_permissions import TransportContext, TransportKind
+from ai_native_ledger import TaskLedger, TaskState
 from ai_native_storage import ApprovalAuthority, CollectionItem, MaterializeService
 
 
@@ -344,6 +345,82 @@ class OrchestratorTests(unittest.TestCase):
                 for event in events
             )
         )
+
+    def test_task_ledger_receives_only_user_lifecycle(self):
+        ledger = TaskLedger(self.root / "tasks.sqlite3")
+        orchestrator = ExecutionOrchestrator(
+            self.query,
+            self.context,
+            materialize_service=self.materialize,
+            destination_resolver=DestinationResolver(
+                home=self.root, roles={"desktop": self.desktop}
+            ),
+            task_ledger=ledger,
+        )
+
+        result = orchestrator.execute(plan())
+        task = ledger.get(result.run_id)
+
+        self.assertEqual(task.state, TaskState.COMPLETED)
+        self.assertEqual(task.activity, "documents.search")
+        self.assertEqual(task.processed_count, 1)
+        self.assertEqual(task.references[0].display_name, "math.pdf")
+        self.assertEqual(
+            ledger.event_names(result.run_id),
+            ("created", "started", "item_succeeded", "completed"),
+        )
+
+    def test_task_ledger_tracks_approval_and_terminal_user_cancel(self):
+        ledger = TaskLedger(self.root / "tasks.sqlite3")
+        orchestrator = ExecutionOrchestrator(
+            self.query,
+            self.context,
+            materialize_service=self.materialize,
+            destination_resolver=DestinationResolver(
+                home=self.root, roles={"desktop": self.desktop}
+            ),
+            task_ledger=ledger,
+        )
+        self.context.set_active_results("collection-trusted-1")
+        copy = step(
+            "copy",
+            capability="storage.materialize.plan-copy",
+            arguments={"results_from": "collection-trusted-1", "destination": "desktop"},
+            risk=RiskClass.REVERSIBLE_WRITE,
+            approval_required=True,
+        )
+
+        waiting = orchestrator.execute(plan(copy))
+        self.assertEqual(ledger.get(waiting.run_id).state, TaskState.AWAITING_APPROVAL)
+        result = orchestrator.respond_to_approval(
+            waiting.approval_request.approval_request_id, confirmed=False
+        )
+
+        task = ledger.get(result.run_id)
+        self.assertEqual(task.state, TaskState.CANCELLED)
+        self.assertFalse(task.can_continue)
+        self.assertEqual(
+            ledger.event_names(result.run_id),
+            ("created", "started", "awaiting_approval", "cancelled"),
+        )
+
+    def test_task_ledger_failure_does_not_store_internal_reason(self):
+        ledger = TaskLedger(self.root / "tasks.sqlite3")
+        orchestrator = ExecutionOrchestrator(
+            BrokenQueryService(), self.context, task_ledger=ledger
+        )
+
+        result = orchestrator.execute(plan())
+        task = ledger.get(result.run_id)
+
+        self.assertEqual(task.state, TaskState.FAILED)
+        serialized = json.dumps(
+            {"task": task, "events": ledger.event_names(result.run_id)},
+            default=str,
+        )
+        self.assertNotIn("database password", serialized)
+        self.assertNotIn("capability_internal_error", serialized)
+        self.assertEqual(ledger.event_names(result.run_id), ("created", "started", "failed"))
 
 
 class PlanStoreTests(unittest.TestCase):

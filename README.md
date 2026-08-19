@@ -86,6 +86,17 @@ scopes проверяются повторно непосредственно п
 [контракты](Architecture/api/permission-gateway-v1.md) и
 [ADR-007](Architecture/decisions/ADR-007-trusted-permission-gateway.md).
 
+## Task Ledger v1
+
+`services/task-ledger` хранит семидневную пользовательскую историю задач,
+агрегированные результаты, кликабельные ссылки на локальные файлы и безопасные
+checkpoints. Это компонент ядра, а не плагин и не debug log: traceback, код,
+model reasoning и технические причины ошибок в пользовательскую ленту не попадают.
+Отмена работающей задачи кооперативна и терминальна; продолжить можно только
+системно прерванную задачу с checkpoint. Детали с путями и управление доступны
+только через authenticated Unix IPC. Подробнее: [контракт](Architecture/api/task-ledger-v1.md)
+и [ADR-008](Architecture/decisions/ADR-008-core-task-ledger.md).
+
 ## Шесть базовых компонентов
 
 Текущий фундамент собран в один модульный контур:
@@ -113,7 +124,7 @@ scopes проверяются повторно непосредственно п
 Для запуска локального API панели из корня проекта:
 
 ```bash
-PYTHONPATH="services/agent-runtime/src:services/permission-gateway/src:services/execution-orchestrator/src:services/intent-compiler/src:services/capability-registry/src:services/module-manager/src:services/query-service/src:services/storage-catalog/src:services/indexer/src:services/index-scheduler/src:modules/documents-pdf/src" \
+PYTHONPATH="services/agent-runtime/src:services/task-ledger/src:services/permission-gateway/src:services/execution-orchestrator/src:services/intent-compiler/src:services/capability-registry/src:services/module-manager/src:services/query-service/src:services/storage-catalog/src:services/indexer/src:services/index-scheduler/src:modules/documents-pdf/src" \
 python -m ai_native_linux.cli --serve-panel
 ```
 
@@ -148,6 +159,7 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [Execution Orchestrator API v1](Architecture/api/execution-orchestrator-v1.md)
 - [Runtime Unix IPC v1](Architecture/api/runtime-unix-ipc-v1.md)
 - [Permission Gateway v1](Architecture/api/permission-gateway-v1.md)
+- [Task Ledger v1](Architecture/api/task-ledger-v1.md)
 - [Контракты Storage Catalog](Architecture/api/storage-catalog-contracts.md)
 - [Контракт статуса индекса](Architecture/api/runtime-index-status.md)
 - [JSON Schema manifest модуля](packages/module-sdk/schema/module-manifest.schema.json)
@@ -158,5 +170,6 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [Решение об оркестрации серверных планов](Architecture/decisions/ADR-005-server-owned-execution-orchestration.md)
 - [Решение об authenticated Unix transport](Architecture/decisions/ADR-006-authenticated-unix-runtime-transport.md)
 - [Решение о доверенном Permission Gateway](Architecture/decisions/ADR-007-trusted-permission-gateway.md)
+- [Решение о core Task Ledger](Architecture/decisions/ADR-008-core-task-ledger.md)
 - [Желаемые будущие возможности системы](Architecture/product/future-system-capabilities.md)
 - [Подготовка Ubuntu VM](docs/developer/Ubuntu-VM-setup.md)

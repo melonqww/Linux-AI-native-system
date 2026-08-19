@@ -123,6 +123,20 @@ class MaterializeTests(unittest.TestCase):
 
         self.assertFalse((self.root / "result").exists())
 
+    def test_cooperative_cancel_stops_before_write_and_rolls_back_directory(self) -> None:
+        _source, plan = self._plan()
+        grant = self.approval.approve(plan.plan_id, user_confirmed=True)
+
+        def stop():
+            raise InterruptedError("requested by task ledger")
+
+        with self.assertRaises(InterruptedError):
+            self.service.execute(
+                plan.plan_id, grant, cancellation_check=stop
+            )
+
+        self.assertFalse((self.root / "result").exists())
+
 
 if __name__ == "__main__":
     unittest.main()
