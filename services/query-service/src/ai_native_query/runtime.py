@@ -20,6 +20,7 @@ class PlanStore(Protocol):
 
 class PlanExecutor(Protocol):
     def execute(self, plan: object) -> object: ...
+    def respond_to_approval(self, approval_request_id: str, *, confirmed: bool) -> object: ...
 
 
 class QueryRuntimeApplication:
@@ -54,6 +55,7 @@ class QueryRuntimeApplication:
             capabilities.append("intent.compile")
         if self.plan_executor is not None:
             capabilities.append("execution.plan.execute")
+            capabilities.append("execution.r1.copy")
         return capabilities
 
     def search(self, payload: dict[str, object]) -> list[QueryResult]:
@@ -110,6 +112,18 @@ class QueryRuntimeApplication:
         plan_id = self._string(payload, "plan_id")
         plan = self.plan_store.claim(plan_id)
         return self.plan_executor.execute(plan)
+
+    def respond_to_approval(self, payload: dict[str, object]) -> object:
+        if self.plan_executor is None:
+            raise RuntimeError("execution_orchestrator_unavailable")
+        unknown = set(payload) - {"approval_request_id", "confirmed"}
+        if unknown:
+            raise ValueError(f"unknown fields: {sorted(unknown)}")
+        request_id = self._string(payload, "approval_request_id")
+        confirmed = payload.get("confirmed")
+        if not isinstance(confirmed, bool):
+            raise ValueError("confirmed must be a boolean")
+        return self.plan_executor.respond_to_approval(request_id, confirmed=confirmed)
 
     @staticmethod
     def _string(payload: dict[str, object], key: str) -> str:

@@ -101,15 +101,21 @@ def main() -> int:
                 task_context = context_store.snapshot
                 from ai_native_orchestrator import (
                     CompiledPlanStore,
+                    DestinationResolver,
                     ExecutionOrchestrator,
                     OrchestrationAuditLog,
                 )
+                from ai_native_storage import ApprovalAuthority, MaterializeService
 
                 plan_store = CompiledPlanStore()
                 plan_executor = ExecutionOrchestrator(
                     query_service,
                     context_store,
                     audit_sink=OrchestrationAuditLog(args.audit_file).append,
+                    materialize_service=MaterializeService(
+                        args.storage_database, ApprovalAuthority()
+                    ),
+                    destination_resolver=DestinationResolver(),
                 )
             application = QueryRuntimeApplication(
                 query_service,

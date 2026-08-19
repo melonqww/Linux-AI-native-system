@@ -15,6 +15,7 @@ class RuntimeApplication(Protocol):
     def index_status(self) -> dict[str, object]: ...
     def compile_intent(self, payload: dict[str, object]) -> object: ...
     def execute_plan(self, payload: dict[str, object]) -> object: ...
+    def respond_to_approval(self, payload: dict[str, object]) -> object: ...
 
 
 def create_server(application: RuntimeApplication, host: str = "127.0.0.1", port: int = 0):
@@ -55,6 +56,9 @@ def create_server(application: RuntimeApplication, host: str = "127.0.0.1", port
                     self._send(200, asdict(result))
                 elif self.path == "/v1/plan/execute":
                     result = application.execute_plan(payload)
+                    self._send(200, asdict(result))
+                elif self.path == "/v1/approval/respond":
+                    result = application.respond_to_approval(payload)
                     self._send(200, asdict(result))
                 else:
                     self._send_error(404, "not_found", retryable=False)

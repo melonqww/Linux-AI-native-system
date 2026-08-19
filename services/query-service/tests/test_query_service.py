@@ -54,6 +54,9 @@ class FakeExecutor:
     def execute(self, plan):
         return {"executed": plan}
 
+    def respond_to_approval(self, approval_request_id, *, confirmed):
+        return {"approval_request_id": approval_request_id, "confirmed": confirmed}
+
 
 class QueryServiceTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -148,6 +151,17 @@ class QueryServiceTests(unittest.TestCase):
         self.assertIn("execution.plan.execute", application.capabilities())
         with self.assertRaises(ValueError):
             application.execute_plan({"plan_id": "plan-id", "steps": []})
+
+        approval = application.respond_to_approval(
+            {"approval_request_id": "approval-id", "confirmed": True}
+        )
+        self.assertEqual(
+            approval, {"approval_request_id": "approval-id", "confirmed": True}
+        )
+        with self.assertRaises(ValueError):
+            application.respond_to_approval(
+                {"approval_request_id": "approval-id", "confirmed": "yes"}
+            )
 
 
 if __name__ == "__main__":

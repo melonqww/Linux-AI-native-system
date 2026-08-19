@@ -18,8 +18,13 @@ from .materialize import (
     ApprovalAuthority,
     ApprovalGrant,
     MaterializeItem,
+    MaterializeDestinationError,
+    MaterializeError,
+    MaterializeIntegrityError,
     MaterializePlan,
+    MaterializeRollbackError,
     MaterializeService,
+    MaterializeSpaceError,
 )
 
 __all__ = [
@@ -33,8 +38,13 @@ __all__ = [
     "FileCatalog",
     "FileQuery",
     "MaterializeItem",
+    "MaterializeDestinationError",
+    "MaterializeError",
+    "MaterializeIntegrityError",
     "MaterializePlan",
+    "MaterializeRollbackError",
     "MaterializeService",
+    "MaterializeSpaceError",
     "PermissionLevel",
     "VirtualCollection",
     "VirtualCollectionStore",

@@ -47,6 +47,12 @@ class App:
             raise LookupError("sensitive internal detail")
         return Execution(state="completed", plan_id=payload["plan_id"])
 
+    def respond_to_approval(self, payload):
+        return Execution(
+            state="completed" if payload["confirmed"] else "cancelled",
+            plan_id=payload["approval_request_id"],
+        )
+
 
 class BridgeTests(unittest.TestCase):
     def test_rejects_non_loopback_binding(self):
@@ -79,6 +85,14 @@ class BridgeTests(unittest.TestCase):
                 headers={"Content-Type": "application/json"},
             )
             execution = json.load(urllib.request.urlopen(execution_request))
+            approval_request = urllib.request.Request(
+                base + "/v1/approval/respond",
+                data=json.dumps(
+                    {"approval_request_id": "approval-1", "confirmed": False}
+                ).encode(),
+                headers={"Content-Type": "application/json"},
+            )
+            approval = json.load(urllib.request.urlopen(approval_request))
         finally:
             server.shutdown()
             server.server_close()
@@ -88,6 +102,7 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(results["results"][0]["path"], "result:math")
         self.assertEqual(compilation, {"state": "ready", "text": "find math PDFs"})
         self.assertEqual(execution, {"state": "completed", "plan_id": "trusted-plan"})
+        self.assertEqual(approval, {"state": "cancelled", "plan_id": "approval-1"})
 
     def test_global_error_envelope_redacts_unexpected_failures(self):
         server = create_server(App())

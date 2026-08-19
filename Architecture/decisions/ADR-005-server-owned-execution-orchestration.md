@@ -19,13 +19,17 @@ API выполнения принимает только `plan_id`; claim ато
 risk/capability. Диспетчер является статическим allowlist, без dynamic import,
 shell и вызова имён, предложенных моделью.
 
-v1 исполняет только R0-поиск, создаёт snapshot и обновляет `TaskContext`. При
-достижении R1 copy выполнение останавливается до отдельного протокола approval.
+Оркестратор исполняет R0-поиск, создаёт snapshot и обновляет `TaskContext`. Для R1
+copy он строит materialize preview и сохраняет серверную approval-сессию с TTL.
+UI получает только request ID и безопасное описание; token создаётся лишь после
+явного `confirmed=true` и никогда не покидает runtime. После подтверждения
+источники и назначение проверяются повторно, частичный результат откатывается.
 Audit остаётся metadata-only.
 
 ## Последствия
 
-Replay одного plan ID блокируется, а restart runtime инвалидирует pending-планы.
-Это приемлемо для панели v0.1. Для R1 понадобятся отдельные approval token,
-повторная проверка snapshot/назначения, resume state и rollback через Materialize
-Service. Горизонтальное масштабирование потребует общего защищённого plan store.
+Replay plan/approval ID блокируется, а restart runtime инвалидирует pending-планы.
+Это приемлемо для панели v0.1. Loopback HTTP не аутентифицирует процессы одного
+пользователя, поэтому следующая security-граница — Unix socket и проверка peer
+credentials системной панели. Горизонтальное масштабирование потребует общего
+защищённого plan store.

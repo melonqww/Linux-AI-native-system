@@ -3,14 +3,38 @@
 from __future__ import annotations
 
 import os
+import errno
 import secrets
 import shutil
 import tempfile
 from dataclasses import dataclass
+from hashlib import sha256
 from pathlib import Path
+from threading import RLock
+from time import monotonic
 from uuid import uuid4
 
 from .collections import VirtualCollectionStore
+
+
+class MaterializeError(RuntimeError):
+    """Base class for safe module-specific failure classification."""
+
+
+class MaterializeIntegrityError(MaterializeError):
+    pass
+
+
+class MaterializeDestinationError(MaterializeError):
+    pass
+
+
+class MaterializeSpaceError(OSError):
+    pass
+
+
+class MaterializeRollbackError(MaterializeError):
+    pass
 
 
 @dataclass(frozen=True)
@@ -19,6 +43,9 @@ class MaterializeItem:
     destination_name: str
     size_bytes: int
     mtime_ns: int
+    device: int
+    inode: int
+    sha256: str
 
 
 @dataclass(frozen=True)
@@ -38,27 +65,54 @@ class ApprovalGrant:
 
 
 class ApprovalAuthority:
-    def __init__(self) -> None:
-        self._tokens: dict[str, str] = {}
+    def __init__(self, *, ttl_seconds: float = 300) -> None:
+        if ttl_seconds <= 0:
+            raise ValueError("approval TTL must be positive")
+        self._ttl_seconds = ttl_seconds
+        self._tokens: dict[str, tuple[str, float]] = {}
+        self._lock = RLock()
 
     def approve(self, plan_id: str, *, user_confirmed: bool) -> ApprovalGrant:
         if not user_confirmed:
             raise PermissionError("explicit user confirmation is required")
         token = secrets.token_urlsafe(32)
-        self._tokens[plan_id] = token
+        with self._lock:
+            self._purge()
+            self._tokens[plan_id] = (token, monotonic() + self._ttl_seconds)
         return ApprovalGrant(plan_id=plan_id, token=token)
 
     def consume(self, grant: ApprovalGrant) -> None:
-        expected = self._tokens.pop(grant.plan_id, None)
-        if expected is None or not secrets.compare_digest(expected, grant.token):
+        with self._lock:
+            self._purge()
+            stored = self._tokens.pop(grant.plan_id, None)
+        if stored is None or not secrets.compare_digest(stored[0], grant.token):
             raise PermissionError("approval grant is invalid or already consumed")
+
+    def revoke(self, plan_id: str) -> None:
+        with self._lock:
+            self._tokens.pop(plan_id, None)
+
+    def _purge(self) -> None:
+        now = monotonic()
+        for plan_id in [key for key, value in self._tokens.items() if value[1] <= now]:
+            self._tokens.pop(plan_id, None)
 
 
 class MaterializeService:
-    def __init__(self, database_path: Path, approval: ApprovalAuthority) -> None:
+    def __init__(
+        self,
+        database_path: Path,
+        approval: ApprovalAuthority,
+        *,
+        plan_ttl_seconds: float = 600,
+    ) -> None:
+        if plan_ttl_seconds <= 0:
+            raise ValueError("materialize plan TTL must be positive")
         self.collections = VirtualCollectionStore(database_path)
         self.approval = approval
-        self._plans: dict[str, MaterializePlan] = {}
+        self._plan_ttl_seconds = plan_ttl_seconds
+        self._plans: dict[str, tuple[MaterializePlan, float]] = {}
+        self._lock = RLock()
 
     def create_copy_plan(self, collection_id: str, destination: Path) -> MaterializePlan:
         destination = destination.expanduser().absolute()
@@ -77,7 +131,17 @@ class MaterializeService:
                 continue
             name = self._unique_name(reference.name, used_names, destination)
             stat = source.stat()
-            items.append(MaterializeItem(str(source), name, stat.st_size, stat.st_mtime_ns))
+            items.append(
+                MaterializeItem(
+                    str(source),
+                    name,
+                    stat.st_size,
+                    stat.st_mtime_ns,
+                    stat.st_dev,
+                    stat.st_ino,
+                    self._digest(source),
+                )
+            )
             used_names.add(name.casefold())
         if not items:
             raise ValueError("collection has no available regular files")
@@ -88,45 +152,144 @@ class MaterializeService:
             items=tuple(items),
             total_bytes=sum(item.size_bytes for item in items),
         )
-        self._plans[plan.plan_id] = plan
+        with self._lock:
+            self._purge_plans()
+            self._plans[plan.plan_id] = (plan, monotonic() + self._plan_ttl_seconds)
         return plan
 
     def execute(self, plan_id: str, grant: ApprovalGrant) -> tuple[str, ...]:
-        plan = self._plans.pop(plan_id, None)
-        if plan is None or grant.plan_id != plan_id:
+        with self._lock:
+            self._purge_plans()
+            stored = self._plans.pop(plan_id, None)
+        if stored is None or grant.plan_id != plan_id:
             raise KeyError("unknown materialize plan")
+        plan = stored[0]
         self.approval.consume(grant)
         destination = Path(plan.destination)
         if destination.exists() and destination.is_symlink():
-            raise RuntimeError("destination changed to a symbolic link after approval")
+            raise MaterializeDestinationError("destination changed after approval")
         created_directory = not destination.exists()
         destination.mkdir(parents=False, exist_ok=True)
+        if destination.is_symlink() or not destination.is_dir():
+            raise MaterializeDestinationError("destination is not a normal directory")
+        destination_identity = destination.stat()
+        if shutil.disk_usage(destination).free < plan.total_bytes:
+            if created_directory:
+                destination.rmdir()
+            raise MaterializeSpaceError("insufficient free space for copy plan")
         created: list[Path] = []
         try:
             for item in plan.items:
                 source = Path(item.source)
                 stat = source.stat()
-                if source.is_symlink() or stat.st_size != item.size_bytes or stat.st_mtime_ns != item.mtime_ns:
-                    raise RuntimeError(f"source changed after approval: {source}")
+                if (
+                    source.is_symlink()
+                    or stat.st_size != item.size_bytes
+                    or stat.st_mtime_ns != item.mtime_ns
+                    or stat.st_dev != item.device
+                    or stat.st_ino != item.inode
+                    or self._digest(source) != item.sha256
+                ):
+                    raise MaterializeIntegrityError("source changed after approval")
                 target = destination / item.destination_name
                 if target.exists():
                     raise FileExistsError(target)
+                current_destination = destination.stat()
+                if (
+                    destination.is_symlink()
+                    or current_destination.st_dev != destination_identity.st_dev
+                    or current_destination.st_ino != destination_identity.st_ino
+                ):
+                    raise MaterializeDestinationError("destination changed during copy")
                 handle, temporary_name = tempfile.mkstemp(prefix=".ai-copy-", dir=destination)
                 os.close(handle)
                 temporary = Path(temporary_name)
                 try:
                     shutil.copy2(source, temporary)
-                    os.replace(temporary, target)
+                    if self._digest(temporary) != item.sha256:
+                        raise MaterializeIntegrityError(
+                            "source changed while it was being copied"
+                        )
+                    self._publish_no_clobber(temporary, target, created)
                 finally:
                     temporary.unlink(missing_ok=True)
-                created.append(target)
-        except Exception:
+        except Exception as error:
+            rollback_failed = False
             for path in reversed(created):
-                path.unlink(missing_ok=True)
+                try:
+                    path.unlink(missing_ok=True)
+                except OSError:
+                    rollback_failed = True
             if created_directory:
-                destination.rmdir()
+                try:
+                    destination.rmdir()
+                except OSError:
+                    rollback_failed = True
+            if rollback_failed:
+                raise MaterializeRollbackError("copy rollback was incomplete") from error
             raise
         return tuple(str(path) for path in created)
+
+    def discard(self, plan_id: str) -> None:
+        with self._lock:
+            self._plans.pop(plan_id, None)
+        self.approval.revoke(plan_id)
+
+    def _purge_plans(self) -> None:
+        now = monotonic()
+        expired = [key for key, value in self._plans.items() if value[1] <= now]
+        for plan_id in expired:
+            self._plans.pop(plan_id, None)
+            self.approval.revoke(plan_id)
+
+    @staticmethod
+    def _digest(path: Path) -> str:
+        digest = sha256()
+        with path.open("rb") as stream:
+            while chunk := stream.read(1024 * 1024):
+                digest.update(chunk)
+        return digest.hexdigest()
+
+    @staticmethod
+    def _publish_no_clobber(
+        temporary: Path, target: Path, created: list[Path]
+    ) -> None:
+        try:
+            # Hard-link publication is atomic and cannot replace an existing
+            # target. The temporary file is on the destination filesystem.
+            os.link(temporary, target, follow_symlinks=False)
+            created.append(target)
+            return
+        except FileExistsError:
+            raise
+        except OSError as error:
+            unsupported = {
+                errno.EPERM,
+                errno.EACCES,
+                getattr(errno, "EOPNOTSUPP", errno.EPERM),
+                getattr(errno, "ENOTSUP", errno.EPERM),
+                getattr(errno, "ENOSYS", errno.EPERM),
+            }
+            if error.errno not in unsupported:
+                raise
+
+        # FAT/exFAT and some network filesystems do not support hard links.
+        # O_EXCL still guarantees no user file is overwritten; rollback removes
+        # the visible partial target if streaming fails.
+        descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        created.append(target)
+        try:
+            with temporary.open("rb") as source, os.fdopen(descriptor, "wb") as output:
+                shutil.copyfileobj(source, output, length=1024 * 1024)
+                output.flush()
+                os.fsync(output.fileno())
+            shutil.copystat(temporary, target, follow_symlinks=False)
+        except Exception:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+            raise
 
     @staticmethod
     def _unique_name(name: str, used: set[str], destination: Path) -> str:

@@ -71,9 +71,10 @@ production-коде нет таблицы заранее известных фр
 
 `services/execution-orchestrator` принимает только серверный `plan_id`, повторно
 проверяет план и исполняет R0-поиск. Результаты сразу фиксируются snapshot-коллекцией
-и становятся доверенным контекстом следующего запроса. Перед R1-копированием v1
-останавливается с `awaiting_approval`; подмена шагов через HTTP и повторный запуск
-одного плана запрещены. Подробнее: [контракт API](Architecture/api/execution-orchestrator-v1.md)
+и становятся доверенным контекстом следующего запроса. R1-копирование использует
+отдельный preview и одноразовое подтверждение, проверяет SHA-256 и выполняет
+rollback при сбое; подмена шагов через HTTP и replay запрещены. Подробнее:
+[контракт API](Architecture/api/execution-orchestrator-v1.md)
 и [ADR-005](Architecture/decisions/ADR-005-server-owned-execution-orchestration.md).
 
 ## Шесть базовых компонентов

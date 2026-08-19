@@ -14,6 +14,7 @@ from ai_native_intents import (
 )
 from ai_native_orchestrator import (
     CompiledPlanStore,
+    DestinationResolver,
     ExecutionOrchestrator,
     OrchestrationAuditLog,
     OrchestrationState,
@@ -21,6 +22,7 @@ from ai_native_orchestrator import (
     PlanValidationError,
 )
 from ai_native_query import QueryResult
+from ai_native_storage import ApprovalAuthority, CollectionItem, MaterializeService
 
 
 class FakeQueryService:
@@ -75,12 +77,34 @@ def plan(*steps):
 
 class OrchestratorTests(unittest.TestCase):
     def setUp(self):
+        self.root = Path(__file__).resolve().parents[3] / "tmp" / "orchestrator" / str(uuid4())
+        self.desktop = self.root / "Desktop"
+        self.desktop.mkdir(parents=True)
+        self.source = self.root / "math.pdf"
+        self.source.write_bytes(b"trusted math pdf")
         self.query = FakeQueryService()
         self.context = TaskContextStore()
         self.events = []
-        self.orchestrator = ExecutionOrchestrator(
-            self.query, self.context, audit_sink=self.events.append
+        self.materialize = MaterializeService(
+            self.root / "storage.sqlite3", ApprovalAuthority()
         )
+        self.materialize.collections.resolve = lambda _collection_id: [
+            CollectionItem(
+                "disk-1", str(self.source), "stable", self.source.name, available=True
+            )
+        ]
+        self.orchestrator = ExecutionOrchestrator(
+            self.query,
+            self.context,
+            audit_sink=self.events.append,
+            materialize_service=self.materialize,
+            destination_resolver=DestinationResolver(
+                home=self.root, roles={"desktop": self.desktop}
+            ),
+        )
+
+    def tearDown(self):
+        shutil.rmtree(self.root, ignore_errors=True)
 
     def test_executes_r0_search_saves_snapshot_and_updates_context(self):
         result = self.orchestrator.execute(plan())
@@ -108,6 +132,86 @@ class OrchestratorTests(unittest.TestCase):
         self.assertEqual(result.pending_approval_step_ids, ("step_copy",))
         self.assertEqual(len(self.query.queries), 1)
         self.assertEqual(result.steps[1].state, "awaiting_approval")
+        self.assertEqual(result.approval_request.item_count, 1)
+        self.assertEqual(result.approval_request.destination, str(self.desktop))
+        self.assertEqual(result.approval_request.item_names, ("math.pdf",))
+        self.assertNotIn(str(self.source), json.dumps(result.approval_request, default=str))
+        self.assertFalse((self.desktop / "math.pdf").exists())
+
+    def test_destination_child_is_validated_by_system_not_model(self):
+        resolver = DestinationResolver(home=self.root, roles={"desktop": self.desktop})
+        with self.assertRaises(ValueError):
+            resolver.resolve("desktop", directory_name="../escape")
+        with self.assertRaises(ValueError):
+            resolver.resolve("C:/forged", trusted_last_destination=str(self.desktop))
+        self.assertEqual(
+            resolver.resolve(str(self.desktop), trusted_last_destination=str(self.desktop)),
+            self.desktop,
+        )
+
+    def test_confirmation_executes_copy_once_and_updates_context(self):
+        search = step()
+        copy = step(
+            "copy",
+            capability="storage.materialize.plan-copy",
+            arguments={"results_from": "search", "destination": "desktop"},
+            depends_on=(search.step_id,),
+            risk=RiskClass.REVERSIBLE_WRITE,
+            approval_required=True,
+        )
+        waiting = self.orchestrator.execute(plan(search, copy))
+
+        result = self.orchestrator.respond_to_approval(
+            waiting.approval_request.approval_request_id, confirmed=True
+        )
+
+        self.assertEqual(result.state, OrchestrationState.COMPLETED)
+        self.assertEqual(result.steps[-1].output.copied_count, 1)
+        self.assertEqual((self.desktop / "math.pdf").read_bytes(), b"trusted math pdf")
+        self.assertEqual(self.context.snapshot().last_destination, str(self.desktop))
+        with self.assertRaises(ValueError):
+            self.orchestrator.respond_to_approval(
+                waiting.approval_request.approval_request_id, confirmed=True
+            )
+
+    def test_decline_cancels_without_writing(self):
+        self.context.set_active_results("collection-trusted-1")
+        copy = step(
+            "copy",
+            capability="storage.materialize.plan-copy",
+            arguments={"results_from": "collection-trusted-1", "destination": "desktop"},
+            risk=RiskClass.REVERSIBLE_WRITE,
+            approval_required=True,
+        )
+        waiting = self.orchestrator.execute(plan(copy))
+
+        result = self.orchestrator.respond_to_approval(
+            waiting.approval_request.approval_request_id, confirmed=False
+        )
+
+        self.assertEqual(result.state, OrchestrationState.CANCELLED)
+        self.assertFalse((self.desktop / "math.pdf").exists())
+        self.assertIsNone(self.context.snapshot().last_destination)
+
+    def test_changed_source_after_preview_fails_and_rolls_back(self):
+        self.context.set_active_results("collection-trusted-1")
+        copy = step(
+            "copy",
+            capability="storage.materialize.plan-copy",
+            arguments={"results_from": "collection-trusted-1", "destination": "desktop"},
+            risk=RiskClass.REVERSIBLE_WRITE,
+            approval_required=True,
+        )
+        waiting = self.orchestrator.execute(plan(copy))
+        self.source.write_bytes(b"changed after preview")
+
+        result = self.orchestrator.respond_to_approval(
+            waiting.approval_request.approval_request_id, confirmed=True
+        )
+
+        self.assertEqual(result.state, OrchestrationState.FAILED)
+        self.assertEqual(result.steps[-1].error_code, "integrity_check_failed")
+        self.assertFalse((self.desktop / "math.pdf").exists())
 
     def test_revalidates_risk_and_dependency_order(self):
         unsafe = step(risk=RiskClass.REVERSIBLE_WRITE, approval_required=True)
@@ -118,6 +222,18 @@ class OrchestratorTests(unittest.TestCase):
         with self.assertRaisesRegex(PlanValidationError, "dependency_order_invalid"):
             self.orchestrator.execute(plan(invalid_dependency))
         self.assertFalse(self.query.queries)
+
+    def test_copy_reference_must_be_bound_to_its_dependency(self):
+        search = step()
+        copy = step(
+            "copy",
+            capability="storage.materialize.plan-copy",
+            arguments={"results_from": "search", "destination": "desktop"},
+            risk=RiskClass.REVERSIBLE_WRITE,
+            approval_required=True,
+        )
+        with self.assertRaisesRegex(PlanValidationError, "copy_result_dependency_missing"):
+            self.orchestrator.execute(plan(search, copy))
 
     def test_rejects_capability_outside_v1_allowlist(self):
         browser = step(capability="browser.search.plan")
