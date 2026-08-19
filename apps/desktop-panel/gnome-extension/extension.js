@@ -188,16 +188,20 @@ class ChatView extends St.BoxLayout {
             style_class: 'ai-confirmation-content',
             x_expand: true,
         });
-        confirmationContent.add_child(new St.Icon({
+        const confirmationIcon = new St.Icon({
             icon_name: 'security-high-symbolic',
             style_class: 'ai-confirmation-icon',
-        }));
-        confirmationContent.add_child(new St.Label({
+        });
+        confirmationIcon.translation_y = 5;
+        confirmationContent.add_child(confirmationIcon);
+        const confirmationLabel = new St.Label({
             text: 'Подтверждать за меня',
             style_class: 'ai-confirmation-label',
             x_expand: true,
             x_align: Clutter.ActorAlign.START,
-        }));
+        });
+        confirmationLabel.translation_y = 5;
+        confirmationContent.add_child(confirmationLabel);
         confirmation.set_child(confirmationContent);
         confirmation.connect('clicked', () => {
             confirmation._enabled = !confirmation._enabled;
@@ -228,6 +232,7 @@ class ChatView extends St.BoxLayout {
             x_expand: true,
             x_align: Clutter.ActorAlign.END,
         });
+        modelLabel.translation_y = 5;
         modelContent.add_child(modelLabel);
         modelContent.add_child(new St.Label({
             text: '⌄',
@@ -304,6 +309,7 @@ class Panel extends St.Widget {
         this._runtime = runtime;
         this.set_size(SHELL_WIDTH, DEFAULT_PANEL_HEIGHT);
         this._collapsed = false;
+        this._collapsedTranslation = PANEL_WIDTH + PANEL_MARGIN;
 
         this._content = new St.Widget({
             style_class: 'ai-panel-content',
