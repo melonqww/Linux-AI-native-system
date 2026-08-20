@@ -128,8 +128,8 @@ export function systemUpdatePresentation(result) {
     if (result?.supported !== true || !countValid || !stateValid) {
         return {
             available: false,
-            openManager: false,
-            message: 'Не удалось получить список обновлений.',
+            openManager: true,
+            message: 'Проверка в панели недоступна. Открываю менеджер обновлений.',
         };
     }
     const count = result.available_count;

@@ -482,6 +482,11 @@ function launchSystemApp(argv) {
     }
 }
 
+function launchUpdateManager() {
+    return launchSystemApp(['update-manager']) ||
+        launchSystemApp(['gnome-software', '--mode=updates']);
+}
+
 function cpuColor(value) {
     if (value >= 80)
         return [0.92, 0.27, 0.24, 1.0];
@@ -720,13 +725,17 @@ class SidebarView extends St.Widget {
             const result = await this._runtime.checkSystemUpdates();
             const presentation = systemUpdatePresentation(result);
             notifyUser('Обновления Ubuntu', presentation.message);
-            if (!presentation.available || !presentation.openManager)
+            if (!presentation.openManager)
                 return;
-            if (!launchSystemApp(['update-manager']) &&
-                !launchSystemApp(['gnome-software', '--mode=updates']))
+            if (!launchUpdateManager())
                 notifyUser('Обновления Ubuntu', 'Менеджер обновлений недоступен.');
         } catch (error) {
-            notifyUser('Обновления Ubuntu', 'Ядро не смогло проверить обновления.');
+            notifyUser(
+                'Обновления Ubuntu',
+                'Ядро не смогло проверить обновления. Открываю менеджер обновлений.',
+            );
+            if (!launchUpdateManager())
+                notifyUser('Обновления Ubuntu', 'Менеджер обновлений недоступен.');
             logError(error, 'AI-native Linux: backend update check failed');
         } finally {
             button._checking = false;

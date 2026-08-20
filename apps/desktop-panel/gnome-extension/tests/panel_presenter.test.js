@@ -49,7 +49,11 @@ test('system update states decide whether the native update UI opens', () => {
         openManager: true,
         message: 'Доступно обновлений: 7. Из них обновлений безопасности: 2. Открываю менеджер обновлений.',
     });
-    assert.equal(systemUpdatePresentation({state: 'internal_error'}).available, false);
+    assert.deepEqual(systemUpdatePresentation({state: 'internal_error'}), {
+        available: false,
+        openManager: true,
+        message: 'Проверка в панели недоступна. Открываю менеджер обновлений.',
+    });
 });
 
 
