@@ -17,6 +17,13 @@ if [[ ! "${shell_version}" =~ GNOME[[:space:]]Shell[[:space:]](46|47|48)(\.|$) ]
     exit 1
 fi
 
+runtime_socket="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/ai-native-linux/runtime.sock"
+if [[ ! -S "${runtime_socket}" ]]; then
+    echo "FAIL: ядро панели не запущено (${runtime_socket})"
+    echo "Запустите: ./deployments/systemd/install-user-service.sh"
+    exit 1
+fi
+
 started_at="$(date --iso-8601=seconds)"
 "${SCRIPT_DIR}/install.sh"
 gnome-extensions enable "${EXTENSION_UUID}"
@@ -37,6 +44,7 @@ if printf '%s\n' "${extension_log}" | grep -Eiq 'JS ERROR|exception|traceback|er
 fi
 
 echo "PASS: ${shell_version}"
+echo "PASS: runtime Unix socket доступен"
 echo "PASS: расширение enabled"
 echo "PASS: новых ошибок ${EXTENSION_UUID} в journal нет"
 echo "RESULT: READY FOR VISUAL CHECK"

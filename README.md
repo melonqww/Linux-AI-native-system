@@ -131,7 +131,7 @@ uptime, RAM/swap, thermal zones, батарею, диски и процессы.
 Поиск не сканирует диск на каждый запрос. Каталог и индекс обновляются отдельно,
 а интерактивный путь читает SQLite/FTS — это принципиально для быстрой панели.
 
-Для запуска локального API панели из корня проекта:
+Для ручного foreground-запуска API панели из корня проекта:
 
 ```bash
 PYTHONPATH="services/agent-runtime/src:services/task-ledger/src:services/permission-gateway/src:services/execution-orchestrator/src:services/intent-compiler/src:services/capability-registry/src:services/module-manager/src:services/query-service/src:services/storage-catalog/src:services/indexer/src:services/index-scheduler/src:modules/documents-pdf/src" \
@@ -152,13 +152,20 @@ GitHub Actions повторяет набор на Windows и Ubuntu 24.04, гд�
 
 ## Запуск нативной панели в Ubuntu
 
-В Ubuntu с GNOME из корня репозитория выполните:
+В Ubuntu с GNOME из корня репозитория сначала установите и запустите
+ядро как `systemd --user` service, затем обновите GNOME-расширение:
 
 ```bash
+./deployments/systemd/install-user-service.sh
 bash apps/desktop-panel/gnome-extension/install.sh
 ```
 
-После установки расширение можно перезапустить командами `gnome-extensions disable ai-native-linux@melonqww` и `gnome-extensions enable ai-native-linux@melonqww`. Production runtime использует Unix socket с peer credentials; TCP fallback не разрешает изменяющие операции.
+Первая команда должна завершиться `RESULT: PANEL CORE CONNECTED`. Служба
+автоматически поднимает Registry, `system.monitor`, индекс и Intent Compiler при
+входе в сессию. После установки расширение можно перезапустить командами
+`gnome-extensions disable ai-native-linux@melonqww` и
+`gnome-extensions enable ai-native-linux@melonqww`. Подробности:
+[`deployments/systemd/README.md`](deployments/systemd/README.md).
 
 ## Документация
 

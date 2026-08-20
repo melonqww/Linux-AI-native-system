@@ -7,8 +7,13 @@
 Из корня репозитория:
 
 ```bash
+./deployments/systemd/install-user-service.sh
 bash apps/desktop-panel/gnome-extension/install.sh
 ```
+
+Первая команда создаёт `systemd --user` service и запускает ядро вместе с
+first-party модулями. Без runtime socket интерфейс загрузится, но покажет
+`Ядро — недоступно`.
 
 Для ручного включения/перезапуска:
 

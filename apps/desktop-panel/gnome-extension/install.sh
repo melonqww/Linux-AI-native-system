@@ -27,3 +27,11 @@ if command -v gnome-extensions >/dev/null 2>&1; then
 else
     echo "Команда gnome-extensions не найдена. Установите пакет gnome-shell-extensions и повторите запуск."
 fi
+
+if [[ "$(uname -s)" == "Linux" ]]; then
+    runtime_socket="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/ai-native-linux/runtime.sock"
+    if [[ ! -S "${runtime_socket}" ]]; then
+        echo "Внимание: панель установлена, но ядро не запущено."
+        echo "Запустите: ./deployments/systemd/install-user-service.sh"
+    fi
+fi

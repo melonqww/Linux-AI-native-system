@@ -42,6 +42,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
         self.assertIn('gnome-extensions enable "${EXTENSION_UUID}"', script)
         self.assertIn('runtime-client.js" "${TARGET_DIR}/runtime-client.js', script)
         self.assertIn('panel-presenter.js" "${TARGET_DIR}/panel-presenter.js', script)
+        self.assertIn("install-user-service.sh", script)
 
     def test_native_panel_contract_is_present(self):
         source = (ROOT / "extension.js").read_text(encoding="utf-8")
@@ -156,6 +157,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             'gnome-extensions enable "${EXTENSION_UUID}"',
             "gnome-extensions list --enabled",
             "journalctl --user",
+            "runtime Unix socket доступен",
             "RESULT: READY FOR VISUAL CHECK",
         ):
             self.assertIn(marker, source)

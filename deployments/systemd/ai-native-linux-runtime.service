@@ -1,0 +1,24 @@
+[Unit]
+Description=AI-native Linux panel runtime
+Documentation=https://github.com/melonqww/Linux-AI-native-system
+After=default.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/env bash %h/.local/libexec/ai-native-linux/run-runtime.sh
+Restart=on-failure
+RestartSec=2s
+TimeoutStopSec=15s
+KillMode=mixed
+RuntimeDirectory=ai-native-linux
+RuntimeDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+RestrictSUIDSGID=true
+LockPersonality=true
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=-%h/.config/ai-native-linux/runtime.env
+
+[Install]
+WantedBy=default.target
