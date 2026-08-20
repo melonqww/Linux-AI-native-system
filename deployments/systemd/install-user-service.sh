@@ -39,7 +39,36 @@ if [[ ! -e "${environment_file}" ]]; then
 fi
 install -d -m 0700 "${user_data_home}/ai-native-linux"
 
+runtime_data_directory="${user_data_home}/ai-native-linux"
+virtual_environment="${runtime_data_directory}/venv"
+requirements_file="${script_directory}/runtime-requirements.txt"
+
+if ! python3 -c 'import sys; raise SystemExit(sys.version_info < (3, 12))'; then
+    echo "FAIL: Python 3.12 or newer is required" >&2
+    exit 1
+fi
+if [[ ! -x "${virtual_environment}/bin/python" ]]; then
+    echo "Preparing isolated Python environment..."
+    if ! python3 -m venv "${virtual_environment}"; then
+        echo "FAIL: Python could not create a virtual environment" >&2
+        echo "On Ubuntu install it with: sudo apt install python3-venv" >&2
+        exit 1
+    fi
+fi
+if ! "${virtual_environment}/bin/python" -m pip install \
+    --disable-pip-version-check \
+    --requirement "${requirements_file}"; then
+    echo "FAIL: runtime Python dependencies could not be installed" >&2
+    echo "Check the network connection and rerun this installer." >&2
+    exit 1
+fi
+if ! "${virtual_environment}/bin/python" -c 'import pypdf'; then
+    echo "FAIL: runtime dependency verification failed: pypdf" >&2
+    exit 1
+fi
+
 systemctl --user daemon-reload
+systemctl --user reset-failed ai-native-linux-runtime.service || true
 systemctl --user enable --now ai-native-linux-runtime.service
 
 socket_path="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/ai-native-linux/runtime.sock"

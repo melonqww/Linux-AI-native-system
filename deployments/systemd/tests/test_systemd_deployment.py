@@ -35,13 +35,30 @@ class SystemdDeploymentTests(unittest.TestCase):
     def test_install_enables_service_and_verifies_socket(self) -> None:
         source = (SYSTEMD_ROOT / "install-user-service.sh").read_text(encoding="utf-8")
         for marker in (
+            'python3 -m venv "${virtual_environment}"',
+            '--requirement "${requirements_file}"',
+            'sudo apt install python3-venv',
+            "import pypdf",
             "systemctl --user daemon-reload",
+            "systemctl --user reset-failed ai-native-linux-runtime.service",
             "systemctl --user enable --now ai-native-linux-runtime.service",
             '[[ -S "${socket_path}" ]]',
             "RESULT: PANEL CORE CONNECTED",
             "journalctl --user -u ai-native-linux-runtime.service",
         ):
             self.assertIn(marker, source)
+
+    def test_runtime_requirements_include_pdf_dependency(self) -> None:
+        requirements = (SYSTEMD_ROOT / "runtime-requirements.txt").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("pypdf>=5,<7", requirements)
+
+    def test_launcher_uses_isolated_runtime_python_and_preflights_dependencies(self) -> None:
+        source = (SYSTEMD_ROOT / "run-runtime.sh").read_text(encoding="utf-8")
+        self.assertIn('runtime_python="${runtime_data}/venv/bin/python"', source)
+        self.assertIn("import pypdf", source)
+        self.assertIn('exec "${runtime_python}" -m ai_native_linux.cli', source)
 
     def test_uninstall_preserves_runtime_data_and_configuration(self) -> None:
         source = (SYSTEMD_ROOT / "uninstall-user-service.sh").read_text(
@@ -86,11 +103,11 @@ class SystemdDeploymentTests(unittest.TestCase):
         fake_home = root / "home"
         fake_config = root / "config"
         fake_data = root / "data"
-        fake_bin = root / "bin"
         fake_repository = root / "repository with spaces"
         try:
             (fake_config / "ai-native-linux").mkdir(parents=True)
-            fake_bin.mkdir(parents=True)
+            runtime_python = fake_data / "ai-native-linux" / "venv" / "bin" / "python"
+            runtime_python.parent.mkdir(parents=True)
             for relative in (
                 "services/agent-runtime/src",
                 "services/task-ledger/src",
@@ -113,21 +130,21 @@ class SystemdDeploymentTests(unittest.TestCase):
             (fake_config / "ai-native-linux" / "repository-root").write_text(
                 f"{fake_repository}\n", encoding="utf-8"
             )
-            fake_python = fake_bin / "python3"
-            fake_python.write_text(
+            runtime_python.write_text(
                 "#!/usr/bin/env bash\n"
+                "if [[ \"$1\" == \"-c\" ]]; then exit 0; fi\n"
                 "printf 'PYTHONPATH=%s\\n' \"${PYTHONPATH}\"\n"
                 "printf 'ARG=%s\\n' \"$@\"\n",
                 encoding="utf-8",
             )
-            fake_python.chmod(fake_python.stat().st_mode | stat.S_IXUSR)
+            runtime_python.chmod(runtime_python.stat().st_mode | stat.S_IXUSR)
             environment = os.environ.copy()
             environment.update(
                 {
                     "HOME": str(fake_home),
                     "XDG_CONFIG_HOME": str(fake_config),
                     "XDG_DATA_HOME": str(fake_data),
-                    "PATH": f"{fake_bin}:/usr/bin:/bin",
+                    "PATH": "/usr/bin:/bin",
                     "PYTHONPATH": "existing-package-path",
                     "AI_NATIVE_INTENT_MODEL": "test-model:2b",
                 }

@@ -10,6 +10,14 @@ Production-запуск ядра панели в пользовательско�
 ./deployments/systemd/install-user-service.sh
 ```
 
+Установщик создаёт отдельное Python-окружение в каталоге данных и сам
+устанавливает runtime-зависимости. Нужны Python 3.12+ и поддержка `venv`. Если
+Ubuntu сообщает, что `venv` отсутствует:
+
+```bash
+sudo apt install python3-venv
+```
+
 Успешная установка завершается строкой `RESULT: PANEL CORE CONNECTED`. Проверка:
 
 ```bash

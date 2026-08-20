@@ -25,6 +25,11 @@ fi
 
 runtime_data="${data_home}/ai-native-linux"
 install -d -m 0700 "${runtime_data}"
+runtime_python="${runtime_data}/venv/bin/python"
+if [[ ! -x "${runtime_python}" ]]; then
+    echo "Runtime Python environment is missing; rerun deployments/systemd/install-user-service.sh" >&2
+    exit 1
+fi
 
 source_paths=(
     "services/agent-runtime/src"
@@ -56,7 +61,11 @@ intent_model="${AI_NATIVE_INTENT_MODEL:-qwen3:1.7b}"
 ollama_url="${AI_NATIVE_OLLAMA_URL:-http://127.0.0.1:11434}"
 
 cd -- "${repository_root}"
-exec python3 -m ai_native_linux.cli \
+if ! "${runtime_python}" -c 'import pypdf'; then
+    echo "Runtime Python dependencies are incomplete; rerun deployments/systemd/install-user-service.sh" >&2
+    exit 1
+fi
+exec "${runtime_python}" -m ai_native_linux.cli \
     --serve-panel \
     --transport unix \
     --storage-database "${runtime_data}/storage-catalog.sqlite3" \
