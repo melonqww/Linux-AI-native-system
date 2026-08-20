@@ -284,6 +284,62 @@
     padding: 10px 0 0 0;
 }
 
+.ai-sidebar-overlay {
+    background-color: rgba(52, 52, 52, 0.98);
+    border-radius: 0 0 20px 20px;
+    padding: 10px 11px 15px 11px;
+}
+
+.ai-sidebar-overlay-panel {
+    background-color: #2d2d2d;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 15px;
+    padding: 12px;
+    spacing: 9px;
+}
+
+.ai-sidebar-overlay-header {
+    spacing: 8px;
+}
+
+.ai-sidebar-overlay-close {
+    background-color: #454545;
+    border-radius: 9px;
+    color: #f1f1f1;
+    font-size: 17px;
+    min-height: 26px;
+    min-width: 26px;
+    padding: 0;
+}
+
+.ai-sidebar-overlay-scroll {
+    min-height: 0;
+}
+
+.ai-sidebar-overlay-content {
+    spacing: 9px;
+    padding-right: 4px;
+}
+
+.ai-process-overlay-toolbar {
+    spacing: 6px;
+}
+
+.ai-process-sort {
+    background-color: #454545;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    color: #eeeeee;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 6px 9px;
+}
+
+.ai-process-sort:hover,
+.ai-process-sort:focus {
+    background-color: #535353;
+}
+
 .ai-sidebar-scroll {
     min-height: 0;
     padding: 0 11px;

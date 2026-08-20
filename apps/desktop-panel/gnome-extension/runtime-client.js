@@ -45,7 +45,9 @@ export class RuntimeClient {
         return this.request('GET', '/v1/index-status');
     }
 
-    systemStatus() {
+    systemStatus(options = null) {
+        if (options && typeof options === 'object' && !Array.isArray(options))
+            return this.request('POST', '/v1/system-status', options);
         return this.request('GET', '/v1/system-status');
     }
 

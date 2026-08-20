@@ -142,6 +142,9 @@ test('system monitor snapshot formats metrics, disks and processes', () => {
         uptime_seconds: 90061,
         cpu: {
             usage_percent: 37.4,
+            physical_cores: 4,
+            logical_cpus: 8,
+            packages: 1,
             load_average: [1.25, 0.5, 0.25],
             temperature_celsius: 54.2,
         },
@@ -151,6 +154,7 @@ test('system monitor snapshot formats metrics, disks and processes', () => {
             total_bytes: 8 * 1024 ** 3,
             swap_used_bytes: 256 * 1024 ** 2,
             swap_total_bytes: 2 * 1024 ** 3,
+            channel_mode: 'dual',
         },
         battery: {present: true, percent: 82, status: 'discharging', temperature_celsius: 31},
         disks: [{mount_point: '/', free_bytes: 40 * 1024 ** 3, total_bytes: 100 * 1024 ** 3}],
@@ -158,10 +162,16 @@ test('system monitor snapshot formats metrics, disks and processes', () => {
     });
 
     assert.equal(view.available, true);
-    assert.deepEqual(view.cpu, {value: 37, detail: '54°C · load 1.25 / 0.5 / 0.25'});
-    assert.deepEqual(view.memory, {value: 62, detail: '5.0 ГБ из 8.0 ГБ · swap 256 МБ'});
+    assert.deepEqual(view.cpu, {
+        value: 37,
+        detail: '54°C · load 1/5/15: 1.25 / 0.50 / 0.25 · ядер 4 · потоков 8 · пакетов 1',
+    });
+    assert.deepEqual(view.memory, {
+        value: 62,
+        detail: '5.0 ГБ из 8.0 ГБ · swap 256 МБ · двухканальная',
+    });
     assert.deepEqual(view.battery, {value: 82, detail: 'от батареи · 31°C'});
-    assert.deepEqual(view.disks, [{label: '/ · свободно', value: '40.0 ГБ из 100.0 ГБ'}]);
+    assert.deepEqual(view.disks, [{label: 'Диск /', value: '40.0 ГБ из 100.0 ГБ'}]);
     assert.deepEqual(view.processes, [{pid: 42, name: 'gnome-shell', cpu: '7%', memory: '410 МБ'}]);
     assert.equal(view.summary, 'работает 1 д. 1 ч.');
 });

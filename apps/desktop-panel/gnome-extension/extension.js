@@ -525,11 +525,11 @@ function createMetricRing(value) {
 }
 
 const SidebarView = GObject.registerClass(
-class SidebarView extends St.BoxLayout {
+class SidebarView extends St.Widget {
     _init(runtime) {
         super._init({
-            vertical: true,
             style_class: 'ai-sidebar-view',
+            layout_manager: new Clutter.BinLayout(),
             x_expand: true,
             y_expand: true,
         });
@@ -554,6 +554,12 @@ class SidebarView extends St.BoxLayout {
                 return GLib.SOURCE_CONTINUE;
             },
         );
+        this._body = new St.BoxLayout({
+            vertical: true,
+            x_expand: true,
+            y_expand: true,
+        });
+        this.add_child(this._body);
         this._scroll = new St.ScrollView({
             style_class: 'ai-sidebar-scroll',
             x_expand: true,
@@ -567,18 +573,21 @@ class SidebarView extends St.BoxLayout {
             x_expand: true,
         });
         this._scroll.set_child(this._content);
-        this.add_child(this._scroll);
+        this._body.add_child(this._scroll);
 
         this._content.add_child(this._buildStatusCard());
         this._content.add_child(this._buildTaskCard());
         this._content.add_child(this._buildActionsCard());
         this._historyCard = this._buildHistoryCard();
         this._historyCard.hide();
-        this._content.add_child(this._historyCard);
         this._historyButton = this._buildHistoryButton();
-        this.add_child(this._historyButton);
+        this._body.add_child(this._historyButton);
+        this._overlay = this._buildOverlay();
+        this.add_child(this._overlay);
         this._processes = [];
         this._showAllProcesses = false;
+        this._processSort = 'cpu';
+        this._processOrder = 'desc';
     }
 
     _card(title) {
@@ -641,11 +650,10 @@ class SidebarView extends St.BoxLayout {
             label: 'Показать все процессы',
             style_class: 'ai-sidebar-action',
             x_align: Clutter.ActorAlign.START,
-            reactive: false,
+            reactive: true,
         });
         this._processButton.connect('clicked', () => {
-            this._showAllProcesses = !this._showAllProcesses;
-            this._renderProcesses();
+            this._openProcessesOverlay();
         });
         card.add_child(this._processButton);
         return card;
@@ -685,12 +693,119 @@ class SidebarView extends St.BoxLayout {
             x_expand: true,
         });
         button.connect('clicked', () => {
-            this._historyCard.visible = !this._historyCard.visible;
-            button.label = this._historyCard.visible ? 'Скрыть последние действия' : 'Последние действия';
-            if (this._historyCard.visible)
-                this.refreshTasks();
+            this._openHistoryOverlay();
         });
         return button;
+    }
+
+    _buildOverlay() {
+        const overlay = new St.Widget({
+            style_class: 'ai-sidebar-overlay',
+            layout_manager: new Clutter.BinLayout(),
+            x_expand: true,
+            y_expand: true,
+        });
+        const panel = new St.BoxLayout({
+            vertical: true,
+            style_class: 'ai-sidebar-overlay-panel',
+            x_expand: true,
+            y_expand: true,
+        });
+        const header = new St.BoxLayout({style_class: 'ai-sidebar-overlay-header', x_expand: true});
+        this._overlayTitle = sidebarLabel('Последние действия', 'ai-sidebar-title', {x_expand: true});
+        header.add_child(this._overlayTitle);
+        const close = new St.Button({label: '×', style_class: 'ai-sidebar-overlay-close'});
+        close.connect('clicked', () => this._closeOverlay());
+        header.add_child(close);
+        panel.add_child(header);
+        this._overlayScroll = new St.ScrollView({
+            style_class: 'ai-sidebar-overlay-scroll',
+            x_expand: true,
+            y_expand: true,
+        });
+        this._overlayScroll.set_policy(St.PolicyType.NEVER, St.PolicyType.AUTOMATIC);
+        this._overlayContent = new St.BoxLayout({
+            vertical: true,
+            style_class: 'ai-sidebar-overlay-content',
+            x_expand: true,
+        });
+        this._overlayScroll.set_child(this._overlayContent);
+        panel.add_child(this._overlayScroll);
+        overlay.add_child(panel);
+        overlay.hide();
+        return overlay;
+    }
+
+    _closeOverlay() {
+        this._overlay.hide();
+        this._historyCard.hide();
+    }
+
+    _prepareOverlay(title) {
+        this._overlayTitle.set_text(title);
+        this._overlayContent.destroy_all_children();
+        this._overlay.show();
+    }
+
+    _openHistoryOverlay() {
+        this._prepareOverlay('Последние действия');
+        this._taskList = new St.BoxLayout({vertical: true, style_class: 'ai-task-list', x_expand: true});
+        this._overlayContent.add_child(this._taskList);
+        this.refreshTasks();
+    }
+
+    _openProcessesOverlay() {
+        this._prepareOverlay('Все процессы');
+        const toolbar = new St.BoxLayout({style_class: 'ai-process-overlay-toolbar', x_expand: true});
+        toolbar.add_child(sidebarLabel('Сортировать:', 'ai-sidebar-caption', {x_expand: true}));
+        const cpu = new St.Button({label: 'ЦП', style_class: 'ai-process-sort'});
+        const memory = new St.Button({label: 'Память', style_class: 'ai-process-sort'});
+        cpu.connect('clicked', () => this._sortProcesses('cpu'));
+        memory.connect('clicked', () => this._sortProcesses('memory'));
+        toolbar.add_child(cpu);
+        toolbar.add_child(memory);
+        this._overlayContent.add_child(toolbar);
+        const header = new St.BoxLayout({style_class: 'ai-process-header', x_expand: true});
+        header.add_child(sidebarLabel('Приложение', 'ai-process-heading', {x_expand: true}));
+        header.add_child(sidebarLabel('ЦП', 'ai-process-heading ai-process-heading-cpu'));
+        header.add_child(sidebarLabel('Память', 'ai-process-heading ai-process-heading-memory'));
+        this._overlayContent.add_child(header);
+        this._overlayProcessList = new St.BoxLayout({vertical: true, x_expand: true});
+        this._overlayContent.add_child(this._overlayProcessList);
+        this._renderOverlayProcesses(this._processes);
+        this._sortProcesses(this._processSort, true);
+    }
+
+    async _sortProcesses(sort, initial = false) {
+        if (!initial && sort === this._processSort)
+            this._processOrder = this._processOrder === 'desc' ? 'asc' : 'desc';
+        else if (sort !== this._processSort)
+            this._processOrder = 'desc';
+        this._processSort = sort;
+        try {
+            const response = await this._runtime.systemStatus({
+                process_limit: 50,
+                process_sort: this._processSort,
+                process_order: this._processOrder,
+            });
+            if (!this._disposed)
+                this._renderOverlayProcesses(monitorPresentation(response).processes);
+        } catch (_error) {
+            if (!this._disposed)
+                this._renderOverlayProcesses(this._processes);
+        }
+    }
+
+    _renderOverlayProcesses(processes) {
+        if (!this._overlayProcessList)
+            return;
+        this._overlayProcessList.destroy_all_children();
+        if (!processes.length) {
+            this._overlayProcessList.add_child(sidebarLabel('Процессы недоступны.', 'ai-sidebar-caption'));
+            return;
+        }
+        for (const process of processes)
+            this._overlayProcessList.add_child(processRow(`${process.name} (${process.pid})`, process.cpu, process.memory));
     }
 
     async refresh() {
@@ -754,9 +869,9 @@ class SidebarView extends St.BoxLayout {
         for (const process of visible)
             this._processList.add_child(processRow(`${process.name} (${process.pid})`, process.cpu, process.memory));
         this._processCaption.visible = this._processes.length === 0;
-        this._processButton.reactive = this._processes.length > 5;
-        this._processButton.visible = this._processes.length > 5;
-        this._processButton.label = this._showAllProcesses ? 'Скрыть процессы' : 'Показать все процессы';
+        this._processButton.reactive = this._processes.length > 0;
+        this._processButton.visible = this._processes.length > 0;
+        this._processButton.label = 'Показать все процессы';
     }
 
     async refreshTasks() {

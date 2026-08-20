@@ -138,18 +138,36 @@ export function monitorPresentation(snapshot) {
     const memory = snapshot.memory ?? {};
     const battery = snapshot.battery ?? {};
     const cpuTemperature = formatTemperature(cpu.temperature_celsius);
-    const load = safeArray(cpu.load_average).slice(0, 3).join(' / ');
+    const load = safeArray(cpu.load_average).slice(0, 3).map(value =>
+        typeof value === 'number' && Number.isFinite(value) ? value.toFixed(2) : '—',
+    );
+    const topology = [
+        Number.isInteger(cpu.physical_cores) ? `ядер ${cpu.physical_cores}` : '',
+        Number.isInteger(cpu.logical_cpus) ? `потоков ${cpu.logical_cpus}` : '',
+        Number.isInteger(cpu.packages) ? `пакетов ${cpu.packages}` : '',
+    ].filter(Boolean).join(' · ');
     const cpuDetails = [
         cpuTemperature,
-        load ? `load ${load}` : '',
+        load.length ? `load 1/5/15: ${load.join(' / ')}` : '',
+        topology,
     ].filter(Boolean).join(' · ') || 'датчики недоступны';
     const usedMemory = safeCount(memory.used_bytes);
     const totalMemory = safeCount(memory.total_bytes);
     const swapUsed = safeCount(memory.swap_used_bytes);
     const swapTotal = safeCount(memory.swap_total_bytes);
+    const channelMode = safeText(memory.channel_mode, 'unknown');
+    const channelLabel = {
+        single: 'одноканальная',
+        dual: 'двухканальная',
+        triple: 'трёхканальная',
+        quad: 'четырёхканальная',
+        multi: 'многоканальная',
+        unknown: 'канальность неизвестна',
+    }[channelMode] ?? channelMode;
     const memoryDetails = totalMemory > 0
         ? `${formatBytes(usedMemory)} из ${formatBytes(totalMemory)}` +
-            (swapTotal > 0 ? ` · swap ${formatBytes(swapUsed)}` : '')
+            (swapTotal > 0 ? ` · swap ${formatBytes(swapUsed)}` : '') +
+            ` · ${channelLabel}`
         : 'данные недоступны';
     const batteryDetails = battery.present === true
         ? [batteryStatusLabel(battery.status), formatTemperature(battery.temperature_celsius)]
@@ -165,7 +183,7 @@ export function monitorPresentation(snapshot) {
             detail: batteryDetails,
         },
         disks: safeArray(snapshot.disks).slice(0, 16).map(disk => ({
-            label: `${safeText(disk?.mount_point)} · свободно`,
+            label: diskLabel(disk),
             value: `${formatBytes(safeCount(disk?.free_bytes))} из ${formatBytes(safeCount(disk?.total_bytes))}`,
         })),
         processes: safeArray(snapshot.processes).slice(0, 20).map(process => ({
@@ -176,6 +194,16 @@ export function monitorPresentation(snapshot) {
         })),
         summary: uptime ? `работает ${uptime}` : 'данные обновлены',
     };
+}
+
+function diskLabel(disk) {
+    const mount = safeText(disk?.mount_point, 'неизвестно');
+    const windowsDrive = mount.match(/^([A-Za-z]):(?:\\|$)/);
+    if (windowsDrive)
+        return `Диск ${windowsDrive[1].toUpperCase()}`;
+    const source = typeof disk?.source === 'string' ? disk.source : '';
+    const sourceName = source.split('/').filter(Boolean).pop();
+    return `Диск ${sourceName || mount}`;
 }
 
 export function formatBytes(value) {
