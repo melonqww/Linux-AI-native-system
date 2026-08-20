@@ -1,5 +1,6 @@
 import St from 'gi://St';
 import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
 import GObject from 'gi://GObject';
 import GLib from 'gi://GLib';
 import Pango from 'gi://Pango';
@@ -463,6 +464,23 @@ function metricBlock(title, value, detail, extraClass = '') {
     return block;
 }
 
+function notifyUser(title, message) {
+    if (typeof Main.notify === 'function')
+        Main.notify(title, message);
+    else
+        log(`AI-native Linux: ${title}: ${message}`);
+}
+
+function launchSystemApp(argv) {
+    try {
+        Gio.Subprocess.new(argv, Gio.SubprocessFlags.NONE);
+        return true;
+    } catch (error) {
+        logError(error, `AI-native Linux: не удалось запустить ${argv[0]}`);
+        return false;
+    }
+}
+
 function cpuColor(value) {
     if (value >= 80)
         return [0.92, 0.27, 0.24, 1.0];
@@ -662,18 +680,83 @@ class SidebarView extends St.Widget {
 
     _buildActionsCard() {
         const card = this._card('Быстрые системные действия');
-        ['Обновить системные данные', 'Открыть ошибки служб', 'Открыть настройки сети'].forEach((label, index) => {
-            const button = new St.Button({
-                label,
-                style_class: 'ai-sidebar-action ai-sidebar-action-wide',
-                x_expand: true,
-                reactive: index === 0,
-            });
-            if (index === 0)
-                button.connect('clicked', () => this.refresh());
-            card.add_child(button);
+        const refreshButton = new St.Button({
+            label: 'Обновить системные данные',
+            style_class: 'ai-sidebar-action ai-sidebar-action-wide',
+            x_expand: true,
         });
+        refreshButton.connect('clicked', () => this.refresh());
+        card.add_child(refreshButton);
+
+        const settingsButton = new St.Button({
+            label: 'Открыть настройки',
+            style_class: 'ai-sidebar-action ai-sidebar-action-wide',
+            x_expand: true,
+        });
+        settingsButton.connect('clicked', () => {
+            if (!launchSystemApp(['gnome-control-center']))
+                notifyUser('Настройки Ubuntu', 'Системные настройки недоступны.');
+        });
+        card.add_child(settingsButton);
+
+        const updatesButton = new St.Button({
+            label: 'Проверить обновления Ubuntu',
+            style_class: 'ai-sidebar-action ai-sidebar-action-wide',
+            x_expand: true,
+        });
+        updatesButton.connect('clicked', () => this._checkUbuntuUpdates(updatesButton));
+        card.add_child(updatesButton);
         return card;
+    }
+
+    _checkUbuntuUpdates(button) {
+        if (button._checking)
+            return;
+        button._checking = true;
+        button.label = 'Проверяю обновления…';
+        button.reactive = false;
+        let process;
+        try {
+            process = Gio.Subprocess.new(
+                ['apt-get', '-s', '-q', 'upgrade'],
+                Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE,
+            );
+        } catch (error) {
+            button._checking = false;
+            button.reactive = true;
+            button.label = 'Проверить обновления Ubuntu';
+            notifyUser('Обновления Ubuntu', 'Не удалось запустить проверку обновлений.');
+            logError(error, 'AI-native Linux: update check failed to start');
+            return;
+        }
+        process.communicate_utf8_async(null, null, (source, result) => {
+            let available = null;
+            let successful = false;
+            try {
+                const [, stdout] = source.communicate_utf8_finish(result);
+                successful = source.get_successful();
+                available = stdout.split('\n').filter(line => /^\s*Inst\s+\S+/.test(line)).length;
+            } catch (error) {
+                logError(error, 'AI-native Linux: update check failed');
+            }
+            button._checking = false;
+            button.reactive = true;
+            button.label = 'Проверить обновления Ubuntu';
+            if (!successful || available === null) {
+                notifyUser('Обновления Ubuntu', 'Не удалось получить список обновлений.');
+                return;
+            }
+            if (available === 0) {
+                notifyUser('Обновления Ubuntu', 'Обновлений нет — система актуальна.');
+                return;
+            }
+            notifyUser(
+                'Обновления Ubuntu',
+                `Доступно обновлений: ${available}. Открываю менеджер обновлений.`,
+            );
+            if (!launchSystemApp(['update-manager']))
+                notifyUser('Обновления Ubuntu', 'Менеджер обновлений недоступен.');
+        });
     }
 
     _buildHistoryCard() {
