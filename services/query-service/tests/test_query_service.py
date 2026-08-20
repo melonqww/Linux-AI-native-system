@@ -152,6 +152,19 @@ class QueryServiceTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             QueryRuntimeApplication(self.service).system_status()
 
+    def test_runtime_exposes_validated_system_update_check(self) -> None:
+        result = {"schema_version": 1, "state": "up_to_date"}
+        application = QueryRuntimeApplication(
+            self.service, system_updates_check=lambda _payload: result
+        )
+
+        self.assertEqual(application.check_system_updates({}), result)
+        self.assertIn("system.updates.check", application.capabilities())
+        with self.assertRaises(ValueError):
+            application.check_system_updates({"command": "install"})
+        with self.assertRaises(RuntimeError):
+            QueryRuntimeApplication(self.service).check_system_updates({})
+
     def test_revoked_content_permission_hides_stale_index_snippets(self) -> None:
         self.make_pdf("Private mathematics theorem")
         self.service.catalog.scan_volume("test-volume")

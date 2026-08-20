@@ -86,6 +86,15 @@ class ModuleManagerTests(unittest.TestCase):
         self.assertLessEqual(len(json.dumps(result).encode("utf-8")), 64 * 1024)
         self.assertIn("system.monitor", self.manager.running_modules())
 
+    def test_invokes_system_updates_in_isolated_on_demand_worker(self) -> None:
+        provider = self.manager.start_for_capability("system.updates.check")
+        result = self.manager.invoke(provider, "check", timeout=30)
+
+        self.assertEqual(provider, "system.updates")
+        self.assertEqual(result["schema_version"], 1)
+        self.assertIn(result["state"], {"updates_available", "up_to_date", "unavailable"})
+        self.assertLessEqual(len(json.dumps(result).encode("utf-8")), 64 * 1024)
+
     def test_rejects_untrusted_worker_operations_before_sending(self) -> None:
         self.manager.start_module("system.monitor")
         for operation in ("", "../snapshot", "Snapshot", "x" * 65):
@@ -94,6 +103,10 @@ class ModuleManagerTests(unittest.TestCase):
                     self.manager.invoke("system.monitor", operation)
         with self.assertRaises(ValueError):
             self.manager.invoke("system.monitor", "snapshot", [])
+        for timeout in (0, 61, True, "30"):
+            with self.subTest(timeout=timeout):
+                with self.assertRaises(ValueError):
+                    self.manager.invoke("system.monitor", "snapshot", timeout=timeout)
 
     def test_worker_redacts_module_failure_and_remains_healthy(self) -> None:
         self.manager.start_module("system.monitor")

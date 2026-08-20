@@ -51,6 +51,10 @@ export class RuntimeClient {
         return this.request('GET', '/v1/system-status');
     }
 
+    checkSystemUpdates() {
+        return this.request('POST', '/v1/system-updates/check');
+    }
+
     tasks() {
         return this.request('GET', '/v1/tasks');
     }

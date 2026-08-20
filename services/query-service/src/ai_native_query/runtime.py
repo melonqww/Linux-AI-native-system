@@ -47,6 +47,7 @@ class QueryRuntimeApplication:
         *,
         scheduler_status: Callable[[], object] | None = None,
         system_monitor_status: Callable[[dict[str, object]], dict[str, object]] | None = None,
+        system_updates_check: Callable[[dict[str, object]], dict[str, object]] | None = None,
         intent_pipeline: IntentPipeline | None = None,
         task_context: Callable[[], object] | None = None,
         plan_store: PlanStore | None = None,
@@ -56,6 +57,7 @@ class QueryRuntimeApplication:
         self.query_service = query_service
         self.scheduler_status = scheduler_status
         self.system_monitor_status = system_monitor_status
+        self.system_updates_check = system_updates_check
         self.intent_pipeline = intent_pipeline
         self.task_context = task_context
         self.plan_store = plan_store
@@ -88,7 +90,19 @@ class QueryRuntimeApplication:
             )
         if self.system_monitor_status is not None:
             capabilities.append("system.monitor.snapshot")
+        if self.system_updates_check is not None:
+            capabilities.append("system.updates.check")
         return capabilities
+
+    def check_system_updates(self, payload: dict[str, object]) -> dict[str, object]:
+        if self.system_updates_check is None:
+            raise RuntimeError("system_updates_unavailable")
+        if payload:
+            raise ValueError("system update check does not accept fields")
+        result = self.system_updates_check(payload)
+        if not isinstance(result, dict):
+            raise RuntimeError("system_updates_invalid_response")
+        return result
 
     def system_status(
         self, payload: dict[str, object] | None = None

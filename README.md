@@ -122,6 +122,11 @@ model reasoning и технические причины ошибок в пол�
 uptime, RAM/swap, thermal zones, батарею, диски и процессы. Контракт:
 [`Architecture/api/system-monitor-v1.md`](Architecture/api/system-monitor-v1.md).
 
+`modules/system-updates` выполняет bounded read-only симуляцию APT в отдельном
+on-demand worker и отдаёт панели только сводку. Установка и refresh остаются в
+штатном Ubuntu update UI; контракт описан в
+[`Architecture/api/system-updates-v1.md`](Architecture/api/system-updates-v1.md).
+
 Следующий background-слой реализован в `services/index-scheduler`: Linux
 `inotify`, mount monitoring, ограниченная coalescing-очередь, load pause и
 инкрементальное обновление каталога, текста и PDF. `Module Manager` действительно
@@ -178,6 +183,7 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [Permission Gateway v1](Architecture/api/permission-gateway-v1.md)
 - [Task Ledger v1](Architecture/api/task-ledger-v1.md)
 - [System Monitor API v1](Architecture/api/system-monitor-v1.md)
+- [System Updates API v1](Architecture/api/system-updates-v1.md)
 - [Контракты Storage Catalog](Architecture/api/storage-catalog-contracts.md)
 - [Контракт статуса индекса](Architecture/api/runtime-index-status.md)
 - [JSON Schema manifest модуля](packages/module-sdk/schema/module-manifest.schema.json)

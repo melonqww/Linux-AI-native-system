@@ -106,6 +106,10 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "this._runtime.taskDetail(taskId)",
             "this._runtime.systemStatus()",
             "this._runtime.systemStatus({",
+            "this._runtime.checkSystemUpdates()",
+            "launchSystemApp(['gnome-control-center'])",
+            "launchSystemApp(['update-manager'])",
+            "launchSystemApp(['gnome-software', '--mode=updates'])",
             "_openProcessesOverlay",
             "_openHistoryOverlay",
             "ai-sidebar-overlay",
@@ -131,6 +135,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "'/v1/approval/respond'",
             "'/v1/index-status'",
             "'/v1/system-status'",
+            "'/v1/system-updates/check'",
             "'/v1/tasks'",
             "'/v1/tasks/detail'",
         ):
@@ -140,6 +145,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
         self.assertNotIn("Подтверждать за меня", extension)
         self.assertNotIn("Подтверждать за меня", source)
         self.assertNotIn("security-high-symbolic", source)
+        self.assertNotIn("['apt-get'", extension)
 
     def test_panel_presenter_scenarios(self):
         node = shutil.which("node")

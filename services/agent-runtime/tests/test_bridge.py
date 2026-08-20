@@ -53,6 +53,11 @@ class App:
             "processes": [],
         }
 
+    def check_system_updates(self, payload):
+        if payload:
+            raise ValueError("unexpected payload")
+        return {"schema_version": 1, "state": "updates_available", "available_count": 2}
+
     def compile_intent(self, payload):
         return Compilation(state="ready", text=payload["text"])
 
@@ -101,6 +106,12 @@ class BridgeTests(unittest.TestCase):
                 headers={"Content-Type": "application/json"},
             )
             memory_status = json.load(urllib.request.urlopen(monitor_request))
+            updates_request = urllib.request.Request(
+                base + "/v1/system-updates/check",
+                data=b"{}",
+                headers={"Content-Type": "application/json"},
+            )
+            updates = json.load(urllib.request.urlopen(updates_request))
             tasks = json.load(urllib.request.urlopen(base + "/v1/tasks"))
             request = urllib.request.Request(
                 base + "/v1/search",
@@ -148,6 +159,8 @@ class BridgeTests(unittest.TestCase):
         self.assertTrue(system_status["supported"])
         self.assertEqual(system_status["process_sort"], "cpu")
         self.assertEqual(memory_status["process_sort"], "memory")
+        self.assertEqual(updates["state"], "updates_available")
+        self.assertEqual(updates["available_count"], 2)
         self.assertEqual(tasks, {"tasks": [{"task_id": "task-1", "state": "completed"}]})
         self.assertEqual(results["results"][0]["path"], "result:math")
         self.assertEqual(compilation, {"state": "ready", "text": "find math PDFs"})

@@ -11,10 +11,46 @@ import {
     runtimeErrorMessage,
     schedulerLabel,
     systemPresentation,
+    systemUpdatePresentation,
     taskDetailPresentation,
     taskRowLabel,
     taskStateLabel,
 } from '../panel-presenter.js';
+
+
+test('system update states decide whether the native update UI opens', () => {
+    assert.deepEqual(systemUpdatePresentation({
+        supported: true,
+        state: 'up_to_date',
+        available_count: 0,
+        cache_stale: false,
+    }), {
+        available: true,
+        openManager: false,
+        message: 'Обновлений нет — система актуальна.',
+    });
+    assert.deepEqual(systemUpdatePresentation({
+        supported: true,
+        state: 'up_to_date',
+        available_count: 0,
+        cache_stale: true,
+    }), {
+        available: true,
+        openManager: true,
+        message: 'Список пакетов нужно обновить. Открываю менеджер обновлений.',
+    });
+    assert.deepEqual(systemUpdatePresentation({
+        supported: true,
+        state: 'updates_available',
+        available_count: 7,
+        security_count: 2,
+    }), {
+        available: true,
+        openManager: true,
+        message: 'Доступно обновлений: 7. Из них обновлений безопасности: 2. Открываю менеджер обновлений.',
+    });
+    assert.equal(systemUpdatePresentation({state: 'internal_error'}).available, false);
+});
 
 
 test('ready compilation with a plan proceeds without a message', () => {

@@ -105,7 +105,7 @@ class CapabilityRegistryTests(RegistryTestCase):
     def test_registers_complete_first_party_module_set(self) -> None:
         report = self.registry.sync([PROJECT_ROOT / "services", PROJECT_ROOT / "modules"])
 
-        self.assertEqual(report.scanned, 7)
+        self.assertEqual(report.scanned, 8)
         self.assertEqual(report.issues, ())
         self.assertEqual(
             [module.manifest.module_id for module in self.registry.list_modules()],
@@ -117,12 +117,14 @@ class CapabilityRegistryTests(RegistryTestCase):
                 "storage.catalog",
                 "storage.watch",
                 "system.monitor",
+                "system.updates",
             ],
         )
         self.assertIn("documents.pdf.extract", self.registry.available_capabilities())
         self.assertIn("browser.search.plan", self.registry.available_capabilities())
         self.assertIn("storage.index.status", self.registry.available_capabilities())
         self.assertIn("system.monitor.snapshot", self.registry.available_capabilities())
+        self.assertIn("system.updates.check", self.registry.available_capabilities())
 
     def test_disabling_dependency_makes_dependent_module_unavailable(self) -> None:
         self.registry.sync([PROJECT_ROOT / "services"])

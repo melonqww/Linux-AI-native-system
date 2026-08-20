@@ -122,6 +122,43 @@ export function systemPresentation(health, capabilities, index) {
     };
 }
 
+export function systemUpdatePresentation(result) {
+    const countValid = Number.isInteger(result?.available_count) && result.available_count >= 0;
+    const stateValid = ['updates_available', 'up_to_date'].includes(result?.state);
+    if (result?.supported !== true || !countValid || !stateValid) {
+        return {
+            available: false,
+            openManager: false,
+            message: 'Не удалось получить список обновлений.',
+        };
+    }
+    const count = result.available_count;
+    if (count === 0 && result.cache_stale !== true) {
+        return {
+            available: true,
+            openManager: false,
+            message: 'Обновлений нет — система актуальна.',
+        };
+    }
+    if (count === 0) {
+        return {
+            available: true,
+            openManager: true,
+            message: 'Список пакетов нужно обновить. Открываю менеджер обновлений.',
+        };
+    }
+    const securityCount = Number.isInteger(result.security_count) && result.security_count > 0
+        ? Math.min(count, result.security_count)
+        : 0;
+    return {
+        available: true,
+        openManager: true,
+        message: `Доступно обновлений: ${count}.` +
+            (securityCount ? ` Из них обновлений безопасности: ${securityCount}.` : '') +
+            ' Открываю менеджер обновлений.',
+    };
+}
+
 export function monitorPresentation(snapshot) {
     if (snapshot?.supported !== true) {
         return {

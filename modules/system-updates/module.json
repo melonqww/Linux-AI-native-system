@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "module_id": "system.updates",
+  "display_name": "System Updates",
+  "description": "Checks cached Ubuntu APT updates without installing packages or acquiring system locks.",
+  "module_version": "0.1.0",
+  "core_api": "1",
+  "capabilities": ["system.updates.check"],
+  "dependencies": [],
+  "optional_dependencies": [],
+  "requested_permissions": ["system.read-updates"],
+  "lifecycle": "on-demand",
+  "resource_class": "tiny",
+  "default_enabled": true,
+  "entrypoint": {"kind": "python-service", "module": "ai_native_system_updates", "python_path": "src"}
+}

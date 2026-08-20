@@ -14,6 +14,7 @@ import {
     monitorPresentation,
     runtimeErrorMessage,
     systemPresentation,
+    systemUpdatePresentation,
     taskDetailPresentation,
     taskRowLabel,
 } from './panel-presenter.js';
@@ -709,54 +710,29 @@ class SidebarView extends St.Widget {
         return card;
     }
 
-    _checkUbuntuUpdates(button) {
+    async _checkUbuntuUpdates(button) {
         if (button._checking)
             return;
         button._checking = true;
         button.label = 'Проверяю обновления…';
         button.reactive = false;
-        let process;
         try {
-            process = Gio.Subprocess.new(
-                ['apt-get', '-s', '-q', 'upgrade'],
-                Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE,
-            );
-        } catch (error) {
-            button._checking = false;
-            button.reactive = true;
-            button.label = 'Проверить обновления Ubuntu';
-            notifyUser('Обновления Ubuntu', 'Не удалось запустить проверку обновлений.');
-            logError(error, 'AI-native Linux: update check failed to start');
-            return;
-        }
-        process.communicate_utf8_async(null, null, (source, result) => {
-            let available = null;
-            let successful = false;
-            try {
-                const [, stdout] = source.communicate_utf8_finish(result);
-                successful = source.get_successful();
-                available = stdout.split('\n').filter(line => /^\s*Inst\s+\S+/.test(line)).length;
-            } catch (error) {
-                logError(error, 'AI-native Linux: update check failed');
-            }
-            button._checking = false;
-            button.reactive = true;
-            button.label = 'Проверить обновления Ubuntu';
-            if (!successful || available === null) {
-                notifyUser('Обновления Ubuntu', 'Не удалось получить список обновлений.');
+            const result = await this._runtime.checkSystemUpdates();
+            const presentation = systemUpdatePresentation(result);
+            notifyUser('Обновления Ubuntu', presentation.message);
+            if (!presentation.available || !presentation.openManager)
                 return;
-            }
-            if (available === 0) {
-                notifyUser('Обновления Ubuntu', 'Обновлений нет — система актуальна.');
-                return;
-            }
-            notifyUser(
-                'Обновления Ubuntu',
-                `Доступно обновлений: ${available}. Открываю менеджер обновлений.`,
-            );
-            if (!launchSystemApp(['update-manager']))
+            if (!launchSystemApp(['update-manager']) &&
+                !launchSystemApp(['gnome-software', '--mode=updates']))
                 notifyUser('Обновления Ubuntu', 'Менеджер обновлений недоступен.');
-        });
+        } catch (error) {
+            notifyUser('Обновления Ubuntu', 'Ядро не смогло проверить обновления.');
+            logError(error, 'AI-native Linux: backend update check failed');
+        } finally {
+            button._checking = false;
+            button.reactive = true;
+            button.label = 'Проверить обновления Ubuntu';
+        }
     }
 
     _buildHistoryCard() {

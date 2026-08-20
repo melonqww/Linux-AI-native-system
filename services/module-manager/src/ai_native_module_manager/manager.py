@@ -156,16 +156,26 @@ class ModuleProcessManager:
         module_id: str,
         operation: str,
         payload: dict[str, object] | None = None,
+        *,
+        timeout: float | None = None,
     ) -> dict[str, object]:
         if not isinstance(operation, str) or _OPERATION.fullmatch(operation) is None:
             raise ValueError("invalid module operation")
         body = {} if payload is None else payload
         if not isinstance(body, dict):
             raise ValueError("module payload must be an object")
+        response_timeout = self.response_timeout if timeout is None else timeout
+        if (
+            isinstance(response_timeout, bool)
+            or not isinstance(response_timeout, (int, float))
+            or not 0 < response_timeout <= 60
+        ):
+            raise ValueError("module response timeout must be between 0 and 60 seconds")
         running = self._require_running(module_id)
         response = self._request(
             running.process,
             {"command": "invoke", "operation": operation, "payload": body},
+            timeout=float(response_timeout),
         )
         running.last_used = monotonic()
         if response.get("event") != "result":
@@ -227,7 +237,13 @@ class ModuleProcessManager:
             raise ModuleProcessError(f"module is not running: {module_id}")
         return running
 
-    def _request(self, process: subprocess.Popen[str], payload: dict[str, object]) -> dict[str, object]:
+    def _request(
+        self,
+        process: subprocess.Popen[str],
+        payload: dict[str, object],
+        *,
+        timeout: float | None = None,
+    ) -> dict[str, object]:
         if process.stdin is None:
             raise ModuleProcessError("worker stdin is closed")
         try:
@@ -238,7 +254,7 @@ class ModuleProcessManager:
             raise ModuleProcessError("worker request is too large")
         process.stdin.write(encoded + "\n")
         process.stdin.flush()
-        return self._read_response(process, self.response_timeout)
+        return self._read_response(process, timeout or self.response_timeout)
 
     @staticmethod
     def _read_response(process: subprocess.Popen[str], timeout: float) -> dict[str, object]:

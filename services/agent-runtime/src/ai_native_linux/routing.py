@@ -17,6 +17,7 @@ class RuntimeApplication(Protocol):
     def system_status(
         self, payload: dict[str, object] | None = None
     ) -> dict[str, object]: ...
+    def check_system_updates(self, payload: dict[str, object]) -> dict[str, object]: ...
     def compile_intent(self, payload: dict[str, object]) -> object: ...
     def execute_plan(
         self, payload: dict[str, object], *, transport_context: TransportContext
@@ -118,6 +119,8 @@ class RuntimeRouter:
             )
         if path == "/v1/system-status":
             return RuntimeResponse(200, self.application.system_status(payload))
+        if path == "/v1/system-updates/check":
+            return RuntimeResponse(200, self.application.check_system_updates(payload))
         if path == "/v1/intent/compile":
             return RuntimeResponse(200, asdict(self.application.compile_intent(payload)))
         if path == "/v1/plan/execute":

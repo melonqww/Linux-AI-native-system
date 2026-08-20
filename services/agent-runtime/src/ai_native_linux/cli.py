@@ -87,6 +87,11 @@ def main() -> int:
                     "snapshot",
                     {"process_limit": 20, **payload},
                 )
+
+            def system_updates_check(payload: dict[str, object]) -> dict[str, object]:
+                module_id = manager.start_for_capability("system.updates.check")
+                return manager.invoke(module_id, "check", payload, timeout=30)
+
             query_service = QueryService(
                 storage_database=args.storage_database,
                 index_database=args.index_database,
@@ -161,6 +166,7 @@ def main() -> int:
                 query_service,
                 scheduler_status=lambda: manager.health_details("storage.watch"),
                 system_monitor_status=system_monitor_status,
+                system_updates_check=system_updates_check,
                 intent_pipeline=intent_pipeline,
                 task_context=task_context,
                 plan_store=plan_store,
