@@ -139,7 +139,7 @@ export function monitorPresentation(snapshot) {
     const battery = snapshot.battery ?? {};
     const cpuTemperature = formatTemperature(cpu.temperature_celsius);
     const load = safeArray(cpu.load_average).slice(0, 3).map(value =>
-        typeof value === 'number' && Number.isFinite(value) ? value.toFixed(2) : '—',
+        formatLoadPercent(value, cpu.logical_cpus),
     );
     const topology = [
         Number.isInteger(cpu.physical_cores) ? `ядер ${cpu.physical_cores}` : '',
@@ -148,7 +148,7 @@ export function monitorPresentation(snapshot) {
     ].filter(Boolean).join(' · ');
     const cpuDetails = [
         cpuTemperature,
-        load.length ? `load 1/5/15: ${load.join(' / ')}` : '',
+        load.length ? `Нагрузка 1/5/15 мин: ${load.join(' / ')}` : '',
         topology,
     ].filter(Boolean).join(' · ') || 'датчики недоступны';
     const usedMemory = safeCount(memory.used_bytes);
@@ -204,6 +204,13 @@ function diskLabel(disk) {
     const source = typeof disk?.source === 'string' ? disk.source : '';
     const sourceName = source.split('/').filter(Boolean).pop();
     return `Диск ${sourceName || mount}`;
+}
+
+function formatLoadPercent(value, logicalCpus) {
+    if (typeof value !== 'number' || !Number.isFinite(value))
+        return '—';
+    const cpus = Number.isInteger(logicalCpus) && logicalCpus > 0 ? logicalCpus : 1;
+    return `${Math.round(Math.max(0, value) / cpus * 100)}%`;
 }
 
 export function formatBytes(value) {

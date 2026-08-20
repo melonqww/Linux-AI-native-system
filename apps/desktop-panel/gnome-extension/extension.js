@@ -542,6 +542,7 @@ class SidebarView extends St.Widget {
                 GLib.Source.remove(this._refreshSourceId);
                 this._refreshSourceId = 0;
             }
+            this._stopProcessOverlayRefresh();
         });
         this._refreshSourceId = GLib.timeout_add_seconds(
             GLib.PRIORITY_DEFAULT,
@@ -737,11 +738,17 @@ class SidebarView extends St.Widget {
     }
 
     _closeOverlay() {
+        this._stopProcessOverlayRefresh();
+        this._overlayMode = null;
+        this._overlayProcessList = null;
         this._overlay.hide();
         this._historyCard.hide();
     }
 
     _prepareOverlay(title) {
+        this._stopProcessOverlayRefresh();
+        this._overlayMode = null;
+        this._overlayProcessList = null;
         this._overlayTitle.set_text(title);
         this._overlayContent.destroy_all_children();
         this._overlay.show();
@@ -756,6 +763,7 @@ class SidebarView extends St.Widget {
 
     _openProcessesOverlay() {
         this._prepareOverlay('Все процессы');
+        this._overlayMode = 'processes';
         const toolbar = new St.BoxLayout({style_class: 'ai-process-overlay-toolbar', x_expand: true});
         toolbar.add_child(sidebarLabel('Сортировать:', 'ai-sidebar-caption', {x_expand: true}));
         const cpu = new St.Button({label: 'ЦП', style_class: 'ai-process-sort'});
@@ -774,6 +782,30 @@ class SidebarView extends St.Widget {
         this._overlayContent.add_child(this._overlayProcessList);
         this._renderOverlayProcesses(this._processes);
         this._sortProcesses(this._processSort, true);
+        this._startProcessOverlayRefresh();
+    }
+
+    _startProcessOverlayRefresh() {
+        this._stopProcessOverlayRefresh();
+        this._processOverlayRefreshSourceId = GLib.timeout_add_seconds(
+            GLib.PRIORITY_DEFAULT,
+            3,
+            () => {
+                if (this._disposed || !this._overlay.visible || this._overlayMode !== 'processes') {
+                    this._processOverlayRefreshSourceId = 0;
+                    return GLib.SOURCE_REMOVE;
+                }
+                this._sortProcesses(this._processSort, true);
+                return GLib.SOURCE_CONTINUE;
+            },
+        );
+    }
+
+    _stopProcessOverlayRefresh() {
+        if (this._processOverlayRefreshSourceId) {
+            GLib.Source.remove(this._processOverlayRefreshSourceId);
+            this._processOverlayRefreshSourceId = 0;
+        }
     }
 
     async _sortProcesses(sort, initial = false) {
@@ -797,7 +829,7 @@ class SidebarView extends St.Widget {
     }
 
     _renderOverlayProcesses(processes) {
-        if (!this._overlayProcessList)
+        if (this._overlayMode !== 'processes' || !this._overlayProcessList)
             return;
         this._overlayProcessList.destroy_all_children();
         if (!processes.length) {

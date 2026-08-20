@@ -164,7 +164,7 @@ test('system monitor snapshot formats metrics, disks and processes', () => {
     assert.equal(view.available, true);
     assert.deepEqual(view.cpu, {
         value: 37,
-        detail: '54°C · load 1/5/15: 1.25 / 0.50 / 0.25 · ядер 4 · потоков 8 · пакетов 1',
+        detail: '54°C · Нагрузка 1/5/15 мин: 16% / 6% / 3% · ядер 4 · потоков 8 · пакетов 1',
     });
     assert.deepEqual(view.memory, {
         value: 62,
