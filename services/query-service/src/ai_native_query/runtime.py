@@ -48,6 +48,20 @@ class WorkspaceHistory(Protocol):
     def run(self, run_id: str) -> object: ...
 
 
+class WorkspaceController(Protocol):
+    def submit(
+        self, text: str, *, transport_context: TransportContext
+    ) -> object: ...
+
+    def respond_to_approval(
+        self,
+        approval_request_id: str,
+        *,
+        confirmed: bool,
+        transport_context: TransportContext,
+    ) -> object: ...
+
+
 class QueryRuntimeApplication:
     def __init__(
         self,
@@ -62,6 +76,7 @@ class QueryRuntimeApplication:
         plan_executor: PlanExecutor | None = None,
         task_ledger: TaskHistory | None = None,
         workspace: WorkspaceHistory | None = None,
+        workspace_controller: WorkspaceController | None = None,
     ) -> None:
         self.query_service = query_service
         self.scheduler_status = scheduler_status
@@ -73,6 +88,7 @@ class QueryRuntimeApplication:
         self.plan_executor = plan_executor
         self.task_ledger = task_ledger
         self.workspace = workspace
+        self.workspace_controller = workspace_controller
         if intent_pipeline is not None and task_context is None:
             raise ValueError("task_context is required with intent_pipeline")
         if (plan_store is None) != (plan_executor is None):
@@ -104,7 +120,45 @@ class QueryRuntimeApplication:
             capabilities.append("system.updates.check")
         if self.workspace is not None:
             capabilities.extend(("workspace.messages.read", "workspace.runs.read"))
+        if self.workspace_controller is not None:
+            capabilities.extend(("workspace.submit", "workspace.approval.respond"))
         return capabilities
+
+    def workspace_submit(
+        self,
+        payload: dict[str, object],
+        *,
+        transport_context: TransportContext,
+    ) -> object:
+        if self.workspace_controller is None:
+            raise RuntimeError("workspace_controller_unavailable")
+        if set(payload) != {"text"}:
+            raise ValueError("exactly text is required")
+        text = self._string(payload, "text")
+        if not text.strip() or len(text) > 4_000:
+            raise ValueError("workspace text must contain from 1 to 4000 characters")
+        return self.workspace_controller.submit(
+            text, transport_context=transport_context
+        )
+
+    def workspace_approval(
+        self,
+        payload: dict[str, object],
+        *,
+        transport_context: TransportContext,
+    ) -> object:
+        if self.workspace_controller is None:
+            raise RuntimeError("workspace_controller_unavailable")
+        if set(payload) != {"approval_request_id", "confirmed"}:
+            raise ValueError("approval_request_id and confirmed are required")
+        confirmed = payload.get("confirmed")
+        if not isinstance(confirmed, bool):
+            raise ValueError("confirmed must be a boolean")
+        return self.workspace_controller.respond_to_approval(
+            self._string(payload, "approval_request_id"),
+            confirmed=confirmed,
+            transport_context=transport_context,
+        )
 
     def workspace_messages(self, payload: dict[str, object]) -> tuple[object, ...]:
         if self.workspace is None:

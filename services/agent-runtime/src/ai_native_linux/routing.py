@@ -32,6 +32,12 @@ class RuntimeApplication(Protocol):
     def workspace_messages(self, payload: dict[str, object]) -> tuple[object, ...]: ...
     def workspace_runs(self, payload: dict[str, object]) -> tuple[object, ...]: ...
     def workspace_run(self, payload: dict[str, object]) -> object: ...
+    def workspace_submit(
+        self, payload: dict[str, object], *, transport_context: TransportContext
+    ) -> object: ...
+    def workspace_approval(
+        self, payload: dict[str, object], *, transport_context: TransportContext
+    ) -> object: ...
 
 
 @dataclass(frozen=True)
@@ -98,6 +104,8 @@ class RuntimeRouter:
                     "tasks.activity.control",
                     "workspace.messages.read",
                     "workspace.runs.read",
+                    "workspace.submit",
+                    "workspace.approval.respond",
                 }
                 capabilities = [item for item in capabilities if item not in restricted]
             return RuntimeResponse(200, {"capabilities": capabilities})
@@ -126,6 +134,18 @@ class RuntimeRouter:
             return RuntimeResponse(200, self.application.system_status(payload))
         if path == "/v1/system-updates/check":
             return RuntimeResponse(200, self.application.check_system_updates(payload))
+        if path in {"/v1/workspace/submit", "/v1/workspace/approval/respond"}:
+            if not self.allow_r1:
+                return self.error(403, "secure_transport_required", False, request_id)
+            operation = (
+                self.application.workspace_submit
+                if path == "/v1/workspace/submit"
+                else self.application.workspace_approval
+            )
+            return RuntimeResponse(
+                202 if path == "/v1/workspace/submit" else 200,
+                asdict(operation(payload, transport_context=transport_context)),
+            )
         if path in {
             "/v1/workspace/messages",
             "/v1/workspace/runs",

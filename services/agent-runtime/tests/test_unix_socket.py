@@ -64,6 +64,14 @@ class App:
     def workspace_run(self, payload):
         return WorkspaceItem(run_id=payload["run_id"])
 
+    def workspace_submit(self, payload, *, transport_context):
+        self.transport_contexts.append(transport_context)
+        return WorkspaceItem(run_id=f"submitted:{payload['text']}")
+
+    def workspace_approval(self, payload, *, transport_context):
+        self.transport_contexts.append(transport_context)
+        return WorkspaceItem(run_id=payload["approval_request_id"])
+
 
 @unittest.skipUnless(sys.platform.startswith("linux"), "Linux SO_PEERCRED integration")
 class UnixSocketTests(unittest.TestCase):
@@ -151,6 +159,21 @@ class UnixSocketTests(unittest.TestCase):
 
         self.assertEqual(response["status"], 200)
         self.assertEqual(response["body"], {"runs": [{"run_id": "active-run"}]})
+
+    def test_secure_socket_accepts_workspace_job_asynchronously(self):
+        app = App()
+        server = create_unix_server(app, self.path)
+
+        _request_id, response = self._request(
+            server,
+            method="POST",
+            path="/v1/workspace/submit",
+            body={"text": "Привет"},
+        )
+
+        self.assertEqual(response["status"], 202)
+        self.assertEqual(response["body"], {"run_id": "submitted:Привет"})
+        self.assertEqual(app.transport_contexts[0].transport, TransportKind.UNIX_PEER)
 
     def test_policy_rejects_invalid_pid_and_other_uid(self):
         policy = PeerCredentialPolicy(expected_uid=1000, expected_gid=1000)

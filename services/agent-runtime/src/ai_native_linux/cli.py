@@ -77,6 +77,7 @@ def main() -> int:
             index_database=args.index_database,
         )
         server = None
+        workspace_controller = None
         try:
             manager.start_for_capability("storage.watch.events")
             system_monitor_status = None
@@ -156,6 +157,15 @@ def main() -> int:
                     ),
                     task_ledger=task_ledger,
                 )
+                from ai_native_workspace import WorkspaceRuntime
+
+                workspace_controller = WorkspaceRuntime(
+                    workspace,
+                    provider,
+                    intent_pipeline,
+                    plan_executor,
+                    context_store.snapshot,
+                )
                 for capability in plan_executor.available_capabilities():
                     required_scopes = plan_executor.permission_gateway.required_scopes(
                         capability
@@ -181,6 +191,7 @@ def main() -> int:
                 plan_executor=plan_executor,
                 task_ledger=task_ledger,
                 workspace=workspace,
+                workspace_controller=workspace_controller,
             )
             transport = (
                 "unix" if args.transport == "auto" and sys.platform.startswith("linux")
@@ -202,12 +213,21 @@ def main() -> int:
             # mark the active daemon's tasks as interrupted.
             task_ledger.recover_after_restart()
             task_ledger.purge_expired()
+            workspace.recover_after_restart(
+                message=(
+                    "Выполнение остановлено после перезапуска системы."
+                    if args.locale == "ru"
+                    else "Execution stopped after the system restarted."
+                )
+            )
             server.serve_forever()
         except KeyboardInterrupt:
             pass
         finally:
             if server is not None:
                 server.server_close()
+            if workspace_controller is not None:
+                workspace_controller.close()
             manager.stop_all()
         return 0
     if not args.demo:

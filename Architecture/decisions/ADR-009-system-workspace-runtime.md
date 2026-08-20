@@ -71,15 +71,15 @@ capability-задач.
 ### Фактический итог
 
 После системной операции итоговый ответ строится только из redacted
-OrchestrationResult и Task Ledger projection. Qwen может сделать формулировку
-естественной, но не получает права добавлять пути, количества или утверждения,
-которых нет в результате. Невалидный model summary заменяется детерминированным
-системным итогом. Workspace run связывается с `task_id`; после удаления суточного
-сообщения задача остаётся доступна в Task Ledger.
+OrchestrationResult и Task Ledger projection. Qwen выбирает формулировку из
+вариантов, заранее построенных ядром по подтверждённым фактам, поэтому не может
+добавить путь, количество или действие. Невалидный model summary заменяется
+детерминированным системным итогом. Workspace run связывается с `task_id`; после
+удаления суточного сообщения задача остаётся доступна в Task Ledger.
 
 ### Асинхронный API
 
-`POST /v1/workspace/submit` должен быстро вернуть `run_id`, после чего frontend
+`POST /v1/workspace/submit` быстро возвращает `run_id`, после чего frontend
 читает bounded status/messages через authenticated Unix IPC. Выполнение модели и
 capabilities не блокирует GNOME Shell. Approval остаётся отдельным подтверждением
 существующего Orchestrator, а не согласием «на всё» внутри workspace.

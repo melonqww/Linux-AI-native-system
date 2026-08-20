@@ -8,6 +8,7 @@ from .contracts import (
     WorkspaceTransitionError,
 )
 from .store import WorkspaceStore
+from .runtime import WorkspaceBusyError, WorkspaceRuntime
 
 __all__ = [
     "MessageKind",
@@ -17,5 +18,7 @@ __all__ = [
     "WorkspaceRunNotFound",
     "WorkspaceStage",
     "WorkspaceStore",
+    "WorkspaceBusyError",
+    "WorkspaceRuntime",
     "WorkspaceTransitionError",
 ]

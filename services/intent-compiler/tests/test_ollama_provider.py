@@ -58,6 +58,43 @@ class OllamaProviderTests(unittest.TestCase):
             with self.assertRaises(OllamaProviderError):
                 OllamaModelProvider().compile(model_request("Привет"))
 
+    def test_summarizes_only_from_bounded_confirmed_facts(self):
+        response = FakeResponse(
+            {"message": {"content": '{"choice":0}'}}
+        )
+        captured = []
+
+        def open_request(request, timeout):
+            captured.append(json.loads(request.data))
+            return response
+
+        with patch("ai_native_intents.ollama._open_loopback", side_effect=open_request):
+            summary = OllamaModelProvider().summarize_result(
+                {"state": "completed", "found_items": 4}, locale="ru"
+            )
+
+        self.assertEqual(summary, "Готово. Найдено объектов: 4.")
+        self.assertFalse(captured[0]["think"])
+        self.assertNotIn("tools", captured[0])
+        self.assertEqual(captured[0]["format"]["properties"]["choice"]["enum"], [0, 1])
+        self.assertEqual(captured[0]["options"]["temperature"], 0.2)
+
+    def test_rejects_summary_with_an_invented_number(self):
+        response = FakeResponse({"message": {"content": '{"choice":99}'}})
+        with patch("ai_native_intents.ollama._open_loopback", return_value=response):
+            with self.assertRaises(OllamaProviderError):
+                OllamaModelProvider().summarize_result(
+                    {"state": "completed", "found_items": 4}, locale="ru"
+                )
+
+    def test_rejects_non_numeric_but_unconfirmed_summary_claim(self):
+        response = FakeResponse({"message": {"content": "Готово. Все файлы удалены."}})
+        with patch("ai_native_intents.ollama._open_loopback", return_value=response):
+            with self.assertRaises(OllamaProviderError):
+                OllamaModelProvider().summarize_result(
+                    {"state": "completed", "found_items": 0}, locale="ru"
+                )
+
     def test_sends_closed_schema_with_thinking_disabled(self):
         captured = []
 

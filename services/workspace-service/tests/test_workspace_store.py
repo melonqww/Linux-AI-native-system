@@ -1,4 +1,5 @@
 import shutil
+import sqlite3
 import unittest
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -135,6 +136,48 @@ class WorkspaceStoreTests(unittest.TestCase):
         self.assertEqual(removed_runs, 1)
         self.assertEqual(self.store.list_messages(), ())
         self.assertEqual(self.store.run(active.run_id).stage, WorkspaceStage.UNDERSTANDING)
+
+    def test_restart_recovery_closes_orphaned_active_runs(self) -> None:
+        user = self.store.append_message(
+            MessageRole.USER, MessageKind.CONVERSATION, "Долгая задача"
+        )
+        run = self.store.create_run(user.message_id)
+        self.store.transition(run.run_id, WorkspaceStage.UNDERSTANDING)
+
+        recovered = self.store.recover_after_restart(
+            message="Выполнение остановлено после перезапуска системы."
+        )
+
+        self.assertEqual(recovered, (run.run_id,))
+        self.assertEqual(self.store.run(run.run_id).stage, WorkspaceStage.FAILED)
+        self.assertEqual(
+            self.store.list_messages()[-1].content,
+            "Выполнение остановлено после перезапуска системы.",
+        )
+
+    def test_migrates_existing_workspace_database_for_approval_links(self) -> None:
+        legacy = self.root / "legacy.sqlite3"
+        with sqlite3.connect(legacy) as connection:
+            connection.execute(
+                """CREATE TABLE workspace_runs (
+                    run_id TEXT PRIMARY KEY, stage TEXT NOT NULL,
+                    created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+                    started_at TEXT NOT NULL, stage_started_at TEXT NOT NULL,
+                    finished_at TEXT, user_message_id TEXT,
+                    assistant_message_id TEXT, task_id TEXT
+                )"""
+            )
+            connection.execute("PRAGMA user_version = 1")
+
+        WorkspaceStore(legacy)
+
+        with sqlite3.connect(legacy) as connection:
+            columns = {
+                row[1] for row in connection.execute("PRAGMA table_info(workspace_runs)")
+            }
+            version = connection.execute("PRAGMA user_version").fetchone()[0]
+        self.assertIn("approval_request_id", columns)
+        self.assertEqual(version, 2)
 
     def test_message_contract_is_bounded(self) -> None:
         for invalid in ("", "x" * 16_001, "bad\x00value"):

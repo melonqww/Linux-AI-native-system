@@ -58,6 +58,21 @@ class IntentCompiler:
             return self._rejected(context, diagnostic="provider_unavailable")
         except Exception:
             return self._rejected(context, diagnostic="provider_unavailable")
+        return self.compile_payload(payload, text=normalized, context=context)
+
+    def compile_payload(
+        self,
+        payload: object,
+        *,
+        text: str,
+        context: TaskContext | None = None,
+    ) -> CompilationResult:
+        """Validate and plan a model route without invoking the model again."""
+        context = context or TaskContext()
+        try:
+            normalized = self._user_text(text)
+        except (TypeError, ValueError):
+            return self._rejected(context)
         try:
             if not isinstance(payload, Mapping):
                 raise IntentValidationError("intent provider returned a non-object")

@@ -11,3 +11,6 @@ Workspace никогда не хранит chain-of-thought, traceback, model pr
 Runtime публикует сообщения, последние runs и активные runs только через
 аутентифицированный Unix socket. Благодаря этому панель после перезапуска может
 восстановить текущую стадию и таймер, не сохраняя системные данные во frontend.
+
+IPC-контракт для подключения frontend описан в
+[`Architecture/api/workspace-runtime-v1.md`](../../Architecture/api/workspace-runtime-v1.md).

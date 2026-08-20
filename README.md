@@ -125,6 +125,8 @@ model reasoning и технические причины ошибок в пол�
 рестарт отдельно от сообщений, а Task Ledger по-прежнему хранит факты операций
 семь суток. Архитектура зафиксирована в
 [`ADR-009`](Architecture/decisions/ADR-009-system-workspace-runtime.md).
+Backend API рабочей области:
+[`Architecture/api/workspace-runtime-v1.md`](Architecture/api/workspace-runtime-v1.md).
 
 `modules/system-monitor` реализует read-only диспетчер: CPU, load average,
 uptime, RAM/swap, thermal zones, батарею, диски и процессы. Контракт:

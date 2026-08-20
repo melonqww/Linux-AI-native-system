@@ -80,6 +80,21 @@ class FakeWorkspace:
         return f"run:{run_id}"
 
 
+class FakeWorkspaceController:
+    def __init__(self):
+        self.transport = None
+
+    def submit(self, text, *, transport_context):
+        self.transport = transport_context
+        return f"submitted:{text}"
+
+    def respond_to_approval(
+        self, approval_request_id, *, confirmed, transport_context
+    ):
+        self.transport = transport_context
+        return (approval_request_id, confirmed)
+
+
 class QueryServiceTests(unittest.TestCase):
     def setUp(self) -> None:
         self.root = PROJECT_ROOT / "tmp" / "query-service-tests" / str(uuid4())
@@ -213,6 +228,33 @@ class QueryServiceTests(unittest.TestCase):
             with self.subTest(runs=invalid):
                 with self.assertRaises(ValueError):
                     application.workspace_runs(invalid)
+
+    def test_runtime_exposes_workspace_controller_with_transport_context(self) -> None:
+        controller = FakeWorkspaceController()
+        application = QueryRuntimeApplication(
+            self.service, workspace_controller=controller
+        )
+        transport = object()
+
+        self.assertEqual(
+            application.workspace_submit(
+                {"text": "Привет"}, transport_context=transport
+            ),
+            "submitted:Привет",
+        )
+        self.assertIs(controller.transport, transport)
+        self.assertEqual(
+            application.workspace_approval(
+                {"approval_request_id": "approval", "confirmed": True},
+                transport_context=transport,
+            ),
+            ("approval", True),
+        )
+        self.assertIn("workspace.submit", application.capabilities())
+        for invalid in ({}, {"text": ""}, {"text": "x", "extra": True}):
+            with self.subTest(invalid=invalid):
+                with self.assertRaises(ValueError):
+                    application.workspace_submit(invalid, transport_context=transport)
 
     def test_revoked_content_permission_hides_stale_index_snippets(self) -> None:
         self.make_pdf("Private mathematics theorem")

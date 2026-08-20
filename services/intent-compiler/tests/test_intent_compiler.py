@@ -65,6 +65,22 @@ class IntentCompilerTests(unittest.TestCase):
         self.assertEqual(result.plan.steps[1].depends_on, ("step_search",))
         self.assertEqual(result.plan.steps[0].capability, "documents.query.search")
 
+    def test_plans_an_already_routed_payload_without_calling_model_again(self):
+        text = "Найди PDF"
+        response = payload(
+            text,
+            [operation("search", "search_documents", {"extensions": ["pdf"]}, text)],
+        )
+        calls = []
+        compiler = IntentCompiler(
+            CallableIntentProvider(lambda request: calls.append(request) or response)
+        )
+
+        result = compiler.compile_payload(response, text=text)
+
+        self.assertEqual(result.state, CompilationState.READY)
+        self.assertEqual(calls, [])
+
     def test_resolves_english_follow_up_only_from_trusted_context(self):
         text = "Copy them there"
         response = payload(

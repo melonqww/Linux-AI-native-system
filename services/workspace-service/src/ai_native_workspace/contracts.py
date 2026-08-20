@@ -59,6 +59,7 @@ class WorkspaceRun:
     user_message_id: str | None
     assistant_message_id: str | None
     task_id: str | None
+    approval_request_id: str | None = None
 
 
 class WorkspaceError(RuntimeError):

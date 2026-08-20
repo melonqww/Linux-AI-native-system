@@ -48,7 +48,8 @@ CREATE TABLE IF NOT EXISTS workspace_runs (
     finished_at TEXT,
     user_message_id TEXT REFERENCES workspace_messages(message_id) ON DELETE SET NULL,
     assistant_message_id TEXT REFERENCES workspace_messages(message_id) ON DELETE SET NULL,
-    task_id TEXT
+    task_id TEXT,
+    approval_request_id TEXT
 );
 CREATE INDEX IF NOT EXISTS workspace_runs_recent
     ON workspace_runs(updated_at DESC);
@@ -60,7 +61,7 @@ CREATE TABLE IF NOT EXISTS workspace_run_events (
 );
 CREATE INDEX IF NOT EXISTS workspace_events_by_run
     ON workspace_run_events(run_id, sequence);
-PRAGMA user_version = 1;
+PRAGMA user_version = 2;
 """
 
 _TRANSITIONS = {
@@ -125,6 +126,13 @@ class WorkspaceStore:
             connection.execute("PRAGMA journal_mode = WAL")
             connection.execute("PRAGMA synchronous = FULL")
             connection.executescript(_SCHEMA)
+            columns = {
+                row[1] for row in connection.execute("PRAGMA table_info(workspace_runs)")
+            }
+            if "approval_request_id" not in columns:
+                connection.execute(
+                    "ALTER TABLE workspace_runs ADD COLUMN approval_request_id TEXT"
+                )
         if os.name == "posix":
             os.chmod(self.database, 0o600)
 
@@ -218,6 +226,23 @@ class WorkspaceStore:
         *,
         task_id: str | None = None,
     ) -> WorkspaceRun:
+        return self.finish(
+            run_id,
+            WorkspaceStage.COMPLETED,
+            assistant_message_id,
+            task_id=task_id,
+        )
+
+    def finish(
+        self,
+        run_id: str,
+        stage: WorkspaceStage,
+        assistant_message_id: str,
+        *,
+        task_id: str | None = None,
+    ) -> WorkspaceRun:
+        if stage not in TERMINAL_STAGES:
+            raise ValueError("finish stage must be terminal")
         self._uuid(assistant_message_id, "assistant_message_id")
         if task_id is not None:
             self._uuid(task_id, "task_id")
@@ -229,7 +254,7 @@ class WorkspaceStore:
                 raise ValueError("assistant message and workspace run task_id must match")
             row = self._run_row(connection, run_id)
             current = WorkspaceStage(row["stage"])
-            if WorkspaceStage.COMPLETED not in _TRANSITIONS.get(current, set()):
+            if stage not in _TRANSITIONS.get(current, set()):
                 raise WorkspaceTransitionError("workspace_completion_invalid")
             now = self._timestamp(self._now())
             connection.execute(
@@ -237,7 +262,7 @@ class WorkspaceStore:
                    stage_started_at = ?, finished_at = ?, assistant_message_id = ?, task_id = ?
                    WHERE run_id = ?""",
                 (
-                    WorkspaceStage.COMPLETED.value,
+                    stage.value,
                     now,
                     now,
                     now,
@@ -246,8 +271,59 @@ class WorkspaceStore:
                     run_id,
                 ),
             )
-            self._event(connection, run_id, WorkspaceStage.COMPLETED, now)
+            self._event(connection, run_id, stage, now)
         return self.run(run_id)
+
+    def link_task(self, run_id: str, task_id: str) -> WorkspaceRun:
+        self._uuid(task_id, "task_id")
+        now = self._timestamp(self._now())
+        with self._transaction() as connection:
+            row = self._run_row(connection, run_id)
+            if WorkspaceStage(row["stage"]) in TERMINAL_STAGES:
+                raise WorkspaceTransitionError("workspace_task_link_too_late")
+            connection.execute(
+                "UPDATE workspace_runs SET task_id = ?, updated_at = ? WHERE run_id = ?",
+                (task_id, now, run_id),
+            )
+        return self.run(run_id)
+
+    def awaiting_approval(
+        self, run_id: str, *, task_id: str, approval_request_id: str
+    ) -> WorkspaceRun:
+        self._uuid(task_id, "task_id")
+        self._uuid(approval_request_id, "approval_request_id")
+        now = self._timestamp(self._now())
+        with self._transaction() as connection:
+            row = self._run_row(connection, run_id)
+            current = WorkspaceStage(row["stage"])
+            if WorkspaceStage.AWAITING_APPROVAL not in _TRANSITIONS.get(current, set()):
+                raise WorkspaceTransitionError("workspace_approval_transition_invalid")
+            connection.execute(
+                """UPDATE workspace_runs SET stage = ?, updated_at = ?,
+                   stage_started_at = ?, task_id = ?, approval_request_id = ?
+                   WHERE run_id = ?""",
+                (
+                    WorkspaceStage.AWAITING_APPROVAL.value,
+                    now,
+                    now,
+                    task_id,
+                    approval_request_id,
+                    run_id,
+                ),
+            )
+            self._event(connection, run_id, WorkspaceStage.AWAITING_APPROVAL, now)
+        return self.run(run_id)
+
+    def run_for_approval(self, approval_request_id: str) -> WorkspaceRun:
+        self._uuid(approval_request_id, "approval_request_id")
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT * FROM workspace_runs WHERE approval_request_id = ?",
+                (approval_request_id,),
+            ).fetchone()
+            if row is None:
+                raise WorkspaceRunNotFound("workspace_approval_not_found")
+            return self._run(row)
 
     def message(self, message_id: str) -> WorkspaceMessage:
         with self._connect() as connection:
@@ -260,7 +336,7 @@ class WorkspaceStore:
         with self._connect() as connection:
             rows = connection.execute(
                 """SELECT * FROM workspace_messages WHERE expires_at > ?
-                   ORDER BY created_at DESC LIMIT ?""",
+                   ORDER BY created_at DESC, rowid DESC LIMIT ?""",
                 (now, limit),
             ).fetchall()
         return tuple(self._message(row) for row in reversed(rows))
@@ -279,7 +355,8 @@ class WorkspaceStore:
         where = "WHERE finished_at IS NULL" if active_only else ""
         with self._connect() as connection:
             rows = connection.execute(
-                f"SELECT * FROM workspace_runs {where} ORDER BY updated_at DESC LIMIT ?",
+                f"""SELECT * FROM workspace_runs {where}
+                    ORDER BY updated_at DESC, rowid DESC LIMIT ?""",
                 (limit,),
             ).fetchall()
         return tuple(self._run(row) for row in rows)
@@ -303,6 +380,36 @@ class WorkspaceStore:
             ).rowcount
         return messages, runs
 
+    def recover_after_restart(self, *, message: str) -> tuple[str, ...]:
+        """Close orphaned jobs so the panel never shows stale execution forever."""
+        content = self._content(message)
+        recovered: list[str] = []
+        while True:
+            active = self.list_runs(limit=100, active_only=True)
+            if not active:
+                break
+            recovered_before = len(recovered)
+            for run in active:
+                notice = self.append_message(
+                    MessageRole.ASSISTANT,
+                    MessageKind.NOTICE,
+                    content,
+                    task_id=run.task_id,
+                )
+                try:
+                    self.finish(
+                        run.run_id,
+                        WorkspaceStage.FAILED,
+                        notice.message_id,
+                        task_id=run.task_id,
+                    )
+                except WorkspaceTransitionError:
+                    continue
+                recovered.append(run.run_id)
+            if len(recovered) == recovered_before:
+                break
+        return tuple(recovered)
+
     def _run(self, row: sqlite3.Row) -> WorkspaceRun:
         now = self._now()
         started = self._parse(row["started_at"])
@@ -324,6 +431,7 @@ class WorkspaceStore:
             user_message_id=row["user_message_id"],
             assistant_message_id=row["assistant_message_id"],
             task_id=row["task_id"],
+            approval_request_id=row["approval_request_id"],
         )
 
     @staticmethod
