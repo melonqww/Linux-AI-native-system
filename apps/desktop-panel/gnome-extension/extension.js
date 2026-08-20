@@ -1,5 +1,6 @@
 import St from 'gi://St';
 import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
 import GObject from 'gi://GObject';
 import GLib from 'gi://GLib';
 import Pango from 'gi://Pango';
@@ -445,6 +446,16 @@ function processRow(name, cpu, memory) {
     return row;
 }
 
+function launchSystemCommand(argv) {
+    try {
+        Gio.Subprocess.new(argv, Gio.SubprocessFlags.NONE);
+        return true;
+    } catch (error) {
+        logError(error, `AI-native Linux: не удалось запустить ${argv[0]}`);
+        return false;
+    }
+}
+
 function metricBlock(title, value, detail, extraClass = '') {
     const block = new St.BoxLayout({
         vertical: true,
@@ -662,15 +673,26 @@ class SidebarView extends St.Widget {
 
     _buildActionsCard() {
         const card = this._card('Быстрые системные действия');
-        ['Обновить системные данные', 'Открыть ошибки служб', 'Открыть настройки сети'].forEach((label, index) => {
+        const actions = [
+            {label: 'Обновить системные данные', run: () => this.refresh()},
+            {label: 'Проверить обновления системы', command: ['gnome-software', '--show-updates']},
+            {label: 'Открыть журнал системы', command: ['gnome-logs']},
+        ];
+        actions.forEach(action => {
             const button = new St.Button({
-                label,
+                label: action.label,
                 style_class: 'ai-sidebar-action ai-sidebar-action-wide',
                 x_expand: true,
-                reactive: index === 0,
+                reactive: true,
             });
-            if (index === 0)
-                button.connect('clicked', () => this.refresh());
+            button.connect('clicked', () => {
+                if (action.run) {
+                    action.run();
+                    return;
+                }
+                if (!launchSystemCommand(action.command))
+                    this._monitorSummary.set_text('Системное приложение недоступно');
+            });
             card.add_child(button);
         });
         return card;
