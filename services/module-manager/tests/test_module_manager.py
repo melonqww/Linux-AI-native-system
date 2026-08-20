@@ -68,12 +68,20 @@ class ModuleManagerTests(unittest.TestCase):
 
     def test_invokes_system_monitor_in_isolated_worker(self) -> None:
         provider = self.manager.start_for_capability("system.monitor.snapshot")
-        result = self.manager.invoke(provider, "snapshot", {"process_limit": 5})
+        result = self.manager.invoke(
+            provider,
+            "snapshot",
+            {"process_limit": 5, "process_sort": "memory", "process_order": "desc"},
+        )
 
         self.assertEqual(provider, "system.monitor")
         self.assertEqual(result["schema_version"], 1)
         self.assertIn("cpu", result)
+        self.assertIn("physical_cores", result["cpu"])
+        self.assertIn("logical_cpus", result["cpu"])
         self.assertIn("memory", result)
+        self.assertIn("installed_modules", result["memory"])
+        self.assertIn("channel_mode", result["memory"])
         self.assertLessEqual(len(result["processes"]), 5)
         self.assertLessEqual(len(json.dumps(result).encode("utf-8")), 64 * 1024)
         self.assertIn("system.monitor", self.manager.running_modules())

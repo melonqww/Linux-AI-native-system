@@ -45,8 +45,13 @@ class App:
     def index_status(self):
         return {"scheduler": {"state": "idle", "queued": 0}}
 
-    def system_status(self):
-        return {"schema_version": 1, "supported": True, "processes": []}
+    def system_status(self, payload=None):
+        return {
+            "schema_version": 1,
+            "supported": True,
+            "process_sort": (payload or {}).get("process_sort", "cpu"),
+            "processes": [],
+        }
 
     def compile_intent(self, payload):
         return Compilation(state="ready", text=payload["text"])
@@ -90,6 +95,12 @@ class BridgeTests(unittest.TestCase):
             capabilities = json.load(urllib.request.urlopen(base + "/v1/capabilities"))
             status = json.load(urllib.request.urlopen(base + "/v1/index-status"))
             system_status = json.load(urllib.request.urlopen(base + "/v1/system-status"))
+            monitor_request = urllib.request.Request(
+                base + "/v1/system-status",
+                data=json.dumps({"process_sort": "memory"}).encode(),
+                headers={"Content-Type": "application/json"},
+            )
+            memory_status = json.load(urllib.request.urlopen(monitor_request))
             tasks = json.load(urllib.request.urlopen(base + "/v1/tasks"))
             request = urllib.request.Request(
                 base + "/v1/search",
@@ -135,6 +146,8 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(status["scheduler"]["state"], "idle")
         self.assertEqual(system_status["schema_version"], 1)
         self.assertTrue(system_status["supported"])
+        self.assertEqual(system_status["process_sort"], "cpu")
+        self.assertEqual(memory_status["process_sort"], "memory")
         self.assertEqual(tasks, {"tasks": [{"task_id": "task-1", "state": "completed"}]})
         self.assertEqual(results["results"][0]["path"], "result:math")
         self.assertEqual(compilation, {"state": "ready", "text": "find math PDFs"})

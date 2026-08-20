@@ -14,7 +14,9 @@ class RuntimeApplication(Protocol):
     def capabilities(self) -> list[str]: ...
     def search(self, payload: dict[str, object]) -> list[object]: ...
     def index_status(self) -> dict[str, object]: ...
-    def system_status(self) -> dict[str, object]: ...
+    def system_status(
+        self, payload: dict[str, object] | None = None
+    ) -> dict[str, object]: ...
     def compile_intent(self, payload: dict[str, object]) -> object: ...
     def execute_plan(
         self, payload: dict[str, object], *, transport_context: TransportContext
@@ -114,6 +116,8 @@ class RuntimeRouter:
             return RuntimeResponse(
                 200, {"results": [asdict(item) for item in self.application.search(payload)]}
             )
+        if path == "/v1/system-status":
+            return RuntimeResponse(200, self.application.system_status(payload))
         if path == "/v1/intent/compile":
             return RuntimeResponse(200, asdict(self.application.compile_intent(payload)))
         if path == "/v1/plan/execute":

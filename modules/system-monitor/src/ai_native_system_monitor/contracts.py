@@ -8,9 +8,20 @@ from dataclasses import asdict, dataclass
 @dataclass(frozen=True)
 class CpuMetrics:
     usage_percent: float | None
+    physical_cores: int | None
     logical_cpus: int
+    packages: int | None
     load_average: tuple[float, float, float] | None
     temperature_celsius: float | None
+
+
+@dataclass(frozen=True)
+class MemoryModule:
+    label: str
+    location: str
+    memory_type: str
+    size_bytes: int
+    channel: str | None
 
 
 @dataclass(frozen=True)
@@ -21,6 +32,10 @@ class MemoryMetrics:
     usage_percent: float | None
     swap_total_bytes: int
     swap_used_bytes: int
+    installed_modules: int | None
+    channel_count: int | None
+    channel_mode: str
+    modules: tuple[MemoryModule, ...]
 
 
 @dataclass(frozen=True)
@@ -36,6 +51,7 @@ class DiskMetrics:
     mount_point: str
     filesystem: str
     source: str
+    read_only: bool
     total_bytes: int
     free_bytes: int
     used_bytes: int

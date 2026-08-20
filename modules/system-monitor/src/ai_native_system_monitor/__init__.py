@@ -7,6 +7,7 @@ from .contracts import (
     BatteryMetrics,
     CpuMetrics,
     DiskMetrics,
+    MemoryModule,
     MemoryMetrics,
     ProcessMetrics,
     SystemSnapshot,
@@ -32,10 +33,16 @@ def worker_health() -> dict[str, object]:
 def worker_invoke(operation: str, payload: dict[str, object]) -> dict[str, object]:
     if operation != "snapshot":
         raise ValueError("unknown_operation")
-    if set(payload) - {"process_limit"}:
+    if set(payload) - {"process_limit", "process_sort", "process_order"}:
         raise ValueError("invalid_payload")
     process_limit = payload.get("process_limit", 20)
-    return _require_collector().snapshot(process_limit=process_limit).to_dict()
+    process_sort = payload.get("process_sort", "cpu")
+    process_order = payload.get("process_order", "desc")
+    return _require_collector().snapshot(
+        process_limit=process_limit,
+        process_sort=process_sort,
+        process_order=process_order,
+    ).to_dict()
 
 
 def worker_stop() -> None:
@@ -55,6 +62,7 @@ __all__ = [
     "DiskMetrics",
     "LinuxSystemCollector",
     "MemoryMetrics",
+    "MemoryModule",
     "ProcessMetrics",
     "SystemSnapshot",
     "ThermalSensor",

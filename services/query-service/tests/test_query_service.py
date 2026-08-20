@@ -129,10 +129,25 @@ class QueryServiceTests(unittest.TestCase):
     def test_runtime_exposes_optional_system_monitor_snapshot(self) -> None:
         snapshot = {"schema_version": 1, "supported": True, "processes": []}
         application = QueryRuntimeApplication(
-            self.service, system_monitor_status=lambda: snapshot
+            self.service, system_monitor_status=lambda _payload: snapshot
         )
 
         self.assertEqual(application.system_status(), snapshot)
+        self.assertEqual(
+            application.system_status({"process_sort": "memory", "process_order": "asc"}),
+            snapshot,
+        )
+        with self.assertRaises(ValueError):
+            application.system_status({"untrusted": True})
+        for invalid in (
+            {"process_limit": 0},
+            {"process_limit": True},
+            {"process_sort": "disk"},
+            {"process_order": "sideways"},
+        ):
+            with self.subTest(invalid=invalid):
+                with self.assertRaises(ValueError):
+                    application.system_status(invalid)
         self.assertIn("system.monitor.snapshot", application.capabilities())
         with self.assertRaises(RuntimeError):
             QueryRuntimeApplication(self.service).system_status()

@@ -46,7 +46,7 @@ class QueryRuntimeApplication:
         query_service: QueryService,
         *,
         scheduler_status: Callable[[], object] | None = None,
-        system_monitor_status: Callable[[], dict[str, object]] | None = None,
+        system_monitor_status: Callable[[dict[str, object]], dict[str, object]] | None = None,
         intent_pipeline: IntentPipeline | None = None,
         task_context: Callable[[], object] | None = None,
         plan_store: PlanStore | None = None,
@@ -90,10 +90,28 @@ class QueryRuntimeApplication:
             capabilities.append("system.monitor.snapshot")
         return capabilities
 
-    def system_status(self) -> dict[str, object]:
+    def system_status(
+        self, payload: dict[str, object] | None = None
+    ) -> dict[str, object]:
         if self.system_monitor_status is None:
             raise RuntimeError("system_monitor_unavailable")
-        status = self.system_monitor_status()
+        request = payload or {}
+        if not isinstance(request, dict):
+            raise ValueError("system monitor request must be an object")
+        if set(request) - {"process_limit", "process_sort", "process_order"}:
+            raise ValueError("unknown system monitor request field")
+        process_limit = request.get("process_limit", 20)
+        if (
+            isinstance(process_limit, bool)
+            or not isinstance(process_limit, int)
+            or not 1 <= process_limit <= 50
+        ):
+            raise ValueError("process_limit must be an integer from 1 to 50")
+        if request.get("process_sort", "cpu") not in {"cpu", "memory"}:
+            raise ValueError("process_sort must be cpu or memory")
+        if request.get("process_order", "desc") not in {"asc", "desc"}:
+            raise ValueError("process_order must be asc or desc")
+        status = self.system_monitor_status(request)
         if not isinstance(status, dict):
             raise RuntimeError("system_monitor_invalid_response")
         return status

@@ -82,8 +82,10 @@ def main() -> int:
             except ModuleProcessError:
                 print("System monitor: unavailable")
             else:
-                system_monitor_status = lambda: manager.invoke(
-                    monitor_module_id, "snapshot", {"process_limit": 20}
+                system_monitor_status = lambda payload: manager.invoke(
+                    monitor_module_id,
+                    "snapshot",
+                    {"process_limit": 20, **payload},
                 )
             query_service = QueryService(
                 storage_database=args.storage_database,

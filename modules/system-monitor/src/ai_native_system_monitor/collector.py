@@ -13,6 +13,7 @@ from .contracts import (
     BatteryMetrics,
     CpuMetrics,
     DiskMetrics,
+    MemoryModule,
     MemoryMetrics,
     ProcessMetrics,
     SystemSnapshot,
@@ -44,10 +45,23 @@ _PSEUDO_FILESYSTEMS = frozenset(
         "tracefs",
     }
 )
+_TECHNICAL_BLOCK_FILESYSTEMS = frozenset({"squashfs", "erofs", "iso9660"})
 _MOUNT_ESCAPE = re.compile(r"\\([0-7]{3})")
 _PROCESS_LIMIT = 50
 _DISK_LIMIT = 32
 _SENSOR_LIMIT = 16
+_SMBIOS_MEMORY_TYPES = {
+    0x12: "DDR",
+    0x13: "DDR2",
+    0x18: "DDR3",
+    0x1A: "DDR4",
+    0x1B: "LPDDR",
+    0x1C: "LPDDR2",
+    0x1D: "LPDDR3",
+    0x1E: "LPDDR4",
+    0x22: "DDR5",
+    0x23: "LPDDR5",
+}
 
 
 class LinuxSystemCollector:
@@ -75,11 +89,21 @@ class LinuxSystemCollector:
         self._previous_process_ticks: dict[int, int] = {}
         self._last_system_delta = 0
 
-    def snapshot(self, *, process_limit: int = 20) -> SystemSnapshot:
+    def snapshot(
+        self,
+        *,
+        process_limit: int = 20,
+        process_sort: str = "cpu",
+        process_order: str = "desc",
+    ) -> SystemSnapshot:
         if isinstance(process_limit, bool) or not isinstance(process_limit, int):
             raise ValueError("process_limit must be an integer")
         if not 1 <= process_limit <= _PROCESS_LIMIT:
             raise ValueError("process_limit must be between 1 and 50")
+        if process_sort not in {"cpu", "memory"}:
+            raise ValueError("process_sort must be cpu or memory")
+        if process_order not in {"asc", "desc"}:
+            raise ValueError("process_order must be asc or desc")
         sampled_at = monotonic()
         if not self.platform.startswith("linux"):
             return self._unsupported_snapshot(sampled_at)
@@ -92,7 +116,7 @@ class LinuxSystemCollector:
         disks = self._safe("disks", self._disks, (), warnings)
         processes = self._safe(
             "processes",
-            lambda: self._processes(cpu.logical_cpus, process_limit),
+            lambda: self._processes(process_limit, process_sort, process_order),
             (),
             warnings,
         )
@@ -154,9 +178,12 @@ class LinuxSystemCollector:
                 for token in ("cpu", "core", "package", "x86_pkg", "k10temp", "soc")
             )
         ]
+        physical_cores, packages = self._cpu_topology()
         return CpuMetrics(
             usage_percent=usage,
+            physical_cores=physical_cores,
             logical_cpus=max(1, self._cpu_count_fn() or 1),
+            packages=packages,
             load_average=load_average,
             temperature_celsius=max(cpu_temperatures, default=None),
         )
@@ -178,6 +205,10 @@ class LinuxSystemCollector:
         swap_total = max(0, values.get("SwapTotal", 0))
         swap_free = max(0, min(swap_total, values.get("SwapFree", 0)))
         used = total - available
+        modules = self._memory_modules()
+        channels = {module.channel for module in modules if module.channel is not None}
+        channel_count = len(channels) or None
+        channel_modes = {1: "single", 2: "dual", 3: "triple", 4: "quad"}
         return MemoryMetrics(
             total_bytes=total,
             available_bytes=available,
@@ -185,7 +216,132 @@ class LinuxSystemCollector:
             usage_percent=self._percent(used, total),
             swap_total_bytes=swap_total,
             swap_used_bytes=swap_total - swap_free,
+            installed_modules=len(modules) if modules else None,
+            channel_count=channel_count,
+            channel_mode=channel_modes.get(channel_count, "multi" if channel_count else "unknown"),
+            modules=modules,
         )
+
+    def _cpu_topology(self) -> tuple[int | None, int | None]:
+        cpuinfo = self.proc_root / "cpuinfo"
+        pairs: set[tuple[str, str]] = set()
+        package_ids: set[str] = set()
+        try:
+            cpuinfo_text = cpuinfo.read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            cpuinfo_text = ""
+        for block in cpuinfo_text.split("\n\n"):
+            values: dict[str, str] = {}
+            for line in block.splitlines():
+                key, separator, value = line.partition(":")
+                if separator:
+                    values[key.strip()] = value.strip()
+            physical_id = values.get("physical id")
+            core_id = values.get("core id")
+            if physical_id is not None:
+                package_ids.add(physical_id)
+            if physical_id is not None and core_id is not None:
+                pairs.add((physical_id, core_id))
+        if pairs:
+            return len(pairs), len(package_ids) or None
+
+        topology_root = self.sys_root / "devices" / "system" / "cpu"
+        for cpu_path in topology_root.glob("cpu[0-9]*"):
+            topology = cpu_path / "topology"
+            physical_id = self._read_optional(topology / "physical_package_id")
+            core_id = self._read_optional(topology / "core_id")
+            if physical_id:
+                package_ids.add(physical_id)
+            if physical_id and core_id:
+                pairs.add((physical_id, core_id))
+        return (len(pairs) or None, len(package_ids) or None)
+
+    def _memory_modules(self) -> tuple[MemoryModule, ...]:
+        modules: list[MemoryModule] = []
+        edac_root = self.sys_root / "devices" / "system" / "edac" / "mc"
+        for path in sorted(edac_root.glob("mc*/dimm*")):
+            size_mb = self._integer_optional(path / "size")
+            if size_mb is None or size_mb <= 0:
+                continue
+            label = self._read_optional(path / "dimm_label") or path.name
+            location = self._read_optional(path / "dimm_location")
+            memory_type = self._read_optional(path / "dimm_mem_type") or "unknown"
+            modules.append(
+                MemoryModule(
+                    label=label[:80],
+                    location=location[:120],
+                    memory_type=memory_type[:40],
+                    size_bytes=size_mb * 1024 * 1024,
+                    channel=self._memory_channel(location),
+                )
+            )
+            if len(modules) >= 32:
+                break
+        if modules:
+            return tuple(modules)
+        return self._dmi_memory_modules()
+
+    def _dmi_memory_modules(self) -> tuple[MemoryModule, ...]:
+        modules: list[MemoryModule] = []
+        dmi_root = self.sys_root / "firmware" / "dmi" / "entries"
+        for path in sorted(dmi_root.glob("17-*/raw")):
+            try:
+                raw = path.read_bytes()
+            except OSError:
+                continue
+            if len(raw) < 0x15 or len(raw) > 4096 or raw[0] != 17:
+                continue
+            formatted_length = raw[1]
+            if formatted_length < 0x15 or formatted_length > len(raw):
+                continue
+            size_field = int.from_bytes(raw[0x0C:0x0E], "little")
+            if size_field in {0, 0xFFFF}:
+                continue
+            if size_field == 0x7FFF:
+                if formatted_length < 0x20:
+                    continue
+                size_bytes = int.from_bytes(raw[0x1C:0x20], "little") * 1024 * 1024
+            elif size_field & 0x8000:
+                size_bytes = (size_field & 0x7FFF) * 1024
+            else:
+                size_bytes = size_field * 1024 * 1024
+            if size_bytes <= 0:
+                continue
+            strings = raw[formatted_length:].split(b"\0")
+
+            def smbios_string(offset: int) -> str:
+                if offset >= formatted_length:
+                    return ""
+                index = raw[offset]
+                if index == 0 or index > len(strings):
+                    return ""
+                return strings[index - 1].decode("utf-8", errors="replace").strip()
+
+            label = smbios_string(0x10) or path.parent.name
+            bank = smbios_string(0x11)
+            location = " · ".join(item for item in (bank, label) if item)
+            modules.append(
+                MemoryModule(
+                    label=label[:80],
+                    location=location[:120],
+                    memory_type=_SMBIOS_MEMORY_TYPES.get(raw[0x12], "unknown"),
+                    size_bytes=size_bytes,
+                    channel=self._memory_channel(location),
+                )
+            )
+            if len(modules) >= 32:
+                break
+        return tuple(modules)
+
+    @staticmethod
+    def _memory_channel(location: str) -> str | None:
+        explicit = re.search(
+            r"(?:channel|chan)[-_ ]*([a-z0-9]+)", location, re.IGNORECASE
+        )
+        if explicit:
+            return explicit.group(1).casefold()
+        dimm = re.search(r"dimm[_ -]*([a-z])(?:[0-9]|$)", location, re.IGNORECASE)
+        return dimm.group(1).casefold() if dimm else None
 
     def _battery(self) -> BatteryMetrics:
         power_root = self.sys_root / "class" / "power_supply"
@@ -248,7 +404,7 @@ class LinuxSystemCollector:
 
     def _disks(self) -> tuple[DiskMetrics, ...]:
         mountinfo = (self.proc_root / "self" / "mountinfo").read_text(encoding="utf-8")
-        candidates: list[tuple[str, str, str]] = []
+        candidates: list[tuple[str, str, str, bool]] = []
         for line in mountinfo.splitlines():
             left, separator, right = line.partition(" - ")
             if not separator:
@@ -260,13 +416,23 @@ class LinuxSystemCollector:
             mount_point = self._unescape_mount(left_fields[4])
             filesystem = right_fields[0]
             source = self._unescape_mount(right_fields[1])
-            if filesystem in _PSEUDO_FILESYSTEMS or not mount_point.startswith("/"):
+            if (
+                filesystem in _PSEUDO_FILESYSTEMS
+                or filesystem in _TECHNICAL_BLOCK_FILESYSTEMS
+                or not mount_point.startswith("/")
+                or not source.startswith("/dev/")
+                or re.match(r"^/dev/(?:loop|ram|zram)[0-9]+$", source) is not None
+                or mount_point in {"/boot", "/boot/efi"}
+            ):
                 continue
-            candidates.append((mount_point, filesystem, source))
+            mount_options = frozenset(left_fields[5].split(",")) if len(left_fields) > 5 else frozenset()
+            candidates.append((mount_point, filesystem, source, "ro" in mount_options))
 
         disks: list[DiskMetrics] = []
         seen_devices: set[int] = set()
-        for mount_point, filesystem, source in sorted(candidates, key=lambda item: (len(item[0]), item[0])):
+        for mount_point, filesystem, source, read_only in sorted(
+            candidates, key=lambda item: (len(item[0]), item[0])
+        ):
             try:
                 device = self._stat_fn(mount_point).st_dev
                 if self._statvfs_fn is None:
@@ -287,6 +453,7 @@ class LinuxSystemCollector:
                     mount_point=mount_point[:512],
                     filesystem=filesystem[:40],
                     source=source[:512],
+                    read_only=read_only,
                     total_bytes=total,
                     free_bytes=max(0, free),
                     used_bytes=used,
@@ -297,7 +464,9 @@ class LinuxSystemCollector:
                 break
         return tuple(disks)
 
-    def _processes(self, logical_cpus: int, limit: int) -> tuple[ProcessMetrics, ...]:
+    def _processes(
+        self, limit: int, process_sort: str, process_order: str
+    ) -> tuple[ProcessMetrics, ...]:
         system_delta = self._last_system_delta
         current_ticks: dict[int, int] = {}
         processes: list[ProcessMetrics] = []
@@ -334,7 +503,15 @@ class LinuxSystemCollector:
                 )
             )
         self._previous_process_ticks = current_ticks
-        processes.sort(key=lambda item: (-item.cpu_percent, -item.memory_bytes, item.pid))
+        if process_sort == "cpu" and process_order == "desc":
+            key = lambda item: (-item.cpu_percent, -item.memory_bytes, item.pid)
+        elif process_sort == "cpu":
+            key = lambda item: (item.cpu_percent, item.memory_bytes, item.pid)
+        elif process_order == "desc":
+            key = lambda item: (-item.memory_bytes, -item.cpu_percent, item.pid)
+        else:
+            key = lambda item: (item.memory_bytes, item.cpu_percent, item.pid)
+        processes.sort(key=key)
         return tuple(processes[:limit])
 
     def _uptime(self) -> float:
@@ -370,6 +547,14 @@ class LinuxSystemCollector:
             return None
 
     @classmethod
+    def _integer_optional(cls, path: Path) -> int | None:
+        raw = cls._read_optional(path)
+        try:
+            return int(raw) if raw else None
+        except ValueError:
+            return None
+
+    @classmethod
     def _temperature_value(cls, path: Path) -> float | None:
         value = cls._number_optional(path)
         if value is None:
@@ -385,11 +570,11 @@ class LinuxSystemCollector:
         return _MOUNT_ESCAPE.sub(lambda match: chr(int(match.group(1), 8)), value)
 
     def _empty_cpu(self) -> CpuMetrics:
-        return CpuMetrics(None, max(1, self._cpu_count_fn() or 1), None, None)
+        return CpuMetrics(None, None, max(1, self._cpu_count_fn() or 1), None, None, None)
 
     @staticmethod
     def _empty_memory() -> MemoryMetrics:
-        return MemoryMetrics(0, 0, 0, None, 0, 0)
+        return MemoryMetrics(0, 0, 0, None, 0, 0, None, None, "unknown", ())
 
     @staticmethod
     def _empty_battery() -> BatteryMetrics:
