@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import os
+import sqlite3
+from pathlib import Path
 from threading import RLock
 
 from .contracts import OperationIntent, OperationKind, TaskContext, UserIntent
@@ -49,9 +52,12 @@ class ContextResolver:
 class TaskContextStore:
     """Small thread-safe, server-owned context for the active panel task."""
 
-    def __init__(self, *, locale: str = "ru") -> None:
+    def __init__(self, *, locale: str = "ru", database: Path | None = None) -> None:
         self._lock = RLock()
+        self.database = None if database is None else Path(database)
         self._context = TaskContext(locale=locale)
+        if self.database is not None:
+            self._initialize_database(locale)
 
     def snapshot(self) -> TaskContext:
         with self._lock:
@@ -63,6 +69,7 @@ class TaskContextStore:
                 self._context,
                 active_collection_id=self._trusted_value(collection_id, "collection_id"),
             )
+            self._persist()
             return self._context
 
     def set_last_destination(self, destination: str | None) -> TaskContext:
@@ -71,12 +78,66 @@ class TaskContextStore:
                 self._context,
                 last_destination=self._trusted_value(destination, "destination"),
             )
+            self._persist()
             return self._context
 
     def clear(self) -> TaskContext:
         with self._lock:
             self._context = TaskContext(locale=self._context.locale)
+            self._persist()
             return self._context
+
+    def _initialize_database(self, locale: str) -> None:
+        assert self.database is not None
+        if self.database.exists() and self.database.is_symlink():
+            raise ValueError("task context database cannot be a symlink")
+        self.database.parent.mkdir(parents=True, exist_ok=True)
+        with self._connect() as connection:
+            connection.execute("PRAGMA journal_mode = WAL")
+            connection.execute("PRAGMA synchronous = FULL")
+            connection.execute(
+                """CREATE TABLE IF NOT EXISTS task_context (
+                    singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
+                    active_collection_id TEXT,
+                    last_destination TEXT,
+                    locale TEXT NOT NULL
+                )"""
+            )
+            row = connection.execute(
+                "SELECT active_collection_id, last_destination FROM task_context WHERE singleton = 1"
+            ).fetchone()
+            if row is None:
+                connection.execute(
+                    "INSERT INTO task_context(singleton, locale) VALUES (1, ?)",
+                    (locale,),
+                )
+            else:
+                self._context = TaskContext(row[0], row[1], locale)
+                connection.execute(
+                    "UPDATE task_context SET locale = ? WHERE singleton = 1", (locale,)
+                )
+        if os.name == "posix":
+            os.chmod(self.database, 0o600)
+
+    def _persist(self) -> None:
+        if self.database is None:
+            return
+        with self._connect() as connection:
+            connection.execute(
+                """UPDATE task_context SET active_collection_id = ?,
+                   last_destination = ?, locale = ? WHERE singleton = 1""",
+                (
+                    self._context.active_collection_id,
+                    self._context.last_destination,
+                    self._context.locale,
+                ),
+            )
+
+    def _connect(self) -> sqlite3.Connection:
+        assert self.database is not None
+        connection = sqlite3.connect(self.database, timeout=5)
+        connection.execute("PRAGMA busy_timeout = 5000")
+        return connection
 
     @staticmethod
     def _trusted_value(value: str | None, label: str) -> str | None:

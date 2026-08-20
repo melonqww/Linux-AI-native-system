@@ -29,6 +29,9 @@ class RuntimeApplication(Protocol):
     def task_detail(self, payload: dict[str, object]) -> object: ...
     def cancel_task(self, payload: dict[str, object]) -> object: ...
     def continue_task(self, payload: dict[str, object]) -> object: ...
+    def workspace_messages(self, payload: dict[str, object]) -> tuple[object, ...]: ...
+    def workspace_runs(self, payload: dict[str, object]) -> tuple[object, ...]: ...
+    def workspace_run(self, payload: dict[str, object]) -> object: ...
 
 
 @dataclass(frozen=True)
@@ -93,6 +96,8 @@ class RuntimeRouter:
                     "execution.r1.copy",
                     "tasks.activity.detail",
                     "tasks.activity.control",
+                    "workspace.messages.read",
+                    "workspace.runs.read",
                 }
                 capabilities = [item for item in capabilities if item not in restricted]
             return RuntimeResponse(200, {"capabilities": capabilities})
@@ -121,6 +126,32 @@ class RuntimeRouter:
             return RuntimeResponse(200, self.application.system_status(payload))
         if path == "/v1/system-updates/check":
             return RuntimeResponse(200, self.application.check_system_updates(payload))
+        if path in {
+            "/v1/workspace/messages",
+            "/v1/workspace/runs",
+            "/v1/workspace/run",
+        }:
+            if not self.allow_r1:
+                return self.error(403, "secure_transport_required", False, request_id)
+            if path == "/v1/workspace/messages":
+                return RuntimeResponse(
+                    200,
+                    {
+                        "messages": [
+                            asdict(item) for item in self.application.workspace_messages(payload)
+                        ]
+                    },
+                )
+            if path == "/v1/workspace/runs":
+                return RuntimeResponse(
+                    200,
+                    {
+                        "runs": [
+                            asdict(item) for item in self.application.workspace_runs(payload)
+                        ]
+                    },
+                )
+            return RuntimeResponse(200, asdict(self.application.workspace_run(payload)))
         if path == "/v1/intent/compile":
             return RuntimeResponse(200, asdict(self.application.compile_intent(payload)))
         if path == "/v1/plan/execute":

@@ -34,6 +34,7 @@ fi
 source_paths=(
     "services/agent-runtime/src"
     "services/task-ledger/src"
+    "services/workspace-service/src"
     "services/permission-gateway/src"
     "services/execution-orchestrator/src"
     "services/intent-compiler/src"
@@ -72,6 +73,8 @@ exec "${runtime_python}" -m ai_native_linux.cli \
     --index-database "${runtime_data}/document-index.sqlite3" \
     --registry-database "${runtime_data}/capabilities.sqlite3" \
     --task-ledger-database "${runtime_data}/task-ledger.sqlite3" \
+    --memory-database "${runtime_data}/task-memory.sqlite3" \
+    --workspace-database "${runtime_data}/workspace.sqlite3" \
     --audit-file "${runtime_data}/audit-events.jsonl" \
     --intent-model "${intent_model}" \
     --ollama-url "${ollama_url}"

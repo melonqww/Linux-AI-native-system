@@ -37,7 +37,12 @@ class Task:
 
 class App:
     def capabilities(self):
-        return ["storage.catalog.search", "execution.r1.copy"]
+        return [
+            "storage.catalog.search",
+            "execution.r1.copy",
+            "workspace.messages.read",
+            "workspace.runs.read",
+        ]
 
     def search(self, payload):
         return [Result(path=f"result:{payload['text']}")]
@@ -148,12 +153,21 @@ class BridgeTests(unittest.TestCase):
             )
             with self.assertRaises(urllib.error.HTTPError) as cancel_error:
                 urllib.request.urlopen(cancel_request)
+            workspace_request = urllib.request.Request(
+                base + "/v1/workspace/messages",
+                data=b"{}",
+                headers={"Content-Type": "application/json"},
+            )
+            with self.assertRaises(urllib.error.HTTPError) as workspace_error:
+                urllib.request.urlopen(workspace_request)
         finally:
             server.shutdown()
             server.server_close()
             thread.join()
         self.assertEqual(health, {"status": "ok"})
         self.assertNotIn("execution.r1.copy", capabilities["capabilities"])
+        self.assertNotIn("workspace.messages.read", capabilities["capabilities"])
+        self.assertNotIn("workspace.runs.read", capabilities["capabilities"])
         self.assertEqual(status["scheduler"]["state"], "idle")
         self.assertEqual(system_status["schema_version"], 1)
         self.assertTrue(system_status["supported"])
@@ -168,6 +182,7 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(approval_error.exception.code, 403)
         self.assertEqual(approval["error"]["code"], "secure_transport_required")
         self.assertEqual(cancel_error.exception.code, 403)
+        self.assertEqual(workspace_error.exception.code, 403)
 
     def test_global_error_envelope_redacts_unexpected_failures(self):
         server = create_server(App())

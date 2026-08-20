@@ -63,6 +63,23 @@ class FakeExecutor:
         return {"approval_request_id": approval_request_id, "confirmed": confirmed}
 
 
+class FakeWorkspace:
+    def __init__(self):
+        self.message_limit = None
+        self.run_options = None
+
+    def list_messages(self, *, limit=200):
+        self.message_limit = limit
+        return ("message",)
+
+    def list_runs(self, *, limit=20, active_only=False):
+        self.run_options = (limit, active_only)
+        return ("run",)
+
+    def run(self, run_id):
+        return f"run:{run_id}"
+
+
 class QueryServiceTests(unittest.TestCase):
     def setUp(self) -> None:
         self.root = PROJECT_ROOT / "tmp" / "query-service-tests" / str(uuid4())
@@ -164,6 +181,38 @@ class QueryServiceTests(unittest.TestCase):
             application.check_system_updates({"command": "install"})
         with self.assertRaises(RuntimeError):
             QueryRuntimeApplication(self.service).check_system_updates({})
+
+    def test_runtime_exposes_validated_workspace_projection(self) -> None:
+        workspace = FakeWorkspace()
+        application = QueryRuntimeApplication(self.service, workspace=workspace)
+        run_id = str(uuid4())
+
+        self.assertEqual(application.workspace_messages({"limit": 25}), ("message",))
+        self.assertEqual(workspace.message_limit, 25)
+        self.assertEqual(
+            application.workspace_runs({"limit": 5, "active_only": True}),
+            ("run",),
+        )
+        self.assertEqual(workspace.run_options, (5, True))
+        self.assertEqual(application.workspace_run({"run_id": run_id}), f"run:{run_id}")
+        self.assertIn("workspace.messages.read", application.capabilities())
+        self.assertIn("workspace.runs.read", application.capabilities())
+        for invalid in (
+            {"limit": True},
+            {"limit": 501},
+            {"unknown": 1},
+        ):
+            with self.subTest(messages=invalid):
+                with self.assertRaises(ValueError):
+                    application.workspace_messages(invalid)
+        for invalid in (
+            {"limit": 0},
+            {"active_only": "yes"},
+            {"unknown": 1},
+        ):
+            with self.subTest(runs=invalid):
+                with self.assertRaises(ValueError):
+                    application.workspace_runs(invalid)
 
     def test_revoked_content_permission_hides_stale_index_snippets(self) -> None:
         self.make_pdf("Private mathematics theorem")

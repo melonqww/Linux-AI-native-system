@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from ai_native_intents import (
     ModelRequest,
+    ModelTurnKind,
     OllamaModelProvider,
     OllamaProviderError,
     OllamaUnavailableError,
@@ -27,9 +28,9 @@ class FakeResponse:
         return self.body.read(size)
 
 
-def model_request():
+def model_request(user_text="Найди PDF по математике"):
     return ModelRequest(
-        user_text="Найди PDF по математике",
+        user_text=user_text,
         locale="ru",
         context={"has_active_results": False, "has_last_destination": False, "locale": "ru"},
         output_schema={"type": "object", "additionalProperties": False},
@@ -38,6 +39,25 @@ def model_request():
 
 
 class OllamaProviderTests(unittest.TestCase):
+    def test_routes_greeting_to_conversation_without_an_execution_intent(self):
+        response = FakeResponse(
+            {"message": {"role": "assistant", "content": "Привет! Чем помочь?"}}
+        )
+        provider = OllamaModelProvider()
+
+        with patch("ai_native_intents.ollama._open_loopback", return_value=response):
+            turn = provider.route(model_request("Привет"))
+
+        self.assertEqual(turn.kind, ModelTurnKind.CONVERSATION)
+        self.assertEqual(turn.response_text, "Привет! Чем помочь?")
+        self.assertIsNone(turn.intent_payload)
+
+    def test_intent_only_compilation_rejects_conversation(self):
+        response = FakeResponse({"message": {"content": "Привет!"}})
+        with patch("ai_native_intents.ollama._open_loopback", return_value=response):
+            with self.assertRaises(OllamaProviderError):
+                OllamaModelProvider().compile(model_request("Привет"))
+
     def test_sends_closed_schema_with_thinking_disabled(self):
         captured = []
 

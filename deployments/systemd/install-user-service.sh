@@ -69,7 +69,8 @@ fi
 
 systemctl --user daemon-reload
 systemctl --user reset-failed ai-native-linux-runtime.service || true
-systemctl --user enable --now ai-native-linux-runtime.service
+systemctl --user enable ai-native-linux-runtime.service
+systemctl --user restart ai-native-linux-runtime.service
 
 socket_path="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/ai-native-linux/runtime.sock"
 for _attempt in {1..40}; do

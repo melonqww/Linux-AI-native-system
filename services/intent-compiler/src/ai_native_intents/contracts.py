@@ -24,6 +24,11 @@ class CompilationState(StrEnum):
     UNAVAILABLE = "unavailable"
 
 
+class ModelTurnKind(StrEnum):
+    CONVERSATION = "conversation"
+    ACTION = "action"
+
+
 class RiskClass(StrEnum):
     READ_ONLY = "R0"
     REVERSIBLE_WRITE = "R1"
@@ -50,6 +55,13 @@ class ModelRequest:
     context: dict[str, object]
     output_schema: dict[str, object]
     instructions: str
+
+
+@dataclass(frozen=True)
+class ModelTurn:
+    kind: ModelTurnKind
+    response_text: str | None = None
+    intent_payload: dict[str, object] | None = None
 
 
 @dataclass(frozen=True)

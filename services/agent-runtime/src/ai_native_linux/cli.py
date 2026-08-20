@@ -38,6 +38,8 @@ def main() -> int:
     parser.add_argument("--index-database", type=Path, default=Path("data/document-index.sqlite3"))
     parser.add_argument("--registry-database", type=Path, default=Path("data/capabilities.sqlite3"))
     parser.add_argument("--task-ledger-database", type=Path, default=Path("data/task-ledger.sqlite3"))
+    parser.add_argument("--memory-database", type=Path, default=Path("data/task-memory.sqlite3"))
+    parser.add_argument("--workspace-database", type=Path, default=Path("data/workspace.sqlite3"))
     parser.add_argument("--intent-model", default="qwen3:1.7b")
     parser.add_argument("--ollama-url", default="http://127.0.0.1:11434")
     parser.add_argument("--intent-timeout", type=float, default=45.0)
@@ -62,6 +64,7 @@ def main() -> int:
         from ai_native_capabilities import CapabilityRegistry
         from ai_native_module_manager import ModuleProcessError, ModuleProcessManager
         from ai_native_query import QueryRuntimeApplication, QueryService
+        from ai_native_workspace import WorkspaceStore
 
         roots = args.module_roots or [Path("services"), Path("modules")]
         registry = CapabilityRegistry(args.registry_database)
@@ -103,6 +106,8 @@ def main() -> int:
             from ai_native_ledger import TaskLedger
 
             task_ledger = TaskLedger(args.task_ledger_database)
+            workspace = WorkspaceStore(args.workspace_database)
+            workspace.purge_expired()
             if not args.no_intent_compiler:
                 from ai_native_intents import (
                     IntentCompiler,
@@ -123,7 +128,10 @@ def main() -> int:
                     provider,
                     capability_source=registry.available_capabilities,
                 )
-                context_store = TaskContextStore(locale=args.locale)
+                context_store = TaskContextStore(
+                    locale=args.locale,
+                    database=args.memory_database,
+                )
                 task_context = context_store.snapshot
                 from ai_native_orchestrator import (
                     CompiledPlanStore,
@@ -172,6 +180,7 @@ def main() -> int:
                 plan_store=plan_store,
                 plan_executor=plan_executor,
                 task_ledger=task_ledger,
+                workspace=workspace,
             )
             transport = (
                 "unix" if args.transport == "auto" and sys.platform.startswith("linux")

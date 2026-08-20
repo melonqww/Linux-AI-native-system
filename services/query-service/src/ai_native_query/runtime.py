@@ -40,6 +40,14 @@ class TaskHistory(Protocol):
     def request_continue(self, task_id: str) -> object: ...
 
 
+class WorkspaceHistory(Protocol):
+    def list_messages(self, *, limit: int = 200) -> tuple[object, ...]: ...
+    def list_runs(
+        self, *, limit: int = 20, active_only: bool = False
+    ) -> tuple[object, ...]: ...
+    def run(self, run_id: str) -> object: ...
+
+
 class QueryRuntimeApplication:
     def __init__(
         self,
@@ -53,6 +61,7 @@ class QueryRuntimeApplication:
         plan_store: PlanStore | None = None,
         plan_executor: PlanExecutor | None = None,
         task_ledger: TaskHistory | None = None,
+        workspace: WorkspaceHistory | None = None,
     ) -> None:
         self.query_service = query_service
         self.scheduler_status = scheduler_status
@@ -63,6 +72,7 @@ class QueryRuntimeApplication:
         self.plan_store = plan_store
         self.plan_executor = plan_executor
         self.task_ledger = task_ledger
+        self.workspace = workspace
         if intent_pipeline is not None and task_context is None:
             raise ValueError("task_context is required with intent_pipeline")
         if (plan_store is None) != (plan_executor is None):
@@ -92,7 +102,39 @@ class QueryRuntimeApplication:
             capabilities.append("system.monitor.snapshot")
         if self.system_updates_check is not None:
             capabilities.append("system.updates.check")
+        if self.workspace is not None:
+            capabilities.extend(("workspace.messages.read", "workspace.runs.read"))
         return capabilities
+
+    def workspace_messages(self, payload: dict[str, object]) -> tuple[object, ...]:
+        if self.workspace is None:
+            raise RuntimeError("workspace_unavailable")
+        if set(payload) - {"limit"}:
+            raise ValueError("unknown workspace message field")
+        limit = payload.get("limit", 200)
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 500:
+            raise ValueError("workspace message limit must be from 1 to 500")
+        return self.workspace.list_messages(limit=limit)
+
+    def workspace_run(self, payload: dict[str, object]) -> object:
+        if self.workspace is None:
+            raise RuntimeError("workspace_unavailable")
+        if set(payload) != {"run_id"}:
+            raise ValueError("exactly run_id is required")
+        return self.workspace.run(self._string(payload, "run_id"))
+
+    def workspace_runs(self, payload: dict[str, object]) -> tuple[object, ...]:
+        if self.workspace is None:
+            raise RuntimeError("workspace_unavailable")
+        if set(payload) - {"limit", "active_only"}:
+            raise ValueError("unknown workspace runs field")
+        limit = payload.get("limit", 20)
+        active_only = payload.get("active_only", False)
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 100:
+            raise ValueError("workspace runs limit must be from 1 to 100")
+        if not isinstance(active_only, bool):
+            raise ValueError("active_only must be a boolean")
+        return self.workspace.list_runs(limit=limit, active_only=active_only)
 
     def check_system_updates(self, payload: dict[str, object]) -> dict[str, object]:
         if self.system_updates_check is None:

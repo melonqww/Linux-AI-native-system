@@ -11,7 +11,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import ProxyHandler, Request, build_opener
 
-from .contracts import ModelRequest
+from .contracts import ModelRequest, ModelTurn, ModelTurnKind
 from .provider import (
     IntentProviderError,
     IntentProviderResponseError,
@@ -62,9 +62,12 @@ _REQUIRED_ARGUMENTS: Final = {
     "save_results": ["title"],
     "copy_results": ["destination"],
 }
-_TOOL_INSTRUCTIONS: Final = """Translate the user's goal into one or more semantic function
-calls in execution order. Calls only describe intent and execute nothing. Call every function
-required by a compound request. File, PDF and document searches default to local storage.
+_TOOL_INSTRUCTIONS: Final = """You are the language router for a local operating system.
+For ordinary conversation that requests no system action, do not call a function and answer
+briefly in the user's language. For a system action, call one or more semantic functions in
+execution order and do not claim that anything has already happened. Function calls only
+describe intent and execute nothing. Call every function required by a compound request.
+File, PDF and document searches default to local storage.
 Use web search only when the user explicitly requests internet, web or a site. Never invent
 URLs, paths, files, IDs or completed results. An explicit HTTP(S) URL in the request must use
 plan_open_url, never plan_web_search. When the user refers to a prior destination as "there"
@@ -116,6 +119,12 @@ class OllamaModelProvider:
         self.keep_alive = self._bounded_text(keep_alive, "keep_alive", maximum=32)
 
     def compile(self, request: ModelRequest) -> Mapping[str, object]:
+        turn = self.route(request)
+        if turn.kind is not ModelTurnKind.ACTION or turn.intent_payload is None:
+            raise OllamaProviderError("Ollama returned conversation instead of an action")
+        return turn.intent_payload
+
+    def route(self, request: ModelRequest) -> ModelTurn:
         payload = {
             "model": self.model,
             "messages": [
@@ -146,9 +155,17 @@ class OllamaModelProvider:
         if not isinstance(message, Mapping):
             raise OllamaProviderError("Ollama response has no message object")
         calls = message.get("tool_calls")
+        if calls is None or calls == []:
+            return ModelTurn(
+                ModelTurnKind.CONVERSATION,
+                response_text=self._assistant_text(message.get("content")),
+            )
         if not isinstance(calls, list) or not 1 <= len(calls) <= 12:
-            raise OllamaProviderError("Ollama returned no bounded semantic tool calls")
-        return self._intent_payload(calls, request)
+            raise OllamaProviderError("Ollama returned invalid semantic tool calls")
+        return ModelTurn(
+            ModelTurnKind.ACTION,
+            intent_payload=dict(self._intent_payload(calls, request)),
+        )
 
     def health(self) -> OllamaHealth:
         try:
@@ -352,6 +369,17 @@ class OllamaModelProvider:
         if not value or len(value) > maximum or any(ord(character) < 32 for character in value):
             raise ValueError(f"{label} is invalid")
         return value
+
+    @staticmethod
+    def _assistant_text(value: object) -> str:
+        if not isinstance(value, str):
+            raise OllamaProviderError("Ollama conversation response must be text")
+        text = value.strip()
+        if not text or len(text) > 4_000:
+            raise OllamaProviderError("Ollama conversation response has invalid length")
+        if any(ord(character) < 32 and character not in "\n\t" for character in text):
+            raise OllamaProviderError("Ollama conversation response has control characters")
+        return text
 
 
 def _open_loopback(request: Request, timeout: float):

@@ -41,7 +41,8 @@ class SystemdDeploymentTests(unittest.TestCase):
             "import pypdf",
             "systemctl --user daemon-reload",
             "systemctl --user reset-failed ai-native-linux-runtime.service",
-            "systemctl --user enable --now ai-native-linux-runtime.service",
+            "systemctl --user enable ai-native-linux-runtime.service",
+            "systemctl --user restart ai-native-linux-runtime.service",
             '[[ -S "${socket_path}" ]]',
             "RESULT: PANEL CORE CONNECTED",
             "journalctl --user -u ai-native-linux-runtime.service",
@@ -111,6 +112,7 @@ class SystemdDeploymentTests(unittest.TestCase):
             for relative in (
                 "services/agent-runtime/src",
                 "services/task-ledger/src",
+                "services/workspace-service/src",
                 "services/permission-gateway/src",
                 "services/execution-orchestrator/src",
                 "services/intent-compiler/src",
@@ -161,6 +163,7 @@ class SystemdDeploymentTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn(f"{fake_repository}/modules/system-monitor/src", result.stdout)
+        self.assertIn(f"{fake_repository}/services/workspace-service/src", result.stdout)
         self.assertIn("existing-package-path", result.stdout)
         self.assertIn("ARG=--serve-panel", result.stdout)
         self.assertIn("ARG=--transport", result.stdout)
@@ -168,6 +171,8 @@ class SystemdDeploymentTests(unittest.TestCase):
         self.assertIn("ARG=--intent-model", result.stdout)
         self.assertIn("ARG=test-model:2b", result.stdout)
         self.assertIn(f"{fake_data}/ai-native-linux/storage-catalog.sqlite3", result.stdout)
+        self.assertIn(f"{fake_data}/ai-native-linux/task-memory.sqlite3", result.stdout)
+        self.assertIn(f"{fake_data}/ai-native-linux/workspace.sqlite3", result.stdout)
 
 
 if __name__ == "__main__":

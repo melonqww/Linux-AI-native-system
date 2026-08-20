@@ -110,6 +110,7 @@ model reasoning и технические причины ошибок в пол�
 1. `services/module-manager` запускает capability-модули отдельными процессами,
    поднимает зависимости, проверяет health, ограничивает ожидание ответа и
    выгружает idle-модули.
+
 2. `services/query-service` объединяет быстрый поиск по метаданным и содержимому.
 3. `modules/documents-pdf` извлекает постраничный текст PDF для локального FTS.
 4. loopback bridge в `services/agent-runtime` соединяет сервис с GNOME-панелью.
@@ -117,6 +118,13 @@ model reasoning и технические причины ошибок в пол�
    после явного одноразового подтверждения и повторной проверки источников.
 6. `modules/desktop-applications` и `modules/browser-navigation` дают базовый
    поиск приложений, безопасное планирование URL и веб-поиска.
+
+`services/workspace-service` задаёт единую системную рабочую ленту без списка
+чатов: сообщения живут 24 часа, run stages содержат только безопасный публичный
+прогресс и точное прошедшее время. Operational task-memory теперь переживает
+рестарт отдельно от сообщений, а Task Ledger по-прежнему хранит факты операций
+семь суток. Архитектура зафиксирована в
+[`ADR-009`](Architecture/decisions/ADR-009-system-workspace-runtime.md).
 
 `modules/system-monitor` реализует read-only диспетчер: CPU, load average,
 uptime, RAM/swap, thermal zones, батарею, диски и процессы. Контракт:
@@ -190,6 +198,7 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [Решение о портфолио-MVP](Architecture/decisions/ADR-001-portfolio-mvp-scope.md)
 - [Решение о каталоге хранилищ и виртуальных коллекциях](Architecture/decisions/ADR-002-storage-catalog-and-virtual-collections.md)
 - [Решение о модульном capability-ядре](Architecture/decisions/ADR-003-modular-capability-core.md)
+- [Решение о единой системной рабочей области](Architecture/decisions/ADR-009-system-workspace-runtime.md)
 - [Решение об Intent Compiler](Architecture/decisions/ADR-004-model-neutral-intent-compiler.md)
 - [Решение об оркестрации серверных планов](Architecture/decisions/ADR-005-server-owned-execution-orchestration.md)
 - [Решение об authenticated Unix transport](Architecture/decisions/ADR-006-authenticated-unix-runtime-transport.md)
