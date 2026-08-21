@@ -141,8 +141,16 @@
 }
 
 .ai-dependency-check {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
     color: #c8c8c8;
     font-size: 11px;
+    padding: 6px 9px;
+}
+
+.ai-dependency-check:checked {
+    background-color: rgba(240, 209, 139, 0.22);
+    color: #f0d18b;
 }
 
 .ai-dependency-hide,

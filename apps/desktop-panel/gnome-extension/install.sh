@@ -20,13 +20,17 @@ if command -v gnome-extensions >/dev/null 2>&1; then
     sleep 1
 fi
 
-cp "${SCRIPT_DIR}/metadata.json" "${TARGET_DIR}/metadata.json"
-cp "${SCRIPT_DIR}/extension.js" "${TARGET_DIR}/extension.js"
-cp "${SCRIPT_DIR}/runtime-client.js" "${TARGET_DIR}/runtime-client.js"
-cp "${SCRIPT_DIR}/panel-presenter.js" "${TARGET_DIR}/panel-presenter.js"
-cp "${SCRIPT_DIR}/stylesheet.css" "${TARGET_DIR}/stylesheet.css"
+panel_files=(metadata.json extension.js runtime-client.js panel-presenter.js stylesheet.css)
+for panel_file in "${panel_files[@]}"; do
+    cp "${SCRIPT_DIR}/${panel_file}" "${TARGET_DIR}/${panel_file}"
+    if ! cmp -s "${SCRIPT_DIR}/${panel_file}" "${TARGET_DIR}/${panel_file}"; then
+        echo "Ошибка: установленный файл панели не совпадает: ${panel_file}" >&2
+        exit 1
+    fi
+done
 
 echo "Установлено в ${TARGET_DIR}"
+echo "PASS: файлы панели побайтно совпадают с репозиторием"
 if command -v gnome-extensions >/dev/null 2>&1; then
     gnome-extensions enable "${EXTENSION_UUID}" || true
     echo "Расширение включено (если текущая сессия разрешает перезагрузку)."

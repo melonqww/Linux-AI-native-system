@@ -21,6 +21,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
     def test_metadata_is_valid(self):
         metadata = json.loads((ROOT / "metadata.json").read_text(encoding="utf-8"))
         self.assertEqual(metadata["uuid"], "ai-native-linux@melonqww")
+        self.assertEqual(metadata["version"], 5)
         self.assertIn("46", metadata["shell-version"])
 
     def test_runtime_files_exist(self):
@@ -40,8 +41,8 @@ class GnomeExtensionFilesTest(unittest.TestCase):
         script = (ROOT / "install.sh").read_text(encoding="utf-8")
         self.assertIn('gnome-extensions disable "${EXTENSION_UUID}"', script)
         self.assertIn('gnome-extensions enable "${EXTENSION_UUID}"', script)
-        self.assertIn('runtime-client.js" "${TARGET_DIR}/runtime-client.js', script)
-        self.assertIn('panel-presenter.js" "${TARGET_DIR}/panel-presenter.js', script)
+        self.assertIn("panel_files=(metadata.json extension.js runtime-client.js", script)
+        self.assertIn("panel-presenter.js stylesheet.css)", script)
         self.assertIn("install-user-service.sh", script)
 
     def test_native_panel_contract_is_present(self):
@@ -121,6 +122,9 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "_requestInferenceStatus",
             "this._runtime.request('POST', '/v1/inference/status')",
             "Ошибка проверки локального ИИ",
+            "Ошибка интерфейса локального ИИ",
+            "inference notice rendering failed",
+            "toggle_mode: true",
             "Не удалось загрузить",
             "Ошибка установки Ollama",
             "Хорошо",
@@ -146,6 +150,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "taskDetailPresentation(task)",
         ):
             self.assertIn(marker, source)
+        self.assertNotIn("St.CheckButton", source)
         self.assertNotIn("Gemma 2 2B", source)
         self.assertNotIn("Qwen 3.5 2B", source)
         self.assertNotIn("Qwen 3.5 4B", source)
@@ -191,7 +196,9 @@ class GnomeExtensionFilesTest(unittest.TestCase):
         source = (ROOT / "install.sh").read_text(encoding="utf-8")
         runtime = 'bash "${REPOSITORY_ROOT}/deployments/systemd/install-user-service.sh"'
         self.assertIn(runtime, source)
-        self.assertLess(source.index(runtime), source.index('cp "${SCRIPT_DIR}/extension.js"'))
+        self.assertLess(source.index(runtime), source.index("panel_files=("))
+        self.assertIn('cmp -s "${SCRIPT_DIR}/${panel_file}"', source)
+        self.assertIn("файлы панели побайтно совпадают", source)
 
     def test_panel_presenter_scenarios(self):
         node = shutil.which("node")
@@ -239,6 +246,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
         self.assertIn("margin-top: 2px;", stylesheet)
         self.assertIn(".ai-dependency-error", stylesheet)
         self.assertIn(".ai-dependency-ok", stylesheet)
+        self.assertIn(".ai-dependency-check:checked", stylesheet)
 
     @unittest.skipUnless(sys.platform.startswith("linux"), "requires Linux Unix IPC")
     def test_gjs_runtime_client_reaches_authenticated_unix_server(self):

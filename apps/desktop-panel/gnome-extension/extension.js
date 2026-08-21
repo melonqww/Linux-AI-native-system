@@ -288,10 +288,11 @@ class ChatView extends St.BoxLayout {
             label: 'Скрыть',
             style_class: 'ai-dependency-hide',
         });
-        const neverShow = new St.CheckButton({
+        const neverShow = new St.Button({
             label: 'Не показывать',
             style_class: 'ai-dependency-check',
             can_focus: true,
+            toggle_mode: true,
         });
         const install = new St.Button({
             label: isOllamaMissing ? 'Нужна Ollama' : isDownloading ? 'Загрузка…' : 'Загрузить',
@@ -376,10 +377,11 @@ class ChatView extends St.BoxLayout {
             x_expand: true,
         });
         const hide = new St.Button({label: 'Скрыть', style_class: 'ai-dependency-hide'});
-        const neverShow = new St.CheckButton({
+        const neverShow = new St.Button({
             label: 'Не показывать',
             style_class: 'ai-dependency-check',
             can_focus: true,
+            toggle_mode: true,
         });
         const install = new St.Button({
             label: isInstalling ? 'Установка…' : 'Установить Ollama',
@@ -491,8 +493,15 @@ class ChatView extends St.BoxLayout {
         if (this._inferenceLifecycleInFlight || this._disposed)
             return;
         this._inferenceLifecycleInFlight = true;
+        let snapshot;
         try {
-            const snapshot = await this._requestInferenceStatus();
+            try {
+                snapshot = await this._requestInferenceStatus();
+            } catch (error) {
+                if (!this._disposed)
+                    this._showInferenceTransportError(error);
+                return;
+            }
             if (this._disposed)
                 return;
             this._providerStatus = snapshot?.provider ?? null;
@@ -507,21 +516,33 @@ class ChatView extends St.BoxLayout {
             this._modelCatalog = this._baseModelPromptShown
                 ? this._withBaseModelPrompt(catalog)
                 : catalog;
-            this._renderDependencyNotices();
-        } catch (error) {
-            if (this._disposed)
-                return;
-            this._dependencyNotices.destroy_all_children();
-            this._dependencyNotices.add_child(this._errorNotice(
-                'Ошибка проверки локального ИИ',
-                `Не удалось получить состояние Ollama, Qwen и LLaMA.\nПричина: ${this._friendlyError(error)}.`,
-            ));
-            this._dependencyNotices.show();
-            this._inferencePollDelayMs = 5_000;
-            this._scheduleModelCatalogPoll();
+            try {
+                this._renderDependencyNotices();
+            } catch (error) {
+                logError(error, 'AI-native Linux: inference notice rendering failed');
+                this._dependencyNotices.destroy_all_children();
+                this._dependencyNotices.add_child(this._errorNotice(
+                    'Ошибка интерфейса локального ИИ',
+                    'Backend ответил правильно, но панель не смогла показать окно Ollama и моделей.',
+                ));
+                this._dependencyNotices.show();
+                this._inferencePollDelayMs = 15_000;
+                this._scheduleModelCatalogPoll();
+            }
         } finally {
             this._inferenceLifecycleInFlight = false;
         }
+    }
+
+    _showInferenceTransportError(error) {
+        this._dependencyNotices.destroy_all_children();
+        this._dependencyNotices.add_child(this._errorNotice(
+            'Ошибка проверки локального ИИ',
+            `Не удалось получить состояние Ollama, Qwen и LLaMA.\nПричина: ${this._friendlyError(error)}.`,
+        ));
+        this._dependencyNotices.show();
+        this._inferencePollDelayMs = 5_000;
+        this._scheduleModelCatalogPoll();
     }
 
     _requestInferenceStatus() {
