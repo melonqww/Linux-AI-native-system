@@ -240,6 +240,26 @@ class WorkspaceRuntimeTests(unittest.TestCase):
 
         self.assertNotIn("Вторая", [item.content for item in self.store.list_messages()])
 
+    def test_model_download_state_is_visible_without_invoking_qwen(self):
+        model = Model(ModelTurn(ModelTurnKind.CONVERSATION, response_text="unused"))
+        runtime = WorkspaceRuntime(
+            self.store,
+            model,
+            Compiler(None),
+            Executor(None),
+            lambda: TaskContext(locale="ru"),
+            model_status=lambda: {"state": "downloading", "progress_percent": 42},
+        )
+        try:
+            run = runtime.submit("Привет", transport_context=TransportContext.internal())
+            run = self.wait_for(run.run_id, WorkspaceStage.FAILED)
+        finally:
+            runtime.close()
+
+        self.assertEqual(model.route_calls, 0)
+        self.assertIn("42%", self.store.list_messages()[-1].content)
+        self.assertIsNone(run.task_id)
+
 
 if __name__ == "__main__":
     unittest.main()

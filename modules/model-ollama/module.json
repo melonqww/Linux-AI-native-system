@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "module_id": "model.ollama",
+  "display_name": "Ollama Model Manager",
+  "description": "Keeps the configured local Ollama model available and downloads missing model weights in the background.",
+  "module_version": "0.1.0",
+  "core_api": "1",
+  "capabilities": ["model.local.ensure", "model.local.status"],
+  "dependencies": [],
+  "optional_dependencies": [],
+  "requested_permissions": ["model.download-network", "model.manage-process"],
+  "lifecycle": "background",
+  "resource_class": "light",
+  "default_enabled": true,
+  "entrypoint": {"kind": "python-service", "module": "ai_native_model_ollama", "python_path": "src"}
+}

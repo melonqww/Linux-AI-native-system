@@ -3,7 +3,13 @@ set -euo pipefail
 
 EXTENSION_UUID="ai-native-linux@melonqww"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPOSITORY_ROOT="$(cd -- "${SCRIPT_DIR}/../../.." && pwd)"
 TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${EXTENSION_UUID}"
+
+if [[ "$(uname -s)" == "Linux" ]]; then
+    echo "Обновляю и подключаю runtime ядра..."
+    bash "${REPOSITORY_ROOT}/deployments/systemd/install-user-service.sh"
+fi
 
 mkdir -p "${TARGET_DIR}"
 
@@ -32,6 +38,6 @@ if [[ "$(uname -s)" == "Linux" ]]; then
     runtime_socket="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/ai-native-linux/runtime.sock"
     if [[ ! -S "${runtime_socket}" ]]; then
         echo "Внимание: панель установлена, но ядро не запущено."
-        echo "Запустите: ./deployments/systemd/install-user-service.sh"
+        echo "Повторите установку панели: bash apps/desktop-panel/gnome-extension/install.sh"
     fi
 fi

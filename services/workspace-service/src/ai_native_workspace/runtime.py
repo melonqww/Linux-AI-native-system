@@ -64,6 +64,7 @@ class WorkspaceRuntime:
         executor: PlanExecutor,
         context: Callable[[], TaskContext],
         *,
+        model_status: Callable[[], Mapping[str, object]] | None = None,
         workers: int = 2,
         max_pending: int = 32,
     ) -> None:
@@ -76,6 +77,7 @@ class WorkspaceRuntime:
         self.compiler = compiler
         self.executor = executor
         self.context = context
+        self.model_status = model_status
         self._pool = ThreadPoolExecutor(
             max_workers=workers, thread_name_prefix="workspace-runtime"
         )
@@ -132,6 +134,10 @@ class WorkspaceRuntime:
         locale = self.context().locale
         try:
             self.store.transition(run_id, WorkspaceStage.UNDERSTANDING)
+            readiness = self._model_readiness()
+            if readiness is not None:
+                self._finish_model_unavailable(run_id, readiness, locale)
+                return
             turn = self.model.route(
                 ModelRequest(
                     user_text=text,
@@ -276,6 +282,59 @@ class WorkspaceRuntime:
             )
         except Exception:
             return
+
+    def _model_readiness(self) -> Mapping[str, object] | None:
+        if self.model_status is None:
+            return None
+        try:
+            status = self.model_status()
+        except Exception:
+            return {"state": "unavailable", "reason": "model_manager_unavailable"}
+        if not isinstance(status, Mapping):
+            return {"state": "unavailable", "reason": "model_manager_invalid"}
+        return None if status.get("state") == "ready" else status
+
+    def _finish_model_unavailable(
+        self,
+        run_id: str,
+        status: Mapping[str, object],
+        locale: str,
+    ) -> None:
+        state = status.get("state")
+        progress = status.get("progress_percent")
+        reason = status.get("reason")
+        russian = locale.startswith("ru")
+        if state == "downloading":
+            suffix = f": {progress}%" if isinstance(progress, int) else ""
+            content = (
+                f"Модель загружается{suffix}. Повторите запрос после завершения."
+                if russian
+                else f"The model is downloading{suffix}. Try again when it is ready."
+            )
+        elif state in {"starting", "checking"}:
+            content = (
+                "Локальная модель подготавливается. Повторите запрос через некоторое время."
+                if russian
+                else "The local model is starting. Try again shortly."
+            )
+        elif reason == "ollama_not_installed":
+            content = (
+                "Ollama не установлен, поэтому локальная модель недоступна."
+                if russian
+                else "Ollama is not installed, so the local model is unavailable."
+            )
+        else:
+            content = (
+                "Локальная модель сейчас недоступна."
+                if russian
+                else "The local model is currently unavailable."
+            )
+        message = self.store.append_message(
+            MessageRole.ASSISTANT, MessageKind.NOTICE, content
+        )
+        self.store.finish(
+            run_id, WorkspaceStage.FAILED, message.message_id
+        )
 
     @staticmethod
     def _result_facts(result: OrchestrationResult) -> dict[str, object]:

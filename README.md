@@ -127,6 +127,10 @@ model reasoning и технические причины ошибок в пол�
 [`ADR-009`](Architecture/decisions/ADR-009-system-workspace-runtime.md).
 Backend API рабочей области:
 [`Architecture/api/workspace-runtime-v1.md`](Architecture/api/workspace-runtime-v1.md).
+Жизненный цикл локальной модели вынесен в first-party `model.ollama`: ядро
+использует только `model.local.ensure/status`, а модуль в фоне загружает
+отсутствующую `qwen3:1.7b`. Решение:
+[`ADR-011`](Architecture/decisions/ADR-011-model-lifecycle-module.md).
 
 `modules/system-monitor` реализует read-only диспетчер: CPU, load average,
 uptime, RAM/swap, thermal zones, батарею, диски и процессы. Контракт:
@@ -201,6 +205,7 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [Решение о каталоге хранилищ и виртуальных коллекциях](Architecture/decisions/ADR-002-storage-catalog-and-virtual-collections.md)
 - [Решение о модульном capability-ядре](Architecture/decisions/ADR-003-modular-capability-core.md)
 - [Решение о единой системной рабочей области](Architecture/decisions/ADR-009-system-workspace-runtime.md)
+- [Решение о модульном жизненном цикле локальных моделей](Architecture/decisions/ADR-011-model-lifecycle-module.md)
 - [Решение об Intent Compiler](Architecture/decisions/ADR-004-model-neutral-intent-compiler.md)
 - [Решение об оркестрации серверных планов](Architecture/decisions/ADR-005-server-owned-execution-orchestration.md)
 - [Решение об authenticated Unix transport](Architecture/decisions/ADR-006-authenticated-unix-runtime-transport.md)

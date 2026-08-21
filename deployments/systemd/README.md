@@ -33,6 +33,12 @@ test -S "$XDG_RUNTIME_DIR/ai-native-linux/runtime.sock" && echo connected
 systemctl --user restart ai-native-linux-runtime.service
 ```
 
+First-party модуль `model.ollama` автоматически проверяет настроенную модель и
+загружает отсутствующие веса в фоне. Системный пакет Ollama он не устанавливает
+и не использует `sudo`; Ollama должен быть установлен пользователем или образом
+системы. Если бинарник установлен, модуль может самостоятельно запустить
+`ollama serve` как user-process.
+
 Удаление службы без удаления баз и настроек:
 
 ```bash

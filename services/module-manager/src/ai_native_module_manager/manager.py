@@ -8,7 +8,7 @@ import re
 import subprocess
 import sys
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from queue import Empty, Queue
 from time import monotonic
@@ -28,6 +28,7 @@ _MAX_REQUEST_BYTES = 64 * 1024
 class _RunningModule:
     process: subprocess.Popen[str]
     last_used: float
+    request_lock: threading.Lock = field(default_factory=threading.Lock)
 
 
 class ModuleProcessManager:
@@ -172,11 +173,12 @@ class ModuleProcessManager:
         ):
             raise ValueError("module response timeout must be between 0 and 60 seconds")
         running = self._require_running(module_id)
-        response = self._request(
-            running.process,
-            {"command": "invoke", "operation": operation, "payload": body},
-            timeout=float(response_timeout),
-        )
+        with running.request_lock:
+            response = self._request(
+                running.process,
+                {"command": "invoke", "operation": operation, "payload": body},
+                timeout=float(response_timeout),
+            )
         running.last_used = monotonic()
         if response.get("event") != "result":
             code = response.get("error", "module invocation failed")
@@ -188,7 +190,8 @@ class ModuleProcessManager:
 
     def _health_response(self, module_id: str) -> dict[str, object]:
         running = self._require_running(module_id)
-        response = self._request(running.process, {"command": "health"})
+        with running.request_lock:
+            response = self._request(running.process, {"command": "health"})
         running.last_used = monotonic()
         return response
 
@@ -197,13 +200,14 @@ class ModuleProcessManager:
         if running is None:
             return
         process = running.process
-        if process.poll() is None:
-            try:
-                self._request(process, {"command": "shutdown"})
-                process.wait(timeout=2)
-            except (ModuleProcessError, subprocess.TimeoutExpired):
-                process.kill()
-                process.wait(timeout=2)
+        with running.request_lock:
+            if process.poll() is None:
+                try:
+                    self._request(process, {"command": "shutdown"})
+                    process.wait(timeout=2)
+                except (ModuleProcessError, subprocess.TimeoutExpired):
+                    process.kill()
+                    process.wait(timeout=2)
         self._close_streams(process)
 
     def reap_idle(self, *, now: float | None = None) -> list[str]:

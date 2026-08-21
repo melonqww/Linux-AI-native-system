@@ -7,13 +7,13 @@
 Из корня репозитория:
 
 ```bash
-./deployments/systemd/install-user-service.sh
 bash apps/desktop-panel/gnome-extension/install.sh
 ```
 
-Первая команда создаёт `systemd --user` service и запускает ядро вместе с
-first-party модулями. Без runtime socket интерфейс загрузится, но покажет
-`Ядро — недоступно`.
+Установщик панели сначала обновляет и перезапускает `systemd --user` runtime,
+затем заменяет файлы и повторно включает расширение. Поэтому новая панель не
+остаётся подключённой к старому процессу ядра. Без runtime socket интерфейс
+загрузится, но покажет `Ядро — недоступно`.
 
 Для ручного включения/перезапуска:
 
@@ -36,8 +36,9 @@ python3 apps/desktop-panel/gnome-extension/validate_extension.py --installed
 соединение на один bounded JSON request; сервер проверяет UID/GID/PID клиента
 через Linux `SO_PEERCRED`.
 
-Центральная вкладка использует полный путь `intent/compile → plan/execute →
-approval/respond`, а не прямой поиск. Левая вкладка читает health, capabilities,
+Центральная вкладка использует асинхронный путь `workspace/submit → run/messages
+→ workspace/approval/respond`; внутри ядра он проходит Intent Compiler,
+Orchestrator и Permission Gateway. Левая вкладка читает health, capabilities,
 состояние индекса, Task Ledger и read-only snapshot `system.monitor`: CPU, RAM/swap,
 батарею, температуры, диски и процессы. Во время показа вкладки метрики
 обновляются каждые три секунды. Если runtime не запущен, ошибка остаётся внутри

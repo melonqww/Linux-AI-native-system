@@ -162,6 +162,12 @@ class GnomeExtensionFilesTest(unittest.TestCase):
         self.assertNotIn("security-high-symbolic", source)
         self.assertNotIn("['apt-get'", extension)
 
+    def test_installer_refreshes_runtime_before_enabling_panel(self):
+        source = (ROOT / "install.sh").read_text(encoding="utf-8")
+        runtime = 'bash "${REPOSITORY_ROOT}/deployments/systemd/install-user-service.sh"'
+        self.assertIn(runtime, source)
+        self.assertLess(source.index(runtime), source.index('cp "${SCRIPT_DIR}/extension.js"'))
+
     def test_panel_presenter_scenarios(self):
         node = shutil.which("node")
         if node is None:

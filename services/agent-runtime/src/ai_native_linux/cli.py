@@ -122,6 +122,17 @@ def main() -> int:
                     timeout_seconds=args.intent_timeout,
                     context_tokens=args.intent_context_tokens,
                 )
+                model_status = None
+                try:
+                    model_module_id = manager.start_for_capability("model.local.ensure")
+                    manager.invoke(model_module_id, "ensure")
+                    model_status = lambda: manager.invoke(model_module_id, "ensure")
+                except ModuleProcessError:
+                    print("Model manager: unavailable")
+                    model_status = lambda: {
+                        "state": "unavailable",
+                        "reason": "model_manager_unavailable",
+                    }
                 model_health = provider.health()
                 state = "ready" if model_health.available else f"unavailable ({model_health.reason})"
                 print(f"Intent model {args.intent_model}: {state}")
@@ -165,6 +176,7 @@ def main() -> int:
                     intent_pipeline,
                     plan_executor,
                     context_store.snapshot,
+                    model_status=model_status,
                 )
                 for capability in plan_executor.available_capabilities():
                     required_scopes = plan_executor.permission_gateway.required_scopes(
