@@ -492,7 +492,7 @@ class ChatView extends St.BoxLayout {
             return;
         this._inferenceLifecycleInFlight = true;
         try {
-            const snapshot = await this._runtime.inferenceStatus();
+            const snapshot = await this._requestInferenceStatus();
             if (this._disposed)
                 return;
             this._providerStatus = snapshot?.provider ?? null;
@@ -522,6 +522,16 @@ class ChatView extends St.BoxLayout {
         } finally {
             this._inferenceLifecycleInFlight = false;
         }
+    }
+
+    _requestInferenceStatus() {
+        // GNOME Shell may retain an imported runtime-client.js module when an
+        // extension is disabled, replaced and enabled in the same session.
+        // The generic IPC method exists in older clients and keeps a panel
+        // update compatible until the next Shell session reloads all modules.
+        if (typeof this._runtime.inferenceStatus === 'function')
+            return this._runtime.inferenceStatus();
+        return this._runtime.request('POST', '/v1/inference/status');
     }
 
     _isBaseModelNotice(message) {
@@ -563,7 +573,7 @@ class ChatView extends St.BoxLayout {
         this._baseModelPromptInFlight = true;
         try {
             const lifecycleResult = await Promise.allSettled([
-                this._runtime.inferenceStatus(),
+                this._requestInferenceStatus(),
             ]);
             if (this._disposed)
                 return;

@@ -118,6 +118,8 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "respondToOllamaProvider",
             "inferenceStatus",
             "_loadInferenceLifecycle",
+            "_requestInferenceStatus",
+            "this._runtime.request('POST', '/v1/inference/status')",
             "Ошибка проверки локального ИИ",
             "Не удалось загрузить",
             "Ошибка установки Ollama",
