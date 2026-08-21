@@ -117,9 +117,8 @@ class ChatView extends St.BoxLayout {
         this._workspaceRunStages = new Map();
         this._workspacePollErrorShown = false;
         this._modelCatalogPollSourceId = 0;
-        this._modelCatalogPollInFlight = false;
-        this._providerPollSourceId = 0;
-        this._providerPollInFlight = false;
+        this._inferenceLifecycleInFlight = false;
+        this._inferencePollDelayMs = 15_000;
         this._modelCatalog = null;
         this._providerStatus = null;
         this._baseModelPromptInFlight = false;
@@ -133,10 +132,6 @@ class ChatView extends St.BoxLayout {
             if (this._modelCatalogPollSourceId) {
                 GLib.Source.remove(this._modelCatalogPollSourceId);
                 this._modelCatalogPollSourceId = 0;
-            }
-            if (this._providerPollSourceId) {
-                GLib.Source.remove(this._providerPollSourceId);
-                this._providerPollSourceId = 0;
             }
         });
         this._messages = new St.BoxLayout({
@@ -161,8 +156,7 @@ class ChatView extends St.BoxLayout {
         this.add_child(this._composer);
         GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
             this._loadWorkspace();
-            this._loadModelCatalog();
-            this._loadOllamaProvider();
+            this._loadInferenceLifecycle();
             return GLib.SOURCE_REMOVE;
         });
     }
@@ -186,6 +180,9 @@ class ChatView extends St.BoxLayout {
             install_failed: 'установщик завершился с ошибкой',
             install_interrupted: 'установка была прервана',
             platform_unsupported: 'эта платформа не поддерживается',
+            provider_status_unavailable: 'модуль Ollama не ответил',
+            model_catalog_unavailable: 'каталог Qwen и LLaMA не ответил',
+            model_status_missing: 'модель отсутствует в ответе каталога',
             release_asset_missing: 'файл релиза не найден',
             release_digest_missing: 'у релиза отсутствует контрольная сумма',
             unsafe_download_redirect: 'получен небезопасный адрес загрузки',
@@ -312,7 +309,7 @@ class ChatView extends St.BoxLayout {
                 if (model.model_id === 'workspace.qwen')
                     this._baseModelPromptShown = false;
                 card.hide();
-                this._loadModelCatalog();
+                this._loadInferenceLifecycle();
             } catch (error) {
                 this._showDependencyError(
                     card,
@@ -398,8 +395,7 @@ class ChatView extends St.BoxLayout {
             try {
                 await this._runtime.respondToOllamaProvider(decision);
                 card.hide();
-                this._loadOllamaProvider();
-                this._loadModelCatalog();
+                this._loadInferenceLifecycle();
             } catch (error) {
                 this._showDependencyError(
                     card,
@@ -428,8 +424,8 @@ class ChatView extends St.BoxLayout {
         const models = Array.isArray(this._modelCatalog?.models) ? this._modelCatalog.models : [];
         const visibleCards = [];
         const provider = this._providerStatus;
-        const providerReady = this._baseModelPromptShown || !provider ||
-            provider.installed === true || provider.state === 'ready';
+        const providerReady = !provider || provider.installed === true ||
+            provider.state === 'ready';
         if (provider && (provider.prompt_required === true ||
             ['downloading', 'installing', 'error', 'unsupported'].includes(provider.state))) {
             visibleCards.push(this._providerNotice(provider));
@@ -439,9 +435,17 @@ class ChatView extends St.BoxLayout {
                 return false;
             if (model.reason === 'ollama_not_installed')
                 return false;
-            if (model.prompt_required === true)
+            if (model.effective_state === 'blocked')
+                return false;
+            const promptRequired = typeof model.effective_prompt_required === 'boolean'
+                ? model.effective_prompt_required
+                : model.prompt_required === true;
+            if (promptRequired)
                 return true;
-            return ['starting', 'downloading', 'error', 'unavailable'].includes(model.state);
+            const state = typeof model.effective_state === 'string'
+                ? model.effective_state
+                : model.state;
+            return ['starting', 'downloading', 'error', 'unavailable'].includes(state);
         }) : [];
         for (const model of visibleModels)
             visibleCards.push(this._dependencyNotice(model));
@@ -453,10 +457,7 @@ class ChatView extends St.BoxLayout {
         else
             this._dependencyNotices.hide();
 
-        if (visibleModels.some(model => ['starting', 'downloading'].includes(model.state)))
-            this._scheduleModelCatalogPoll();
-        if (provider && ['downloading', 'installing'].includes(provider.state))
-            this._scheduleProviderPoll();
+        this._scheduleModelCatalogPoll();
     }
 
     _renderModelCatalog(catalog) {
@@ -471,64 +472,55 @@ class ChatView extends St.BoxLayout {
             return;
         this._modelCatalogPollSourceId = GLib.timeout_add(
             GLib.PRIORITY_DEFAULT,
-            1_000,
+            this._inferencePollDelayMs,
             () => {
                 this._modelCatalogPollSourceId = 0;
                 if (this._disposed)
                     return GLib.SOURCE_REMOVE;
-                this._loadModelCatalog();
+                this._loadInferenceLifecycle();
                 return GLib.SOURCE_REMOVE;
             },
         );
     }
 
-    async _loadModelCatalog() {
-        if (this._modelCatalogPollInFlight || this._disposed)
-            return;
-        this._modelCatalogPollInFlight = true;
-        try {
-            const catalog = await this._runtime.modelCatalog();
-            if (!this._disposed)
-                this._renderModelCatalog(catalog);
-        } catch (error) {
-            // The provider status may still be available, so do not clear
-            // its error/installation card when only the model module fails.
-        } finally {
-            this._modelCatalogPollInFlight = false;
+    async _loadInferenceLifecycle() {
+        if (this._modelCatalogPollSourceId) {
+            GLib.Source.remove(this._modelCatalogPollSourceId);
+            this._modelCatalogPollSourceId = 0;
         }
-    }
-
-    _scheduleProviderPoll() {
-        if (this._disposed || this._providerPollSourceId)
+        if (this._inferenceLifecycleInFlight || this._disposed)
             return;
-        this._providerPollSourceId = GLib.timeout_add(
-            GLib.PRIORITY_DEFAULT,
-            1_000,
-            () => {
-                this._providerPollSourceId = 0;
-                if (this._disposed)
-                    return GLib.SOURCE_REMOVE;
-                this._loadOllamaProvider();
-                return GLib.SOURCE_REMOVE;
-            },
-        );
-    }
-
-    async _loadOllamaProvider() {
-        if (this._providerPollInFlight || this._disposed)
-            return;
-        this._providerPollInFlight = true;
+        this._inferenceLifecycleInFlight = true;
         try {
-            const status = await this._runtime.ollamaProviderStatus();
-            if (!this._disposed) {
-                this._providerStatus = status;
-                this._renderDependencyNotices();
-            }
+            const snapshot = await this._runtime.inferenceStatus();
+            if (this._disposed)
+                return;
+            this._providerStatus = snapshot?.provider ?? null;
+            this._inferencePollDelayMs = [
+                'provider_preparing',
+                'models_preparing',
+            ].includes(snapshot?.state) ? 1_000 : 15_000;
+            const catalog = {
+                schema_version: snapshot?.schema_version ?? 1,
+                models: Array.isArray(snapshot?.models) ? snapshot.models : [],
+            };
+            this._modelCatalog = this._baseModelPromptShown
+                ? this._withBaseModelPrompt(catalog)
+                : catalog;
+            this._renderDependencyNotices();
         } catch (error) {
-            // A missing provider module is not itself a model installation
-            // failure; leave the model catalog UI intact.
+            if (this._disposed)
+                return;
+            this._dependencyNotices.destroy_all_children();
+            this._dependencyNotices.add_child(this._errorNotice(
+                'Ошибка проверки локального ИИ',
+                `Не удалось получить состояние Ollama, Qwen и LLaMA.\nПричина: ${this._friendlyError(error)}.`,
+            ));
+            this._dependencyNotices.show();
+            this._inferencePollDelayMs = 5_000;
+            this._scheduleModelCatalogPoll();
         } finally {
-            this._providerPollInFlight = false;
+            this._inferenceLifecycleInFlight = false;
         }
     }
 
@@ -570,16 +562,19 @@ class ChatView extends St.BoxLayout {
         this._baseModelPromptShown = true;
         this._baseModelPromptInFlight = true;
         try {
-            const [catalogResult, providerResult] = await Promise.allSettled([
-                this._runtime.modelCatalog(),
-                this._runtime.ollamaProviderStatus(),
+            const lifecycleResult = await Promise.allSettled([
+                this._runtime.inferenceStatus(),
             ]);
             if (this._disposed)
                 return;
-            if (catalogResult.status === 'fulfilled')
-                this._modelCatalog = catalogResult.value;
-            if (providerResult.status === 'fulfilled')
-                this._providerStatus = providerResult.value;
+            if (lifecycleResult[0].status === 'fulfilled') {
+                const snapshot = lifecycleResult[0].value;
+                this._providerStatus = snapshot?.provider ?? null;
+                this._modelCatalog = {
+                    schema_version: snapshot?.schema_version ?? 1,
+                    models: Array.isArray(snapshot?.models) ? snapshot.models : [],
+                };
+            }
 
             this._modelCatalog = this._withBaseModelPrompt(this._modelCatalog);
             this._renderDependencyNotices();

@@ -44,6 +44,7 @@ class RuntimeApplication(Protocol):
     def respond_to_ollama_provider(
         self, payload: dict[str, object]
     ) -> dict[str, object]: ...
+    def inference_lifecycle(self, payload: dict[str, object]) -> dict[str, object]: ...
 
 
 @dataclass(frozen=True)
@@ -116,6 +117,7 @@ class RuntimeRouter:
                     "models.lifecycle.respond",
                     "providers.ollama.read",
                     "providers.ollama.respond",
+                    "inference.lifecycle.read",
                 }
                 capabilities = [item for item in capabilities if item not in restricted]
             return RuntimeResponse(200, {"capabilities": capabilities})
@@ -165,6 +167,10 @@ class RuntimeRouter:
                 else self.application.respond_to_ollama_provider
             )
             return RuntimeResponse(200, operation(payload))
+        if path == "/v1/inference/status":
+            if not self.allow_r1:
+                return self.error(403, "secure_transport_required", False, request_id)
+            return RuntimeResponse(200, self.application.inference_lifecycle(payload))
         if path in {"/v1/workspace/submit", "/v1/workspace/approval/respond"}:
             if not self.allow_r1:
                 return self.error(403, "secure_transport_required", False, request_id)

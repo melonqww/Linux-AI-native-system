@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import signal
 import sys
 from pathlib import Path
 from uuid import uuid4
@@ -259,7 +260,15 @@ def main() -> int:
                     else "Execution stopped after the system restarted."
                 )
             )
-            server.serve_forever()
+            previous_sigterm = None
+            if hasattr(signal, "SIGTERM"):
+                previous_sigterm = signal.getsignal(signal.SIGTERM)
+                signal.signal(signal.SIGTERM, _interrupt_runtime)
+            try:
+                server.serve_forever()
+            finally:
+                if previous_sigterm is not None:
+                    signal.signal(signal.SIGTERM, previous_sigterm)
         except KeyboardInterrupt:
             pass
         finally:
@@ -285,6 +294,10 @@ def main() -> int:
     print(f"Audit file: {args.audit_file}")
     print("No system tool was executed.")
     return 0
+
+
+def _interrupt_runtime(_signum: int, _frame: object) -> None:
+    raise KeyboardInterrupt
 
 
 if __name__ == "__main__":

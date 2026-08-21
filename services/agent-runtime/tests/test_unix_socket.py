@@ -87,6 +87,15 @@ class App:
     def respond_to_ollama_provider(self, payload):
         return {"provider_id": "ollama", "decision": payload["decision"]}
 
+    def inference_lifecycle(self, payload):
+        return {
+            "schema_version": 1,
+            "state": "action_required",
+            "provider": {"provider_id": "ollama"},
+            "models": [],
+            "errors": [],
+        }
+
 
 @unittest.skipUnless(sys.platform.startswith("linux"), "Linux SO_PEERCRED integration")
 class UnixSocketTests(unittest.TestCase):
@@ -220,6 +229,14 @@ class UnixSocketTests(unittest.TestCase):
         self.assertEqual(response["body"], {
             "provider_id": "ollama", "decision": "install"
         })
+
+    def test_secure_socket_returns_atomic_inference_lifecycle(self):
+        server = create_unix_server(App(), self.path)
+        _request_id, response = self._request(
+            server, method="POST", path="/v1/inference/status", body={}
+        )
+        self.assertEqual(response["status"], 200)
+        self.assertEqual(response["body"]["state"], "action_required")
 
     def test_policy_rejects_invalid_pid_and_other_uid(self):
         policy = PeerCredentialPolicy(expected_uid=1000, expected_gid=1000)

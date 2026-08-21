@@ -138,7 +138,96 @@ class QueryRuntimeApplication:
             capabilities.append("providers.ollama.read")
         if self.ollama_provider_decision_callback is not None:
             capabilities.append("providers.ollama.respond")
+        if (
+            self.model_catalog_callback is not None
+            or self.ollama_provider_status_callback is not None
+        ):
+            capabilities.append("inference.lifecycle.read")
         return capabilities
+
+    def inference_lifecycle(self, payload: dict[str, object]) -> dict[str, object]:
+        if payload:
+            raise ValueError("inference lifecycle does not accept fields")
+        errors: list[dict[str, str]] = []
+        try:
+            provider = self.ollama_provider_status({})
+        except Exception:
+            provider = {
+                "schema_version": 1,
+                "provider_id": "ollama",
+                "display_name": "Ollama",
+                "state": "error",
+                "installed": False,
+                "managed": False,
+                "version": None,
+                "decision": "unset",
+                "prompt_required": False,
+                "progress_percent": None,
+                "completed_bytes": 0,
+                "total_bytes": None,
+                "reason": "provider_status_unavailable",
+            }
+            errors.append({"component": "provider.ollama", "code": "status_unavailable"})
+        try:
+            catalog = self.model_catalog({})
+        except Exception:
+            catalog = {
+                "schema_version": 1,
+                "models": [
+                    self._unavailable_model(
+                        "workspace.qwen", "qwen3:1.7b", "Qwen 3 1.7B", True
+                    ),
+                    self._unavailable_model(
+                        "assistant.llama", "llama3.2:3b", "Llama 3.2 3B", False
+                    ),
+                ],
+            }
+            errors.append({"component": "model.ollama", "code": "catalog_unavailable"})
+        models = catalog.get("models")
+        if not isinstance(models, list):
+            models = []
+            errors.append({"component": "model.ollama", "code": "catalog_invalid"})
+        valid_models = [value for value in models if isinstance(value, dict)]
+        known_ids = {value.get("model_id") for value in valid_models}
+        required_models = (
+            ("workspace.qwen", "qwen3:1.7b", "Qwen 3 1.7B", True),
+            ("assistant.llama", "llama3.2:3b", "Llama 3.2 3B", False),
+        )
+        for model_id, provider_model, display_name, required in required_models:
+            if model_id in known_ids:
+                continue
+            valid_models.append(
+                self._unavailable_model(
+                    model_id,
+                    provider_model,
+                    display_name,
+                    required,
+                    reason="model_status_missing",
+                )
+            )
+            errors.append({"component": model_id, "code": "status_missing"})
+        provider_ready = provider.get("installed") is True or provider.get("state") == "ready"
+        projected: list[dict[str, object]] = []
+        for value in valid_models:
+            model = dict(value)
+            lifecycle_state = model.get("state", "error")
+            if provider_ready:
+                model["effective_state"] = lifecycle_state
+                model["blocked_by"] = None
+                model["effective_prompt_required"] = model.get("prompt_required") is True
+            else:
+                model["effective_state"] = "blocked"
+                model["blocked_by"] = "provider.ollama"
+                model["effective_prompt_required"] = False
+            projected.append(model)
+        overall = self._inference_overall_state(provider, projected, errors)
+        return {
+            "schema_version": 1,
+            "state": overall,
+            "provider": provider,
+            "models": projected,
+            "errors": errors,
+        }
 
     def ollama_provider_status(self, payload: dict[str, object]) -> dict[str, object]:
         if self.ollama_provider_status_callback is None:
@@ -162,6 +251,55 @@ class QueryRuntimeApplication:
         if not isinstance(result, dict):
             raise RuntimeError("ollama_provider_invalid_response")
         return result
+
+    @staticmethod
+    def _unavailable_model(
+        model_id: str,
+        provider_model: str,
+        display_name: str,
+        required: bool,
+        *,
+        reason: str = "model_catalog_unavailable",
+    ) -> dict[str, object]:
+        return {
+            "model_id": model_id,
+            "provider": "ollama",
+            "provider_model": provider_model,
+            "display_name": display_name,
+            "role": "workspace_base" if required else "optional_assistant",
+            "required": required,
+            "installed": False,
+            "decision": "unset",
+            "prompt_required": False,
+            "state": "error",
+            "progress_percent": None,
+            "completed_bytes": 0,
+            "total_bytes": None,
+            "reason": reason,
+        }
+
+    @staticmethod
+    def _inference_overall_state(
+        provider: dict[str, object],
+        models: list[dict[str, object]],
+        errors: list[dict[str, str]],
+    ) -> str:
+        if errors or provider.get("state") in {"error", "unsupported"}:
+            return "error"
+        provider_state = provider.get("state")
+        if provider_state in {"downloading", "installing"}:
+            return "provider_preparing"
+        if not (provider.get("installed") is True or provider_state == "ready"):
+            return "action_required" if provider.get("prompt_required") is True else "blocked"
+        states = {model.get("state") for model in models}
+        if states & {"error", "unavailable"}:
+            return "error"
+        if states & {"starting", "downloading"}:
+            return "models_preparing"
+        if any(model.get("prompt_required") is True for model in models):
+            return "action_required"
+        required = [model for model in models if model.get("required") is True]
+        return "ready" if required and all(model.get("state") == "ready" for model in required) else "blocked"
 
     def model_catalog(self, payload: dict[str, object]) -> dict[str, object]:
         if self.model_catalog_callback is None:

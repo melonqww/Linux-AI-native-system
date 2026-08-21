@@ -250,6 +250,137 @@ class QueryServiceTests(unittest.TestCase):
             with self.subTest(invalid=invalid), self.assertRaises(ValueError):
                 application.respond_to_ollama_provider(invalid)
 
+    def test_runtime_composes_provider_and_models_into_one_lifecycle(self) -> None:
+        provider = {
+            "provider_id": "ollama",
+            "state": "consent_required",
+            "installed": False,
+            "prompt_required": True,
+        }
+        catalog = {
+            "schema_version": 1,
+            "models": [
+                {
+                    "model_id": "workspace.qwen",
+                    "required": True,
+                    "state": "consent_required",
+                    "prompt_required": True,
+                },
+                {
+                    "model_id": "assistant.llama",
+                    "required": False,
+                    "state": "consent_required",
+                    "prompt_required": True,
+                },
+            ],
+        }
+        application = QueryRuntimeApplication(
+            self.service,
+            model_catalog=lambda: catalog,
+            ollama_provider_status=lambda: provider,
+        )
+
+        snapshot = application.inference_lifecycle({})
+
+        self.assertEqual(snapshot["state"], "action_required")
+        self.assertEqual(snapshot["provider"], provider)
+        self.assertEqual(
+            [model["effective_state"] for model in snapshot["models"]],
+            ["blocked", "blocked"],
+        )
+        self.assertTrue(all(
+            model["blocked_by"] == "provider.ollama" for model in snapshot["models"]
+        ))
+        self.assertEqual(snapshot["errors"], [])
+        self.assertIn("inference.lifecycle.read", application.capabilities())
+
+    def test_runtime_lifecycle_always_returns_public_component_errors(self) -> None:
+        def unavailable():
+            raise RuntimeError("private detail")
+
+        application = QueryRuntimeApplication(
+            self.service,
+            model_catalog=unavailable,
+            ollama_provider_status=unavailable,
+        )
+
+        snapshot = application.inference_lifecycle({})
+
+        self.assertEqual(snapshot["state"], "error")
+        self.assertEqual(snapshot["provider"]["reason"], "provider_status_unavailable")
+        self.assertEqual(
+            [model["model_id"] for model in snapshot["models"]],
+            ["workspace.qwen", "assistant.llama"],
+        )
+        self.assertTrue(all(
+            model["reason"] == "model_catalog_unavailable"
+            for model in snapshot["models"]
+        ))
+        self.assertNotIn("private detail", repr(snapshot))
+        with self.assertRaises(ValueError):
+            application.inference_lifecycle({"unexpected": True})
+
+    def test_runtime_lifecycle_restores_models_missing_from_catalog(self) -> None:
+        application = QueryRuntimeApplication(
+            self.service,
+            model_catalog=lambda: {"schema_version": 1, "models": []},
+            ollama_provider_status=lambda: {
+                "provider_id": "ollama",
+                "state": "ready",
+                "installed": True,
+                "prompt_required": False,
+            },
+        )
+
+        snapshot = application.inference_lifecycle({})
+
+        self.assertEqual(snapshot["state"], "error")
+        self.assertEqual(
+            [model["model_id"] for model in snapshot["models"]],
+            ["workspace.qwen", "assistant.llama"],
+        )
+        self.assertTrue(all(
+            model["reason"] == "model_status_missing" for model in snapshot["models"]
+        ))
+
+    def test_runtime_lifecycle_orders_provider_then_models(self) -> None:
+        provider = {
+            "provider_id": "ollama", "state": "ready", "installed": True,
+            "prompt_required": False,
+        }
+
+        def snapshot(qwen_state, llama_state, *, qwen_prompt=False, llama_prompt=False):
+            catalog = {
+                "schema_version": 1,
+                "models": [
+                    {
+                        "model_id": "workspace.qwen", "required": True,
+                        "state": qwen_state, "prompt_required": qwen_prompt,
+                    },
+                    {
+                        "model_id": "assistant.llama", "required": False,
+                        "state": llama_state, "prompt_required": llama_prompt,
+                    },
+                ],
+            }
+            return QueryRuntimeApplication(
+                self.service,
+                model_catalog=lambda: catalog,
+                ollama_provider_status=lambda: provider,
+            ).inference_lifecycle({})
+
+        self.assertEqual(
+            snapshot("consent_required", "consent_required", qwen_prompt=True, llama_prompt=True)["state"],
+            "action_required",
+        )
+        self.assertEqual(snapshot("downloading", "consent_required")["state"], "models_preparing")
+        ready = snapshot("ready", "declined")
+        self.assertEqual(ready["state"], "ready")
+        self.assertEqual(
+            [model["effective_state"] for model in ready["models"]],
+            ["ready", "declined"],
+        )
+
     def test_runtime_exposes_validated_workspace_projection(self) -> None:
         workspace = FakeWorkspace()
         application = QueryRuntimeApplication(self.service, workspace=workspace)

@@ -4,6 +4,10 @@ Backend-контракт для отображения установки лок
 и его кнопки принадлежат frontend; backend хранит решение, проверяет Ollama и
 управляет загрузкой в отдельном модуле `model.ollama`.
 
+Для обычного frontend-потока предпочтителен единый
+[`inference-lifecycle-v1`](inference-lifecycle-v1.md), который учитывает
+готовность Ollama. Этот низкоуровневый API остаётся для решений по моделям.
+
 Оба метода доступны только через защищённый Unix socket с проверкой peer
 credentials. Loopback HTTP возвращает `403 secure_transport_required`.
 

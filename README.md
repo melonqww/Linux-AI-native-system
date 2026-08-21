@@ -137,6 +137,9 @@ Backend-контракт панели: [`model-catalog-v1`](Architecture/api/mod
 user-local каталог и только после проверки SHA-256 официального release.
 Контракт: [`ollama-provider-v1`](Architecture/api/ollama-provider-v1.md),
 решение: [`ADR-012`](Architecture/decisions/ADR-012-user-local-ollama-provider.md).
+Согласованный порядок `Ollama → Qwen/LLaMA` отдаёт единый
+[`inference-lifecycle-v1`](Architecture/api/inference-lifecycle-v1.md); решение
+зафиксировано в [`ADR-013`](Architecture/decisions/ADR-013-inference-lifecycle-coordinator.md).
 
 `modules/system-monitor` реализует read-only диспетчер: CPU, load average,
 uptime, RAM/swap, thermal zones, батарею, диски и процессы. Контракт:

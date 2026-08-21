@@ -74,6 +74,10 @@ export class RuntimeClient {
         return this.request('POST', '/v1/providers/ollama/respond', {decision});
     }
 
+    inferenceStatus() {
+        return this.request('POST', '/v1/inference/status');
+    }
+
     tasks() {
         return this.request('GET', '/v1/tasks');
     }

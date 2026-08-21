@@ -4,6 +4,10 @@ Backend-контракт окна установки Ollama. Визуально�
 а загрузка, проверка и user-local установка выполняются модулем
 `provider.ollama`.
 
+Для чтения согласованного состояния Ollama вместе с Qwen/LLaMA frontend
+использует [`inference-lifecycle-v1`](inference-lifecycle-v1.md). Этот контракт
+остаётся низкоуровневым API решения по provider.
+
 Методы доступны только через Unix socket с проверкой peer credentials.
 Loopback HTTP возвращает `403 secure_transport_required`.
 
