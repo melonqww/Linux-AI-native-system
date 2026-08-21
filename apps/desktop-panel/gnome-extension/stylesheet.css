@@ -100,6 +100,71 @@
     -st-vfade-offset: 0px;
 }
 
+.ai-dependency-stack {
+    spacing: 8px;
+    x-expand: true;
+}
+
+.ai-dependency-notice {
+    background-color: #2c2c2c;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 12px;
+    padding: 10px 12px;
+    spacing: 7px;
+    x-expand: true;
+}
+
+.ai-dependency-title {
+    color: #f0d18b;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.ai-dependency-body {
+    color: #e0e0e0;
+    font-size: 12px;
+    line-height: 1.35;
+    max-width: 390px;
+}
+
+.ai-dependency-actions {
+    spacing: 6px;
+    x-expand: true;
+}
+
+.ai-dependency-check {
+    color: #c8c8c8;
+    font-size: 11px;
+}
+
+.ai-dependency-hide,
+.ai-dependency-install {
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 6px 9px;
+}
+
+.ai-dependency-hide {
+    background-color: rgba(255, 255, 255, 0.08);
+    color: #d6d6d6;
+}
+
+.ai-dependency-install {
+    background-color: #eeeeec;
+    color: #292929;
+}
+
+.ai-dependency-hide:hover,
+.ai-dependency-hide:focus {
+    background-color: rgba(255, 255, 255, 0.16);
+}
+
+.ai-dependency-install:hover,
+.ai-dependency-install:focus {
+    background-color: #ffffff;
+}
+
 .ai-messages {
     spacing: 12px;
     padding-right: 6px;

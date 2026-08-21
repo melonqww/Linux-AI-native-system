@@ -138,12 +138,96 @@ class ChatView extends St.BoxLayout {
         this._scroll.set_child(this._messages);
         this.add_child(this._scroll);
 
+        // These notices are intentionally hardcoded for the first frontend
+        // pass.  Runtime health/model discovery will replace them later.
+        this._dependencyNotices = this._buildDependencyNotices();
+        this.add_child(this._dependencyNotices);
+
         this._composer = this._buildComposer();
         this.add_child(this._composer);
         GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
             this._loadWorkspace();
             return GLib.SOURCE_REMOVE;
         });
+    }
+
+    _buildDependencyNotices() {
+        const stack = new St.BoxLayout({
+            vertical: true,
+            style_class: 'ai-dependency-stack',
+            x_expand: true,
+        });
+        stack.add_child(this._dependencyNotice({
+            body: 'У вас не установлена Ollama. Установить её, чтобы система могла автоматически загрузить модель?',
+            installLabel: 'Установить Ollama',
+            installStatus: 'Установщик Ollama будет подключён после интеграции backend.',
+        }));
+        stack.add_child(this._dependencyNotice({
+            body: 'Модель по умолчанию Qwen 3 1.7B (qwen3:1.7b) не установлена. Установить её автоматически?',
+            installLabel: 'Установить модель',
+            installStatus: 'Загрузка Qwen 3 1.7B будет подключена после интеграции backend.',
+        }));
+        return stack;
+    }
+
+    _dependencyNotice({body, installLabel, installStatus}) {
+        const card = new St.BoxLayout({
+            vertical: true,
+            style_class: 'ai-dependency-notice',
+            x_expand: true,
+        });
+        card.add_child(new St.Label({
+            text: 'Внимание',
+            style_class: 'ai-dependency-title',
+            x_expand: true,
+        }));
+        const description = new St.Label({
+            text: body,
+            style_class: 'ai-dependency-body',
+            x_expand: true,
+        });
+        description.clutter_text.line_wrap = true;
+        description.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
+        card.add_child(description);
+
+        const actions = new St.BoxLayout({
+            style_class: 'ai-dependency-actions',
+            x_expand: true,
+        });
+        const hide = new St.Button({
+            label: 'Скрыть',
+            style_class: 'ai-dependency-hide',
+        });
+        const neverShow = new St.CheckButton({
+            label: 'Не показывать',
+            style_class: 'ai-dependency-check',
+            can_focus: true,
+        });
+        const install = new St.Button({
+            label: installLabel,
+            style_class: 'ai-dependency-install',
+        });
+        const dismiss = () => card.hide();
+        hide.connect('clicked', dismiss);
+        neverShow.connect('clicked', () => {
+            if (neverShow.checked)
+                dismiss();
+        });
+        install.connect('clicked', () => {
+            install.reactive = false;
+            install.label = 'Подготовлено';
+            dismiss();
+            this._append(this._assistant(
+                installStatus,
+                'ai-assistant-message ai-work-status',
+            ));
+        });
+        actions.add_child(hide);
+        actions.add_child(neverShow);
+        actions.add_child(new St.Widget({style_class: 'ai-dependency-spacer', x_expand: true}));
+        actions.add_child(install);
+        card.add_child(actions);
+        return card;
     }
 
     _assistant(text, styleClass = 'ai-assistant-message') {
