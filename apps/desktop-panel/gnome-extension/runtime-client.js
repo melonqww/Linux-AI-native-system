@@ -66,6 +66,14 @@ export class RuntimeClient {
         });
     }
 
+    ollamaProviderStatus() {
+        return this.request('POST', '/v1/providers/ollama/status');
+    }
+
+    respondToOllamaProvider(decision) {
+        return this.request('POST', '/v1/providers/ollama/respond', {decision});
+    }
+
     tasks() {
         return this.request('GET', '/v1/tasks');
     }

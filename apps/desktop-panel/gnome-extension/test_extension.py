@@ -108,11 +108,19 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "this._runtime.workspaceApproval(approvalRequestId, confirmed)",
             "_buildDependencyNotices",
             "_loadModelCatalog",
+            "_loadOllamaProvider",
             "_renderModelCatalog",
+            "_renderDependencyNotices",
+            "_showDependencyError",
             "_scheduleModelCatalogPoll",
+            "_scheduleProviderPoll",
             "modelCatalog",
             "respondToModel",
+            "ollamaProviderStatus",
+            "respondToOllamaProvider",
             "Не удалось загрузить",
+            "Ошибка установки Ollama",
+            "Хорошо",
             "Не показывать",
             "Загрузить",
             "Открыть Task Ledger",
@@ -164,6 +172,8 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "'/v1/workspace/approval/respond'",
             "'/v1/models/catalog'",
             "'/v1/models/respond'",
+            "'/v1/providers/ollama/status'",
+            "'/v1/providers/ollama/respond'",
         ):
             self.assertIn(marker, source)
         self.assertNotIn("http://", source)
@@ -223,6 +233,8 @@ class GnomeExtensionFilesTest(unittest.TestCase):
         self.assertIn("margin: 0 7px 6px 4px;", stylesheet)
         self.assertIn("max-height: 78px;", stylesheet)
         self.assertIn("margin-top: 2px;", stylesheet)
+        self.assertIn(".ai-dependency-error", stylesheet)
+        self.assertIn(".ai-dependency-ok", stylesheet)
 
     @unittest.skipUnless(sys.platform.startswith("linux"), "requires Linux Unix IPC")
     def test_gjs_runtime_client_reaches_authenticated_unix_server(self):

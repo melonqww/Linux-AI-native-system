@@ -118,6 +118,10 @@ class ChatView extends St.BoxLayout {
         this._workspacePollErrorShown = false;
         this._modelCatalogPollSourceId = 0;
         this._modelCatalogPollInFlight = false;
+        this._providerPollSourceId = 0;
+        this._providerPollInFlight = false;
+        this._modelCatalog = null;
+        this._providerStatus = null;
         this.connect('destroy', () => {
             this._disposed = true;
             if (this._workspacePollSourceId) {
@@ -127,6 +131,10 @@ class ChatView extends St.BoxLayout {
             if (this._modelCatalogPollSourceId) {
                 GLib.Source.remove(this._modelCatalogPollSourceId);
                 this._modelCatalogPollSourceId = 0;
+            }
+            if (this._providerPollSourceId) {
+                GLib.Source.remove(this._providerPollSourceId);
+                this._providerPollSourceId = 0;
             }
         });
         this._messages = new St.BoxLayout({
@@ -152,6 +160,7 @@ class ChatView extends St.BoxLayout {
         GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
             this._loadWorkspace();
             this._loadModelCatalog();
+            this._loadOllamaProvider();
             return GLib.SOURCE_REMOVE;
         });
     }
@@ -164,6 +173,66 @@ class ChatView extends St.BoxLayout {
         });
         stack.hide();
         return stack;
+    }
+
+    _dependencyReason(reason) {
+        const labels = {
+            archive_digest_mismatch: 'не совпала контрольная сумма архива',
+            archive_missing_executable: 'в архиве отсутствует исполняемый файл',
+            download_incomplete: 'загрузка была прервана',
+            insufficient_disk_space: 'недостаточно места на диске',
+            install_failed: 'установщик завершился с ошибкой',
+            install_interrupted: 'установка была прервана',
+            platform_unsupported: 'эта платформа не поддерживается',
+            release_asset_missing: 'файл релиза не найден',
+            release_digest_missing: 'у релиза отсутствует контрольная сумма',
+            unsafe_download_redirect: 'получен небезопасный адрес загрузки',
+            user_decision_required: 'требуется решение пользователя',
+        };
+        if (typeof reason !== 'string' || !reason)
+            return 'неизвестная ошибка';
+        return labels[reason] ?? reason.split('_').join(' ');
+    }
+
+    _errorNotice(title, body) {
+        const card = new St.BoxLayout({
+            vertical: true,
+            style_class: 'ai-dependency-notice ai-dependency-error',
+            x_expand: true,
+        });
+        card.add_child(new St.Label({
+            text: title,
+            style_class: 'ai-dependency-title ai-dependency-error-title',
+            x_expand: true,
+        }));
+        const description = new St.Label({
+            text: body,
+            style_class: 'ai-dependency-body',
+            x_expand: true,
+        });
+        description.clutter_text.line_wrap = true;
+        description.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
+        card.add_child(description);
+        const actions = new St.BoxLayout({
+            style_class: 'ai-dependency-actions',
+            x_expand: true,
+        });
+        const okay = new St.Button({
+            label: 'Хорошо',
+            style_class: 'ai-dependency-ok',
+            x_expand: false,
+        });
+        okay.connect('clicked', () => card.hide());
+        actions.add_child(new St.Widget({style_class: 'ai-dependency-spacer', x_expand: true}));
+        actions.add_child(okay);
+        card.add_child(actions);
+        return card;
+    }
+
+    _showDependencyError(card, title, body) {
+        card.hide();
+        this._dependencyNotices.add_child(this._errorNotice(title, body));
+        this._dependencyNotices.show();
     }
 
     _dependencyNotice(model) {
@@ -186,7 +255,10 @@ class ChatView extends St.BoxLayout {
                 : '';
             body = `Загрузка модели ${displayName} выполняется в фоне.${progress}`;
         } else if (state === 'error') {
-            body = `Не удалось загрузить ${displayName}. Повторить попытку?`;
+            return this._errorNotice(
+                'Ошибка загрузки модели',
+                `Не удалось загрузить ${displayName}.\nПричина: ${this._dependencyReason(reason)}.`,
+            );
         } else {
             body = `Модель ${displayName}${providerModel ? ` (${providerModel})` : ''} не установлена. Загрузить её автоматически?`;
         }
@@ -236,13 +308,13 @@ class ChatView extends St.BoxLayout {
             try {
                 await this._runtime.respondToModel(model.model_id, decision);
                 card.hide();
-                if (decision === 'download')
-                    this._loadModelCatalog();
-                else
-                    this._loadModelCatalog();
+                this._loadModelCatalog();
             } catch (error) {
-                setBusy(false);
-                description.set_text(`Не удалось сохранить решение для ${displayName}: ${this._friendlyError(error)}`);
+                this._showDependencyError(
+                    card,
+                    'Ошибка загрузки модели',
+                    `Не удалось сохранить решение для ${displayName}.\nПричина: ${this._friendlyError(error)}.`,
+                );
             }
         };
         hide.connect('clicked', () => respond('later'));
@@ -261,27 +333,130 @@ class ChatView extends St.BoxLayout {
         return card;
     }
 
-    _renderModelCatalog(catalog) {
-        const models = Array.isArray(catalog?.models) ? catalog.models : [];
-        for (const child of this._dependencyNotices.get_children())
-            this._dependencyNotices.remove_child(child);
+    _providerNotice(status) {
+        const state = typeof status.state === 'string' ? status.state : 'consent_required';
+        const reason = typeof status.reason === 'string' ? status.reason : '';
+        const isInstalling = state === 'downloading' || state === 'installing';
+        if (state === 'error' || state === 'unsupported') {
+            return this._errorNotice(
+                'Ошибка установки Ollama',
+                `Не удалось подготовить Ollama.\nПричина: ${this._dependencyReason(reason)}.`,
+            );
+        }
+        let body;
+        if (isInstalling) {
+            const progress = Number.isInteger(status.progress_percent)
+                ? ` ${status.progress_percent}%`
+                : '';
+            body = `Установка Ollama выполняется в фоне.${progress}`;
+        } else {
+            body = 'Ollama не установлена. Установить её автоматически для загрузки локальных моделей?';
+        }
+        const card = new St.BoxLayout({
+            vertical: true,
+            style_class: 'ai-dependency-notice',
+            x_expand: true,
+        });
+        card.add_child(new St.Label({
+            text: 'Внимание',
+            style_class: 'ai-dependency-title',
+            x_expand: true,
+        }));
+        const description = new St.Label({
+            text: body,
+            style_class: 'ai-dependency-body',
+            x_expand: true,
+        });
+        description.clutter_text.line_wrap = true;
+        description.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
+        card.add_child(description);
+        const actions = new St.BoxLayout({
+            style_class: 'ai-dependency-actions',
+            x_expand: true,
+        });
+        const hide = new St.Button({label: 'Скрыть', style_class: 'ai-dependency-hide'});
+        const neverShow = new St.CheckButton({
+            label: 'Не показывать',
+            style_class: 'ai-dependency-check',
+            can_focus: true,
+        });
+        const install = new St.Button({
+            label: isInstalling ? 'Установка…' : 'Установить Ollama',
+            style_class: 'ai-dependency-install',
+        });
+        const setBusy = busy => {
+            hide.reactive = !busy;
+            neverShow.reactive = !busy;
+            install.reactive = !busy;
+        };
+        const respond = async decision => {
+            setBusy(true);
+            try {
+                await this._runtime.respondToOllamaProvider(decision);
+                card.hide();
+                this._loadOllamaProvider();
+                this._loadModelCatalog();
+            } catch (error) {
+                this._showDependencyError(
+                    card,
+                    'Ошибка установки Ollama',
+                    `Не удалось сохранить решение для Ollama.\nПричина: ${this._friendlyError(error)}.`,
+                );
+            }
+        };
+        hide.connect('clicked', () => respond('later'));
+        neverShow.connect('clicked', () => {
+            if (neverShow.checked)
+                respond('never');
+        });
+        install.connect('clicked', () => respond('install'));
+        if (isInstalling)
+            setBusy(true);
+        actions.add_child(hide);
+        actions.add_child(neverShow);
+        actions.add_child(new St.Widget({style_class: 'ai-dependency-spacer', x_expand: true}));
+        actions.add_child(install);
+        card.add_child(actions);
+        return card;
+    }
 
-        const visibleModels = models.filter(model => {
+    _renderDependencyNotices() {
+        const models = Array.isArray(this._modelCatalog?.models) ? this._modelCatalog.models : [];
+        const visibleCards = [];
+        const provider = this._providerStatus;
+        const providerReady = !provider || provider.installed === true || provider.state === 'ready';
+        if (provider && (provider.prompt_required === true ||
+            ['downloading', 'installing', 'error', 'unsupported'].includes(provider.state))) {
+            visibleCards.push(this._providerNotice(provider));
+        }
+        const visibleModels = providerReady ? models.filter(model => {
             if (!model || typeof model !== 'object' || typeof model.model_id !== 'string')
+                return false;
+            if (model.reason === 'ollama_not_installed')
                 return false;
             if (model.prompt_required === true)
                 return true;
             return ['starting', 'downloading', 'error', 'unavailable'].includes(model.state);
-        });
+        }) : [];
         for (const model of visibleModels)
-            this._dependencyNotices.add_child(this._dependencyNotice(model));
-        if (visibleModels.length > 0)
+            visibleCards.push(this._dependencyNotice(model));
+        this._dependencyNotices.destroy_all_children();
+        for (const card of visibleCards)
+            this._dependencyNotices.add_child(card);
+        if (visibleCards.length > 0)
             this._dependencyNotices.show();
         else
             this._dependencyNotices.hide();
 
         if (visibleModels.some(model => ['starting', 'downloading'].includes(model.state)))
             this._scheduleModelCatalogPoll();
+        if (provider && ['downloading', 'installing'].includes(provider.state))
+            this._scheduleProviderPoll();
+    }
+
+    _renderModelCatalog(catalog) {
+        this._modelCatalog = catalog;
+        this._renderDependencyNotices();
     }
 
     _scheduleModelCatalogPoll() {
@@ -309,10 +484,44 @@ class ChatView extends St.BoxLayout {
             if (!this._disposed)
                 this._renderModelCatalog(catalog);
         } catch (error) {
-            if (!this._disposed)
-                this._dependencyNotices.hide();
+            // The provider status may still be available, so do not clear
+            // its error/installation card when only the model module fails.
         } finally {
             this._modelCatalogPollInFlight = false;
+        }
+    }
+
+    _scheduleProviderPoll() {
+        if (this._disposed || this._providerPollSourceId)
+            return;
+        this._providerPollSourceId = GLib.timeout_add(
+            GLib.PRIORITY_DEFAULT,
+            1_000,
+            () => {
+                this._providerPollSourceId = 0;
+                if (this._disposed)
+                    return GLib.SOURCE_REMOVE;
+                this._loadOllamaProvider();
+                return GLib.SOURCE_REMOVE;
+            },
+        );
+    }
+
+    async _loadOllamaProvider() {
+        if (this._providerPollInFlight || this._disposed)
+            return;
+        this._providerPollInFlight = true;
+        try {
+            const status = await this._runtime.ollamaProviderStatus();
+            if (!this._disposed) {
+                this._providerStatus = status;
+                this._renderDependencyNotices();
+            }
+        } catch (error) {
+            // A missing provider module is not itself a model installation
+            // failure; leave the model catalog UI intact.
+        } finally {
+            this._providerPollInFlight = false;
         }
     }
 
