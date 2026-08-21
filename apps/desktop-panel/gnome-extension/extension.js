@@ -116,11 +116,17 @@ class ChatView extends St.BoxLayout {
         this._workspacePollInFlight = false;
         this._workspaceRunStages = new Map();
         this._workspacePollErrorShown = false;
+        this._modelCatalogPollSourceId = 0;
+        this._modelCatalogPollInFlight = false;
         this.connect('destroy', () => {
             this._disposed = true;
             if (this._workspacePollSourceId) {
                 GLib.Source.remove(this._workspacePollSourceId);
                 this._workspacePollSourceId = 0;
+            }
+            if (this._modelCatalogPollSourceId) {
+                GLib.Source.remove(this._modelCatalogPollSourceId);
+                this._modelCatalogPollSourceId = 0;
             }
         });
         this._messages = new St.BoxLayout({
@@ -138,8 +144,6 @@ class ChatView extends St.BoxLayout {
         this._scroll.set_child(this._messages);
         this.add_child(this._scroll);
 
-        // These notices are intentionally hardcoded for the first frontend
-        // pass.  Runtime health/model discovery will replace them later.
         this._dependencyNotices = this._buildDependencyNotices();
         this.add_child(this._dependencyNotices);
 
@@ -147,6 +151,7 @@ class ChatView extends St.BoxLayout {
         this.add_child(this._composer);
         GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
             this._loadWorkspace();
+            this._loadModelCatalog();
             return GLib.SOURCE_REMOVE;
         });
     }
@@ -157,20 +162,34 @@ class ChatView extends St.BoxLayout {
             style_class: 'ai-dependency-stack',
             x_expand: true,
         });
-        stack.add_child(this._dependencyNotice({
-            body: 'У вас не установлена Ollama. Установить её, чтобы система могла автоматически загрузить модель?',
-            installLabel: 'Установить Ollama',
-            installStatus: 'Установщик Ollama будет подключён после интеграции backend.',
-        }));
-        stack.add_child(this._dependencyNotice({
-            body: 'Модель по умолчанию Qwen 3 1.7B (qwen3:1.7b) не установлена. Установить её автоматически?',
-            installLabel: 'Установить модель',
-            installStatus: 'Загрузка Qwen 3 1.7B будет подключена после интеграции backend.',
-        }));
+        stack.hide();
         return stack;
     }
 
-    _dependencyNotice({body, installLabel, installStatus}) {
+    _dependencyNotice(model) {
+        const displayName = typeof model.display_name === 'string'
+            ? model.display_name
+            : model.provider_model;
+        const providerModel = typeof model.provider_model === 'string'
+            ? model.provider_model
+            : '';
+        const state = typeof model.state === 'string' ? model.state : 'consent_required';
+        const reason = typeof model.reason === 'string' ? model.reason : '';
+        const isDownloading = state === 'starting' || state === 'downloading';
+        const isOllamaMissing = reason === 'ollama_not_installed';
+        let body;
+        if (isOllamaMissing) {
+            body = `Для загрузки ${displayName} нужна Ollama. Установите Ollama и повторите проверку.`;
+        } else if (isDownloading) {
+            const progress = Number.isInteger(model.progress_percent)
+                ? ` ${model.progress_percent}%`
+                : '';
+            body = `Загрузка модели ${displayName} выполняется в фоне.${progress}`;
+        } else if (state === 'error') {
+            body = `Не удалось загрузить ${displayName}. Повторить попытку?`;
+        } else {
+            body = `Модель ${displayName}${providerModel ? ` (${providerModel})` : ''} не установлена. Загрузить её автоматически?`;
+        }
         const card = new St.BoxLayout({
             vertical: true,
             style_class: 'ai-dependency-notice',
@@ -204,30 +223,97 @@ class ChatView extends St.BoxLayout {
             can_focus: true,
         });
         const install = new St.Button({
-            label: installLabel,
+            label: isOllamaMissing ? 'Нужна Ollama' : isDownloading ? 'Загрузка…' : 'Загрузить',
             style_class: 'ai-dependency-install',
         });
-        const dismiss = () => card.hide();
-        hide.connect('clicked', dismiss);
+        const setBusy = busy => {
+            hide.reactive = !busy;
+            neverShow.reactive = !busy;
+            install.reactive = !busy && !isOllamaMissing;
+        };
+        const respond = async decision => {
+            setBusy(true);
+            try {
+                await this._runtime.respondToModel(model.model_id, decision);
+                card.hide();
+                if (decision === 'download')
+                    this._loadModelCatalog();
+                else
+                    this._loadModelCatalog();
+            } catch (error) {
+                setBusy(false);
+                description.set_text(`Не удалось сохранить решение для ${displayName}: ${this._friendlyError(error)}`);
+            }
+        };
+        hide.connect('clicked', () => respond('later'));
         neverShow.connect('clicked', () => {
             if (neverShow.checked)
-                dismiss();
+                respond('never');
         });
-        install.connect('clicked', () => {
-            install.reactive = false;
-            install.label = 'Подготовлено';
-            dismiss();
-            this._append(this._assistant(
-                installStatus,
-                'ai-assistant-message ai-work-status',
-            ));
-        });
+        install.connect('clicked', () => respond('download'));
+        if (isDownloading)
+            setBusy(true);
         actions.add_child(hide);
         actions.add_child(neverShow);
         actions.add_child(new St.Widget({style_class: 'ai-dependency-spacer', x_expand: true}));
         actions.add_child(install);
         card.add_child(actions);
         return card;
+    }
+
+    _renderModelCatalog(catalog) {
+        const models = Array.isArray(catalog?.models) ? catalog.models : [];
+        for (const child of this._dependencyNotices.get_children())
+            this._dependencyNotices.remove_child(child);
+
+        const visibleModels = models.filter(model => {
+            if (!model || typeof model !== 'object' || typeof model.model_id !== 'string')
+                return false;
+            if (model.prompt_required === true)
+                return true;
+            return ['starting', 'downloading', 'error', 'unavailable'].includes(model.state);
+        });
+        for (const model of visibleModels)
+            this._dependencyNotices.add_child(this._dependencyNotice(model));
+        if (visibleModels.length > 0)
+            this._dependencyNotices.show();
+        else
+            this._dependencyNotices.hide();
+
+        if (visibleModels.some(model => ['starting', 'downloading'].includes(model.state)))
+            this._scheduleModelCatalogPoll();
+    }
+
+    _scheduleModelCatalogPoll() {
+        if (this._disposed || this._modelCatalogPollSourceId)
+            return;
+        this._modelCatalogPollSourceId = GLib.timeout_add(
+            GLib.PRIORITY_DEFAULT,
+            1_000,
+            () => {
+                this._modelCatalogPollSourceId = 0;
+                if (this._disposed)
+                    return GLib.SOURCE_REMOVE;
+                this._loadModelCatalog();
+                return GLib.SOURCE_REMOVE;
+            },
+        );
+    }
+
+    async _loadModelCatalog() {
+        if (this._modelCatalogPollInFlight || this._disposed)
+            return;
+        this._modelCatalogPollInFlight = true;
+        try {
+            const catalog = await this._runtime.modelCatalog();
+            if (!this._disposed)
+                this._renderModelCatalog(catalog);
+        } catch (error) {
+            if (!this._disposed)
+                this._dependencyNotices.hide();
+        } finally {
+            this._modelCatalogPollInFlight = false;
+        }
     }
 
     _assistant(text, styleClass = 'ai-assistant-message') {

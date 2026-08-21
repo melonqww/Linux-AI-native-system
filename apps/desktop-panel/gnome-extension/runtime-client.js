@@ -55,6 +55,17 @@ export class RuntimeClient {
         return this.request('POST', '/v1/system-updates/check');
     }
 
+    modelCatalog() {
+        return this.request('POST', '/v1/models/catalog');
+    }
+
+    respondToModel(modelId, decision) {
+        return this.request('POST', '/v1/models/respond', {
+            model_id: modelId,
+            decision,
+        });
+    }
+
     tasks() {
         return this.request('GET', '/v1/tasks');
     }

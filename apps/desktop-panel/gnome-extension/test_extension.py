@@ -107,11 +107,14 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "this._runtime.workspaceMessages()",
             "this._runtime.workspaceApproval(approvalRequestId, confirmed)",
             "_buildDependencyNotices",
-            "У вас не установлена Ollama",
-            "Qwen 3 1.7B (qwen3:1.7b)",
+            "_loadModelCatalog",
+            "_renderModelCatalog",
+            "_scheduleModelCatalogPoll",
+            "modelCatalog",
+            "respondToModel",
+            "Не удалось загрузить",
             "Не показывать",
-            "Установить Ollama",
-            "Установить модель",
+            "Загрузить",
             "Открыть Task Ledger",
             "_renderWorkspaceMessages",
             "this._runtime.respondToApproval",
@@ -159,6 +162,8 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "'/v1/workspace/runs'",
             "'/v1/workspace/messages'",
             "'/v1/workspace/approval/respond'",
+            "'/v1/models/catalog'",
+            "'/v1/models/respond'",
         ):
             self.assertIn(marker, source)
         self.assertNotIn("http://", source)
