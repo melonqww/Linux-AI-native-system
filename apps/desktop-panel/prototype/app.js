@@ -9,10 +9,6 @@ const composer = document.querySelector("#composer");
 const input = document.querySelector("#message-input");
 const messages = document.querySelector("#messages");
 const confirmationButton = document.querySelector("#confirmation-button");
-const modelButton = document.querySelector("#model-button");
-const modelLabel = document.querySelector("#model-label");
-const modelMenu = document.querySelector("#model-menu");
-const settingsModel = document.querySelector("#settings-model");
 const panelShell = document.querySelector(".panel-shell");
 const panelToggle = document.querySelector("#panel-toggle");
 const panelToggleIcon = panelToggle.querySelector("span");
@@ -106,17 +102,4 @@ document.querySelector("#run-demo").addEventListener("click", simulateResponse);
 confirmationButton.addEventListener("click", () => {
   const enabled = confirmationButton.getAttribute("aria-pressed") === "true";
   confirmationButton.setAttribute("aria-pressed", String(!enabled));
-});
-modelButton.addEventListener("click", () => {
-  const isOpen = modelButton.getAttribute("aria-expanded") === "true";
-  modelButton.setAttribute("aria-expanded", String(!isOpen));
-  modelMenu.hidden = isOpen;
-});
-modelMenu.addEventListener("click", (event) => {
-  const option = event.target.closest("[data-model]");
-  if (!option) return;
-  modelLabel.textContent = option.dataset.model;
-  if (settingsModel) settingsModel.textContent = option.dataset.model;
-  modelButton.setAttribute("aria-expanded", "false");
-  modelMenu.hidden = true;
 });

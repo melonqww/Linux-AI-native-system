@@ -60,7 +60,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "entry.clutter_text.editable = true",
             "entry.clutter_text.single_line_mode = false",
             "_animateHighlight",
-            "Qwen 3.5 2B",
+            "Qwen 3 1.7B",
             "Рабочая область",
             "Сообщение для вашего ИИ",
             "import {RuntimeClient, RuntimeRequestError} from './runtime-client.js'",
@@ -70,8 +70,8 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "stylesheet load failed",
             "this._workspace = new ChatView(",
             "taskId => this._openTaskLedger(taskId)",
-            "const setModelMenuOpen = open =>",
-            "modelChevron.set_text(open ? '⌃' : '⌄')",
+            "const WORKSPACE_MODEL_LABEL = 'Qwen 3 1.7B'",
+            "style_class: 'ai-model ai-model-fixed'",
             "const SidebarView = GObject.registerClass",
             "class SidebarView extends St.Widget",
             "this._sidebar = new SidebarView(this._runtime)",
@@ -126,6 +126,9 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "taskDetailPresentation(task)",
         ):
             self.assertIn(marker, source)
+        self.assertNotIn("Gemma 2 2B", source)
+        self.assertNotIn("Qwen 3.5 2B", source)
+        self.assertNotIn("Qwen 3.5 4B", source)
 
     def test_runtime_client_uses_closed_authenticated_ipc_contract(self):
         source = (ROOT / "runtime-client.js").read_text(encoding="utf-8")

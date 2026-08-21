@@ -29,6 +29,10 @@ const PANEL_HORIZONTAL_MARGIN = 20;
 const PANEL_BOTTOM_MARGIN = 18;
 const TOGGLE_DURATION = 260;
 const TAB_HEIGHT = 43;
+// The runtime's real Ollama model is qwen3:1.7b.  Keep the human-readable
+// name here in sync with that backend default; model switching is not exposed
+// until the runtime supports selecting a different model per run.
+const WORKSPACE_MODEL_LABEL = 'Qwen 3 1.7B';
 const TabButton = GObject.registerClass(
 class TabButton extends St.Button {
     _init(label, icon) {
@@ -240,8 +244,9 @@ class ChatView extends St.BoxLayout {
         });
         modelControl.set_size(145, 34);
         const modelButton = new St.Button({
-            style_class: 'ai-model',
-            can_focus: true,
+            style_class: 'ai-model ai-model-fixed',
+            can_focus: false,
+            reactive: false,
         });
         modelButton.set_size(145, 34);
         const modelContent = new St.BoxLayout({
@@ -249,55 +254,14 @@ class ChatView extends St.BoxLayout {
             x_expand: true,
         });
         const modelLabel = new St.Label({
-            text: 'Qwen 3.5 2B',
+            text: WORKSPACE_MODEL_LABEL,
             style_class: 'ai-model-label',
             x_expand: true,
             x_align: Clutter.ActorAlign.END,
         });
         modelContent.add_child(modelLabel);
-        const modelChevron = new St.Label({
-            text: '⌄',
-            style_class: 'ai-model-chevron',
-        });
-        modelContent.add_child(modelChevron);
         modelButton.set_child(modelContent);
         modelControl.add_child(modelButton);
-
-        const modelMenu = new St.BoxLayout({vertical: true, style_class: 'ai-model-menu'});
-        modelMenu.set_position(0, -116);
-        modelMenu.set_size(145, 110);
-        modelMenu.set_opacity(0);
-        modelMenu.hide();
-        const setModelMenuOpen = open => {
-            modelChevron.ease({
-                opacity: 0,
-                duration: 90,
-                onComplete: () => {
-                    modelChevron.set_text(open ? '⌃' : '⌄');
-                    modelChevron.ease({opacity: 255, duration: 90});
-                },
-            });
-            if (open) {
-                modelMenu.show();
-                modelMenu.ease({opacity: 255, duration: 180});
-            } else {
-                modelMenu.ease({
-                    opacity: 0,
-                    duration: 140,
-                    onComplete: () => modelMenu.hide(),
-                });
-            }
-        };
-        ['Qwen 3.5 2B', 'Gemma 2 2B', 'Qwen 3.5 4B'].forEach(model => {
-            const option = new St.Button({label: model, style_class: 'ai-model-option'});
-            option.connect('clicked', () => {
-                modelLabel.set_text(model);
-                setModelMenuOpen(false);
-            });
-            modelMenu.add_child(option);
-        });
-        modelControl.add_child(modelMenu);
-        modelButton.connect('clicked', () => setModelMenuOpen(!modelMenu.visible));
         actions.add_child(new St.Widget({style_class: 'ai-composer-spacer', x_expand: true}));
         actions.add_child(modelControl);
 

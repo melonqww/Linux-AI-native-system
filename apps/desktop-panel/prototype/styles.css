@@ -161,6 +161,7 @@ body.native-shell .panel { width: 100%; height: 100%; }
 .model-control { position: relative; display: flex; align-items: center; height: 34px; min-width: 0; margin-left: auto; }
 .model-button { display: flex; width: 145px; height: 34px; align-items: center; justify-content: flex-end; gap: 6px; overflow: hidden; padding: 0 4px; border: 0; background: transparent; color: #dededb; font-size: 13px; white-space: nowrap; }
 .model-button:hover { color: #fff; }
+.model-button-fixed { cursor: default; }
 .model-chevron { display: inline-flex; width: 14px; height: 14px; align-items: center; justify-content: center; color: #cfcfcd; }
 .model-chevron svg { width: 12px; height: 10px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
 .model-menu { position: absolute; right: 0; bottom: calc(100% + 6px); z-index: 8; width: 150px; padding: 5px; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; background: #292929; box-shadow: 0 10px 25px rgba(0,0,0,.35); }
