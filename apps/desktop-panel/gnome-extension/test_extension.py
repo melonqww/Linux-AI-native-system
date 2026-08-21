@@ -112,6 +112,8 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "_renderModelCatalog",
             "_renderDependencyNotices",
             "_showDependencyError",
+            "_revealBaseModelPrompt",
+            "_isBaseModelNotice",
             "_scheduleModelCatalogPoll",
             "_scheduleProviderPoll",
             "modelCatalog",

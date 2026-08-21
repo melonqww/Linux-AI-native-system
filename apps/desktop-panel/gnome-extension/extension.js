@@ -122,6 +122,8 @@ class ChatView extends St.BoxLayout {
         this._providerPollInFlight = false;
         this._modelCatalog = null;
         this._providerStatus = null;
+        this._baseModelPromptInFlight = false;
+        this._baseModelPromptShown = false;
         this.connect('destroy', () => {
             this._disposed = true;
             if (this._workspacePollSourceId) {
@@ -424,7 +426,8 @@ class ChatView extends St.BoxLayout {
         const models = Array.isArray(this._modelCatalog?.models) ? this._modelCatalog.models : [];
         const visibleCards = [];
         const provider = this._providerStatus;
-        const providerReady = !provider || provider.installed === true || provider.state === 'ready';
+        const providerReady = this._baseModelPromptShown || !provider ||
+            provider.installed === true || provider.state === 'ready';
         if (provider && (provider.prompt_required === true ||
             ['downloading', 'installing', 'error', 'unsupported'].includes(provider.state))) {
             visibleCards.push(this._providerNotice(provider));
@@ -522,6 +525,53 @@ class ChatView extends St.BoxLayout {
             // failure; leave the model catalog UI intact.
         } finally {
             this._providerPollInFlight = false;
+        }
+    }
+
+    _isBaseModelNotice(message) {
+        if (!message || message.kind !== 'notice' || typeof message.content !== 'string')
+            return false;
+        return /базовая модель|base model/i.test(message.content);
+    }
+
+    async _revealBaseModelPrompt() {
+        if (this._baseModelPromptShown || this._baseModelPromptInFlight || this._disposed)
+            return;
+        this._baseModelPromptShown = true;
+        this._baseModelPromptInFlight = true;
+        try {
+            const [catalogResult, providerResult] = await Promise.allSettled([
+                this._runtime.modelCatalog(),
+                this._runtime.ollamaProviderStatus(),
+            ]);
+            if (this._disposed)
+                return;
+            if (catalogResult.status === 'fulfilled')
+                this._modelCatalog = catalogResult.value;
+            if (providerResult.status === 'fulfilled')
+                this._providerStatus = providerResult.value;
+
+            const models = Array.isArray(this._modelCatalog?.models)
+                ? this._modelCatalog.models.slice()
+                : [];
+            const qwen = models.find(model => model?.model_id === 'workspace.qwen');
+            if (!qwen) {
+                models.unshift({
+                    model_id: 'workspace.qwen',
+                    provider: 'ollama',
+                    provider_model: 'qwen3:1.7b',
+                    display_name: WORKSPACE_MODEL_LABEL,
+                    required: true,
+                    prompt_required: true,
+                    state: 'consent_required',
+                    decision: 'unset',
+                    reason: 'user_decision_required',
+                });
+                this._modelCatalog = {schema_version: 1, models};
+            }
+            this._renderDependencyNotices();
+        } finally {
+            this._baseModelPromptInFlight = false;
         }
     }
 
@@ -758,6 +808,8 @@ class ChatView extends St.BoxLayout {
                 continue;
             }
             if (message.role === 'system' || message.kind === 'notice') {
+                if (this._isBaseModelNotice(message))
+                    this._revealBaseModelPrompt();
                 this._messages.add_child(this._assistant(
                     message.content,
                     'ai-assistant-message ai-work-status',
