@@ -23,7 +23,8 @@ sudo apt install python3-venv
 ```bash
 systemctl --user status ai-native-linux-runtime.service
 journalctl --user -u ai-native-linux-runtime.service -n 100 --no-pager
-test -S "$XDG_RUNTIME_DIR/ai-native-linux/runtime.sock" && echo connected
+python3 deployments/systemd/runtime_probe.py \
+  --socket "$XDG_RUNTIME_DIR/ai-native-linux/runtime.sock"
 ```
 
 Модель и Ollama URL можно изменить в

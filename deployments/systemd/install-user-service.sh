@@ -73,12 +73,11 @@ systemctl --user enable ai-native-linux-runtime.service
 systemctl --user restart ai-native-linux-runtime.service
 
 socket_path="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/ai-native-linux/runtime.sock"
+socket_ready=false
 for _attempt in {1..40}; do
     if [[ -S "${socket_path}" ]]; then
-        echo "PASS: runtime service is active"
-        echo "PASS: Unix socket ${socket_path}"
-        echo "RESULT: PANEL CORE CONNECTED"
-        exit 0
+        socket_ready=true
+        break
     fi
     if ! systemctl --user is-active --quiet ai-native-linux-runtime.service; then
         break
@@ -86,7 +85,31 @@ for _attempt in {1..40}; do
     sleep 0.5
 done
 
-echo "FAIL: runtime did not create its Unix socket" >&2
+if [[ "${socket_ready}" != true ]]; then
+    echo "FAIL: runtime did not create its Unix socket" >&2
+    systemctl --user --no-pager --full status ai-native-linux-runtime.service >&2 || true
+    echo "Diagnostics: journalctl --user -u ai-native-linux-runtime.service -n 100 --no-pager" >&2
+    exit 1
+fi
+
+probe_output=""
+for _attempt in {1..3}; do
+    if probe_output="$("${virtual_environment}/bin/python" \
+        "${script_directory}/runtime_probe.py" --socket "${socket_path}" 2>&1)"; then
+        echo "PASS: runtime service is active"
+        echo "PASS: Unix socket ${socket_path}"
+        echo "PASS: health and inference lifecycle endpoints"
+        echo "STATE: ${probe_output}"
+        echo "RESULT: PANEL CORE AND INFERENCE CONNECTED"
+        exit 0
+    fi
+    sleep 0.5
+done
+
+echo "FAIL: runtime socket exists, but panel inference request failed" >&2
+if [[ -n "${probe_output:-}" ]]; then
+    echo "${probe_output}" >&2
+fi
 systemctl --user --no-pager --full status ai-native-linux-runtime.service >&2 || true
 echo "Diagnostics: journalctl --user -u ai-native-linux-runtime.service -n 100 --no-pager" >&2
 exit 1

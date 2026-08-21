@@ -32,7 +32,7 @@ class SystemdDeploymentTests(unittest.TestCase):
         self.assertNotIn("User=root", unit)
         self.assertNotIn("sudo", unit)
 
-    def test_install_enables_service_and_verifies_socket(self) -> None:
+    def test_install_enables_service_and_verifies_inference_lifecycle(self) -> None:
         source = (SYSTEMD_ROOT / "install-user-service.sh").read_text(encoding="utf-8")
         for marker in (
             'python3 -m venv "${virtual_environment}"',
@@ -44,7 +44,8 @@ class SystemdDeploymentTests(unittest.TestCase):
             "systemctl --user enable ai-native-linux-runtime.service",
             "systemctl --user restart ai-native-linux-runtime.service",
             '[[ -S "${socket_path}" ]]',
-            "RESULT: PANEL CORE CONNECTED",
+            '"${script_directory}/runtime_probe.py"',
+            "RESULT: PANEL CORE AND INFERENCE CONNECTED",
             "journalctl --user -u ai-native-linux-runtime.service",
         ):
             self.assertIn(marker, source)
