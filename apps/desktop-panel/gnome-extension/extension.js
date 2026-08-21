@@ -309,6 +309,8 @@ class ChatView extends St.BoxLayout {
             setBusy(true);
             try {
                 await this._runtime.respondToModel(model.model_id, decision);
+                if (model.model_id === 'workspace.qwen')
+                    this._baseModelPromptShown = false;
                 card.hide();
                 this._loadModelCatalog();
             } catch (error) {
@@ -458,7 +460,9 @@ class ChatView extends St.BoxLayout {
     }
 
     _renderModelCatalog(catalog) {
-        this._modelCatalog = catalog;
+        this._modelCatalog = this._baseModelPromptShown
+            ? this._withBaseModelPrompt(catalog)
+            : catalog;
         this._renderDependencyNotices();
     }
 
@@ -529,9 +533,35 @@ class ChatView extends St.BoxLayout {
     }
 
     _isBaseModelNotice(message) {
-        if (!message || message.kind !== 'notice' || typeof message.content !== 'string')
+        if (!message || typeof message.content !== 'string')
             return false;
         return /базовая модель|base model/i.test(message.content);
+    }
+
+    _withBaseModelPrompt(catalog) {
+        const models = Array.isArray(catalog?.models)
+            ? catalog.models.map(model => ({...model}))
+            : [];
+        const qwen = models.find(model => model?.model_id === 'workspace.qwen');
+        if (qwen) {
+            qwen.prompt_required = true;
+            qwen.state = 'consent_required';
+            qwen.decision = 'unset';
+            qwen.reason = 'user_decision_required';
+        } else {
+            models.unshift({
+                model_id: 'workspace.qwen',
+                provider: 'ollama',
+                provider_model: 'qwen3:1.7b',
+                display_name: WORKSPACE_MODEL_LABEL,
+                required: true,
+                prompt_required: true,
+                state: 'consent_required',
+                decision: 'unset',
+                reason: 'user_decision_required',
+            });
+        }
+        return {...(catalog ?? {schema_version: 1}), models};
     }
 
     async _revealBaseModelPrompt() {
@@ -551,24 +581,7 @@ class ChatView extends St.BoxLayout {
             if (providerResult.status === 'fulfilled')
                 this._providerStatus = providerResult.value;
 
-            const models = Array.isArray(this._modelCatalog?.models)
-                ? this._modelCatalog.models.slice()
-                : [];
-            const qwen = models.find(model => model?.model_id === 'workspace.qwen');
-            if (!qwen) {
-                models.unshift({
-                    model_id: 'workspace.qwen',
-                    provider: 'ollama',
-                    provider_model: 'qwen3:1.7b',
-                    display_name: WORKSPACE_MODEL_LABEL,
-                    required: true,
-                    prompt_required: true,
-                    state: 'consent_required',
-                    decision: 'unset',
-                    reason: 'user_decision_required',
-                });
-                this._modelCatalog = {schema_version: 1, models};
-            }
+            this._modelCatalog = this._withBaseModelPrompt(this._modelCatalog);
             this._renderDependencyNotices();
         } finally {
             this._baseModelPromptInFlight = false;
