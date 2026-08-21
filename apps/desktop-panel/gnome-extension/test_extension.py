@@ -98,6 +98,8 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "this._historyButton = this._buildHistoryButton()",
             "this._workspace = new ChatView(",
             "taskId => this._openTaskLedger(taskId)",
+            "this._selectTab(0)",
+            "this._sidebar.openTaskLedger(taskId)",
             "_attachFallback(error)",
             "panel construction failed",
             "this._runtime.workspaceSubmit(text)",
