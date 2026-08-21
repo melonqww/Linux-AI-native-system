@@ -38,6 +38,8 @@ class RuntimeApplication(Protocol):
     def workspace_approval(
         self, payload: dict[str, object], *, transport_context: TransportContext
     ) -> object: ...
+    def model_catalog(self, payload: dict[str, object]) -> dict[str, object]: ...
+    def respond_to_model(self, payload: dict[str, object]) -> dict[str, object]: ...
 
 
 @dataclass(frozen=True)
@@ -106,6 +108,8 @@ class RuntimeRouter:
                     "workspace.runs.read",
                     "workspace.submit",
                     "workspace.approval.respond",
+                    "models.catalog.read",
+                    "models.lifecycle.respond",
                 }
                 capabilities = [item for item in capabilities if item not in restricted]
             return RuntimeResponse(200, {"capabilities": capabilities})
@@ -134,6 +138,15 @@ class RuntimeRouter:
             return RuntimeResponse(200, self.application.system_status(payload))
         if path == "/v1/system-updates/check":
             return RuntimeResponse(200, self.application.check_system_updates(payload))
+        if path in {"/v1/models/catalog", "/v1/models/respond"}:
+            if not self.allow_r1:
+                return self.error(403, "secure_transport_required", False, request_id)
+            operation = (
+                self.application.model_catalog
+                if path == "/v1/models/catalog"
+                else self.application.respond_to_model
+            )
+            return RuntimeResponse(200, operation(payload))
         if path in {"/v1/workspace/submit", "/v1/workspace/approval/respond"}:
             if not self.allow_r1:
                 return self.error(403, "secure_transport_required", False, request_id)

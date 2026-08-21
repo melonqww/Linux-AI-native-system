@@ -77,6 +77,8 @@ class QueryRuntimeApplication:
         task_ledger: TaskHistory | None = None,
         workspace: WorkspaceHistory | None = None,
         workspace_controller: WorkspaceController | None = None,
+        model_catalog: Callable[[], dict[str, object]] | None = None,
+        model_decision: Callable[[dict[str, object]], dict[str, object]] | None = None,
     ) -> None:
         self.query_service = query_service
         self.scheduler_status = scheduler_status
@@ -89,6 +91,8 @@ class QueryRuntimeApplication:
         self.task_ledger = task_ledger
         self.workspace = workspace
         self.workspace_controller = workspace_controller
+        self.model_catalog_callback = model_catalog
+        self.model_decision_callback = model_decision
         if intent_pipeline is not None and task_context is None:
             raise ValueError("task_context is required with intent_pipeline")
         if (plan_store is None) != (plan_executor is None):
@@ -122,7 +126,39 @@ class QueryRuntimeApplication:
             capabilities.extend(("workspace.messages.read", "workspace.runs.read"))
         if self.workspace_controller is not None:
             capabilities.extend(("workspace.submit", "workspace.approval.respond"))
+        if self.model_catalog_callback is not None:
+            capabilities.append("models.catalog.read")
+        if self.model_decision_callback is not None:
+            capabilities.append("models.lifecycle.respond")
         return capabilities
+
+    def model_catalog(self, payload: dict[str, object]) -> dict[str, object]:
+        if self.model_catalog_callback is None:
+            raise RuntimeError("model_catalog_unavailable")
+        if payload:
+            raise ValueError("model catalog does not accept fields")
+        result = self.model_catalog_callback()
+        if not isinstance(result, dict):
+            raise RuntimeError("model_catalog_invalid_response")
+        return result
+
+    def respond_to_model(self, payload: dict[str, object]) -> dict[str, object]:
+        if self.model_decision_callback is None:
+            raise RuntimeError("model_lifecycle_unavailable")
+        if set(payload) != {"model_id", "decision"}:
+            raise ValueError("model_id and decision are required")
+        model_id = self._string(payload, "model_id")
+        decision = self._string(payload, "decision")
+        if model_id not in {"workspace.qwen", "assistant.llama"}:
+            raise ValueError("unknown model_id")
+        if decision not in {"download", "later", "never"}:
+            raise ValueError("unknown model decision")
+        result = self.model_decision_callback(
+            {"model_id": model_id, "decision": decision}
+        )
+        if not isinstance(result, dict):
+            raise RuntimeError("model_lifecycle_invalid_response")
+        return result
 
     def workspace_submit(
         self,

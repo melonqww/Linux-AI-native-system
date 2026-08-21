@@ -317,6 +317,24 @@ class WorkspaceRuntime:
                 if russian
                 else "The local model is starting. Try again shortly."
             )
+        elif state == "consent_required":
+            content = (
+                "Для работы рабочей области нужна базовая модель. Выберите, загружать ли её."
+                if russian
+                else "Workspace needs its base model. Choose whether to download it."
+            )
+        elif state == "deferred":
+            content = (
+                "Загрузка базовой модели отложена."
+                if russian
+                else "The base model download was deferred."
+            )
+        elif state == "declined":
+            content = (
+                "Базовая модель отключена в настройках."
+                if russian
+                else "The base model is disabled in settings."
+            )
         elif reason == "ollama_not_installed":
             content = (
                 "Ollama не установлен, поэтому локальная модель недоступна."

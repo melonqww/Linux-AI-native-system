@@ -33,6 +33,7 @@ class OllamaModelManager:
         executable_finder: Callable[[str], str | None] | None = None,
         popen_fn: Callable[..., subprocess.Popen[bytes]] | None = None,
         sleep_fn: Callable[[float], None] | None = None,
+        lifecycle_lock: threading.Lock | threading.RLock | None = None,
     ) -> None:
         if not isinstance(model, str) or _MODEL.fullmatch(model) is None:
             raise ValueError("model name is invalid")
@@ -42,6 +43,7 @@ class OllamaModelManager:
         self._find = executable_finder or shutil.which
         self._popen = popen_fn or subprocess.Popen
         self._sleep = sleep_fn or time.sleep
+        self._lifecycle_lock = lifecycle_lock or threading.RLock()
         self._lock = threading.RLock()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
@@ -72,6 +74,13 @@ class OllamaModelManager:
                     self._status = self._make_status("ready")
             return self._status
 
+    def installed(self) -> bool:
+        return self._model_present()
+
+    def policy_status(self, state: str, *, reason: str | None = None) -> ModelStatus:
+        """Build a status owned by catalog policy without starting model work."""
+        return self._make_status(state, reason=reason, auto_download=False)
+
     def stop(self) -> None:
         self._stop.set()
         thread = self._thread
@@ -88,6 +97,10 @@ class OllamaModelManager:
         self._owned_server = None
 
     def _ensure_worker(self) -> None:
+        with self._lifecycle_lock:
+            self._ensure_worker_locked()
+
+    def _ensure_worker_locked(self) -> None:
         try:
             if not self._server_available() and not self._start_server():
                 return
@@ -228,6 +241,7 @@ class OllamaModelManager:
         completed: int = 0,
         total: int | None = None,
         reason: str | None = None,
+        auto_download: bool = True,
     ) -> ModelStatus:
         progress = None
         if total is not None and total > 0:
@@ -241,6 +255,7 @@ class OllamaModelManager:
             completed,
             total,
             reason,
+            auto_download,
         )
 
     @staticmethod

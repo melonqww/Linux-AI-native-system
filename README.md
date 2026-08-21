@@ -128,8 +128,10 @@ model reasoning и технические причины ошибок в пол�
 Backend API рабочей области:
 [`Architecture/api/workspace-runtime-v1.md`](Architecture/api/workspace-runtime-v1.md).
 Жизненный цикл локальной модели вынесен в first-party `model.ollama`: ядро
-использует только `model.local.ensure/status`, а модуль в фоне загружает
-отсутствующую `qwen3:1.7b`. Решение:
+использует model-neutral контракты, а модуль управляет Qwen и дополнительной
+LLaMA. Отсутствующие веса загружаются в фоне только после решения пользователя.
+Backend-контракт панели: [`model-catalog-v1`](Architecture/api/model-catalog-v1.md).
+Архитектурное решение:
 [`ADR-011`](Architecture/decisions/ADR-011-model-lifecycle-module.md).
 
 `modules/system-monitor` реализует read-only диспетчер: CPU, load average,

@@ -197,6 +197,36 @@ class QueryServiceTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             QueryRuntimeApplication(self.service).check_system_updates({})
 
+    def test_runtime_exposes_validated_model_lifecycle_contract(self) -> None:
+        catalog = {"schema_version": 1, "models": [{"model_id": "workspace.qwen"}]}
+        decisions = []
+        application = QueryRuntimeApplication(
+            self.service,
+            model_catalog=lambda: catalog,
+            model_decision=lambda payload: decisions.append(payload) or {"state": "starting"},
+        )
+
+        self.assertEqual(application.model_catalog({}), catalog)
+        self.assertEqual(
+            application.respond_to_model(
+                {"model_id": "assistant.llama", "decision": "download"}
+            ),
+            {"state": "starting"},
+        )
+        self.assertEqual(decisions, [
+            {"model_id": "assistant.llama", "decision": "download"}
+        ])
+        self.assertIn("models.catalog.read", application.capabilities())
+        self.assertIn("models.lifecycle.respond", application.capabilities())
+        for invalid in (
+            {},
+            {"model_id": "assistant.llama", "decision": "maybe"},
+            {"model_id": "unknown", "decision": "download"},
+            {"model_id": "assistant.llama", "decision": "later", "extra": True},
+        ):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                application.respond_to_model(invalid)
+
     def test_runtime_exposes_validated_workspace_projection(self) -> None:
         workspace = FakeWorkspace()
         application = QueryRuntimeApplication(self.service, workspace=workspace)

@@ -66,10 +66,12 @@ Frontend рисует только публичные стадии. `elapsed_ms`
   построенных backend из подтверждённых фактов `OrchestrationResult`;
 - при недоступности или неверном ответе модели используется системный итог.
 
-Перед model route Workspace читает `model.local.status`. При `starting` или
-`downloading` Qwen не вызывается: run завершается безопасным notice с текущим
-прогрессом, а фоновая загрузка продолжается в `model.ollama`. Следующий запрос
-после состояния `ready` обрабатывается штатно.
+Перед model route Workspace читает `model.local.status`. При
+`consent_required`, `deferred` или `declined` Qwen не вызывается и frontend
+может получить каталог через model lifecycle API. При `starting` или
+`downloading` run завершается безопасным notice с текущим прогрессом, а фоновая
+загрузка продолжается в `model.ollama`. Следующий запрос после состояния
+`ready` обрабатывается штатно.
 
 Сообщения удаляются через 24 часа. Связанный `task_id` остаётся в Task Ledger
 семь суток. После рестарта незавершённый workspace run закрывается безопасным

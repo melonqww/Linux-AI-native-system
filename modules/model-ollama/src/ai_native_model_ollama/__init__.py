@@ -3,48 +3,94 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
+from .catalog import ModelDecisionStore, ModelDefinition, OllamaModelCatalog
 from .contracts import ModelStatus
 from .manager import OllamaModelManager
 
 
-_manager: OllamaModelManager | None = None
+_catalog: OllamaModelCatalog | None = None
 
 
 def worker_start() -> None:
-    global _manager
-    _manager = OllamaModelManager(
-        model=os.environ.get("AI_NATIVE_INTENT_MODEL", "qwen3:1.7b"),
+    global _catalog
+    database = Path(
+        os.environ.get(
+            "AI_NATIVE_MODEL_STATE_DATABASE",
+            str(Path.home() / ".local/share/ai-native-linux/model-lifecycle.sqlite3"),
+        )
+    )
+    definitions = (
+        ModelDefinition(
+            "workspace.qwen",
+            os.environ.get("AI_NATIVE_INTENT_MODEL", "qwen3:1.7b"),
+            "Qwen 3 1.7B",
+            "workspace_base",
+            True,
+        ),
+        ModelDefinition(
+            "assistant.llama",
+            os.environ.get("AI_NATIVE_LLAMA_MODEL", "llama3.2:3b"),
+            "Llama 3.2 3B",
+            "optional_assistant",
+            False,
+            2_000_000_000,
+        ),
+    )
+    _catalog = OllamaModelCatalog(
+        definitions,
+        ModelDecisionStore(database),
         base_url=os.environ.get("AI_NATIVE_OLLAMA_URL", "http://127.0.0.1:11434"),
     )
 
 
 def worker_health() -> dict[str, object]:
-    return _require_manager().status().to_dict()
+    return {"status": "ready", "model_count": len(_require_catalog().definitions)}
 
 
 def worker_invoke(operation: str, payload: dict[str, object]) -> dict[str, object]:
-    if payload:
-        raise ValueError("invalid_payload")
-    manager = _require_manager()
+    catalog = _require_catalog()
     if operation == "ensure":
-        return manager.ensure().to_dict()
+        if payload:
+            raise ValueError("invalid_payload")
+        return catalog.ensure_base()
     if operation == "status":
-        return manager.status().to_dict()
+        if payload:
+            raise ValueError("invalid_payload")
+        return catalog.ensure_base()
+    if operation == "catalog":
+        if payload:
+            raise ValueError("invalid_payload")
+        return catalog.catalog()
+    if operation == "respond":
+        if set(payload) != {"model_id", "decision"}:
+            raise ValueError("invalid_payload")
+        model_id = payload.get("model_id")
+        decision = payload.get("decision")
+        if not isinstance(model_id, str) or not isinstance(decision, str):
+            raise ValueError("invalid_payload")
+        return catalog.respond(model_id, decision)
     raise ValueError("unknown_operation")
 
 
 def worker_stop() -> None:
-    global _manager
-    if _manager is not None:
-        _manager.stop()
-    _manager = None
+    global _catalog
+    if _catalog is not None:
+        _catalog.stop()
+    _catalog = None
 
 
-def _require_manager() -> OllamaModelManager:
-    if _manager is None:
+def _require_catalog() -> OllamaModelCatalog:
+    if _catalog is None:
         raise RuntimeError("model_manager_not_started")
-    return _manager
+    return _catalog
 
 
-__all__ = ["ModelStatus", "OllamaModelManager"]
+__all__ = [
+    "ModelDecisionStore",
+    "ModelDefinition",
+    "ModelStatus",
+    "OllamaModelCatalog",
+    "OllamaModelManager",
+]

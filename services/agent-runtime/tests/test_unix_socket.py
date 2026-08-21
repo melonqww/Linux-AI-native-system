@@ -72,6 +72,15 @@ class App:
         self.transport_contexts.append(transport_context)
         return WorkspaceItem(run_id=payload["approval_request_id"])
 
+    def model_catalog(self, payload):
+        return {
+            "schema_version": 1,
+            "models": [{"model_id": "assistant.llama", "prompt_required": True}],
+        }
+
+    def respond_to_model(self, payload):
+        return {"model_id": payload["model_id"], "decision": payload["decision"]}
+
 
 @unittest.skipUnless(sys.platform.startswith("linux"), "Linux SO_PEERCRED integration")
 class UnixSocketTests(unittest.TestCase):
@@ -174,6 +183,24 @@ class UnixSocketTests(unittest.TestCase):
         self.assertEqual(response["status"], 202)
         self.assertEqual(response["body"], {"run_id": "submitted:Привет"})
         self.assertEqual(app.transport_contexts[0].transport, TransportKind.UNIX_PEER)
+
+    def test_secure_socket_exposes_model_catalog_and_accepts_consent(self):
+        server = create_unix_server(App(), self.path)
+        _request_id, catalog = self._request(
+            server, method="POST", path="/v1/models/catalog", body={}
+        )
+        self.assertEqual(catalog["status"], 200)
+        self.assertTrue(catalog["body"]["models"][0]["prompt_required"])
+
+        server = create_unix_server(App(), self.path)
+        _request_id, response = self._request(
+            server,
+            method="POST",
+            path="/v1/models/respond",
+            body={"model_id": "assistant.llama", "decision": "download"},
+        )
+        self.assertEqual(response["status"], 200)
+        self.assertEqual(response["body"]["decision"], "download")
 
     def test_policy_rejects_invalid_pid_and_other_uid(self):
         policy = PeerCredentialPolicy(expected_uid=1000, expected_gid=1000)

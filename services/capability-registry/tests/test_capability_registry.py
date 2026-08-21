@@ -127,6 +127,8 @@ class CapabilityRegistryTests(RegistryTestCase):
         self.assertIn("system.monitor.snapshot", self.registry.available_capabilities())
         self.assertIn("system.updates.check", self.registry.available_capabilities())
         self.assertIn("model.local.ensure", self.registry.available_capabilities())
+        self.assertIn("model.catalog.read", self.registry.available_capabilities())
+        self.assertIn("model.catalog.respond", self.registry.available_capabilities())
 
     def test_disabling_dependency_makes_dependent_module_unavailable(self) -> None:
         self.registry.sync([PROJECT_ROOT / "services"])

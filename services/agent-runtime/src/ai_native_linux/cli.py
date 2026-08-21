@@ -109,6 +109,26 @@ def main() -> int:
             task_ledger = TaskLedger(args.task_ledger_database)
             workspace = WorkspaceStore(args.workspace_database)
             workspace.purge_expired()
+            model_status = None
+            model_catalog = None
+            model_decision = None
+            try:
+                model_module_id = manager.start_for_capability("model.local.ensure")
+                model_status = lambda: manager.invoke(
+                    model_module_id, "ensure", timeout=15
+                )
+                model_catalog = lambda: manager.invoke(
+                    model_module_id, "catalog", timeout=15
+                )
+                model_decision = lambda payload: manager.invoke(
+                    model_module_id, "respond", payload, timeout=15
+                )
+            except ModuleProcessError:
+                print("Model manager: unavailable")
+                model_status = lambda: {
+                    "state": "unavailable",
+                    "reason": "model_manager_unavailable",
+                }
             if not args.no_intent_compiler:
                 from ai_native_intents import (
                     IntentCompiler,
@@ -122,17 +142,6 @@ def main() -> int:
                     timeout_seconds=args.intent_timeout,
                     context_tokens=args.intent_context_tokens,
                 )
-                model_status = None
-                try:
-                    model_module_id = manager.start_for_capability("model.local.ensure")
-                    manager.invoke(model_module_id, "ensure")
-                    model_status = lambda: manager.invoke(model_module_id, "ensure")
-                except ModuleProcessError:
-                    print("Model manager: unavailable")
-                    model_status = lambda: {
-                        "state": "unavailable",
-                        "reason": "model_manager_unavailable",
-                    }
                 model_health = provider.health()
                 state = "ready" if model_health.available else f"unavailable ({model_health.reason})"
                 print(f"Intent model {args.intent_model}: {state}")
@@ -204,6 +213,8 @@ def main() -> int:
                 task_ledger=task_ledger,
                 workspace=workspace,
                 workspace_controller=workspace_controller,
+                model_catalog=model_catalog,
+                model_decision=model_decision,
             )
             transport = (
                 "unix" if args.transport == "auto" and sys.platform.startswith("linux")

@@ -44,6 +44,8 @@ class App:
             "workspace.runs.read",
             "workspace.submit",
             "workspace.approval.respond",
+            "models.catalog.read",
+            "models.lifecycle.respond",
         ]
 
     def search(self, payload):
@@ -90,6 +92,12 @@ class App:
 
     def continue_task(self, payload):
         return Task(task_id=payload["task_id"], state="interrupted")
+
+    def model_catalog(self, payload):
+        return {"schema_version": 1, "models": []}
+
+    def respond_to_model(self, payload):
+        return {"model_id": payload["model_id"], "decision": payload["decision"]}
 
 
 class BridgeTests(unittest.TestCase):
@@ -169,6 +177,13 @@ class BridgeTests(unittest.TestCase):
             )
             with self.assertRaises(urllib.error.HTTPError) as submit_error:
                 urllib.request.urlopen(submit_request)
+            models_request = urllib.request.Request(
+                base + "/v1/models/catalog",
+                data=b"{}",
+                headers={"Content-Type": "application/json"},
+            )
+            with self.assertRaises(urllib.error.HTTPError) as models_error:
+                urllib.request.urlopen(models_request)
         finally:
             server.shutdown()
             server.server_close()
@@ -178,6 +193,8 @@ class BridgeTests(unittest.TestCase):
         self.assertNotIn("workspace.messages.read", capabilities["capabilities"])
         self.assertNotIn("workspace.runs.read", capabilities["capabilities"])
         self.assertNotIn("workspace.submit", capabilities["capabilities"])
+        self.assertNotIn("models.catalog.read", capabilities["capabilities"])
+        self.assertNotIn("models.lifecycle.respond", capabilities["capabilities"])
         self.assertEqual(status["scheduler"]["state"], "idle")
         self.assertEqual(system_status["schema_version"], 1)
         self.assertTrue(system_status["supported"])
@@ -194,6 +211,7 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(cancel_error.exception.code, 403)
         self.assertEqual(workspace_error.exception.code, 403)
         self.assertEqual(submit_error.exception.code, 403)
+        self.assertEqual(models_error.exception.code, 403)
 
     def test_global_error_envelope_redacts_unexpected_failures(self):
         server = create_server(App())

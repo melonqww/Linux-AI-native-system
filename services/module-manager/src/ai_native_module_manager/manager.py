@@ -106,6 +106,9 @@ class ModuleProcessManager:
         env["PYTHONPATH"] = os.pathsep.join(path_parts)
         env["AI_NATIVE_STORAGE_DATABASE"] = str(self.storage_database)
         env["AI_NATIVE_INDEX_DATABASE"] = str(self.index_database)
+        env["AI_NATIVE_MODEL_STATE_DATABASE"] = str(
+            self.runtime_directory / "model-lifecycle.sqlite3"
+        )
         process = subprocess.Popen(
             [
                 sys.executable,
