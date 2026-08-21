@@ -142,6 +142,15 @@ body.native-shell .panel { width: 100%; height: 100%; }
 .card-label, .eyebrow { color: #bdd9aa; font-size: 9px; font-weight: 750; letter-spacing: .12em; }
 .plan-card p { margin: 8px 0 0; color: #e1e1df; font-size: 12px; line-height: 1.45; }
 .soft-button { margin-top: 11px; padding: 7px 10px; border: 0; border-radius: 8px; background: #ededeb; color: #262626; font-size: 11px; font-weight: 700; }
+.dependency-notices { display: flex; flex: 0 0 auto; flex-direction: column; gap: 8px; margin: 0 12px 0 20px; }
+.dependency-notice { display: flex; flex-direction: column; gap: 7px; padding: 10px 12px; border: 1px solid rgba(255,255,255,.14); border-radius: 12px; background: #2c2c2c; }
+.dependency-notice strong { color: #f0d18b; font-size: 12px; }
+.dependency-notice p { margin: 0; color: #e0e0e0; font-size: 12px; line-height: 1.35; }
+.dependency-actions { display: flex; min-height: 28px; gap: 6px; align-items: center; }
+.dependency-hide, .dependency-install { padding: 6px 9px; border: 0; border-radius: 8px; font-size: 11px; font-weight: 700; }
+.dependency-hide { background: rgba(255,255,255,.08); color: #d6d6d6; }
+.dependency-install { margin-left: auto; background: #eeeeec; color: #292929; }
+.dependency-check { display: inline-flex; align-items: center; color: #c8c8c8; font-size: 11px; white-space: nowrap; }
 
 .composer { flex: 0 0 auto; margin: 0 12px 12px; padding: 9px 11px 3px; border: 1px solid rgba(255,255,255,.1); border-radius: 21px; background: #3b3b3b; }
 .composer textarea { display: block; width: 100%; min-height: 20px; max-height: 142px; padding: 0 3px; resize: none; overflow-y: auto; border: 0; outline: 0; background: transparent; color: #f9f9f7; font-size: 12px; line-height: 20px; }

@@ -36,6 +36,27 @@
               </div>
             </div>
 
+            <div class="dependency-notices" aria-label="Проверка локальных компонентов">
+              <section class="dependency-notice" data-dependency-notice>
+                <strong>Внимание</strong>
+                <p>У вас не установлена Ollama. Установить её, чтобы система могла автоматически загрузить модель?</p>
+                <div class="dependency-actions">
+                  <button class="dependency-hide" type="button" data-notice-hide>Скрыть</button>
+                  <label class="dependency-check"><input type="checkbox" data-notice-never /> Не показывать</label>
+                  <button class="dependency-install" type="button" data-notice-install>Установить Ollama</button>
+                </div>
+              </section>
+              <section class="dependency-notice" data-dependency-notice>
+                <strong>Внимание</strong>
+                <p>Модель по умолчанию Qwen 3 1.7B (qwen3:1.7b) не установлена. Установить её автоматически?</p>
+                <div class="dependency-actions">
+                  <button class="dependency-hide" type="button" data-notice-hide>Скрыть</button>
+                  <label class="dependency-check"><input type="checkbox" data-notice-never /> Не показывать</label>
+                  <button class="dependency-install" type="button" data-notice-install>Установить модель</button>
+                </div>
+              </section>
+            </div>
+
             <form class="composer" id="composer">
               <textarea id="message-input" rows="1" autocomplete="off" placeholder="Сообщение для вашего ИИ" aria-label="Сообщение"></textarea>
               <div class="composer-actions">

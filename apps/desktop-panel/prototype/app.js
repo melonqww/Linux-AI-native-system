@@ -103,3 +103,20 @@ confirmationButton.addEventListener("click", () => {
   const enabled = confirmationButton.getAttribute("aria-pressed") === "true";
   confirmationButton.setAttribute("aria-pressed", String(!enabled));
 });
+
+document.querySelectorAll("[data-dependency-notice]").forEach((notice) => {
+  const hide = notice.querySelector("[data-notice-hide]");
+  const neverShow = notice.querySelector("[data-notice-never]");
+  const install = notice.querySelector("[data-notice-install]");
+  const dismiss = () => { notice.hidden = true; };
+  hide.addEventListener("click", dismiss);
+  neverShow.addEventListener("change", () => {
+    if (neverShow.checked) dismiss();
+  });
+  install.addEventListener("click", () => {
+    install.disabled = true;
+    install.textContent = "Подготовлено";
+    dismiss();
+    addAssistantMessage("Установка будет подключена после интеграции backend.");
+  });
+});
