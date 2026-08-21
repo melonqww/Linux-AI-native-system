@@ -81,6 +81,12 @@ class App:
     def respond_to_model(self, payload):
         return {"model_id": payload["model_id"], "decision": payload["decision"]}
 
+    def ollama_provider_status(self, payload):
+        return {"provider_id": "ollama", "state": "consent_required"}
+
+    def respond_to_ollama_provider(self, payload):
+        return {"provider_id": "ollama", "decision": payload["decision"]}
+
 
 @unittest.skipUnless(sys.platform.startswith("linux"), "Linux SO_PEERCRED integration")
 class UnixSocketTests(unittest.TestCase):
@@ -201,6 +207,19 @@ class UnixSocketTests(unittest.TestCase):
         )
         self.assertEqual(response["status"], 200)
         self.assertEqual(response["body"]["decision"], "download")
+
+    def test_secure_socket_accepts_ollama_provider_install_consent(self):
+        server = create_unix_server(App(), self.path)
+        _request_id, response = self._request(
+            server,
+            method="POST",
+            path="/v1/providers/ollama/respond",
+            body={"decision": "install"},
+        )
+        self.assertEqual(response["status"], 200)
+        self.assertEqual(response["body"], {
+            "provider_id": "ollama", "decision": "install"
+        })
 
     def test_policy_rejects_invalid_pid_and_other_uid(self):
         policy = PeerCredentialPolicy(expected_uid=1000, expected_gid=1000)

@@ -95,6 +95,17 @@ class ModuleManagerTests(unittest.TestCase):
         self.assertIn(result["state"], {"updates_available", "up_to_date", "unavailable"})
         self.assertLessEqual(len(json.dumps(result).encode("utf-8")), 64 * 1024)
 
+    def test_invokes_ollama_provider_status_without_starting_download(self) -> None:
+        provider = self.manager.start_for_capability("provider.ollama.status")
+        result = self.manager.invoke(provider, "status", timeout=15)
+
+        self.assertEqual(provider, "provider.ollama")
+        self.assertEqual(result["provider_id"], "ollama")
+        self.assertIn(
+            result["state"],
+            {"ready", "consent_required", "deferred", "declined", "unsupported"},
+        )
+
     def test_rejects_untrusted_worker_operations_before_sending(self) -> None:
         self.manager.start_module("system.monitor")
         for operation in ("", "../snapshot", "Snapshot", "x" * 65):

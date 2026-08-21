@@ -62,7 +62,7 @@ if ! "${virtual_environment}/bin/python" -m pip install \
     echo "Check the network connection and rerun this installer." >&2
     exit 1
 fi
-if ! "${virtual_environment}/bin/python" -c 'import pypdf'; then
+if ! "${virtual_environment}/bin/python" -c 'import pypdf, zstandard'; then
     echo "FAIL: runtime dependency verification failed: pypdf" >&2
     exit 1
 fi

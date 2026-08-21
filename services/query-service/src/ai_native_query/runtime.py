@@ -79,6 +79,8 @@ class QueryRuntimeApplication:
         workspace_controller: WorkspaceController | None = None,
         model_catalog: Callable[[], dict[str, object]] | None = None,
         model_decision: Callable[[dict[str, object]], dict[str, object]] | None = None,
+        ollama_provider_status: Callable[[], dict[str, object]] | None = None,
+        ollama_provider_decision: Callable[[dict[str, object]], dict[str, object]] | None = None,
     ) -> None:
         self.query_service = query_service
         self.scheduler_status = scheduler_status
@@ -93,6 +95,8 @@ class QueryRuntimeApplication:
         self.workspace_controller = workspace_controller
         self.model_catalog_callback = model_catalog
         self.model_decision_callback = model_decision
+        self.ollama_provider_status_callback = ollama_provider_status
+        self.ollama_provider_decision_callback = ollama_provider_decision
         if intent_pipeline is not None and task_context is None:
             raise ValueError("task_context is required with intent_pipeline")
         if (plan_store is None) != (plan_executor is None):
@@ -130,7 +134,34 @@ class QueryRuntimeApplication:
             capabilities.append("models.catalog.read")
         if self.model_decision_callback is not None:
             capabilities.append("models.lifecycle.respond")
+        if self.ollama_provider_status_callback is not None:
+            capabilities.append("providers.ollama.read")
+        if self.ollama_provider_decision_callback is not None:
+            capabilities.append("providers.ollama.respond")
         return capabilities
+
+    def ollama_provider_status(self, payload: dict[str, object]) -> dict[str, object]:
+        if self.ollama_provider_status_callback is None:
+            raise RuntimeError("ollama_provider_unavailable")
+        if payload:
+            raise ValueError("provider status does not accept fields")
+        result = self.ollama_provider_status_callback()
+        if not isinstance(result, dict):
+            raise RuntimeError("ollama_provider_invalid_response")
+        return result
+
+    def respond_to_ollama_provider(self, payload: dict[str, object]) -> dict[str, object]:
+        if self.ollama_provider_decision_callback is None:
+            raise RuntimeError("ollama_provider_unavailable")
+        if set(payload) != {"decision"}:
+            raise ValueError("exactly decision is required")
+        decision = self._string(payload, "decision")
+        if decision not in {"install", "later", "never"}:
+            raise ValueError("unknown provider decision")
+        result = self.ollama_provider_decision_callback({"decision": decision})
+        if not isinstance(result, dict):
+            raise RuntimeError("ollama_provider_invalid_response")
+        return result
 
     def model_catalog(self, payload: dict[str, object]) -> dict[str, object]:
         if self.model_catalog_callback is None:

@@ -40,6 +40,10 @@ class RuntimeApplication(Protocol):
     ) -> object: ...
     def model_catalog(self, payload: dict[str, object]) -> dict[str, object]: ...
     def respond_to_model(self, payload: dict[str, object]) -> dict[str, object]: ...
+    def ollama_provider_status(self, payload: dict[str, object]) -> dict[str, object]: ...
+    def respond_to_ollama_provider(
+        self, payload: dict[str, object]
+    ) -> dict[str, object]: ...
 
 
 @dataclass(frozen=True)
@@ -110,6 +114,8 @@ class RuntimeRouter:
                     "workspace.approval.respond",
                     "models.catalog.read",
                     "models.lifecycle.respond",
+                    "providers.ollama.read",
+                    "providers.ollama.respond",
                 }
                 capabilities = [item for item in capabilities if item not in restricted]
             return RuntimeResponse(200, {"capabilities": capabilities})
@@ -145,6 +151,18 @@ class RuntimeRouter:
                 self.application.model_catalog
                 if path == "/v1/models/catalog"
                 else self.application.respond_to_model
+            )
+            return RuntimeResponse(200, operation(payload))
+        if path in {
+            "/v1/providers/ollama/status",
+            "/v1/providers/ollama/respond",
+        }:
+            if not self.allow_r1:
+                return self.error(403, "secure_transport_required", False, request_id)
+            operation = (
+                self.application.ollama_provider_status
+                if path == "/v1/providers/ollama/status"
+                else self.application.respond_to_ollama_provider
             )
             return RuntimeResponse(200, operation(payload))
         if path in {"/v1/workspace/submit", "/v1/workspace/approval/respond"}:

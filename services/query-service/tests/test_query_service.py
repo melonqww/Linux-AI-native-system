@@ -227,6 +227,29 @@ class QueryServiceTests(unittest.TestCase):
             with self.subTest(invalid=invalid), self.assertRaises(ValueError):
                 application.respond_to_model(invalid)
 
+    def test_runtime_exposes_validated_ollama_provider_contract(self) -> None:
+        provider = {"schema_version": 1, "provider_id": "ollama", "state": "consent_required"}
+        decisions = []
+        application = QueryRuntimeApplication(
+            self.service,
+            ollama_provider_status=lambda: provider,
+            ollama_provider_decision=lambda payload: decisions.append(payload) or {
+                **provider, "state": "downloading"
+            },
+        )
+
+        self.assertEqual(application.ollama_provider_status({}), provider)
+        self.assertEqual(
+            application.respond_to_ollama_provider({"decision": "install"})["state"],
+            "downloading",
+        )
+        self.assertEqual(decisions, [{"decision": "install"}])
+        self.assertIn("providers.ollama.read", application.capabilities())
+        self.assertIn("providers.ollama.respond", application.capabilities())
+        for invalid in ({}, {"decision": "yes"}, {"decision": "later", "extra": 1}):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                application.respond_to_ollama_provider(invalid)
+
     def test_runtime_exposes_validated_workspace_projection(self) -> None:
         workspace = FakeWorkspace()
         application = QueryRuntimeApplication(self.service, workspace=workspace)

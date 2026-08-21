@@ -109,6 +109,15 @@ class ModuleProcessManager:
         env["AI_NATIVE_MODEL_STATE_DATABASE"] = str(
             self.runtime_directory / "model-lifecycle.sqlite3"
         )
+        provider_root = self.runtime_directory / "providers" / "ollama"
+        env["AI_NATIVE_PROVIDER_STATE_DATABASE"] = str(
+            self.runtime_directory / "provider-lifecycle.sqlite3"
+        )
+        env["AI_NATIVE_OLLAMA_PROVIDER_ROOT"] = str(provider_root)
+        if module_id != "provider.ollama":
+            env["PATH"] = os.pathsep.join(
+                (str(provider_root / "current" / "bin"), env.get("PATH", ""))
+            ).rstrip(os.pathsep)
         process = subprocess.Popen(
             [
                 sys.executable,

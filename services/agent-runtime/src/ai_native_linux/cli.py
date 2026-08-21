@@ -109,6 +109,20 @@ def main() -> int:
             task_ledger = TaskLedger(args.task_ledger_database)
             workspace = WorkspaceStore(args.workspace_database)
             workspace.purge_expired()
+            ollama_provider_status = None
+            ollama_provider_decision = None
+            try:
+                provider_module_id = manager.start_for_capability(
+                    "provider.ollama.status"
+                )
+                ollama_provider_status = lambda: manager.invoke(
+                    provider_module_id, "status", timeout=15
+                )
+                ollama_provider_decision = lambda payload: manager.invoke(
+                    provider_module_id, "respond", payload, timeout=15
+                )
+            except ModuleProcessError:
+                print("Ollama provider installer: unavailable")
             model_status = None
             model_catalog = None
             model_decision = None
@@ -215,6 +229,8 @@ def main() -> int:
                 workspace_controller=workspace_controller,
                 model_catalog=model_catalog,
                 model_decision=model_decision,
+                ollama_provider_status=ollama_provider_status,
+                ollama_provider_decision=ollama_provider_decision,
             )
             transport = (
                 "unix" if args.transport == "auto" and sys.platform.startswith("linux")

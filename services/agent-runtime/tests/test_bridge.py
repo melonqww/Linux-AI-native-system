@@ -46,6 +46,8 @@ class App:
             "workspace.approval.respond",
             "models.catalog.read",
             "models.lifecycle.respond",
+            "providers.ollama.read",
+            "providers.ollama.respond",
         ]
 
     def search(self, payload):
@@ -98,6 +100,12 @@ class App:
 
     def respond_to_model(self, payload):
         return {"model_id": payload["model_id"], "decision": payload["decision"]}
+
+    def ollama_provider_status(self, payload):
+        return {"provider_id": "ollama", "state": "consent_required"}
+
+    def respond_to_ollama_provider(self, payload):
+        return {"provider_id": "ollama", "decision": payload["decision"]}
 
 
 class BridgeTests(unittest.TestCase):
@@ -184,6 +192,13 @@ class BridgeTests(unittest.TestCase):
             )
             with self.assertRaises(urllib.error.HTTPError) as models_error:
                 urllib.request.urlopen(models_request)
+            provider_request = urllib.request.Request(
+                base + "/v1/providers/ollama/status",
+                data=b"{}",
+                headers={"Content-Type": "application/json"},
+            )
+            with self.assertRaises(urllib.error.HTTPError) as provider_error:
+                urllib.request.urlopen(provider_request)
         finally:
             server.shutdown()
             server.server_close()
@@ -195,6 +210,8 @@ class BridgeTests(unittest.TestCase):
         self.assertNotIn("workspace.submit", capabilities["capabilities"])
         self.assertNotIn("models.catalog.read", capabilities["capabilities"])
         self.assertNotIn("models.lifecycle.respond", capabilities["capabilities"])
+        self.assertNotIn("providers.ollama.read", capabilities["capabilities"])
+        self.assertNotIn("providers.ollama.respond", capabilities["capabilities"])
         self.assertEqual(status["scheduler"]["state"], "idle")
         self.assertEqual(system_status["schema_version"], 1)
         self.assertTrue(system_status["supported"])
@@ -212,6 +229,7 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(workspace_error.exception.code, 403)
         self.assertEqual(submit_error.exception.code, 403)
         self.assertEqual(models_error.exception.code, 403)
+        self.assertEqual(provider_error.exception.code, 403)
 
     def test_global_error_envelope_redacts_unexpected_failures(self):
         server = create_server(App())

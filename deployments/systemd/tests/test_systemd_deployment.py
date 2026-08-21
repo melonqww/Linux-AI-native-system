@@ -54,11 +54,13 @@ class SystemdDeploymentTests(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn("pypdf>=5,<7", requirements)
+        self.assertIn("zstandard>=0.23,<1", requirements)
 
     def test_launcher_uses_isolated_runtime_python_and_preflights_dependencies(self) -> None:
         source = (SYSTEMD_ROOT / "run-runtime.sh").read_text(encoding="utf-8")
         self.assertIn('runtime_python="${runtime_data}/venv/bin/python"', source)
         self.assertIn("import pypdf", source)
+        self.assertIn("zstandard", source)
         self.assertIn('exec "${runtime_python}" -m ai_native_linux.cli', source)
 
     def test_uninstall_preserves_runtime_data_and_configuration(self) -> None:

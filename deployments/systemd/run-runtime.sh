@@ -62,7 +62,7 @@ intent_model="${AI_NATIVE_INTENT_MODEL:-qwen3:1.7b}"
 ollama_url="${AI_NATIVE_OLLAMA_URL:-http://127.0.0.1:11434}"
 
 cd -- "${repository_root}"
-if ! "${runtime_python}" -c 'import pypdf'; then
+if ! "${runtime_python}" -c 'import pypdf, zstandard'; then
     echo "Runtime Python dependencies are incomplete; rerun deployments/systemd/install-user-service.sh" >&2
     exit 1
 fi

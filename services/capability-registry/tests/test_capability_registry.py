@@ -105,7 +105,7 @@ class CapabilityRegistryTests(RegistryTestCase):
     def test_registers_complete_first_party_module_set(self) -> None:
         report = self.registry.sync([PROJECT_ROOT / "services", PROJECT_ROOT / "modules"])
 
-        self.assertEqual(report.scanned, 9)
+        self.assertEqual(report.scanned, 10)
         self.assertEqual(report.issues, ())
         self.assertEqual(
             [module.manifest.module_id for module in self.registry.list_modules()],
@@ -115,6 +115,7 @@ class CapabilityRegistryTests(RegistryTestCase):
                 "documents.index",
                 "documents.pdf",
                 "model.ollama",
+                "provider.ollama",
                 "storage.catalog",
                 "storage.watch",
                 "system.monitor",
@@ -129,6 +130,8 @@ class CapabilityRegistryTests(RegistryTestCase):
         self.assertIn("model.local.ensure", self.registry.available_capabilities())
         self.assertIn("model.catalog.read", self.registry.available_capabilities())
         self.assertIn("model.catalog.respond", self.registry.available_capabilities())
+        self.assertIn("provider.ollama.status", self.registry.available_capabilities())
+        self.assertIn("provider.ollama.respond", self.registry.available_capabilities())
 
     def test_disabling_dependency_makes_dependent_module_unavailable(self) -> None:
         self.registry.sync([PROJECT_ROOT / "services"])
