@@ -112,6 +112,32 @@
     line-height: 1.55;
 }
 
+.ai-work-status {
+    color: #bdbdbd;
+    font-size: 12px;
+    font-style: italic;
+}
+
+.ai-task-result {
+    spacing: 8px;
+    x-expand: true;
+}
+
+.ai-task-ledger-button {
+    background-color: #454545;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    color: #eeeeee;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 6px 9px;
+}
+
+.ai-task-ledger-button:hover,
+.ai-task-ledger-button:focus {
+    background-color: #535353;
+}
+
 .ai-user-message {
     background-color: #f1f1f1;
     border-radius: 17px 17px 5px 17px;

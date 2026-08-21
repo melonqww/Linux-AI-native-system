@@ -95,7 +95,7 @@ class TabButton extends St.Button {
 
 const ChatView = GObject.registerClass(
 class ChatView extends St.BoxLayout {
-    _init(runtime) {
+    _init(runtime, onTaskLedger = null) {
         super._init({
             vertical: true,
             style_class: 'ai-chat-view',
@@ -104,9 +104,21 @@ class ChatView extends St.BoxLayout {
         });
 
         this._runtime = runtime;
+        this._onTaskLedger = onTaskLedger;
         this._busy = false;
         this._disposed = false;
-        this.connect('destroy', () => this._disposed = true);
+        this._workspaceRunId = null;
+        this._workspacePollSourceId = 0;
+        this._workspacePollInFlight = false;
+        this._workspaceRunStages = new Map();
+        this._workspacePollErrorShown = false;
+        this.connect('destroy', () => {
+            this._disposed = true;
+            if (this._workspacePollSourceId) {
+                GLib.Source.remove(this._workspacePollSourceId);
+                this._workspacePollSourceId = 0;
+            }
+        });
         this._messages = new St.BoxLayout({
             vertical: true,
             style_class: 'ai-messages',
@@ -124,6 +136,10 @@ class ChatView extends St.BoxLayout {
 
         this._composer = this._buildComposer();
         this.add_child(this._composer);
+        GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+            this._loadWorkspace();
+            return GLib.SOURCE_REMOVE;
+        });
     }
 
     _assistant(text, styleClass = 'ai-assistant-message') {
@@ -300,29 +316,214 @@ class ChatView extends St.BoxLayout {
         this._append(this._user(text));
         entry.set_text('');
         this._setBusy(entry, true);
-        const pending = this._assistant('Обрабатываю запрос…', 'ai-assistant-message ai-pending');
-        this._append(pending);
         try {
-            const compilation = await this._runtime.compileIntent(text);
+            const run = await this._runtime.workspaceSubmit(text);
             if (this._disposed)
                 return;
-            const compileMessage = compilationMessage(compilation);
-            if (compileMessage !== null) {
-                this._append(this._assistant(compileMessage));
-                return;
-            }
-            const result = await this._runtime.executePlan(compilation.plan.plan_id);
-            if (!this._disposed)
-                this._renderExecution(result);
+            this._workspaceRunId = run.run_id;
+            this._rememberWorkspaceRun(run);
+            this._workspacePollErrorShown = false;
+            this._startWorkspacePolling(entry);
         } catch (error) {
-            if (!this._disposed)
-                this._append(this._assistant(this._friendlyError(error)));
-        } finally {
             if (!this._disposed) {
-                pending.destroy();
+                this._append(this._assistant(this._friendlyError(error)));
                 this._setBusy(entry, false);
             }
         }
+    }
+
+    async _loadWorkspace() {
+        try {
+            const [messages, runs] = await Promise.all([
+                this._runtime.workspaceMessages(),
+                this._runtime.workspaceRuns(100, false),
+            ]);
+            if (this._disposed)
+                return;
+            this._rememberWorkspaceRuns(runs.runs ?? []);
+            const active = (runs.runs ?? []).find(run => !this._isTerminalStage(run.stage));
+            this._workspaceRunId = active?.run_id ?? null;
+            this._renderWorkspaceMessages(messages.messages ?? [], active);
+            if (active)
+                this._startWorkspacePolling(null);
+        } catch (error) {
+            if (!this._disposed)
+                this._append(this._assistant(this._friendlyError(error)));
+        }
+    }
+
+    _startWorkspacePolling(entry) {
+        if (entry)
+            this._workspaceEntry = entry;
+        if (this._workspacePollSourceId)
+            return;
+        this._workspacePollSourceId = GLib.timeout_add(
+            GLib.PRIORITY_DEFAULT,
+            700,
+            () => {
+                if (this._disposed || !this._workspaceRunId) {
+                    this._workspacePollSourceId = 0;
+                    return GLib.SOURCE_REMOVE;
+                }
+                this._pollWorkspace();
+                return GLib.SOURCE_CONTINUE;
+            },
+        );
+        this._pollWorkspace();
+    }
+
+    async _pollWorkspace() {
+        if (this._workspacePollInFlight || this._disposed || !this._workspaceRunId)
+            return;
+        this._workspacePollInFlight = true;
+        try {
+            const [run, messages] = await Promise.all([
+                this._runtime.workspaceRun(this._workspaceRunId),
+                this._runtime.workspaceMessages(),
+            ]);
+            if (this._disposed)
+                return;
+            this._rememberWorkspaceRun(run);
+            this._renderWorkspaceMessages(messages.messages ?? [], run);
+            if (this._isTerminalStage(run.stage)) {
+                this._workspaceRunId = null;
+                if (this._workspacePollSourceId) {
+                    GLib.Source.remove(this._workspacePollSourceId);
+                    this._workspacePollSourceId = 0;
+                }
+                this._setBusy(this._workspaceEntry, false);
+                this._workspaceEntry = null;
+            }
+        } catch (error) {
+            if (!this._disposed && !this._workspacePollErrorShown) {
+                this._workspacePollErrorShown = true;
+                this._append(this._assistant(
+                    this._friendlyError(error),
+                    'ai-assistant-message ai-work-status',
+                ));
+            }
+        } finally {
+            this._workspacePollInFlight = false;
+        }
+    }
+
+    _renderWorkspaceMessages(messages, run = null) {
+        this._messages.destroy_all_children();
+        for (const message of messages) {
+            if (message.role === 'user') {
+                this._messages.add_child(this._user(message.content));
+                continue;
+            }
+            if (message.role === 'system' || message.kind === 'notice') {
+                this._messages.add_child(this._assistant(
+                    message.content,
+                    'ai-assistant-message ai-work-status',
+                ));
+                continue;
+            }
+            if (message.kind === 'task_result' && message.task_id) {
+                const taskStage = run?.task_id === message.task_id
+                    ? run.stage
+                    : this._workspaceRunStages.get(message.task_id);
+                this._messages.add_child(this._taskResult(
+                    message.content,
+                    message.task_id,
+                    taskStage === 'completed',
+                ));
+                continue;
+            }
+            this._messages.add_child(this._assistant(message.content));
+        }
+        if (run && !this._isTerminalStage(run.stage)) {
+            this._messages.add_child(this._assistant(
+                run.stage_label || this._stageLabel(run.stage),
+                'ai-assistant-message ai-work-status ai-pending',
+            ));
+            if (run.stage === 'awaiting_approval' && run.approval_request_id)
+                this._messages.add_child(this._workspaceApprovalCard(run.approval_request_id));
+        }
+        this._scrollToBottom();
+    }
+
+    _taskResult(text, taskId, completed = false) {
+        const card = new St.BoxLayout({
+            vertical: true,
+            style_class: 'ai-task-result',
+            x_expand: true,
+        });
+        card.add_child(this._assistant(text));
+        if (completed && this._onTaskLedger) {
+            const button = new St.Button({
+                label: 'Открыть Task Ledger',
+                style_class: 'ai-task-ledger-button',
+                x_align: Clutter.ActorAlign.START,
+            });
+            button.connect('clicked', () => this._onTaskLedger(taskId));
+            card.add_child(button);
+        }
+        return card;
+    }
+
+    _rememberWorkspaceRun(run) {
+        if (!run || typeof run !== 'object')
+            return;
+        if (run.task_id)
+            this._workspaceRunStages.set(run.task_id, run.stage);
+    }
+
+    _rememberWorkspaceRuns(runs) {
+        for (const run of runs)
+            this._rememberWorkspaceRun(run);
+    }
+
+    _workspaceApprovalCard(approvalRequestId) {
+        const card = new St.BoxLayout({style_class: 'ai-plan-actions'});
+        const confirm = new St.Button({label: 'Подтвердить', style_class: 'ai-plan-action'});
+        const cancel = new St.Button({label: 'Отменить', style_class: 'ai-plan-action ai-plan-cancel'});
+        const respond = async confirmed => {
+            confirm.reactive = false;
+            cancel.reactive = false;
+            try {
+                await this._runtime.workspaceApproval(approvalRequestId, confirmed);
+                this._startWorkspacePolling(this._workspaceEntry);
+            } catch (error) {
+                if (!this._disposed)
+                    this._append(this._assistant(this._friendlyError(error)));
+            }
+        };
+        confirm.connect('clicked', () => respond(true));
+        cancel.connect('clicked', () => respond(false));
+        card.add_child(confirm);
+        card.add_child(cancel);
+        return card;
+    }
+
+    _scrollToBottom() {
+        GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+            if (!this._disposed) {
+                const adjustment = this._scroll.get_vadjustment();
+                adjustment.value = Math.max(
+                    Number(adjustment.lower ?? 0),
+                    Number(adjustment.upper ?? 0) - Number(adjustment.page_size ?? 0),
+                );
+            }
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    _isTerminalStage(stage) {
+        return ['completed', 'failed', 'cancelled'].includes(stage);
+    }
+
+    _stageLabel(stage) {
+        return {
+            received: 'Запрос получен',
+            understanding: 'Понимаю запрос…',
+            planning: 'Создаю план…',
+            executing: 'Выполняю задачу…',
+            awaiting_approval: 'Ожидаю подтверждение…',
+            summarizing: 'Формирую итог…',
+        }[stage] ?? 'Обрабатываю запрос…';
     }
 
     _append(actor) {
@@ -344,7 +545,8 @@ class ChatView extends St.BoxLayout {
     _setBusy(entry, busy) {
         this._busy = busy;
         this._send.reactive = !busy;
-        entry.reactive = !busy;
+        if (entry)
+            entry.reactive = !busy;
     }
 
     _renderExecution(result) {
@@ -767,6 +969,12 @@ class SidebarView extends St.Widget {
         return button;
     }
 
+    openTaskLedger(taskId) {
+        this._openHistoryOverlay();
+        if (typeof taskId === 'string' && taskId.length)
+            this._showTaskDetail(taskId);
+    }
+
     _buildOverlay() {
         const overlay = new St.Widget({
             style_class: 'ai-sidebar-overlay',
@@ -1103,7 +1311,10 @@ class Panel extends St.Widget {
         this._sidebar.set_position(0, 0);
         this._sidebar.set_size(PANEL_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
         this._views.add_child(this._sidebar);
-        this._workspace = new ChatView(this._runtime);
+        this._workspace = new ChatView(
+            this._runtime,
+            taskId => this._openTaskLedger(taskId),
+        );
         this._workspace.set_position(0, 0);
         this._workspace.set_size(PANEL_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
         this._workspace.hide();
@@ -1136,6 +1347,11 @@ class Panel extends St.Widget {
         this._tabButtons.forEach((button, buttonIndex) => button.setActive(buttonIndex === index));
         if (index === 0)
             this._sidebar.refresh();
+    }
+
+    _openTaskLedger(taskId) {
+        this._selectTab(0);
+        this._sidebar.openTaskLedger(taskId);
     }
 
     _togglePanel() {

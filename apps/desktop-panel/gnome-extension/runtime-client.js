@@ -78,6 +78,32 @@ export class RuntimeClient {
         });
     }
 
+    workspaceSubmit(text) {
+        return this.request('POST', '/v1/workspace/submit', {text});
+    }
+
+    workspaceRun(runId) {
+        return this.request('POST', '/v1/workspace/run', {run_id: runId});
+    }
+
+    workspaceRuns(limit = 20, activeOnly = true) {
+        return this.request('POST', '/v1/workspace/runs', {
+            limit,
+            active_only: activeOnly,
+        });
+    }
+
+    workspaceMessages(limit = 200) {
+        return this.request('POST', '/v1/workspace/messages', {limit});
+    }
+
+    workspaceApproval(approvalRequestId, confirmed) {
+        return this.request('POST', '/v1/workspace/approval/respond', {
+            approval_request_id: approvalRequestId,
+            confirmed,
+        });
+    }
+
     async request(method, path, body = {}) {
         if (this._destroyed)
             throw new RuntimeRequestError('runtime_client_destroyed');
