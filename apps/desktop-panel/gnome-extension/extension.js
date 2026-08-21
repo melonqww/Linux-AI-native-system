@@ -970,8 +970,9 @@ class SidebarView extends St.Widget {
     }
 
     openTaskLedger(taskId) {
-        this._openHistoryOverlay();
-        if (typeof taskId === 'string' && taskId.length)
+        const hasTask = typeof taskId === 'string' && taskId.length > 0;
+        this._openHistoryOverlay(!hasTask);
+        if (hasTask)
             this._showTaskDetail(taskId);
     }
 
@@ -1030,11 +1031,12 @@ class SidebarView extends St.Widget {
         this._overlay.show();
     }
 
-    _openHistoryOverlay() {
+    _openHistoryOverlay(loadTasks = true) {
         this._prepareOverlay('Последние действия');
         this._taskList = new St.BoxLayout({vertical: true, style_class: 'ai-task-list', x_expand: true});
         this._overlayContent.add_child(this._taskList);
-        this.refreshTasks();
+        if (loadTasks)
+            this.refreshTasks();
     }
 
     _openProcessesOverlay() {
