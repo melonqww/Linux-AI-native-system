@@ -61,11 +61,16 @@ class IndexScheduler:
         self._last_error: str | None = None
         self._crawls: dict[str, _CrawlState] = {}
         self._inaccessible = 0
+        self._required_volumes: set[str] = set()
+        self._completed_rescans: set[str] = set()
 
     def submit(self, event: FileEvent) -> None:
         self.queue.put(event)
 
     def request_rescan(self, volume_id: str) -> None:
+        if volume_id != "*":
+            self._required_volumes.add(volume_id)
+            self._completed_rescans.discard(volume_id)
         self.submit(FileEvent(volume_id, "", EventKind.RESCAN, monotonic()))
 
     def process_once(self, *, now: float | None = None) -> SchedulerStatus:
@@ -104,6 +109,13 @@ class IndexScheduler:
             last_error=self._last_error,
             active_rescans=len(self._crawls),
             inaccessible=self._inaccessible,
+            coverage_complete=(
+                bool(self._required_volumes)
+                and self._required_volumes <= self._completed_rescans
+                and not self._crawls
+            ),
+            covered_volume_ids=tuple(sorted(self._completed_rescans)),
+            scanning_volume_ids=tuple(sorted(self._crawls)),
         )
 
     def record_failure(self, message: str) -> None:
@@ -192,6 +204,7 @@ class IndexScheduler:
                     for removed_path in removed:
                         self.indexer.remove_path(Path(removed_path))
                     self._crawls.pop(volume_id)
+                    self._completed_rescans.add(volume_id)
                     continue
                 directory = crawl.directories.popleft()
                 try:

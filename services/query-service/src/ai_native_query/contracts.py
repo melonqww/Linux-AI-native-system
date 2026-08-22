@@ -1,8 +1,16 @@
 from dataclasses import dataclass
+from enum import StrEnum
+
+
+class SearchMode(StrEnum):
+    METADATA = "metadata"
+    CONTENT = "content"
+    HYBRID = "hybrid"
 
 
 @dataclass(frozen=True)
 class DocumentQuery:
+    mode: SearchMode | None = None
     text: str = ""
     name_contains: tuple[str, ...] = ()
     extensions: tuple[str, ...] = ()
@@ -21,6 +29,16 @@ class QueryResult:
     line_start: int | None
     line_end: int | None
     sources: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class SearchCoverage:
+    complete: bool
+    state: str
+    volume_ids: tuple[str, ...]
+    cataloged_items: int
+    inaccessible_items: int = 0
+    warning: str | None = None
 
 
 @dataclass(frozen=True)

@@ -35,6 +35,9 @@ class SchedulerStatus:
     last_error: str | None = None
     active_rescans: int = 0
     inaccessible: int = 0
+    coverage_complete: bool = False
+    covered_volume_ids: tuple[str, ...] = ()
+    scanning_volume_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

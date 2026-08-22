@@ -125,6 +125,8 @@ model reasoning и технические причины ошибок в пол�
 рестарт отдельно от сообщений, а Task Ledger по-прежнему хранит факты операций
 семь суток. Архитектура зафиксирована в
 [`ADR-009`](Architecture/decisions/ADR-009-system-workspace-runtime.md).
+Гибридные сообщения и полнота поиска разделены между модулями в
+[`ADR-014`](Architecture/decisions/ADR-014-modular-workspace-turn-pipeline.md).
 Backend API рабочей области:
 [`Architecture/api/workspace-runtime-v1.md`](Architecture/api/workspace-runtime-v1.md).
 Жизненный цикл локальной модели вынесен в first-party `model.ollama`: ядро
@@ -214,6 +216,7 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [Решение о каталоге хранилищ и виртуальных коллекциях](Architecture/decisions/ADR-002-storage-catalog-and-virtual-collections.md)
 - [Решение о модульном capability-ядре](Architecture/decisions/ADR-003-modular-capability-core.md)
 - [Решение о единой системной рабочей области](Architecture/decisions/ADR-009-system-workspace-runtime.md)
+- [Решение о модульном Workspace Turn Pipeline v2](Architecture/decisions/ADR-014-modular-workspace-turn-pipeline.md)
 - [Решение о модульном жизненном цикле локальных моделей](Architecture/decisions/ADR-011-model-lifecycle-module.md)
 - [Решение об Intent Compiler](Architecture/decisions/ADR-004-model-neutral-intent-compiler.md)
 - [Решение об оркестрации серверных планов](Architecture/decisions/ADR-005-server-owned-execution-orchestration.md)

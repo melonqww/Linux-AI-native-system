@@ -100,6 +100,7 @@ def main() -> int:
             query_service = QueryService(
                 storage_database=args.storage_database,
                 index_database=args.index_database,
+                coverage_source=lambda: manager.health_details("storage.watch"),
             )
             intent_pipeline = None
             task_context = None

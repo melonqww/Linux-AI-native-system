@@ -46,6 +46,10 @@ class BackgroundIndexService:
         for volume in self.scheduler.volumes.list_volumes(available_only=True):
             if volume.permission is not PermissionLevel.NONE:
                 self._watch(volume.volume_id, Path(volume.mount_point))
+                # A watcher only observes future changes. Always reconcile the existing
+                # tree after startup so a persisted but incomplete catalog cannot look
+                # like a complete empty disk.
+                self.scheduler.request_rescan(volume.volume_id)
 
     def tick(self, *, now: float | None = None, watch_timeout: float = 0.0) -> SchedulerStatus:
         current = monotonic() if now is None else now

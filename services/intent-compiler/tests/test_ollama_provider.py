@@ -40,6 +40,30 @@ def model_request(user_text="Найди PDF по математике"):
 
 
 class OllamaProviderTests(unittest.TestCase):
+    def test_metadata_file_listing_omits_content_text(self):
+        response = FakeResponse({"message": {"content": "", "tool_calls": [{
+            "function": {"name": "search_documents", "arguments": {
+                "mode": "metadata", "extensions": ["pdf"], "confidence": 0.98,
+            }}
+        }]}})
+        with patch("ai_native_intents.ollama._open_loopback", return_value=response):
+            turn = OllamaModelProvider().route(model_request("Найди все PDF"))
+        self.assertEqual(
+            turn.intent_payload["operations"][0]["arguments"],
+            {"mode": "metadata", "extensions": ["pdf"]},
+        )
+
+    def test_composes_only_conversational_part_of_mixed_turn(self):
+        response = FakeResponse({"message": {
+            "content": '{"conversation_reply":"Для хлеба уточните рецепт."}'
+        }})
+        with patch("ai_native_intents.ollama._open_loopback", return_value=response):
+            reply = OllamaModelProvider().compose_conversation(
+                model_request("Подскажи про хлеб и найди PDF"),
+                system_result="Поиск завершён. Найдено файлов: 2.",
+            )
+        self.assertEqual(reply, "Для хлеба уточните рецепт.")
+
     def test_routes_greeting_to_conversation_without_an_execution_intent(self):
         response = FakeResponse(
             {"message": {"role": "assistant", "content": "Привет! Чем помочь?"}}

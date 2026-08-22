@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, is_dataclass
 from typing import Callable, Protocol
 
-from .contracts import DocumentQuery, QueryResult
+from .contracts import DocumentQuery, QueryResult, SearchMode
 from .service import QueryService
 from ai_native_permissions import TransportContext
 
@@ -458,6 +458,13 @@ class QueryRuntimeApplication:
 
     def search(self, payload: dict[str, object]) -> list[QueryResult]:
         text = self._string(payload, "text")
+        raw_mode = payload.get("mode", "content" if text else "metadata")
+        if not isinstance(raw_mode, str):
+            raise ValueError("mode must be a string")
+        try:
+            mode = SearchMode(raw_mode)
+        except ValueError as error:
+            raise ValueError("unsupported search mode") from error
         name_contains = self._strings(payload, "name_contains")
         extensions = self._strings(payload, "extensions")
         volume_ids = self._strings(payload, "volume_ids")
@@ -466,6 +473,7 @@ class QueryRuntimeApplication:
             raise ValueError("limit must be an integer")
         return self.query_service.search(
             DocumentQuery(
+                mode=mode,
                 text=text,
                 name_contains=name_contains,
                 extensions=extensions,

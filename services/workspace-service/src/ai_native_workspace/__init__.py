@@ -1,6 +1,7 @@
 from .contracts import (
     MessageKind,
     MessageRole,
+    MessageSource,
     WorkspaceMessage,
     WorkspaceRun,
     WorkspaceRunNotFound,
@@ -13,6 +14,7 @@ from .runtime import WorkspaceBusyError, WorkspaceRuntime
 __all__ = [
     "MessageKind",
     "MessageRole",
+    "MessageSource",
     "WorkspaceMessage",
     "WorkspaceRun",
     "WorkspaceRunNotFound",

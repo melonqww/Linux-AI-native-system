@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import StrEnum
 
-from ai_native_query import QueryResult
+from ai_native_query import QueryResult, SearchCoverage
 
 
 class OrchestrationState(StrEnum):
@@ -27,6 +27,9 @@ class SearchOutput:
     result_count: int
     results: tuple[QueryResult, ...]
     warnings: tuple[str, ...] = ()
+    mode: str = "metadata"
+    criteria: str = ""
+    coverage: SearchCoverage | None = None
 
 
 @dataclass(frozen=True)

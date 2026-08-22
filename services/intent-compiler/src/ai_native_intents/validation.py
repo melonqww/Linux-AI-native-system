@@ -15,6 +15,7 @@ _TOP_LEVEL_KEYS = {"schema_version", "language", "summary", "confidence", "opera
 _OPERATION_KEYS = {"id", "kind", "arguments", "depends_on", "evidence"}
 _ARGUMENT_SCHEMAS: dict[OperationKind, dict[str, str]] = {
     OperationKind.SEARCH_DOCUMENTS: {
+        "mode": "search_mode",
         "text": "string",
         "extensions": "strings",
         "languages": "strings",
@@ -139,6 +140,11 @@ class IntentValidator:
                 }:
                     raise IntentValidationError("unsupported destination")
                 result[key] = role
+            elif argument_type == "search_mode":
+                mode = self._string(raw, key, maximum=16)
+                if mode not in {"metadata", "content", "hybrid"}:
+                    raise IntentValidationError("unsupported document search mode")
+                result[key] = mode
             elif argument_type == "url":
                 url = self._string(raw, key, maximum=2_000)
                 parsed = urlparse(url)
@@ -157,6 +163,22 @@ class IntentValidator:
             or "\\" in destination_name
         ):
             raise IntentValidationError("destination_name must be one directory name")
+        if kind is OperationKind.SEARCH_DOCUMENTS:
+            mode = result.get("mode")
+            text = result.get("text")
+            if not isinstance(mode, str):
+                mode = (
+                    "hybrid"
+                    if isinstance(text, str) and any(result.get(key) for key in ("extensions", "name_terms"))
+                    else "content"
+                    if isinstance(text, str)
+                    else "metadata"
+                )
+                result["mode"] = mode
+            if mode == "metadata" and text is not None:
+                raise IntentValidationError("metadata search cannot contain text")
+            if mode in {"content", "hybrid"} and not isinstance(text, str):
+                raise IntentValidationError("content search requires text")
         return result
 
     @staticmethod

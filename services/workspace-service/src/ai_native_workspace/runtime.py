@@ -35,6 +35,10 @@ class RouteProvider(Protocol):
 
     def summarize_result(self, facts: Mapping[str, object], *, locale: str) -> str: ...
 
+    def compose_conversation(
+        self, request: ModelRequest, *, system_result: str
+    ) -> str | None: ...
+
 
 class PlanExecutor(Protocol):
     def execute(
@@ -255,10 +259,36 @@ class WorkspaceRuntime:
         if result.state is OrchestrationState.COMPLETED:
             self.store.transition(workspace_run_id, WorkspaceStage.SUMMARIZING)
             facts = self._result_facts(result)
+            system_result = self._fallback_summary(facts, locale)
             try:
-                content = self.model.summarize_result(facts, locale=locale)
+                workspace_run = self.store.run(workspace_run_id)
+                if workspace_run.user_message_id is None:
+                    raise ValueError("workspace run has no user message")
+                user_message = self.store.message(workspace_run.user_message_id)
+                compose = getattr(self.model, "compose_conversation", None)
+                if callable(compose):
+                    natural = compose(
+                        ModelRequest(
+                            user_text=user_message.content,
+                            locale=locale,
+                            context=self.context().for_model(),
+                            output_schema=deepcopy(INTENT_OUTPUT_SCHEMA),
+                            instructions=MODEL_INSTRUCTIONS,
+                            history=self._model_history(user_message.message_id),
+                        ),
+                        system_result=system_result,
+                    )
+                    if natural:
+                        self.store.append_message(
+                            MessageRole.ASSISTANT,
+                            MessageKind.CONVERSATION,
+                            natural,
+                        )
+                    content = system_result
+                else:
+                    content = self.model.summarize_result(facts, locale=locale)
             except Exception:
-                content = self._fallback_summary(facts, locale)
+                content = system_result
             message = self.store.append_message(
                 MessageRole.ASSISTANT,
                 MessageKind.TASK_RESULT,
@@ -428,11 +458,24 @@ class WorkspaceRuntime:
         found = 0
         copied = 0
         completed_steps = 0
+        search_mode = ""
+        criteria = ""
+        coverage_complete = True
+        coverage_state = "ready"
+        inaccessible = 0
+        sample_paths: list[str] = []
         for step in result.steps:
             if step.state.value == "completed":
                 completed_steps += 1
             if isinstance(step.output, SearchOutput):
                 found += step.output.result_count
+                search_mode = step.output.mode
+                criteria = step.output.criteria
+                sample_paths.extend(item.path for item in step.output.results[:5])
+                if step.output.coverage is not None:
+                    coverage_complete = coverage_complete and step.output.coverage.complete
+                    coverage_state = step.output.coverage.state
+                    inaccessible += step.output.coverage.inaccessible_items
             elif isinstance(step.output, CopyOutput):
                 copied += step.output.copied_count
         return {
@@ -440,6 +483,12 @@ class WorkspaceRuntime:
             "completed_steps": completed_steps,
             "found_items": found,
             "copied_items": copied,
+            "search_mode": search_mode,
+            "criteria": criteria,
+            "coverage_complete": coverage_complete,
+            "coverage_state": coverage_state,
+            "inaccessible_items": inaccessible,
+            "sample_paths": tuple(sample_paths[:5]),
         }
 
     @staticmethod
@@ -447,18 +496,30 @@ class WorkspaceRuntime:
         found = int(facts.get("found_items", 0))
         copied = int(facts.get("copied_items", 0))
         if locale.startswith("ru"):
-            parts = ["Готово."]
-            if found:
-                parts.append(f"Найдено объектов: {found}.")
+            parts = []
+            if facts.get("search_mode"):
+                parts.append(f"Поиск завершён. Найдено файлов: {found}.")
+                if not bool(facts.get("coverage_complete", False)):
+                    parts.append(
+                        "Индекс разрешённых дисков ещё формируется, поэтому результат неполный."
+                    )
+                inaccessible = int(facts.get("inaccessible_items", 0))
+                if inaccessible:
+                    parts.append(f"Недоступных объектов: {inaccessible}.")
+                paths = facts.get("sample_paths", ())
+                if isinstance(paths, tuple) and paths:
+                    parts.append("Примеры: " + "; ".join(paths) + ".")
             if copied:
                 parts.append(f"Скопировано объектов: {copied}.")
-            return " ".join(parts)
-        parts = ["Done."]
-        if found:
-            parts.append(f"Items found: {found}.")
+            return " ".join(parts) or "Задача выполнена."
+        parts = []
+        if facts.get("search_mode"):
+            parts.append(f"Search completed. Files found: {found}.")
+            if not bool(facts.get("coverage_complete", False)):
+                parts.append("The allowed-drive index is still being built, so this result is incomplete.")
         if copied:
             parts.append(f"Items copied: {copied}.")
-        return " ".join(parts)
+        return " ".join(parts) or "Task completed."
 
     @staticmethod
     def _clarification(locale: str) -> str:

@@ -14,6 +14,9 @@
     "last_error": null,
     "active_rescans": 0,
     "inaccessible": 12,
+    "coverage_complete": true,
+    "covered_volume_ids": ["volume-id"],
+    "scanning_volume_ids": [],
     "thread_alive": true
   }
 }
@@ -21,3 +24,7 @@
 
 Возможные состояния scheduler: `idle`, `updating`, `paused_load`, `degraded`.
 Endpoint не запускает scan и ничего не изменяет.
+
+После каждого запуска scheduler ставит reconcile-scan для уже известных
+разрешённых дисков. Пока `coverage_complete=false`, нулевой результат поиска
+считается предварительным.

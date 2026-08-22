@@ -17,7 +17,7 @@ for source in (
     sys.path.insert(0, str(source))
 
 from ai_native_intents import CompilationResult, CompilationState, TaskContext
-from ai_native_query import DocumentQuery, QueryRuntimeApplication, QueryService
+from ai_native_query import DocumentQuery, QueryRuntimeApplication, QueryService, SearchMode
 from ai_native_storage import PermissionLevel, VolumeRegistry
 from ai_native_storage.contracts import DiscoveredVolume
 
@@ -157,6 +157,18 @@ class QueryServiceTests(unittest.TestCase):
         self.assertIn("catalog", application.index_status())
         with self.assertRaises(ValueError):
             application.search({"text": [], "limit": 20})
+
+    def test_metadata_mode_lists_all_pdfs_without_content_terms(self) -> None:
+        self.make_pdf("Mathematics algebra geometry")
+        self.make_pdf("Cooking recipes", "cooking.pdf")
+        self.service.catalog.scan_volume("test-volume")
+
+        results = self.service.search(
+            DocumentQuery(mode=SearchMode.METADATA, extensions=("pdf",))
+        )
+
+        self.assertEqual({item.name for item in results}, {"study.pdf", "cooking.pdf"})
+        self.assertTrue(all(item.sources == ("metadata",) for item in results))
 
     def test_runtime_exposes_optional_system_monitor_snapshot(self) -> None:
         snapshot = {"schema_version": 1, "supported": True, "processes": []}

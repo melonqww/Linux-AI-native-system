@@ -8,6 +8,7 @@ _STRINGS = {
 }
 _ARGUMENTS: dict[str, dict[str, object]] = {
     "search_documents": {
+        "mode": {"enum": ["metadata", "content", "hybrid"]},
         "text": _STRING,
         "extensions": _STRINGS,
         "languages": _STRINGS,
@@ -30,7 +31,7 @@ _ARGUMENTS: dict[str, dict[str, object]] = {
     },
 }
 _KIND_DESCRIPTIONS = {
-    "search_documents": "Search local files or indexed document content; never use for apps or web.",
+    "search_documents": "Search local files by metadata, indexed content, or both; never use for apps or web.",
     "find_application": "Find an installed desktop application by its name.",
     "plan_web_search": "Search the public web when no exact URL was supplied.",
     "plan_open_url": "Open an explicit credential-free HTTP(S) URL present in the message.",
@@ -100,6 +101,9 @@ Set every operation's evidence to an array containing the ENTIRE user message co
 character-for-character. Never translate it. Do not add labels, explanations or quotation marks.
 Set language to the detected language of the user message, not the interface locale.
 Include only arguments that the message actually requires; omit irrelevant optional fields.
+For search_documents, mode is required. Use metadata for all files of a type or files by
+name and omit text. Use content when only document contents matter. Use hybrid when the
+request combines content meaning with extension or name filters.
 For multiple operations, give later operations dependencies and reference earlier IDs. If a
 request searches and then uses those results, results_from MUST be the earlier operation ID,
 not context.active_results. Use context.active_results only for results from a prior turn and

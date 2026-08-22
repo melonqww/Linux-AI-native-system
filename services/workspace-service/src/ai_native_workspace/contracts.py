@@ -17,6 +17,13 @@ class MessageKind(StrEnum):
     NOTICE = "notice"
 
 
+class MessageSource(StrEnum):
+    USER = "user"
+    QWEN = "qwen"
+    SYSTEM = "system"
+    TOOL = "tool"
+
+
 class WorkspaceStage(StrEnum):
     RECEIVED = "received"
     UNDERSTANDING = "understanding"
@@ -43,6 +50,7 @@ class WorkspaceMessage:
     created_at: str
     expires_at: str
     task_id: str | None = None
+    source: MessageSource = MessageSource.SYSTEM
 
 
 @dataclass(frozen=True)

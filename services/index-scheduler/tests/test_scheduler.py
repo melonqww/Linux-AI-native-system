@@ -186,9 +186,32 @@ class SchedulerTests(unittest.TestCase):
             mount_poll_seconds=1,
         )
         service.start()
+        self.assertGreater(self.scheduler.status().queued, 0)
         VolumeRegistry(self.storage_db).set_permission("test-volume", PermissionLevel.NONE)
         service.tick(now=1)
         self.assertEqual(watcher.removed, ["test-volume"])
+
+    def test_startup_rescans_existing_volume_and_marks_coverage(self) -> None:
+        class Watcher:
+            def add_tree(self, _volume_id, _root):
+                return 1
+
+            def remove_volume(self, _volume_id):
+                return None
+
+            def read(self, *, timeout=0):
+                return []
+
+        (self.files / "existing.txt").write_text("existing", encoding="utf-8")
+        service = BackgroundIndexService(self.scheduler, Watcher())
+        service.start()
+        self.assertFalse(self.scheduler.status().coverage_complete)
+        for cycle in range(1, 100):
+            status = self.scheduler.process_once(now=cycle)
+            if status.coverage_complete:
+                break
+        self.assertTrue(status.coverage_complete)
+        self.assertEqual(status.covered_volume_ids, ("test-volume",))
 
 
 class QueueTests(unittest.TestCase):

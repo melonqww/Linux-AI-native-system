@@ -15,6 +15,7 @@ from ai_native_orchestrator import (
     StepState,
 )
 from ai_native_permissions import TransportContext
+from ai_native_query import SearchCoverage
 from ai_native_workspace import (
     MessageKind,
     WorkspaceBusyError,
@@ -42,6 +43,18 @@ class Model:
     def summarize_result(self, facts, *, locale):
         self.summary_calls += 1
         return f"Готово. Найдено: {facts['found_items']}."
+
+
+class ComposingModel(Model):
+    def __init__(self, turn, reply):
+        super().__init__(turn)
+        self.reply = reply
+        self.compose_calls = 0
+
+    def compose_conversation(self, request, *, system_result):
+        self.compose_calls += 1
+        self.requests.append(request)
+        return self.reply
 
 
 class Compiler:
@@ -106,6 +119,57 @@ class WorkspaceRuntimeTests(unittest.TestCase):
                 return run
             threading.Event().wait(0.01)
         self.fail(f"workspace run did not reach {stages}")
+
+    def test_mixed_turn_combines_qwen_reply_with_trusted_incomplete_zero(self):
+        model = ComposingModel(
+            ModelTurn(ModelTurnKind.ACTION, intent_payload={"safe": True}),
+            "Для хлеба сначала уточните его вид.",
+        )
+        output = SearchOutput(
+            str(uuid4()),
+            0,
+            (),
+            ("index_coverage_incomplete",),
+            "metadata",
+            "pdf",
+            SearchCoverage(False, "updating", ("system",), 42),
+        )
+        result = OrchestrationResult(
+            str(uuid4()),
+            str(uuid4()),
+            OrchestrationState.COMPLETED,
+            (StepExecution("step_search", "documents.query.search", StepState.COMPLETED, output),),
+        )
+        runtime = WorkspaceRuntime(
+            self.store,
+            model,
+            Compiler(SimpleNamespace(state=CompilationState.READY, plan=object())),
+            Executor(result),
+            lambda: TaskContext(locale="ru"),
+        )
+        try:
+            run = runtime.submit(
+                "Расскажи про хлеб и найди все PDF",
+                transport_context=TransportContext.internal(),
+            )
+            self.wait_for(run.run_id, WorkspaceStage.COMPLETED)
+        finally:
+            runtime.close()
+
+        message = next(
+            item for item in self.store.list_messages()
+            if item.kind is MessageKind.TASK_RESULT
+        )
+        self.assertIn("Найдено файлов: 0", message.content)
+        self.assertIn("результат неполный", message.content)
+        self.assertEqual(message.source.value, "tool")
+        conversation = [
+            item for item in self.store.list_messages()
+            if item.kind is MessageKind.CONVERSATION and item.role.value == "assistant"
+        ]
+        self.assertIn("Для хлеба", conversation[-1].content)
+        self.assertEqual(conversation[-1].source.value, "qwen")
+        self.assertEqual(model.compose_calls, 1)
 
     def test_conversation_uses_one_model_call_and_creates_no_task(self):
         model = Model(ModelTurn(ModelTurnKind.CONVERSATION, response_text="Привет!"))

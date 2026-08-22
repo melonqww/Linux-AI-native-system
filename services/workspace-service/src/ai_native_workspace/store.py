@@ -14,6 +14,7 @@ from uuid import UUID, uuid4
 from .contracts import (
     MessageKind,
     MessageRole,
+    MessageSource,
     TERMINAL_STAGES,
     WorkspaceMessage,
     WorkspaceRun,
@@ -436,14 +437,26 @@ class WorkspaceStore:
 
     @staticmethod
     def _message(row: sqlite3.Row) -> WorkspaceMessage:
+        role = MessageRole(row["role"])
+        kind = MessageKind(row["kind"])
+        source = (
+            MessageSource.USER
+            if role is MessageRole.USER
+            else MessageSource.TOOL
+            if kind is MessageKind.TASK_RESULT
+            else MessageSource.QWEN
+            if role is MessageRole.ASSISTANT and kind is MessageKind.CONVERSATION
+            else MessageSource.SYSTEM
+        )
         return WorkspaceMessage(
             row["message_id"],
-            MessageRole(row["role"]),
-            MessageKind(row["kind"]),
+            role,
+            kind,
             row["content"],
             row["created_at"],
             row["expires_at"],
             row["task_id"],
+            source,
         )
 
     def _message_row(self, connection: sqlite3.Connection, message_id: str) -> sqlite3.Row:

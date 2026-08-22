@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from collections.abc import Callable, Mapping
 
 from ai_native_indexer import IndexerService
 from ai_native_pdf import PdfExtractionError, PdfExtractor
@@ -10,7 +11,7 @@ from ai_native_storage import CollectionItem, FileCatalog, FileQuery, Permission
 from ai_native_storage.collections import VirtualCollectionStore
 from ai_native_storage.registry import VolumeRegistry
 
-from .contracts import DocumentQuery, PdfIngestReport, QueryResult
+from .contracts import DocumentQuery, PdfIngestReport, QueryResult, SearchCoverage, SearchMode
 
 
 class QueryService:
@@ -20,12 +21,42 @@ class QueryService:
         storage_database: Path,
         index_database: Path,
         pdf_extractor: PdfExtractor | None = None,
+        coverage_source: Callable[[], Mapping[str, object]] | None = None,
     ) -> None:
         self.catalog = FileCatalog(storage_database)
         self.volumes = VolumeRegistry(storage_database)
         self.collections = VirtualCollectionStore(storage_database)
         self.indexer = IndexerService(index_database)
         self.pdf_extractor = pdf_extractor or PdfExtractor()
+        self.coverage_source = coverage_source
+
+    def coverage(self, volume_ids: tuple[str, ...] = ()) -> SearchCoverage:
+        catalog = self.catalog.status()
+        available = self.volumes.list_volumes(available_only=True)
+        selected = tuple(
+            volume.volume_id
+            for volume in available
+            if volume.permission is not PermissionLevel.NONE
+            and (not volume_ids or volume.volume_id in volume_ids)
+        )
+        status: Mapping[str, object] = {}
+        if self.coverage_source is not None:
+            try:
+                status = self.coverage_source()
+            except Exception:
+                status = {}
+        complete = bool(status.get("coverage_complete", False))
+        inaccessible = status.get("inaccessible", 0)
+        return SearchCoverage(
+            complete=complete,
+            state=str(status.get("state", "unknown")),
+            volume_ids=selected,
+            cataloged_items=int(catalog.get("entries", 0)),
+            inaccessible_items=(
+                inaccessible if isinstance(inaccessible, int) and inaccessible >= 0 else 0
+            ),
+            warning=None if complete else "index_coverage_incomplete",
+        )
 
     def ingest_pdfs(self, *, volume_ids: tuple[str, ...] = ()) -> PdfIngestReport:
         entries = self.catalog.search(
@@ -59,6 +90,21 @@ class QueryService:
     def search(self, query: DocumentQuery) -> list[QueryResult]:
         if not 1 <= query.limit <= 100:
             raise ValueError("query limit must be from 1 to 100")
+        mode = query.mode
+        if mode is None:
+            mode = (
+                SearchMode.HYBRID
+                if query.text.strip() and (query.name_contains or query.extensions)
+                else SearchMode.CONTENT
+                if query.text.strip()
+                else SearchMode.METADATA
+            )
+        if not isinstance(mode, SearchMode):
+            raise ValueError("query mode must use SearchMode")
+        if mode is SearchMode.METADATA and query.text.strip():
+            raise ValueError("metadata search cannot contain a content query")
+        if mode in {SearchMode.CONTENT, SearchMode.HYBRID} and not query.text.strip():
+            raise ValueError("content and hybrid search require text")
         metadata_entries = self.catalog.search(
             FileQuery(
                 name_contains=query.name_contains,
@@ -68,7 +114,11 @@ class QueryService:
             )
         )
         metadata_by_path = {entry.path: entry for entry in metadata_entries}
-        content_hits = self.indexer.search(query.text, limit=50) if query.text.strip() else []
+        content_hits = (
+            self.indexer.search(query.text, limit=50)
+            if mode in {SearchMode.CONTENT, SearchMode.HYBRID}
+            else []
+        )
         catalog_for_hits = self.catalog.entries_by_paths([hit.path for hit in content_hits])
         maximum_content_score = max((hit.score for hit in content_hits), default=1.0) or 1.0
         merged: dict[str, QueryResult] = {}
@@ -76,7 +126,9 @@ class QueryService:
 
         # Extension and volume are filters, not relevance signals.  When content text
         # is present, do not return every file of the requested type as a weak hit.
-        if not query.text.strip() or query.name_contains:
+        if mode is SearchMode.METADATA or (
+            mode is SearchMode.HYBRID and query.name_contains
+        ):
             for entry in metadata_entries:
                 merged[entry.path] = QueryResult(
                     volume_id=entry.volume_id,
