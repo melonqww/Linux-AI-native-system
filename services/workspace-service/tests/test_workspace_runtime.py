@@ -32,9 +32,11 @@ class Model:
         self.turn = turn
         self.route_calls = 0
         self.summary_calls = 0
+        self.requests = []
 
-    def route(self, _request):
+    def route(self, request):
         self.route_calls += 1
+        self.requests.append(request)
         return self.turn
 
     def summarize_result(self, facts, *, locale):
@@ -124,6 +126,104 @@ class WorkspaceRuntimeTests(unittest.TestCase):
         self.assertIsNone(run.task_id)
         self.assertEqual([item.content for item in self.store.list_messages()], ["Привет", "Привет!"])
 
+    def test_conversation_history_is_read_from_existing_workspace_memory(self):
+        first_model = Model(
+            ModelTurn(ModelTurnKind.CONVERSATION, response_text="Привет!")
+        )
+        first = WorkspaceRuntime(
+            self.store,
+            first_model,
+            Compiler(None),
+            Executor(None),
+            lambda: TaskContext(locale="ru"),
+        )
+        try:
+            run = first.submit("Привет", transport_context=TransportContext.internal())
+            self.wait_for(run.run_id, WorkspaceStage.COMPLETED)
+        finally:
+            first.close()
+
+        second_model = Model(
+            ModelTurn(ModelTurnKind.CONVERSATION, response_text="Продолжаем.")
+        )
+        second = WorkspaceRuntime(
+            self.store,
+            second_model,
+            Compiler(None),
+            Executor(None),
+            lambda: TaskContext(locale="ru"),
+        )
+        try:
+            run = second.submit("А дальше?", transport_context=TransportContext.internal())
+            self.wait_for(run.run_id, WorkspaceStage.COMPLETED)
+        finally:
+            second.close()
+
+        self.assertEqual(
+            [(item.role, item.content) for item in second_model.requests[0].history],
+            [("user", "Привет"), ("assistant", "Привет!")],
+        )
+
+    def test_unsupported_action_is_never_sent_to_executor(self):
+        model = Model(
+            ModelTurn(
+                ModelTurnKind.UNSUPPORTED_ACTION,
+                response_text="Я понял запрос на создание папки.",
+                unsupported_actions=("создать папку",),
+            )
+        )
+        executor = Executor(None)
+        runtime = WorkspaceRuntime(
+            self.store,
+            model,
+            Compiler(None),
+            executor,
+            lambda: TaskContext(locale="ru"),
+        )
+        try:
+            run = runtime.submit(
+                "Создай папку", transport_context=TransportContext.internal()
+            )
+            run = self.wait_for(run.run_id, WorkspaceStage.COMPLETED)
+        finally:
+            runtime.close()
+
+        self.assertFalse(executor.called.is_set())
+        self.assertIsNone(run.task_id)
+        self.assertIn("Ничего не было выполнено", self.store.list_messages()[-1].content)
+
+    def test_mixed_supported_and_unsupported_proposal_executes_nothing(self):
+        model = Model(
+            ModelTurn(
+                ModelTurnKind.ACTION,
+                response_text="Я понял обе части запроса.",
+                intent_payload={"safe": True},
+                unsupported_actions=("создать папку",),
+            )
+        )
+        compiler = Compiler(
+            SimpleNamespace(state=CompilationState.READY, plan=object())
+        )
+        executor = Executor(completed_result())
+        runtime = WorkspaceRuntime(
+            self.store,
+            model,
+            compiler,
+            executor,
+            lambda: TaskContext(locale="ru"),
+        )
+        try:
+            run = runtime.submit(
+                "Найди PDF и создай папку",
+                transport_context=TransportContext.internal(),
+            )
+            self.wait_for(run.run_id, WorkspaceStage.COMPLETED)
+        finally:
+            runtime.close()
+
+        self.assertEqual(compiler.calls, 0)
+        self.assertFalse(executor.called.is_set())
+
     def test_action_routes_once_and_summarizes_confirmed_result_once(self):
         model = Model(ModelTurn(ModelTurnKind.ACTION, intent_payload={"safe": True}))
         plan = object()
@@ -146,6 +246,37 @@ class WorkspaceRuntimeTests(unittest.TestCase):
         self.assertEqual(compiler.calls, 1)
         self.assertEqual(run.task_id, result.run_id)
         self.assertEqual(self.store.list_messages()[-1].kind, MessageKind.TASK_RESULT)
+
+    def test_action_may_include_natural_qwen_reply_before_system_execution(self):
+        model = Model(
+            ModelTurn(
+                ModelTurnKind.ACTION,
+                response_text="Понял, проверю документы.",
+                intent_payload={"safe": True},
+            )
+        )
+        compiler = Compiler(
+            SimpleNamespace(state=CompilationState.READY, plan=object())
+        )
+        result = completed_result(count=1)
+        runtime = WorkspaceRuntime(
+            self.store,
+            model,
+            compiler,
+            Executor(result),
+            lambda: TaskContext(locale="ru"),
+        )
+        try:
+            run = runtime.submit(
+                "Найди документы", transport_context=TransportContext.internal()
+            )
+            self.wait_for(run.run_id, WorkspaceStage.COMPLETED)
+        finally:
+            runtime.close()
+
+        messages = self.store.list_messages()
+        self.assertIn("Понял, проверю документы.", [item.content for item in messages])
+        self.assertEqual(messages[-1].kind, MessageKind.TASK_RESULT)
 
     def test_clarification_never_executes_a_plan(self):
         model = Model(ModelTurn(ModelTurnKind.ACTION, intent_payload={"safe": True}))

@@ -5,6 +5,7 @@ import unittest
 from unittest.mock import patch
 
 from ai_native_intents import (
+    ModelHistoryMessage,
     ModelRequest,
     ModelTurnKind,
     OllamaModelProvider,
@@ -133,7 +134,7 @@ class OllamaProviderTests(unittest.TestCase):
         self.assertFalse(body["stream"])
         self.assertFalse(body["think"])
         self.assertNotIn("format", body)
-        self.assertEqual(len(body["tools"]), 6)
+        self.assertEqual(len(body["tools"]), 7)
         self.assertEqual(body["options"]["num_ctx"], 4096)
         self.assertEqual(body["options"]["temperature"], 0.7)
         self.assertEqual(body["options"]["top_p"], 0.8)
@@ -142,6 +143,94 @@ class OllamaProviderTests(unittest.TestCase):
         self.assertEqual(result["summary"], "Найди PDF по математике")
         self.assertEqual(result["operations"][0]["kind"], "search_documents")
         self.assertEqual(result["operations"][0]["evidence"], ["Найди PDF по математике"])
+
+    def test_routes_with_bounded_history_and_preserves_action_reply(self):
+        captured = []
+
+        def open_request(request, _timeout):
+            captured.append(json.loads(request.data))
+            return FakeResponse(
+                {
+                    "message": {
+                        "content": "Понял, подготовлю поиск.",
+                        "tool_calls": [
+                            {
+                                "function": {
+                                    "name": "search_documents",
+                                    "arguments": {
+                                        "text": "математика",
+                                        "confidence": 0.9,
+                                    },
+                                }
+                            }
+                        ],
+                    }
+                }
+            )
+
+        request = model_request("Найди их")
+        request = ModelRequest(
+            request.user_text,
+            request.locale,
+            request.context,
+            request.output_schema,
+            request.instructions,
+            history=(
+                ModelHistoryMessage("user", "Мы говорили о PDF по математике"),
+                ModelHistoryMessage("assistant", "Да, помню тему разговора."),
+            ),
+        )
+        with patch("ai_native_intents.ollama._open_loopback", side_effect=open_request):
+            turn = OllamaModelProvider().route(request)
+
+        self.assertEqual(turn.kind, ModelTurnKind.ACTION)
+        self.assertEqual(turn.response_text, "Понял, подготовлю поиск.")
+        self.assertEqual(
+            [message["role"] for message in captured[0]["messages"]],
+            ["system", "user", "assistant", "user"],
+        )
+        self.assertEqual(captured[0]["options"]["num_ctx"], 8192)
+
+    def test_reports_unavailable_system_action_without_executing_it(self):
+        response = FakeResponse(
+            {
+                "message": {
+                    "content": "Я понял, что нужна новая папка.",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "request_system_action",
+                                "arguments": {
+                                    "goal": "создать папку на рабочем столе",
+                                    "confidence": 0.94,
+                                },
+                            }
+                        }
+                    ],
+                }
+            }
+        )
+        with patch("ai_native_intents.ollama._open_loopback", return_value=response):
+            turn = OllamaModelProvider().route(
+                model_request("Создай папку на рабочем столе")
+            )
+
+        self.assertEqual(turn.kind, ModelTurnKind.UNSUPPORTED_ACTION)
+        self.assertIsNone(turn.intent_payload)
+        self.assertEqual(
+            turn.unsupported_actions,
+            ("создать папку на рабочем столе",),
+        )
+
+    def test_removes_thinking_prefix_and_rejects_control_only_output(self):
+        provider = OllamaModelProvider()
+        self.assertEqual(provider._assistant_text("/no_think Привет"), "Привет")
+        response = FakeResponse(
+            {"message": {"content": "<bool>false</bool>"}}
+        )
+        with patch("ai_native_intents.ollama._open_loopback", return_value=response):
+            with self.assertRaises(OllamaProviderError):
+                provider.route(model_request("Привет"))
 
     def test_health_verifies_version_and_exact_model(self):
         responses = [

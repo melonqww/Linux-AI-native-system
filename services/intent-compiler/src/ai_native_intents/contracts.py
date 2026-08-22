@@ -27,6 +27,7 @@ class CompilationState(StrEnum):
 class ModelTurnKind(StrEnum):
     CONVERSATION = "conversation"
     ACTION = "action"
+    UNSUPPORTED_ACTION = "unsupported_action"
 
 
 class RiskClass(StrEnum):
@@ -49,12 +50,19 @@ class TaskContext:
 
 
 @dataclass(frozen=True)
+class ModelHistoryMessage:
+    role: str
+    content: str
+
+
+@dataclass(frozen=True)
 class ModelRequest:
     user_text: str
     locale: str
     context: dict[str, object]
     output_schema: dict[str, object]
     instructions: str
+    history: tuple[ModelHistoryMessage, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -62,6 +70,7 @@ class ModelTurn:
     kind: ModelTurnKind
     response_text: str | None = None
     intent_payload: dict[str, object] | None = None
+    unsupported_actions: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

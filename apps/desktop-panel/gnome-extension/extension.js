@@ -622,15 +622,22 @@ class ChatView extends St.BoxLayout {
         });
         message.clutter_text.line_wrap = true;
         message.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
+        message.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
+        message.clutter_text.single_line_mode = false;
         return message;
     }
 
     _user(text) {
-        return new St.Label({
+        const message = new St.Label({
             text,
             style_class: 'ai-user-message',
             x_align: Clutter.ActorAlign.END,
         });
+        message.clutter_text.line_wrap = true;
+        message.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
+        message.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
+        message.clutter_text.single_line_mode = false;
+        return message;
     }
 
     _buildComposer() {
@@ -652,6 +659,7 @@ class ChatView extends St.BoxLayout {
         entry.clutter_text.single_line_mode = false;
         entry.clutter_text.editable = true;
         entry.clutter_text.activatable = true;
+        this._entry = entry;
         // Shell chrome does not always route keyboard focus to an St.Entry
         // after a pointer click.  Explicitly grabbing focus keeps the field
         // editable even when the panel was opened over another application.
@@ -776,6 +784,7 @@ class ChatView extends St.BoxLayout {
             const active = (runs.runs ?? []).find(run => !this._isTerminalStage(run.stage));
             this._workspaceRunId = active?.run_id ?? null;
             this._renderWorkspaceMessages(messages.messages ?? [], active);
+            this._setBusy(this._entry, Boolean(active));
             if (active)
                 this._startWorkspacePolling(null);
         } catch (error) {
@@ -979,8 +988,18 @@ class ChatView extends St.BoxLayout {
     _setBusy(entry, busy) {
         this._busy = busy;
         this._send.reactive = !busy;
-        if (entry)
-            entry.reactive = !busy;
+        const target = entry ?? this._entry;
+        if (target) {
+            target.reactive = !busy;
+            target.clutter_text.editable = !busy;
+            target.clutter_text.activatable = !busy;
+        }
+        if (this._composer) {
+            if (busy)
+                this._composer.add_style_class_name('ai-composer-busy');
+            else
+                this._composer.remove_style_class_name('ai-composer-busy');
+        }
     }
 
     _renderExecution(result) {

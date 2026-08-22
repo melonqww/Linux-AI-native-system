@@ -21,7 +21,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
     def test_metadata_is_valid(self):
         metadata = json.loads((ROOT / "metadata.json").read_text(encoding="utf-8"))
         self.assertEqual(metadata["uuid"], "ai-native-linux@melonqww")
-        self.assertEqual(metadata["version"], 5)
+        self.assertEqual(metadata["version"], 6)
         self.assertIn("46", metadata["shell-version"])
 
     def test_runtime_files_exist(self):
@@ -60,6 +60,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "const resizeEntry = () =>",
             "entry.clutter_text.editable = true",
             "entry.clutter_text.single_line_mode = false",
+            "message.clutter_text.ellipsize = Pango.EllipsizeMode.NONE",
             "_animateHighlight",
             "Qwen 3 1.7B",
             "Рабочая область",
@@ -106,6 +107,8 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "this._runtime.workspaceSubmit(text)",
             "this._runtime.workspaceRun(this._workspaceRunId)",
             "this._runtime.workspaceMessages()",
+            "target.clutter_text.editable = !busy",
+            "this._setBusy(this._entry, Boolean(active))",
             "this._runtime.workspaceApproval(approvalRequestId, confirmed)",
             "_buildDependencyNotices",
             "_renderModelCatalog",

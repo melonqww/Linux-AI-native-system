@@ -44,7 +44,7 @@ def main() -> int:
     parser.add_argument("--intent-model", default="qwen3:1.7b")
     parser.add_argument("--ollama-url", default="http://127.0.0.1:11434")
     parser.add_argument("--intent-timeout", type=float, default=45.0)
-    parser.add_argument("--intent-context-tokens", type=int, default=4_096)
+    parser.add_argument("--intent-context-tokens", type=int, default=8_192)
     parser.add_argument("--locale", default="ru", choices=("ru", "en"))
     parser.add_argument("--no-intent-compiler", action="store_true")
     parser.add_argument(

@@ -11,6 +11,7 @@ from typing import Protocol
 from ai_native_intents import (
     CompilationState,
     IntentCompiler,
+    ModelHistoryMessage,
     ModelRequest,
     ModelTurn,
     ModelTurnKind,
@@ -95,7 +96,11 @@ class WorkspaceRuntime:
             )
             run = self.store.create_run(message.message_id)
             future = self._pool.submit(
-                self._process, run.run_id, normalized, transport_context
+                self._process,
+                run.run_id,
+                message.message_id,
+                normalized,
+                transport_context,
             )
             future.add_done_callback(lambda _future: self._slots.release())
             return run
@@ -129,7 +134,11 @@ class WorkspaceRuntime:
         self._pool.shutdown(wait=wait, cancel_futures=False)
 
     def _process(
-        self, run_id: str, text: str, transport_context: TransportContext
+        self,
+        run_id: str,
+        user_message_id: str,
+        text: str,
+        transport_context: TransportContext,
     ) -> None:
         locale = self.context().locale
         try:
@@ -145,6 +154,7 @@ class WorkspaceRuntime:
                     context=self.context().for_model(),
                     output_schema=deepcopy(INTENT_OUTPUT_SCHEMA),
                     instructions=MODEL_INSTRUCTIONS,
+                    history=self._model_history(user_message_id),
                 )
             )
             if turn.kind is ModelTurnKind.CONVERSATION:
@@ -158,6 +168,21 @@ class WorkspaceRuntime:
                 )
                 self.store.complete(run_id, response.message_id)
                 return
+            if turn.kind is ModelTurnKind.UNSUPPORTED_ACTION or turn.unsupported_actions:
+                if turn.response_text:
+                    self.store.append_message(
+                        MessageRole.ASSISTANT,
+                        MessageKind.CONVERSATION,
+                        turn.response_text,
+                    )
+                self.store.transition(run_id, WorkspaceStage.SUMMARIZING)
+                response = self.store.append_message(
+                    MessageRole.ASSISTANT,
+                    MessageKind.CLARIFICATION,
+                    self._unsupported_action(locale),
+                )
+                self.store.complete(run_id, response.message_id)
+                return
             if turn.kind is not ModelTurnKind.ACTION or turn.intent_payload is None:
                 raise ValueError("model route is invalid")
 
@@ -167,6 +192,21 @@ class WorkspaceRuntime:
                 text=text,
                 context=self.context(),
             )
+            if turn.response_text:
+                self.store.append_message(
+                    MessageRole.ASSISTANT,
+                    MessageKind.CONVERSATION,
+                    turn.response_text,
+                )
+            if compilation.state is CompilationState.UNAVAILABLE:
+                self.store.transition(run_id, WorkspaceStage.SUMMARIZING)
+                response = self.store.append_message(
+                    MessageRole.ASSISTANT,
+                    MessageKind.CLARIFICATION,
+                    self._unsupported_action(locale),
+                )
+                self.store.complete(run_id, response.message_id)
+                return
             if compilation.state is not CompilationState.READY or compilation.plan is None:
                 question = compilation.clarification_question or self._clarification(locale)
                 self.store.transition(run_id, WorkspaceStage.SUMMARIZING)
@@ -294,6 +334,35 @@ class WorkspaceRuntime:
             return {"state": "unavailable", "reason": "model_manager_invalid"}
         return None if status.get("state") == "ready" else status
 
+    def _model_history(self, current_user_message_id: str) -> tuple[ModelHistoryMessage, ...]:
+        eligible = []
+        for message in self.store.list_messages(limit=50):
+            if message.message_id == current_user_message_id:
+                continue
+            if message.role is MessageRole.USER:
+                eligible.append(message)
+                continue
+            if message.role is MessageRole.ASSISTANT and message.kind in {
+                MessageKind.CONVERSATION,
+                MessageKind.CLARIFICATION,
+                MessageKind.TASK_RESULT,
+            }:
+                eligible.append(message)
+
+        selected: list[ModelHistoryMessage] = []
+        characters = 0
+        for message in reversed(eligible):
+            if len(selected) >= 12:
+                break
+            content = message.content.strip()
+            if not content or characters + len(content) > 8_000:
+                continue
+            role = "user" if message.role is MessageRole.USER else "assistant"
+            selected.append(ModelHistoryMessage(role, content))
+            characters += len(content)
+        selected.reverse()
+        return tuple(selected)
+
     def _finish_model_unavailable(
         self,
         run_id: str,
@@ -397,6 +466,14 @@ class WorkspaceRuntime:
             "Уточните, пожалуйста, что именно нужно сделать."
             if locale.startswith("ru")
             else "Please clarify what should be done."
+        )
+
+    @staticmethod
+    def _unsupported_action(locale: str) -> str:
+        return (
+            "Я понял, что требуется действие системы, но подходящий модуль пока не подключён. Ничего не было выполнено."
+            if locale.startswith("ru")
+            else "I understood that a system action is needed, but no suitable module is connected yet. Nothing was executed."
         )
 
     @staticmethod
