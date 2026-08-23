@@ -550,11 +550,22 @@ class WorkspaceRuntime:
                 if russian
                 else "The base model is disabled in settings."
             )
-        elif reason == "ollama_not_installed":
+        elif reason in {"ollama_not_installed", "ollama_consent_required"}:
             content = (
                 "Ollama не установлен, поэтому локальная модель недоступна."
                 if russian
                 else "Ollama is not installed, so the local model is unavailable."
+            )
+        elif reason in {
+            "external_server_unavailable",
+            "ollama_server_unavailable",
+            "ollama_provider_unavailable",
+            "provider_status_unavailable",
+        }:
+            content = (
+                "Служба Ollama сейчас недоступна. Запустите её и повторите запрос."
+                if russian
+                else "The Ollama service is unavailable. Start it and try again."
             )
         else:
             content = (

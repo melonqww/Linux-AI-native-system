@@ -355,6 +355,34 @@ class QueryServiceTests(unittest.TestCase):
             model["reason"] == "model_status_missing" for model in snapshot["models"]
         ))
 
+    def test_installed_provider_without_api_keeps_models_blocked(self) -> None:
+        application = QueryRuntimeApplication(
+            self.service,
+            model_catalog=lambda: {
+                "schema_version": 1,
+                "models": [{
+                    "model_id": "workspace.qwen",
+                    "required": True,
+                    "state": "ready",
+                    "prompt_required": False,
+                }],
+            },
+            ollama_provider_status=lambda: {
+                "provider_id": "ollama",
+                "state": "error",
+                "installed": True,
+                "managed": False,
+                "prompt_required": False,
+                "reason": "external_server_unavailable",
+            },
+        )
+
+        snapshot = application.inference_lifecycle({})
+
+        self.assertEqual(snapshot["state"], "error")
+        self.assertEqual(snapshot["models"][0]["effective_state"], "blocked")
+        self.assertEqual(snapshot["models"][0]["blocked_by"], "provider.ollama")
+
     def test_runtime_lifecycle_orders_provider_then_models(self) -> None:
         provider = {
             "provider_id": "ollama", "state": "ready", "installed": True,

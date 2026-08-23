@@ -36,6 +36,7 @@ class SystemdDeploymentTests(unittest.TestCase):
         source = (SYSTEMD_ROOT / "install-user-service.sh").read_text(encoding="utf-8")
         for marker in (
             'python3 -m venv "${virtual_environment}"',
+            'migrate_runtime_env.py" "${environment_file}',
             '--requirement "${requirements_file}"',
             'sudo apt install python3-venv',
             "import pypdf",

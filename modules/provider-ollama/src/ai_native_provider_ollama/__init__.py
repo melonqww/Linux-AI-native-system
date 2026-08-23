@@ -17,7 +17,11 @@ def worker_start() -> None:
     global _installer
     root = Path(os.environ["AI_NATIVE_OLLAMA_PROVIDER_ROOT"])
     database = Path(os.environ["AI_NATIVE_PROVIDER_STATE_DATABASE"])
-    _installer = OllamaProviderInstaller(root, ProviderDecisionStore(database))
+    _installer = OllamaProviderInstaller(
+        root,
+        ProviderDecisionStore(database),
+        base_url=os.environ.get("AI_NATIVE_OLLAMA_URL", "http://127.0.0.1:11434"),
+    )
 
 
 def worker_health() -> dict[str, object]:

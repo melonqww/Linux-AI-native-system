@@ -103,7 +103,14 @@ class ModuleManagerTests(unittest.TestCase):
         self.assertEqual(result["provider_id"], "ollama")
         self.assertIn(
             result["state"],
-            {"ready", "consent_required", "deferred", "declined", "unsupported"},
+            {
+                "ready",
+                "consent_required",
+                "deferred",
+                "declined",
+                "unsupported",
+                "error",
+            },
         )
 
     def test_rejects_untrusted_worker_operations_before_sending(self) -> None:

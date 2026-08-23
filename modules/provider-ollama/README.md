@@ -4,6 +4,11 @@ First-party модуль установки Ollama без администрат
 системный `ollama` либо устанавливает проверенный официальный Linux release в
 `${XDG_DATA_HOME}/ai-native-linux/providers/ollama`.
 
+Provider также является единственным владельцем процесса для своей user-local
+копии. Системный Ollama принимается только когда его loopback API отвечает;
+наличие бинарника без работающего service возвращает публичную ошибку и не
+приводит к запуску второго daemon с другим model store.
+
 Модуль не запускает `sudo`, `pkexec`, shell и официальный `install.sh`.
 Release metadata читается из GitHub API, архив принимается только с официальных
 GitHub download-hosts и только при наличии SHA-256 digest. Содержимое безопасно

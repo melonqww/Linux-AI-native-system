@@ -34,8 +34,12 @@ Loopback HTTP возвращает `403 secure_transport_required`.
 ```
 
 Состояния: `consent_required`, `deferred`, `declined`, `downloading`,
-`installing`, `ready`, `error`, `unsupported`. `managed: true` означает, что
+`installing`, `starting`, `ready`, `error`, `unsupported`. `managed: true` означает, что
 используется копия внутри данных AI-native Linux; `false` при системной Ollama.
+`ready` означает не только наличие бинарника, но и успешный ответ loopback API.
+Внешний системный бинарник без работающего service не запускается от имени
+пользователя: возвращается `external_server_unavailable`, чтобы не создать второе
+хранилище моделей.
 
 ## Решение пользователя
 

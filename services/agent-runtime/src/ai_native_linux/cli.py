@@ -64,7 +64,11 @@ def main() -> int:
     if args.serve_panel:
         from ai_native_capabilities import CapabilityRegistry
         from ai_native_module_manager import ModuleProcessError, ModuleProcessManager
-        from ai_native_query import QueryRuntimeApplication, QueryService
+        from ai_native_query import (
+            QueryRuntimeApplication,
+            QueryService,
+            workspace_model_readiness,
+        )
         from ai_native_workspace import WorkspaceStore
 
         roots = args.module_roots or [Path("services"), Path("modules")]
@@ -202,7 +206,9 @@ def main() -> int:
                     intent_pipeline,
                     plan_executor,
                     context_store.snapshot,
-                    model_status=model_status,
+                    model_status=lambda: workspace_model_readiness(
+                        ollama_provider_status, model_status
+                    ),
                     turn_router=TurnRouter(provider),
                 )
                 for capability in plan_executor.available_capabilities():

@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import tarfile
 import threading
+import time
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
@@ -27,6 +28,8 @@ _MAX_METADATA_BYTES = 2 * 1024 * 1024
 _MAX_ARCHIVE_BYTES = 4 * 1024 * 1024 * 1024
 _MAX_EXTRACTED_BYTES = 12 * 1024 * 1024 * 1024
 _MAX_ARCHIVE_ENTRIES = 100_000
+_MAX_LOCAL_RESPONSE_BYTES = 64 * 1024
+_LOOPBACK = frozenset({"127.0.0.1", "::1", "localhost"})
 _DIGEST = re.compile(r"^sha256:([0-9a-f]{64})$")
 _TAG = re.compile(r"^v?[0-9][A-Za-z0-9._-]{0,63}$")
 _DOWNLOAD_HOSTS = frozenset(
@@ -42,10 +45,14 @@ class OllamaProviderInstaller:
         *,
         platform_name: str | None = None,
         machine: str | None = None,
+        base_url: str = "http://127.0.0.1:11434",
         open_fn: Callable[..., object] | None = None,
+        local_open_fn: Callable[..., object] | None = None,
         now_fn: Callable[[], datetime] | None = None,
         which_fn: Callable[[str], str | None] | None = None,
         run_fn: Callable[..., subprocess.CompletedProcess[str]] | None = None,
+        popen_fn: Callable[..., subprocess.Popen[bytes]] | None = None,
+        sleep_fn: Callable[[float], None] | None = None,
         extract_fn: Callable[[Path, Path], None] | None = None,
         publish_fn: Callable[[Path, str], None] | None = None,
         staging_fn: Callable[[Path], Path] | None = None,
@@ -54,16 +61,23 @@ class OllamaProviderInstaller:
         self.decisions = decisions
         self.platform = platform_name or platform.system().lower()
         self.machine = (machine or platform.machine()).lower()
+        self.base_url, self.ollama_host = self._base_url(base_url)
         self._open = open_fn or build_opener(ProxyHandler({})).open
+        self._local_open = local_open_fn or build_opener(ProxyHandler({})).open
         self._now_fn = now_fn or (lambda: datetime.now(UTC))
         self._which = which_fn or shutil.which
         self._run = run_fn or subprocess.run
+        self._popen = popen_fn or subprocess.Popen
+        self._sleep = sleep_fn or time.sleep
         self._extract = extract_fn or self._extract_archive
         self._publish = publish_fn or self._publish_installation
         self._staging = staging_fn or self._create_staging
         self._lock = threading.RLock()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
+        self._server_thread: threading.Thread | None = None
+        self._server_start_lock = threading.Lock()
+        self._owned_server: subprocess.Popen[bytes] | None = None
         self._state = "checking"
         self._progress: int | None = None
         self._completed = 0
@@ -76,9 +90,29 @@ class OllamaProviderInstaller:
         return self.root / "current" / "bin" / "ollama"
 
     def status(self) -> ProviderStatus:
+        server_version = self._server_version()
         executable, managed = self._installed_executable()
+        if server_version is not None:
+            self._set_state("ready")
+            return self._status("ready", True, managed, server_version, None)
         if executable is not None:
-            return self._status("ready", True, managed, self._version(executable), None)
+            version = self._version(executable)
+            if managed:
+                with self._lock:
+                    installing = (
+                        self._thread is not None
+                        and self._thread.is_alive()
+                        and self._state in {"downloading", "installing"}
+                    )
+                if not installing:
+                    self._ensure_server(executable)
+                with self._lock:
+                    state = self._state
+                    reason = self._reason
+                return self._status(state, True, True, version, reason)
+            return self._status(
+                "error", True, False, version, "external_server_unavailable"
+            )
         unsupported = self._architecture() is None
         if unsupported:
             return self._status("unsupported", False, False, None, "platform_unsupported")
@@ -115,6 +149,18 @@ class OllamaProviderInstaller:
         thread = self._thread
         if thread is not None:
             thread.join(timeout=2)
+        server_thread = self._server_thread
+        if server_thread is not None:
+            server_thread.join(timeout=2)
+        process = self._owned_server
+        if process is not None and process.poll() is None:
+            process.terminate()
+            try:
+                process.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=2)
+        self._owned_server = None
 
     def _ensure_install(self) -> None:
         with self._lock:
@@ -163,7 +209,10 @@ class OllamaProviderInstaller:
             executable, managed = self._installed_executable()
             if executable is None or not managed:
                 raise RuntimeError("provider_not_available_after_install")
-            self._set_state("ready", completed=self._total or self._completed, total=self._total)
+            if not self._start_managed_server(executable):
+                if self._stop.is_set():
+                    raise RuntimeError("provider_start_interrupted")
+                raise RuntimeError("provider_server_start_failed")
         except Exception as error:
             public_reasons = {
                 "archive_digest_mismatch",
@@ -176,6 +225,8 @@ class OllamaProviderInstaller:
                 "insufficient_disk_space",
                 "platform_unsupported",
                 "provider_not_available_after_install",
+                "provider_server_start_failed",
+                "provider_start_interrupted",
                 "release_asset_missing",
                 "release_digest_missing",
                 "unsafe_archive_link",
@@ -316,6 +367,80 @@ class OllamaProviderInstaller:
             return path, True
         return None, False
 
+    def _ensure_server(self, executable: Path) -> None:
+        with self._lock:
+            if self._server_thread is not None and self._server_thread.is_alive():
+                return
+            self._stop.clear()
+            self._state = "starting"
+            self._reason = None
+            self._server_thread = threading.Thread(
+                target=self._server_worker,
+                args=(executable,),
+                name="ollama-provider-server",
+                daemon=True,
+            )
+            self._server_thread.start()
+
+    def _server_worker(self, executable: Path) -> None:
+        if not self._start_managed_server(executable) and not self._stop.is_set():
+            self._set_state("error", reason="provider_server_start_failed")
+
+    def _start_managed_server(self, executable: Path) -> bool:
+        with self._server_start_lock:
+            if self._server_version() is not None:
+                self._set_state("ready")
+                return True
+            environment = os.environ.copy()
+            environment["OLLAMA_HOST"] = self.ollama_host
+            library = self.root / "current" / "lib"
+            if library.is_dir():
+                existing = environment.get("LD_LIBRARY_PATH", "")
+                environment["LD_LIBRARY_PATH"] = os.pathsep.join(
+                    value for value in (str(library), existing) if value
+                )
+            try:
+                self._owned_server = self._popen(
+                    [str(executable), "serve"],
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    env=environment,
+                    cwd=Path.home(),
+                )
+            except OSError:
+                return False
+            for _ in range(40):
+                if self._stop.is_set():
+                    return False
+                version = self._server_version()
+                if version is not None:
+                    self._set_state("ready")
+                    return True
+                if self._owned_server.poll() is not None:
+                    break
+                self._sleep(0.25)
+            return False
+
+    def _server_version(self) -> str | None:
+        request = Request(
+            f"{self.base_url}/api/version",
+            headers={"Accept": "application/json"},
+            method="GET",
+        )
+        try:
+            with self._local_open(request, timeout=2) as response:
+                body = response.read(_MAX_LOCAL_RESPONSE_BYTES + 1)
+            if len(body) > _MAX_LOCAL_RESPONSE_BYTES:
+                return None
+            payload = json.loads(body.decode("utf-8"))
+        except (OSError, ValueError, UnicodeDecodeError, json.JSONDecodeError):
+            return None
+        if not isinstance(payload, Mapping):
+            return None
+        version = payload.get("version")
+        return version[:120] if isinstance(version, str) and version else None
+
     def _version(self, executable: Path) -> str | None:
         key = str(executable)
         with self._lock:
@@ -371,6 +496,30 @@ class OllamaProviderInstaller:
         if value.tzinfo is None:
             raise ValueError("provider clock must be timezone-aware")
         return value.astimezone(UTC)
+
+    @staticmethod
+    def _base_url(value: str) -> tuple[str, str]:
+        if not isinstance(value, str):
+            raise TypeError("base_url must be a string")
+        parsed = urlsplit(value.strip())
+        if (
+            parsed.scheme != "http"
+            or parsed.hostname not in _LOOPBACK
+            or parsed.username
+            or parsed.password
+            or parsed.query
+            or parsed.fragment
+            or parsed.path not in {"", "/"}
+        ):
+            raise ValueError("Ollama base URL must be a loopback HTTP origin")
+        try:
+            port = parsed.port
+        except ValueError as error:
+            raise ValueError("Ollama base URL has an invalid port") from error
+        if port is None:
+            raise ValueError("Ollama base URL must include a port")
+        host = f"[{parsed.hostname}]" if ":" in parsed.hostname else parsed.hostname
+        return f"http://{host}:{port}", f"{host}:{port}"
 
     @staticmethod
     def _safe_url(value: str) -> bool:

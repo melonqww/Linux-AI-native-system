@@ -206,7 +206,10 @@ class QueryRuntimeApplication:
                 )
             )
             errors.append({"component": model_id, "code": "status_missing"})
-        provider_ready = provider.get("installed") is True or provider.get("state") == "ready"
+        # An executable on disk is not an inference provider until its loopback
+        # API is reachable. Treating `installed` as ready can bind the model
+        # catalog to a different Ollama daemon and model store.
+        provider_ready = provider.get("state") == "ready"
         projected: list[dict[str, object]] = []
         for value in valid_models:
             model = dict(value)
@@ -287,9 +290,9 @@ class QueryRuntimeApplication:
         if errors or provider.get("state") in {"error", "unsupported"}:
             return "error"
         provider_state = provider.get("state")
-        if provider_state in {"downloading", "installing"}:
+        if provider_state in {"starting", "downloading", "installing"}:
             return "provider_preparing"
-        if not (provider.get("installed") is True or provider_state == "ready"):
+        if provider_state != "ready":
             return "action_required" if provider.get("prompt_required") is True else "blocked"
         states = {model.get("state") for model in models}
         if states & {"error", "unavailable"}:

@@ -181,6 +181,8 @@ class ChatView extends St.BoxLayout {
             install_interrupted: 'установка была прервана',
             platform_unsupported: 'эта платформа не поддерживается',
             provider_status_unavailable: 'модуль Ollama не ответил',
+            external_server_unavailable: 'системная служба Ollama не запущена',
+            provider_server_start_failed: 'не удалось запустить локальную Ollama',
             model_catalog_unavailable: 'каталог Qwen и LLaMA не ответил',
             model_status_missing: 'модель отсутствует в ответе каталога',
             release_asset_missing: 'файл релиза не найден',
@@ -338,7 +340,7 @@ class ChatView extends St.BoxLayout {
     _providerNotice(status) {
         const state = typeof status.state === 'string' ? status.state : 'consent_required';
         const reason = typeof status.reason === 'string' ? status.reason : '';
-        const isInstalling = state === 'downloading' || state === 'installing';
+        const isInstalling = ['starting', 'downloading', 'installing'].includes(state);
         if (state === 'error' || state === 'unsupported') {
             return this._errorNotice(
                 'Ошибка установки Ollama',
@@ -426,10 +428,9 @@ class ChatView extends St.BoxLayout {
         const models = Array.isArray(this._modelCatalog?.models) ? this._modelCatalog.models : [];
         const visibleCards = [];
         const provider = this._providerStatus;
-        const providerReady = !provider || provider.installed === true ||
-            provider.state === 'ready';
+        const providerReady = !provider || provider.state === 'ready';
         if (provider && (provider.prompt_required === true ||
-            ['downloading', 'installing', 'error', 'unsupported'].includes(provider.state))) {
+            ['starting', 'downloading', 'installing', 'error', 'unsupported'].includes(provider.state))) {
             visibleCards.push(this._providerNotice(provider));
         }
         const visibleModels = providerReady ? models.filter(model => {

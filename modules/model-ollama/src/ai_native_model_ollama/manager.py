@@ -3,14 +3,9 @@
 from __future__ import annotations
 
 import json
-import os
 import re
-import shutil
-import subprocess
 import threading
-import time
 from collections.abc import Callable, Mapping
-from pathlib import Path
 from urllib.parse import urlsplit
 from urllib.request import ProxyHandler, Request, build_opener
 
@@ -30,24 +25,17 @@ class OllamaModelManager:
         model: str = "qwen3.5:2b",
         base_url: str = "http://127.0.0.1:11434",
         open_fn: Callable[..., object] | None = None,
-        executable_finder: Callable[[str], str | None] | None = None,
-        popen_fn: Callable[..., subprocess.Popen[bytes]] | None = None,
-        sleep_fn: Callable[[float], None] | None = None,
         lifecycle_lock: threading.Lock | threading.RLock | None = None,
     ) -> None:
         if not isinstance(model, str) or _MODEL.fullmatch(model) is None:
             raise ValueError("model name is invalid")
         self.model = model
-        self.base_url, self.ollama_host = self._base_url(base_url)
+        self.base_url = self._base_url(base_url)
         self._open_fn = open_fn or build_opener(ProxyHandler({})).open
-        self._find = executable_finder or shutil.which
-        self._popen = popen_fn or subprocess.Popen
-        self._sleep = sleep_fn or time.sleep
         self._lifecycle_lock = lifecycle_lock or threading.RLock()
         self._lock = threading.RLock()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
-        self._owned_server: subprocess.Popen[bytes] | None = None
         self._status = self._make_status("checking")
 
     def ensure(self) -> ModelStatus:
@@ -86,15 +74,6 @@ class OllamaModelManager:
         thread = self._thread
         if thread is not None:
             thread.join(timeout=2)
-        process = self._owned_server
-        if process is not None and process.poll() is None:
-            process.terminate()
-            try:
-                process.wait(timeout=2)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait(timeout=2)
-        self._owned_server = None
 
     def _ensure_worker(self) -> None:
         with self._lifecycle_lock:
@@ -102,7 +81,8 @@ class OllamaModelManager:
 
     def _ensure_worker_locked(self) -> None:
         try:
-            if not self._server_available() and not self._start_server():
+            if not self._server_available():
+                self._set_status("unavailable", reason="ollama_server_unavailable")
                 return
             if self._model_present():
                 self._set_status("ready")
@@ -117,44 +97,6 @@ class OllamaModelManager:
                 self._set_status("error", reason="model_not_available_after_download")
         except Exception:
             self._set_status("error", reason="download_failed")
-
-    def _start_server(self) -> bool:
-        executable = self._find("ollama")
-        if not executable:
-            self._set_status("unavailable", reason="ollama_not_installed")
-            return False
-        try:
-            resolved = Path(executable).expanduser().resolve(strict=True)
-        except OSError:
-            self._set_status("unavailable", reason="ollama_not_installed")
-            return False
-        if not resolved.is_file() or not os.access(resolved, os.X_OK):
-            self._set_status("unavailable", reason="ollama_not_installed")
-            return False
-        environment = os.environ.copy()
-        environment["OLLAMA_HOST"] = self.ollama_host
-        try:
-            self._owned_server = self._popen(
-                [str(resolved), "serve"],
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                env=environment,
-                cwd=Path.home(),
-            )
-        except OSError:
-            self._set_status("unavailable", reason="ollama_start_failed")
-            return False
-        for _ in range(40):
-            if self._stop.is_set():
-                return False
-            if self._server_available():
-                return True
-            if self._owned_server.poll() is not None:
-                break
-            self._sleep(0.25)
-        self._set_status("unavailable", reason="ollama_start_failed")
-        return False
 
     def _server_available(self) -> bool:
         try:
@@ -265,7 +207,7 @@ class OllamaModelManager:
         return value
 
     @staticmethod
-    def _base_url(value: str) -> tuple[str, str]:
+    def _base_url(value: str) -> str:
         if not isinstance(value, str):
             raise TypeError("base_url must be a string")
         parsed = urlsplit(value.strip())
@@ -286,4 +228,4 @@ class OllamaModelManager:
         if port is None:
             raise ValueError("Ollama base URL must include a port")
         host = f"[{parsed.hostname}]" if ":" in parsed.hostname else parsed.hostname
-        return f"http://{host}:{port}", f"{host}:{port}"
+        return f"http://{host}:{port}"

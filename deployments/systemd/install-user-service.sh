@@ -30,13 +30,7 @@ printf '%s\n' "${repository_root}" > "${runtime_config_directory}/repository-roo
 chmod 0600 "${runtime_config_directory}/repository-root"
 
 environment_file="${runtime_config_directory}/runtime.env"
-if [[ ! -e "${environment_file}" ]]; then
-    printf '%s\n' \
-        'AI_NATIVE_INTENT_MODEL=qwen3.5:2b' \
-        'AI_NATIVE_OLLAMA_URL=http://127.0.0.1:11434' \
-        > "${environment_file}"
-    chmod 0600 "${environment_file}"
-fi
+python3 "${script_directory}/migrate_runtime_env.py" "${environment_file}"
 install -d -m 0700 "${user_data_home}/ai-native-linux"
 
 runtime_data_directory="${user_data_home}/ai-native-linux"

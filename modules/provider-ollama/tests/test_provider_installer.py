@@ -41,6 +41,42 @@ class Clock:
         return self.value
 
 
+class FakeProcess:
+    def __init__(self):
+        self.returncode = None
+
+    def poll(self):
+        return self.returncode
+
+    def terminate(self):
+        self.returncode = 0
+
+    def kill(self):
+        self.returncode = -9
+
+    def wait(self, timeout=None):
+        return self.returncode
+
+
+class LocalOllama:
+    def __init__(self, *, ready=False):
+        self.ready = ready
+        self.starts = []
+        self.processes = []
+
+    def open(self, request, timeout):
+        if not request.full_url.endswith("/api/version") or not self.ready:
+            raise OSError("server unavailable")
+        return Response(json.dumps({"version": "0.12.6"}).encode(), request.full_url)
+
+    def popen(self, arguments, **_kwargs):
+        self.starts.append(arguments)
+        self.ready = True
+        process = FakeProcess()
+        self.processes.append(process)
+        return process
+
+
 class ProviderInstallerTests(unittest.TestCase):
     def setUp(self):
         self.root = PROJECT_ROOT / "tmp" / "provider-installer-tests" / str(uuid4())
@@ -57,6 +93,9 @@ class ProviderInstallerTests(unittest.TestCase):
             "machine": "x86_64",
             "which_fn": lambda _name: None,
             "now_fn": self.clock,
+            "local_open_fn": lambda *_args, **_kwargs: (_ for _ in ()).throw(
+                OSError("server unavailable")
+            ),
         }
         options.update(overrides)
         return OllamaProviderInstaller(self.root / "provider", self.store, **options)
@@ -114,11 +153,15 @@ class ProviderInstallerTests(unittest.TestCase):
             shutil.copytree(extracted, destination)
             (destination / "bin" / "ollama").chmod(0o755)
 
+        local = LocalOllama()
         installer = self.installer(
             open_fn=open_fn,
+            local_open_fn=local.open,
             extract_fn=extract_fn,
             publish_fn=publish_fn,
             staging_fn=lambda _downloads: staging,
+            popen_fn=local.popen,
+            sleep_fn=lambda _seconds: None,
             run_fn=lambda *_args, **_kwargs: SimpleNamespace(
                 returncode=0, stdout="ollama version 1.2.3", stderr=""
             ),
@@ -138,7 +181,61 @@ class ProviderInstallerTests(unittest.TestCase):
         self.assertIn(first.state, {"downloading", "installing", "ready"})
         self.assertTrue(status.installed)
         self.assertTrue(status.managed)
-        self.assertEqual(status.version, "ollama version 1.2.3")
+        self.assertEqual(status.version, "0.12.6")
+        self.assertEqual(len(local.starts), 1)
+
+    def test_managed_provider_is_the_only_component_that_starts_server(self):
+        executable = self.root / "provider/current/bin/ollama"
+        executable.parent.mkdir(parents=True)
+        executable.write_bytes(b"binary")
+        executable.chmod(0o755)
+        local = LocalOllama()
+        installer = self.installer(
+            local_open_fn=local.open,
+            popen_fn=local.popen,
+            sleep_fn=lambda _seconds: None,
+            run_fn=lambda *_args, **_kwargs: SimpleNamespace(
+                returncode=0, stdout="ollama version 0.12.6", stderr=""
+            ),
+        )
+        try:
+            installer.status()
+            for _ in range(100):
+                status = installer.status()
+                if status.state == "ready":
+                    break
+                threading.Event().wait(0.01)
+            else:
+                self.fail(f"managed server did not become ready: {status}")
+            installer.status()
+        finally:
+            installer.stop()
+
+        self.assertEqual(len(local.starts), 1)
+        self.assertEqual(local.starts[0][1], "serve")
+
+    def test_external_binary_without_server_is_not_started_as_current_user(self):
+        executable = self.root / "system/bin/ollama"
+        executable.parent.mkdir(parents=True)
+        executable.write_bytes(b"binary")
+        executable.chmod(0o755)
+        installer = self.installer(
+            which_fn=lambda _name: str(executable),
+            local_open_fn=lambda *_args, **_kwargs: (_ for _ in ()).throw(
+                OSError("server unavailable")
+            ),
+            popen_fn=lambda *_args, **_kwargs: self.fail("external binary was started"),
+            run_fn=lambda *_args, **_kwargs: SimpleNamespace(
+                returncode=0, stdout="ollama version 0.12.6", stderr=""
+            ),
+        )
+
+        status = installer.status()
+
+        self.assertEqual(status.state, "error")
+        self.assertTrue(status.installed)
+        self.assertFalse(status.managed)
+        self.assertEqual(status.reason, "external_server_unavailable")
 
     def test_rejects_missing_digest_and_unsafe_download_host(self):
         installer = self.installer()

@@ -103,13 +103,12 @@ class ModelManagerTests(unittest.TestCase):
         self.assertEqual(ready.model, "qwen3.5:2b")
         self.assertTrue(ready.auto_download)
 
-    def test_absent_ollama_is_a_stable_public_state(self):
+    def test_absent_ollama_server_is_a_stable_public_state(self):
         def unavailable(_request, timeout):
             raise OSError("private connection detail")
 
         manager = OllamaModelManager(
             open_fn=unavailable,
-            executable_finder=lambda _name: None,
         )
         try:
             manager.ensure()
@@ -117,7 +116,7 @@ class ModelManagerTests(unittest.TestCase):
         finally:
             manager.stop()
 
-        self.assertEqual(status.reason, "ollama_not_installed")
+        self.assertEqual(status.reason, "ollama_server_unavailable")
         self.assertNotIn("private", repr(status))
 
     def test_rejects_remote_endpoint_and_unbounded_model_name(self):
@@ -126,6 +125,16 @@ class ModelManagerTests(unittest.TestCase):
                 OllamaModelManager(base_url=url)
         with self.assertRaises(ValueError):
             OllamaModelManager(model="../../bad")
+
+    def test_manifest_delegates_process_lifecycle_to_provider(self):
+        manifest = json.loads(
+            (PROJECT_ROOT / "modules/model-ollama/module.json").read_text(
+                encoding="utf-8"
+            )
+        )
+
+        self.assertEqual(manifest["dependencies"], ["provider.ollama"])
+        self.assertNotIn("model.manage-process", manifest["requested_permissions"])
 
 
 if __name__ == "__main__":

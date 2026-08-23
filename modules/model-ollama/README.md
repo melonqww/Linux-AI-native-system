@@ -1,15 +1,14 @@
 # model.ollama
 
 First-party модуль жизненного цикла локальных моделей. Ядро запрашивает только
-`model.local.ensure/status` и `model.catalog.read/respond`; проверка Ollama,
-запуск доступного user-process, решения пользователя и фоновая загрузка весов
-остаются за границей ядра.
+`model.local.ensure/status` и `model.catalog.read/respond`; решения пользователя
+и фоновая загрузка весов остаются за границей ядра.
 
-Модуль никогда не использует `sudo` и не устанавливает системные пакеты. Если
-Ollama не установлен, он возвращает `ollama_not_installed`. Если бинарник есть,
-но локальный сервер не запущен, модуль может запустить `ollama serve` от имени
-текущего пользователя. Отсутствующие Qwen или LLaMA загружаются через loopback
-Ollama API с bounded progress-состоянием только после решения `download`.
+Модуль никогда не запускает и не останавливает `ollama serve`: процессом владеет
+только `provider.ollama` либо внешний системный service. Если loopback API не
+готов, модуль возвращает `ollama_server_unavailable`. Отсутствующие Qwen или
+LLaMA загружаются через loopback Ollama API с bounded progress-состоянием только
+после решения `download`.
 
 Каталог содержит `workspace.qwen` (обязательная базовая модель) и
 `assistant.llama` (необязательная дополнительная модель). Решения `later` и

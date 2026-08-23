@@ -17,6 +17,11 @@ Runtime публикует атомарный `inference.lifecycle.read`. Coordi
 effective state. Исходные модули остаются независимыми capability providers, но
 порядок и деградация принадлежат backend, а не UI.
 
+Наличие бинарника (`installed`) больше не считается готовностью inference.
+Модели разблокируются только при provider `state: ready`, подтверждённом ответом
+loopback API. Это исключает ситуацию с двумя daemon-процессами и разными model
+stores на одном компьютере.
+
 Frontend использует один snapshot, показывает Ollama раньше заблокированных
 моделей и продолжает bounded polling: быстро во время загрузки, редко в idle.
 Ошибка транспорта или module worker теперь превращается в видимое публичное
