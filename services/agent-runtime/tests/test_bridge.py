@@ -49,6 +49,8 @@ class App:
             "providers.ollama.read",
             "providers.ollama.respond",
             "inference.lifecycle.read",
+            "storage.volumes.read",
+            "storage.volumes.enroll",
         ]
 
     def search(self, payload):
@@ -110,6 +112,12 @@ class App:
 
     def inference_lifecycle(self, payload):
         return {"schema_version": 1, "state": "action_required", "models": []}
+
+    def storage_volumes(self, payload):
+        return {"schema_version": 1, "volumes": []}
+
+    def storage_permission(self, payload):
+        return payload
 
 
 class BridgeTests(unittest.TestCase):
@@ -210,6 +218,13 @@ class BridgeTests(unittest.TestCase):
             )
             with self.assertRaises(urllib.error.HTTPError) as inference_error:
                 urllib.request.urlopen(inference_request)
+            storage_request = urllib.request.Request(
+                base + "/v1/storage/volumes",
+                data=b"{}",
+                headers={"Content-Type": "application/json"},
+            )
+            with self.assertRaises(urllib.error.HTTPError) as storage_error:
+                urllib.request.urlopen(storage_request)
         finally:
             server.shutdown()
             server.server_close()
@@ -224,6 +239,8 @@ class BridgeTests(unittest.TestCase):
         self.assertNotIn("providers.ollama.read", capabilities["capabilities"])
         self.assertNotIn("providers.ollama.respond", capabilities["capabilities"])
         self.assertNotIn("inference.lifecycle.read", capabilities["capabilities"])
+        self.assertNotIn("storage.volumes.read", capabilities["capabilities"])
+        self.assertNotIn("storage.volumes.enroll", capabilities["capabilities"])
         self.assertEqual(status["scheduler"]["state"], "idle")
         self.assertEqual(system_status["schema_version"], 1)
         self.assertTrue(system_status["supported"])
@@ -238,6 +255,7 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(approval_error.exception.code, 403)
         self.assertEqual(approval["error"]["code"], "secure_transport_required")
         self.assertEqual(cancel_error.exception.code, 403)
+        self.assertEqual(storage_error.exception.code, 403)
         self.assertEqual(workspace_error.exception.code, 403)
         self.assertEqual(submit_error.exception.code, 403)
         self.assertEqual(models_error.exception.code, 403)

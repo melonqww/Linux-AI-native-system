@@ -96,6 +96,15 @@ class App:
             "errors": [],
         }
 
+    def storage_volumes(self, payload):
+        return {
+            "schema_version": 1,
+            "volumes": [{"volume_id": "system", "permission": "content"}],
+        }
+
+    def storage_permission(self, payload):
+        return payload
+
 
 @unittest.skipUnless(sys.platform.startswith("linux"), "Linux SO_PEERCRED integration")
 class UnixSocketTests(unittest.TestCase):
@@ -229,6 +238,24 @@ class UnixSocketTests(unittest.TestCase):
         self.assertEqual(response["body"], {
             "provider_id": "ollama", "decision": "install"
         })
+
+    def test_secure_socket_exposes_and_enrolls_storage(self):
+        server = create_unix_server(App(), self.path)
+        _request_id, listed = self._request(
+            server, method="POST", path="/v1/storage/volumes", body={}
+        )
+        self.assertEqual(listed["status"], 200)
+        self.assertEqual(listed["body"]["volumes"][0]["volume_id"], "system")
+
+        server = create_unix_server(App(), self.path)
+        _request_id, enrolled = self._request(
+            server,
+            method="POST",
+            path="/v1/storage/permission",
+            body={"volume_id": "external", "permission": "content"},
+        )
+        self.assertEqual(enrolled["status"], 200)
+        self.assertEqual(enrolled["body"]["permission"], "content")
 
     def test_secure_socket_returns_atomic_inference_lifecycle(self):
         server = create_unix_server(App(), self.path)

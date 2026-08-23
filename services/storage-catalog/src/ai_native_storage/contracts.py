@@ -55,6 +55,24 @@ class VolumeInfo:
 
 
 @dataclass(frozen=True)
+class StorageEnrollmentView:
+    """Panel-safe view of a discovered disk and its indexing consent."""
+
+    volume_id: str
+    name: str
+    mount_point: str
+    fs_type: str
+    is_system: bool
+    is_removable: bool
+    is_network: bool
+    is_available: bool
+    permission: PermissionLevel
+    permission_required: bool
+    total_bytes: int
+    free_bytes: int
+
+
+@dataclass(frozen=True)
 class CatalogEntry:
     volume_id: str
     path: str

@@ -45,6 +45,8 @@ class RuntimeApplication(Protocol):
         self, payload: dict[str, object]
     ) -> dict[str, object]: ...
     def inference_lifecycle(self, payload: dict[str, object]) -> dict[str, object]: ...
+    def storage_volumes(self, payload: dict[str, object]) -> dict[str, object]: ...
+    def storage_permission(self, payload: dict[str, object]) -> dict[str, object]: ...
 
 
 @dataclass(frozen=True)
@@ -118,6 +120,8 @@ class RuntimeRouter:
                     "providers.ollama.read",
                     "providers.ollama.respond",
                     "inference.lifecycle.read",
+                    "storage.volumes.read",
+                    "storage.volumes.enroll",
                 }
                 capabilities = [item for item in capabilities if item not in restricted]
             return RuntimeResponse(200, {"capabilities": capabilities})
@@ -142,6 +146,15 @@ class RuntimeRouter:
             return RuntimeResponse(
                 200, {"results": [asdict(item) for item in self.application.search(payload)]}
             )
+        if path in {"/v1/storage/volumes", "/v1/storage/permission"}:
+            if not self.allow_r1:
+                return self.error(403, "secure_transport_required", False, request_id)
+            operation = (
+                self.application.storage_volumes
+                if path == "/v1/storage/volumes"
+                else self.application.storage_permission
+            )
+            return RuntimeResponse(200, operation(payload))
         if path == "/v1/system-status":
             return RuntimeResponse(200, self.application.system_status(payload))
         if path == "/v1/system-updates/check":

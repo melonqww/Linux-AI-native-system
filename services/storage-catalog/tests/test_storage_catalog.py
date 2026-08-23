@@ -10,6 +10,7 @@ from ai_native_storage import (
     FileCatalog,
     FileQuery,
     PermissionLevel,
+    StorageEnrollment,
     VirtualCollectionStore,
     VolumeRegistry,
 )
@@ -85,6 +86,18 @@ class VolumeRegistryTests(StorageTestCase):
         external = self.registry.get_volume("external-volume")
         self.assertFalse(external.is_available)
         self.assertEqual(external.permission, PermissionLevel.CONTENT)
+
+    def test_storage_enrollment_requires_consent_only_for_additional_disks(self) -> None:
+        enrollment = StorageEnrollment(self.registry)
+        by_id = {item.volume_id: item for item in enrollment.list()}
+
+        self.assertFalse(by_id["system-volume"].permission_required)
+        self.assertTrue(by_id["external-volume"].permission_required)
+        enrolled = enrollment.set_permission("external-volume", PermissionLevel.METADATA)
+        self.assertEqual(enrolled.permission, PermissionLevel.METADATA)
+        self.assertFalse(enrolled.permission_required)
+        disabled = enrollment.set_permission("system-volume", PermissionLevel.NONE)
+        self.assertEqual(disabled.permission, PermissionLevel.NONE)
 
 
 class FileCatalogTests(StorageTestCase):

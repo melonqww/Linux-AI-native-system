@@ -8,6 +8,7 @@ from typing import Callable, Protocol
 from .contracts import DocumentQuery, QueryResult, SearchMode
 from .service import QueryService
 from ai_native_permissions import TransportContext
+from ai_native_storage import PermissionLevel
 
 
 class IntentPipeline(Protocol):
@@ -107,6 +108,8 @@ class QueryRuntimeApplication:
             "documents.query.search",
             "documents.pdf.extract",
             "storage.collection.snapshot",
+            "storage.volumes.read",
+            "storage.volumes.enroll",
         ]
         if self.intent_pipeline is not None:
             capabilities.append("intent.compile")
@@ -144,6 +147,32 @@ class QueryRuntimeApplication:
         ):
             capabilities.append("inference.lifecycle.read")
         return capabilities
+
+    def storage_volumes(self, payload: dict[str, object]) -> dict[str, object]:
+        if set(payload) - {"refresh", "available_only"}:
+            raise ValueError("unknown storage volume field")
+        refresh = payload.get("refresh", False)
+        available_only = payload.get("available_only", False)
+        if not isinstance(refresh, bool) or not isinstance(available_only, bool):
+            raise ValueError("storage volume flags must be booleans")
+        volumes = (
+            self.query_service.enrollment.discover()
+            if refresh
+            else self.query_service.enrollment.list(available_only=available_only)
+        )
+        if refresh and available_only:
+            volumes = tuple(volume for volume in volumes if volume.is_available)
+        return {"schema_version": 1, "volumes": [asdict(volume) for volume in volumes]}
+
+    def storage_permission(self, payload: dict[str, object]) -> dict[str, object]:
+        if set(payload) != {"volume_id", "permission"}:
+            raise ValueError("volume_id and permission are required")
+        volume_id = self._string(payload, "volume_id")
+        try:
+            permission = PermissionLevel(self._string(payload, "permission"))
+        except ValueError as error:
+            raise ValueError("unknown storage permission") from error
+        return asdict(self.query_service.enrollment.set_permission(volume_id, permission))
 
     def inference_lifecycle(self, payload: dict[str, object]) -> dict[str, object]:
         if payload:

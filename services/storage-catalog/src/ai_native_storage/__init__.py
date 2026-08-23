@@ -10,10 +10,12 @@ from .contracts import (
     EntryType,
     FileQuery,
     PermissionLevel,
+    StorageEnrollmentView,
     VirtualCollection,
     VolumeInfo,
 )
 from .registry import VolumeRegistry
+from .enrollment import StorageEnrollment
 from .materialize import (
     ApprovalAuthority,
     ApprovalGrant,
@@ -46,6 +48,8 @@ __all__ = [
     "MaterializeService",
     "MaterializeSpaceError",
     "PermissionLevel",
+    "StorageEnrollment",
+    "StorageEnrollmentView",
     "VirtualCollection",
     "VirtualCollectionStore",
     "VolumeInfo",

@@ -158,6 +158,20 @@ class QueryServiceTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             application.search({"text": [], "limit": 20})
 
+    def test_runtime_exposes_storage_enrollment_contract(self) -> None:
+        application = QueryRuntimeApplication(self.service)
+
+        response = application.storage_volumes({"refresh": True})
+        self.assertEqual(response["schema_version"], 1)
+        self.assertEqual(response["volumes"][0]["volume_id"], "test-volume")
+        self.assertFalse(response["volumes"][0]["permission_required"])
+        self.assertIn("storage.volumes.read", application.capabilities())
+        self.assertIn("storage.volumes.enroll", application.capabilities())
+        disabled = application.storage_permission(
+            {"volume_id": "test-volume", "permission": "none"}
+        )
+        self.assertEqual(disabled["permission"], PermissionLevel.NONE)
+
     def test_metadata_mode_lists_all_pdfs_without_content_terms(self) -> None:
         self.make_pdf("Mathematics algebra geometry")
         self.make_pdf("Cooking recipes", "cooking.pdf")

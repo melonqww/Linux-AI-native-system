@@ -7,7 +7,13 @@ from collections.abc import Callable, Mapping
 
 from ai_native_indexer import IndexerService
 from ai_native_pdf import PdfExtractionError, PdfExtractor
-from ai_native_storage import CollectionItem, FileCatalog, FileQuery, PermissionLevel
+from ai_native_storage import (
+    CollectionItem,
+    FileCatalog,
+    FileQuery,
+    PermissionLevel,
+    StorageEnrollment,
+)
 from ai_native_storage.collections import VirtualCollectionStore
 from ai_native_storage.registry import VolumeRegistry
 
@@ -25,6 +31,7 @@ class QueryService:
     ) -> None:
         self.catalog = FileCatalog(storage_database)
         self.volumes = VolumeRegistry(storage_database)
+        self.enrollment = StorageEnrollment(self.volumes)
         self.collections = VirtualCollectionStore(storage_database)
         self.indexer = IndexerService(index_database)
         self.pdf_extractor = pdf_extractor or PdfExtractor()

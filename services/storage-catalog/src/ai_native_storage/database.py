@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 class StorageDatabase:
@@ -97,26 +97,54 @@ class StorageDatabase:
                 snippet TEXT,
                 PRIMARY KEY(collection_id, ordinal)
             );
+
+            CREATE TABLE IF NOT EXISTS index_crawl_checkpoints (
+                volume_id TEXT PRIMARY KEY,
+                root TEXT NOT NULL,
+                root_device INTEGER NOT NULL,
+                scan_id TEXT NOT NULL,
+                current_directory TEXT,
+                current_offset INTEGER NOT NULL DEFAULT 0,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS index_crawl_directories (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                volume_id TEXT NOT NULL REFERENCES index_crawl_checkpoints(volume_id)
+                    ON DELETE CASCADE,
+                path TEXT NOT NULL,
+                UNIQUE(volume_id, path)
+            );
+            CREATE INDEX IF NOT EXISTS crawl_directories_by_volume
+                ON index_crawl_directories(volume_id, id);
+
+            CREATE TABLE IF NOT EXISTS index_crawl_protected (
+                volume_id TEXT NOT NULL REFERENCES index_crawl_checkpoints(volume_id)
+                    ON DELETE CASCADE,
+                path TEXT NOT NULL,
+                PRIMARY KEY(volume_id, path)
+            );
             """
         )
         row = connection.execute("SELECT version FROM storage_schema LIMIT 1").fetchone()
         if row is None:
             connection.execute("INSERT INTO storage_schema(version) VALUES (?)", (SCHEMA_VERSION,))
-        elif int(row["version"]) == 1:
+        elif int(row["version"]) <= SCHEMA_VERSION:
+            version = int(row["version"])
             columns = {
                 str(column["name"])
                 for column in connection.execute("PRAGMA table_info(volumes)").fetchall()
             }
-            if "total_bytes" not in columns:
+            if version == 1 and "total_bytes" not in columns:
                 connection.execute(
                     "ALTER TABLE volumes ADD COLUMN total_bytes INTEGER NOT NULL DEFAULT 0"
                 )
-            if "free_bytes" not in columns:
+            if version == 1 and "free_bytes" not in columns:
                 connection.execute(
                     "ALTER TABLE volumes ADD COLUMN free_bytes INTEGER NOT NULL DEFAULT 0"
                 )
             connection.execute("UPDATE storage_schema SET version = ?", (SCHEMA_VERSION,))
-        elif int(row["version"]) != SCHEMA_VERSION:
+        else:
             raise RuntimeError(
                 f"unsupported storage schema {row['version']}; expected {SCHEMA_VERSION}"
             )

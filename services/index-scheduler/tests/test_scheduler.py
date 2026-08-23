@@ -213,6 +213,35 @@ class SchedulerTests(unittest.TestCase):
         self.assertTrue(status.coverage_complete)
         self.assertEqual(status.covered_volume_ids, ("test-volume",))
 
+    def test_incomplete_crawl_resumes_from_durable_checkpoint_after_restart(self) -> None:
+        for index in range(20):
+            (self.files / f"resume-{index:02}.txt").write_text(
+                f"restart checkpoint {index}", encoding="utf-8"
+            )
+        self.scheduler.request_rescan("test-volume")
+        first = self.scheduler.process_once(now=1)
+        self.assertEqual(first.active_rescans, 1)
+        scan_id = self.scheduler._crawls["test-volume"].scan_id
+        current = self.scheduler._crawls["test-volume"].current
+        if current is not None:
+            current.close()
+
+        resumed = IndexScheduler(
+            storage_database=self.storage_db,
+            index_database=self.index_db,
+            queue=CoalescingEventQueue(debounce_seconds=0),
+            budget=ResourceBudget(max_batch=3, load_probe=lambda: 0),
+        )
+        self.assertEqual(resumed._crawls["test-volume"].scan_id, scan_id)
+        resumed.resume_or_request_rescan("test-volume")
+        for cycle in range(2, 100):
+            status = resumed.process_once(now=cycle)
+            if status.coverage_complete:
+                break
+
+        self.assertTrue(status.coverage_complete)
+        self.assertEqual(len(resumed.indexer.search("checkpoint", limit=50)), 20)
+
 
 class QueueTests(unittest.TestCase):
     def test_coalesces_bursts_and_collapses_overflow_to_rescan(self) -> None:

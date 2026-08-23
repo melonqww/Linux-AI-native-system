@@ -20,7 +20,7 @@ from ai_native_turns import TurnKind, TurnRequest, TurnRouter
 class OllamaLiveEvals(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.provider = OllamaModelProvider()
+        cls.provider = OllamaModelProvider(model="qwen3.5:2b")
         health = cls.provider.health()
         if not health.available:
             raise unittest.SkipTest(f"local Qwen unavailable: {health.reason}")
@@ -34,6 +34,14 @@ class OllamaLiveEvals(unittest.TestCase):
                 "storage.materialize.plan-copy",
             },
         )
+
+    def test_exact_qwen35_2b_model_is_served_by_ollama(self):
+        health = self.provider.health()
+
+        self.assertTrue(health.available, health.reason)
+        self.assertEqual(health.model, "qwen3.5:2b")
+        self.assertTrue(health.model_present)
+        self.assertIsNotNone(health.version)
 
     def test_russian_and_english_golden_requests(self):
         cases = (

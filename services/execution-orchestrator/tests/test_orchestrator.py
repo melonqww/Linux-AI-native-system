@@ -1,7 +1,8 @@
 import json
 import shutil
 import unittest
-from dataclasses import replace
+from dataclasses import asdict, replace
+from types import SimpleNamespace
 from pathlib import Path
 from uuid import uuid4
 
@@ -21,10 +22,36 @@ from ai_native_orchestrator import (
     PlanStoreError,
     PlanValidationError,
 )
-from ai_native_query import QueryResult
+from ai_native_query import QueryResult, QueryService
+from ai_native_scheduler import CoalescingEventQueue, IndexScheduler, ResourceBudget
 from ai_native_permissions import TransportContext, TransportKind
 from ai_native_ledger import TaskLedger, TaskState
-from ai_native_storage import ApprovalAuthority, CollectionItem, MaterializeService
+from ai_native_storage import (
+    ApprovalAuthority,
+    CollectionItem,
+    MaterializeService,
+    VolumeRegistry,
+)
+from ai_native_storage.contracts import DiscoveredVolume
+
+
+class SingleVolumeDiscovery:
+    def __init__(self, root: Path) -> None:
+        self.root = root
+
+    def discover(self):
+        return [
+            DiscoveredVolume(
+                "system-volume",
+                "System",
+                str(self.root),
+                "test-device",
+                "testfs",
+                True,
+                False,
+                False,
+            )
+        ]
 
 
 class FakeQueryService:
@@ -369,6 +396,53 @@ class OrchestratorTests(unittest.TestCase):
             ledger.event_names(result.run_id),
             ("created", "started", "item_succeeded", "completed"),
         )
+
+    def test_enrolled_disk_indexes_real_pdf_result_with_coverage_and_ledger_link(self):
+        documents = self.root / "indexed-documents"
+        documents.mkdir()
+        pdf = documents / "mathematics.pdf"
+        pdf.write_bytes(b"injected PDF")
+        storage_db = self.root / "pipeline-storage.sqlite3"
+        index_db = self.root / "pipeline-index.sqlite3"
+        VolumeRegistry(
+            storage_db, discovery=SingleVolumeDiscovery(documents)
+        ).refresh()
+
+        class Extractor:
+            def extract(self, _path):
+                return SimpleNamespace(text="математика алгебра формула")
+
+        scheduler = IndexScheduler(
+            storage_database=storage_db,
+            index_database=index_db,
+            queue=CoalescingEventQueue(debounce_seconds=0),
+            budget=ResourceBudget(max_batch=2, load_probe=lambda: 0),
+            pdf_extractor=Extractor(),
+        )
+        scheduler.request_rescan("system-volume")
+        for cycle in range(1, 20):
+            coverage = scheduler.process_once(now=cycle)
+            if coverage.coverage_complete:
+                break
+        query = QueryService(
+            storage_database=storage_db,
+            index_database=index_db,
+            coverage_source=lambda: asdict(scheduler.status()),
+        )
+        ledger = TaskLedger(self.root / "pipeline-tasks.sqlite3")
+        orchestrator = ExecutionOrchestrator(
+            query, TaskContextStore(), task_ledger=ledger
+        )
+
+        result = orchestrator.execute(plan())
+        output = result.steps[0].output
+        task = ledger.get(result.run_id)
+
+        self.assertEqual(result.state, OrchestrationState.COMPLETED)
+        self.assertEqual(output.result_count, 1)
+        self.assertTrue(output.coverage.complete)
+        self.assertEqual(task.processed_count, 1)
+        self.assertEqual(task.references[0].locator, str(pdf))
 
     def test_task_ledger_tracks_approval_and_terminal_user_cancel(self):
         ledger = TaskLedger(self.root / "tasks.sqlite3")

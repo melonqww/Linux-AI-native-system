@@ -49,7 +49,7 @@ class BackgroundIndexService:
                 # A watcher only observes future changes. Always reconcile the existing
                 # tree after startup so a persisted but incomplete catalog cannot look
                 # like a complete empty disk.
-                self.scheduler.request_rescan(volume.volume_id)
+                self.scheduler.resume_or_request_rescan(volume.volume_id)
 
     def tick(self, *, now: float | None = None, watch_timeout: float = 0.0) -> SchedulerStatus:
         current = monotonic() if now is None else now

@@ -56,7 +56,10 @@ python -m pytest -q services/intent-compiler/tests
 
 Реальные eval-тесты не входят в обычный CI и запускаются только явно:
 
-```powershell
-$env:AI_NATIVE_RUN_OLLAMA_EVALS = "1"
-python -m pytest -q services/intent-compiler/tests/test_ollama_live.py
+```bash
+AI_NATIVE_RUN_OLLAMA_EVALS=1 python -m pytest -q \
+  services/intent-compiler/tests/test_ollama_live.py
 ```
+
+Первый live-тест отдельно проверяет, что локальный API Ollama доступен и отдаёт
+именно установленную `qwen3.5:2b`; остальные проверяют chat/action/mixed и планы.
