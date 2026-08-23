@@ -16,6 +16,7 @@ from ai_native_orchestrator import (
 )
 from ai_native_permissions import TransportContext
 from ai_native_query import SearchCoverage
+from ai_native_turns import TurnRouter
 from ai_native_workspace import (
     MessageKind,
     WorkspaceBusyError,
@@ -55,6 +56,24 @@ class ComposingModel(Model):
         self.compose_calls += 1
         self.requests.append(request)
         return self.reply
+
+
+class SplitModel(Model):
+    def __init__(self, turn, classification, chat_reply="Привет!"):
+        super().__init__(turn)
+        self.classification = classification
+        self.chat_reply = chat_reply
+        self.classify_calls = 0
+        self.chat_calls = 0
+
+    def classify_turn(self, request):
+        self.classify_calls += 1
+        return self.classification
+
+    def respond_chat(self, request):
+        self.chat_calls += 1
+        self.requests.append(request)
+        return self.chat_reply
 
 
 class Compiler:
@@ -105,6 +124,73 @@ def completed_result(*, count=3, task_id=None):
 
 
 class WorkspaceRuntimeTests(unittest.TestCase):
+    def test_split_conversation_never_calls_intent_route_or_compiler(self):
+        model = SplitModel(
+            ModelTurn(ModelTurnKind.CONVERSATION, response_text="unused"),
+            {
+                "kind": "conversation",
+                "language": "ru",
+                "confidence": 0.99,
+                "conversation_text": "Привет, как дела?",
+                "action_text": None,
+            },
+            "Всё хорошо. Чем помочь?",
+        )
+        compiler = Compiler(None)
+        runtime = WorkspaceRuntime(
+            self.store,
+            model,
+            compiler,
+            Executor(None),
+            lambda: TaskContext(locale="ru"),
+            turn_router=TurnRouter(model),
+        )
+        try:
+            run = runtime.submit(
+                "Привет, как дела?", transport_context=TransportContext.internal()
+            )
+            self.wait_for(run.run_id, WorkspaceStage.COMPLETED)
+        finally:
+            runtime.close()
+        self.assertEqual(model.classify_calls, 1)
+        self.assertEqual(model.chat_calls, 1)
+        self.assertEqual(model.route_calls, 0)
+        self.assertEqual(compiler.calls, 0)
+
+    def test_split_mixed_turn_chats_then_compiles_only_exact_action_fragment(self):
+        model = SplitModel(
+            ModelTurn(ModelTurnKind.ACTION, intent_payload={"safe": True}),
+            {
+                "kind": "mixed",
+                "language": "ru",
+                "confidence": 0.95,
+                "conversation_text": "Расскажи про хлеб",
+                "action_text": "найди PDF",
+            },
+            "Хлеб обычно выпекают при 180 градусах.",
+        )
+        compiler = Compiler(SimpleNamespace(state=CompilationState.READY, plan=object()))
+        runtime = WorkspaceRuntime(
+            self.store,
+            model,
+            compiler,
+            Executor(completed_result(count=2)),
+            lambda: TaskContext(locale="ru"),
+            turn_router=TurnRouter(model),
+        )
+        try:
+            run = runtime.submit(
+                "Расскажи про хлеб и найди PDF",
+                transport_context=TransportContext.internal(),
+            )
+            self.wait_for(run.run_id, WorkspaceStage.COMPLETED)
+        finally:
+            runtime.close()
+        self.assertEqual(model.chat_calls, 1)
+        self.assertEqual(model.route_calls, 1)
+        self.assertEqual(model.requests[-1].user_text, "найди PDF")
+        self.assertEqual(compiler.calls, 1)
+
     def setUp(self):
         self.root = PROJECT_ROOT / "tmp" / "workspace-runtime-tests" / str(uuid4())
         self.store = WorkspaceStore(self.root / "workspace.sqlite3")

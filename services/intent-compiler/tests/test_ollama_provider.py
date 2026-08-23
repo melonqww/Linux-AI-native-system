@@ -12,6 +12,7 @@ from ai_native_intents import (
     OllamaProviderError,
     OllamaUnavailableError,
 )
+from ai_native_turns import TurnHistoryMessage, TurnRequest
 
 
 class FakeResponse:
@@ -40,6 +41,57 @@ def model_request(user_text="Найди PDF по математике"):
 
 
 class OllamaProviderTests(unittest.TestCase):
+    def test_classifies_mixed_turn_with_closed_schema_and_exact_fragments(self):
+        response = FakeResponse({"message": {"content": json.dumps({
+            "kind": "mixed",
+            "language": "ru",
+            "confidence": 0.96,
+            "conversation_text": "Расскажи про хлеб",
+            "action_text": "найди PDF",
+        }, ensure_ascii=False)}})
+        captured = []
+
+        def open_request(request, _timeout):
+            captured.append(json.loads(request.data))
+            return response
+
+        with patch("ai_native_intents.ollama._open_loopback", side_effect=open_request):
+            result = OllamaModelProvider().classify_turn(TurnRequest(
+                "Расскажи про хлеб и найди PDF",
+                "ru",
+                (TurnHistoryMessage("user", "Привет"),),
+            ))
+
+        self.assertEqual(result["kind"], "mixed")
+        self.assertNotIn("tools", captured[0])
+        self.assertEqual(captured[0]["format"]["properties"]["kind"]["enum"][2], "mixed")
+        self.assertFalse(captured[0]["think"])
+
+    def test_chat_has_no_tools_and_exposes_previous_user_message_as_context(self):
+        response = FakeResponse({"message": {"content": "Ты спрашивал про хлеб."}})
+        captured = []
+
+        def open_request(request, _timeout):
+            captured.append(json.loads(request.data))
+            return response
+
+        request = model_request("Какое было моё прошлое сообщение?")
+        request = ModelRequest(
+            request.user_text,
+            request.locale,
+            request.context,
+            {},
+            "",
+            history=(ModelHistoryMessage("user", "Какая температура нужна для хлеба?"),),
+        )
+        with patch("ai_native_intents.ollama._open_loopback", side_effect=open_request):
+            reply = OllamaModelProvider().respond_chat(request)
+
+        self.assertEqual(reply, "Ты спрашивал про хлеб.")
+        self.assertNotIn("tools", captured[0])
+        self.assertNotIn("format", captured[0])
+        self.assertIn("Previous user message: Какая температура", captured[0]["messages"][-1]["content"])
+
     def test_metadata_file_listing_omits_content_text(self):
         response = FakeResponse({"message": {"content": "", "tool_calls": [{
             "function": {"name": "search_documents", "arguments": {
@@ -154,7 +206,7 @@ class OllamaProviderTests(unittest.TestCase):
         body = json.loads(request.data)
         self.assertEqual(request.full_url, "http://127.0.0.1:11434/api/chat")
         self.assertEqual(timeout, 12)
-        self.assertEqual(body["model"], "qwen3:1.7b")
+        self.assertEqual(body["model"], "qwen3.5:2b")
         self.assertFalse(body["stream"])
         self.assertFalse(body["think"])
         self.assertNotIn("format", body)
@@ -259,7 +311,7 @@ class OllamaProviderTests(unittest.TestCase):
     def test_health_verifies_version_and_exact_model(self):
         responses = [
             FakeResponse({"version": "0.12.6"}),
-            FakeResponse({"models": [{"name": "qwen3:1.7b", "model": "qwen3:1.7b"}]}),
+            FakeResponse({"models": [{"name": "qwen3.5:2b", "model": "qwen3.5:2b"}]}),
         ]
         with patch("ai_native_intents.ollama._open_loopback", side_effect=responses):
             health = OllamaModelProvider().health()

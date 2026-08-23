@@ -29,10 +29,10 @@ const PANEL_HORIZONTAL_MARGIN = 20;
 const PANEL_BOTTOM_MARGIN = 18;
 const TOGGLE_DURATION = 260;
 const TAB_HEIGHT = 43;
-// The runtime's real Ollama model is qwen3:1.7b.  Keep the human-readable
+// The runtime's real Ollama model is qwen3.5:2b. Keep the human-readable
 // name here in sync with that backend default; model switching is not exposed
 // until the runtime supports selecting a different model per run.
-const WORKSPACE_MODEL_LABEL = 'Qwen 3 1.7B';
+const WORKSPACE_MODEL_LABEL = 'Qwen 3.5 2B';
 const TabButton = GObject.registerClass(
 class TabButton extends St.Button {
     _init(label, icon) {
@@ -575,7 +575,7 @@ class ChatView extends St.BoxLayout {
             models.unshift({
                 model_id: 'workspace.qwen',
                 provider: 'ollama',
-                provider_model: 'qwen3:1.7b',
+                provider_model: 'qwen3.5:2b',
                 display_name: WORKSPACE_MODEL_LABEL,
                 required: true,
                 prompt_required: true,

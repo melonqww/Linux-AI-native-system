@@ -46,11 +46,11 @@ class ScriptedOllama:
         if request.full_url.endswith("/api/version"):
             return Response({"version": "0.12.6"})
         if request.full_url.endswith("/api/tags"):
-            models = [{"name": "qwen3:1.7b"}] if self.present else []
+            models = [{"name": "qwen3.5:2b"}] if self.present else []
             return Response({"models": models})
         if request.full_url.endswith("/api/pull"):
             body = json.loads(request.data)
-            if body != {"model": "qwen3:1.7b", "stream": True}:
+            if body != {"model": "qwen3.5:2b", "stream": True}:
                 raise AssertionError(body)
             self.pull_started.set()
             self.present = True
@@ -100,7 +100,7 @@ class ModelManagerTests(unittest.TestCase):
 
         self.assertEqual(initial.state, "starting")
         self.assertTrue(ollama.pull_started.is_set())
-        self.assertEqual(ready.model, "qwen3:1.7b")
+        self.assertEqual(ready.model, "qwen3.5:2b")
         self.assertTrue(ready.auto_download)
 
     def test_absent_ollama_is_a_stable_public_state(self):

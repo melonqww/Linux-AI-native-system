@@ -27,7 +27,7 @@ class OllamaModelManager:
     def __init__(
         self,
         *,
-        model: str = "qwen3:1.7b",
+        model: str = "qwen3.5:2b",
         base_url: str = "http://127.0.0.1:11434",
         open_fn: Callable[..., object] | None = None,
         executable_finder: Callable[[str], str | None] | None = None,

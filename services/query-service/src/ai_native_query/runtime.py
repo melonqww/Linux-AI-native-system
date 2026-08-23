@@ -175,7 +175,7 @@ class QueryRuntimeApplication:
                 "schema_version": 1,
                 "models": [
                     self._unavailable_model(
-                        "workspace.qwen", "qwen3:1.7b", "Qwen 3 1.7B", True
+                        "workspace.qwen", "qwen3.5:2b", "Qwen 3.5 2B", True
                     ),
                     self._unavailable_model(
                         "assistant.llama", "llama3.2:3b", "Llama 3.2 3B", False
@@ -190,7 +190,7 @@ class QueryRuntimeApplication:
         valid_models = [value for value in models if isinstance(value, dict)]
         known_ids = {value.get("model_id") for value in valid_models}
         required_models = (
-            ("workspace.qwen", "qwen3:1.7b", "Qwen 3 1.7B", True),
+            ("workspace.qwen", "qwen3.5:2b", "Qwen 3.5 2B", True),
             ("assistant.llama", "llama3.2:3b", "Llama 3.2 3B", False),
         )
         for model_id, provider_model, display_name, required in required_models:

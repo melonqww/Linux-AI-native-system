@@ -10,6 +10,7 @@ from ai_native_intents import (
     OperationKind,
     TaskContext,
 )
+from ai_native_turns import TurnKind, TurnRequest, TurnRouter
 
 
 @unittest.skipUnless(
@@ -46,6 +47,21 @@ class OllamaLiveEvals(unittest.TestCase):
                 result = self.compiler.compile_and_plan(text)
                 self.assertEqual(result.state, CompilationState.READY, result)
                 self.assertEqual(result.intent.operations[0].kind, expected_kind)
+
+    def test_turn_router_separates_chat_action_and_mixed_requests(self):
+        cases = (
+            ("Привет, как у тебя дела?", TurnKind.CONVERSATION),
+            ("Найди все PDF-файлы на моём компьютере", TurnKind.ACTION),
+            (
+                "Какая температура нужна для хлеба и найди все PDF на моём ПК",
+                TurnKind.MIXED,
+            ),
+        )
+        router = TurnRouter(self.provider)
+        for text, expected_kind in cases:
+            with self.subTest(text=text):
+                result = router.route(TurnRequest(text, "ru"))
+                self.assertEqual(result.kind, expected_kind)
 
     def test_compound_search_and_copy_requires_approval(self):
         text = "Найди PDF по математике и скопируй результаты на рабочий стол"

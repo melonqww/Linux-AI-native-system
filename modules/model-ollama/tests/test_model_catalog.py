@@ -1,4 +1,5 @@
 import shutil
+import sqlite3
 import unittest
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -65,7 +66,7 @@ class ModelCatalogTests(unittest.TestCase):
     def catalog(self):
         return OllamaModelCatalog(
             (
-                ModelDefinition("workspace.qwen", "qwen3:1.7b", "Qwen", "base", True),
+                ModelDefinition("workspace.qwen", "qwen3.5:2b", "Qwen", "base", True),
                 ModelDefinition(
                     "assistant.llama", "llama3.2:3b", "Llama", "optional", False
                 ),
@@ -117,8 +118,44 @@ class ModelCatalogTests(unittest.TestCase):
         catalog.respond("workspace.qwen", "never")
         self.assertEqual(self.catalog().ensure_base()["state"], "declined")
 
-        FakeManager.installed_models.add("qwen3:1.7b")
+        FakeManager.installed_models.add("qwen3.5:2b")
         self.assertEqual(self.catalog().ensure_base()["state"], "ready")
+
+    def test_model_upgrade_requires_fresh_consent_and_migrates_old_database(self):
+        database = self.root / "decisions.sqlite3"
+        with sqlite3.connect(database) as connection:
+            connection.execute(
+                """CREATE TABLE model_decisions (
+                    model_id TEXT PRIMARY KEY,
+                    decision TEXT NOT NULL,
+                    dismissed_until TEXT,
+                    updated_at TEXT NOT NULL
+                )"""
+            )
+            connection.execute(
+                "INSERT INTO model_decisions VALUES (?, ?, ?, ?)",
+                ("workspace.qwen", "download", None, self.clock().isoformat()),
+            )
+            connection.execute("PRAGMA user_version = 1")
+
+        catalog = OllamaModelCatalog(
+            (ModelDefinition("workspace.qwen", "qwen3.5:2b", "Qwen", "base", True),),
+            ModelDecisionStore(database),
+            base_url="http://127.0.0.1:11434",
+            now_fn=self.clock,
+            manager_factory=FakeManager,
+        )
+
+        state = catalog.ensure_base()
+        self.assertEqual(state["state"], "consent_required")
+        self.assertEqual(FakeManager.ensure_calls, [])
+        with sqlite3.connect(database) as connection:
+            columns = {
+                row[1] for row in connection.execute("PRAGMA table_info(model_decisions)")
+            }
+            version = connection.execute("PRAGMA user_version").fetchone()[0]
+        self.assertIn("provider_model", columns)
+        self.assertEqual(version, 2)
 
     def test_rejects_unknown_model_and_decision(self):
         catalog = self.catalog()

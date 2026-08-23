@@ -1,0 +1,68 @@
+import unittest
+
+from ai_native_turns import TurnKind, TurnRequest, TurnRouter, TurnRoutingError
+
+
+class Classifier:
+    def __init__(self, payload):
+        self.payload = payload
+
+    def classify_turn(self, _request):
+        return self.payload
+
+
+def payload(kind, conversation=None, action=None, confidence=0.9):
+    return {
+        "kind": kind,
+        "language": "ru",
+        "confidence": confidence,
+        "conversation_text": conversation,
+        "action_text": action,
+    }
+
+
+class TurnRouterTests(unittest.TestCase):
+    def test_accepts_mixed_exact_non_overlapping_fragments(self):
+        text = "Расскажи про хлеб и найди все PDF"
+        result = TurnRouter(Classifier(payload(
+            "mixed", "Расскажи про хлеб", "найди все PDF"
+        ))).route(TurnRequest(text, "ru"))
+        self.assertEqual(result.kind, TurnKind.MIXED)
+
+    def test_accepts_english_conversation_and_action_split(self):
+        text = "What temperature should I bake bread at, and find my PDF files"
+        result = TurnRouter(Classifier(payload(
+            "mixed",
+            "What temperature should I bake bread at",
+            "find my PDF files",
+        ))).route(TurnRequest(text, "en"))
+        self.assertEqual(result.kind, TurnKind.MIXED)
+        self.assertEqual(result.action_text, "find my PDF files")
+
+    def test_low_confidence_becomes_clarification_without_action(self):
+        result = TurnRouter(Classifier(payload(
+            "action", action="найди PDF", confidence=0.4
+        ))).route(TurnRequest("найди PDF", "ru"))
+        self.assertEqual(result.kind, TurnKind.CLARIFICATION)
+        self.assertIsNone(result.action_text)
+
+    def test_rejects_invented_or_overlapping_fragments(self):
+        cases = (
+            payload("action", action="удали всё"),
+            payload("mixed", "про хлеб и найди", "найди PDF"),
+        )
+        for item in cases:
+            with self.subTest(item=item), self.assertRaises(TurnRoutingError):
+                TurnRouter(Classifier(item)).route(
+                    TurnRequest("Расскажи про хлеб и найди PDF", "ru")
+                )
+
+    def test_rejects_shape_mismatch(self):
+        with self.assertRaises(TurnRoutingError):
+            TurnRouter(Classifier(payload("conversation", action="Привет"))).route(
+                TurnRequest("Привет", "ru")
+            )
+
+
+if __name__ == "__main__":
+    unittest.main()

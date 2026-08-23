@@ -24,10 +24,11 @@ def worker_start() -> None:
     definitions = (
         ModelDefinition(
             "workspace.qwen",
-            os.environ.get("AI_NATIVE_INTENT_MODEL", "qwen3:1.7b"),
-            "Qwen 3 1.7B",
+            os.environ.get("AI_NATIVE_INTENT_MODEL", "qwen3.5:2b"),
+            "Qwen 3.5 2B",
             "workspace_base",
             True,
+            2_700_000_000,
         ),
         ModelDefinition(
             "assistant.llama",

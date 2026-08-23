@@ -39,39 +39,55 @@ class ModelDecisionStore:
             connection.execute(
                 """CREATE TABLE IF NOT EXISTS model_decisions (
                     model_id TEXT PRIMARY KEY,
+                    provider_model TEXT NOT NULL DEFAULT '',
                     decision TEXT NOT NULL,
                     dismissed_until TEXT,
                     updated_at TEXT NOT NULL
                 )"""
             )
-            connection.execute("PRAGMA user_version = 1")
+            columns = {
+                row[1] for row in connection.execute("PRAGMA table_info(model_decisions)")
+            }
+            if "provider_model" not in columns:
+                connection.execute(
+                    "ALTER TABLE model_decisions ADD COLUMN provider_model TEXT NOT NULL DEFAULT ''"
+                )
+            connection.execute("PRAGMA user_version = 2")
         if os.name == "posix":
             os.chmod(self.database, 0o600)
 
-    def get(self, model_id: str) -> tuple[str | None, datetime | None]:
+    def get(
+        self, model_id: str, provider_model: str
+    ) -> tuple[str | None, datetime | None]:
         with self._connect() as connection:
             row = connection.execute(
-                "SELECT decision, dismissed_until FROM model_decisions WHERE model_id = ?",
-                (model_id,),
+                """SELECT decision, dismissed_until FROM model_decisions
+                   WHERE model_id = ? AND provider_model = ?""",
+                (model_id, provider_model),
             ).fetchone()
         if row is None:
             return None, None
         dismissed = datetime.fromisoformat(row[1]).astimezone(UTC) if row[1] else None
         return str(row[0]), dismissed
 
-    def set(self, model_id: str, decision: str, *, now: datetime) -> None:
+    def set(
+        self, model_id: str, provider_model: str, decision: str, *, now: datetime
+    ) -> None:
         if decision not in _DECISIONS:
             raise ValueError("unsupported model decision")
         dismissed = now + timedelta(hours=24) if decision == "later" else None
         with self._lock, self._connect() as connection:
             connection.execute(
-                """INSERT INTO model_decisions(model_id, decision, dismissed_until, updated_at)
-                   VALUES (?, ?, ?, ?)
+                """INSERT INTO model_decisions(
+                       model_id, provider_model, decision, dismissed_until, updated_at
+                   ) VALUES (?, ?, ?, ?, ?)
                    ON CONFLICT(model_id) DO UPDATE SET decision = excluded.decision,
+                   provider_model = excluded.provider_model,
                    dismissed_until = excluded.dismissed_until,
                    updated_at = excluded.updated_at""",
                 (
                     model_id,
+                    provider_model,
                     decision,
                     dismissed.isoformat() if dismissed else None,
                     now.isoformat(),
@@ -125,7 +141,7 @@ class OllamaModelCatalog:
         definition = self._definition(model_id)
         if decision not in _DECISIONS:
             raise ValueError("decision must be download, later or never")
-        self.decisions.set(model_id, decision, now=self._now())
+        self.decisions.set(model_id, definition.provider_model, decision, now=self._now())
         return self._view(definition)
 
     def stop(self) -> None:
@@ -136,7 +152,9 @@ class OllamaModelCatalog:
         manager = self.managers[definition.model_id]
         if manager.installed():
             return manager.ensure()
-        decision, dismissed = self.decisions.get(definition.model_id)
+        decision, dismissed = self.decisions.get(
+            definition.model_id, definition.provider_model
+        )
         if decision == "download":
             return manager.ensure()
         now = self._now()
@@ -149,7 +167,9 @@ class OllamaModelCatalog:
     def _view(self, definition: ModelDefinition) -> dict[str, object]:
         manager = self.managers[definition.model_id]
         installed = manager.installed()
-        decision, dismissed = self.decisions.get(definition.model_id)
+        decision, dismissed = self.decisions.get(
+            definition.model_id, definition.provider_model
+        )
         now = self._now()
         prompt_required = (
             not installed

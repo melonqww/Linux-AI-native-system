@@ -35,6 +35,7 @@ source_paths=(
     "services/agent-runtime/src"
     "services/task-ledger/src"
     "services/workspace-service/src"
+    "services/turn-router/src"
     "services/permission-gateway/src"
     "services/execution-orchestrator/src"
     "services/intent-compiler/src"
@@ -58,7 +59,7 @@ for relative_path in "${source_paths[@]}"; do
 done
 export PYTHONPATH="${runtime_pythonpath}${PYTHONPATH:+:${PYTHONPATH}}"
 
-intent_model="${AI_NATIVE_INTENT_MODEL:-qwen3:1.7b}"
+intent_model="${AI_NATIVE_INTENT_MODEL:-qwen3.5:2b}"
 ollama_url="${AI_NATIVE_OLLAMA_URL:-http://127.0.0.1:11434}"
 
 cd -- "${repository_root}"

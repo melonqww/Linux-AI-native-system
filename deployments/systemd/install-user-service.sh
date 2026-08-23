@@ -32,7 +32,7 @@ chmod 0600 "${runtime_config_directory}/repository-root"
 environment_file="${runtime_config_directory}/runtime.env"
 if [[ ! -e "${environment_file}" ]]; then
     printf '%s\n' \
-        'AI_NATIVE_INTENT_MODEL=qwen3:1.7b' \
+        'AI_NATIVE_INTENT_MODEL=qwen3.5:2b' \
         'AI_NATIVE_OLLAMA_URL=http://127.0.0.1:11434' \
         > "${environment_file}"
     chmod 0600 "${environment_file}"

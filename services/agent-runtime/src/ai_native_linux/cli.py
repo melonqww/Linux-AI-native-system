@@ -41,7 +41,7 @@ def main() -> int:
     parser.add_argument("--task-ledger-database", type=Path, default=Path("data/task-ledger.sqlite3"))
     parser.add_argument("--memory-database", type=Path, default=Path("data/task-memory.sqlite3"))
     parser.add_argument("--workspace-database", type=Path, default=Path("data/workspace.sqlite3"))
-    parser.add_argument("--intent-model", default="qwen3:1.7b")
+    parser.add_argument("--intent-model", default="qwen3.5:2b")
     parser.add_argument("--ollama-url", default="http://127.0.0.1:11434")
     parser.add_argument("--intent-timeout", type=float, default=45.0)
     parser.add_argument("--intent-context-tokens", type=int, default=8_192)
@@ -194,6 +194,7 @@ def main() -> int:
                     task_ledger=task_ledger,
                 )
                 from ai_native_workspace import WorkspaceRuntime
+                from ai_native_turns import TurnRouter
 
                 workspace_controller = WorkspaceRuntime(
                     workspace,
@@ -202,6 +203,7 @@ def main() -> int:
                     plan_executor,
                     context_store.snapshot,
                     model_status=model_status,
+                    turn_router=TurnRouter(provider),
                 )
                 for capability in plan_executor.available_capabilities():
                     required_scopes = plan_executor.permission_gateway.required_scopes(

@@ -25,6 +25,12 @@ from ai_native_orchestrator import (
     SearchOutput,
 )
 from ai_native_permissions import TransportContext
+from ai_native_turns import (
+    TurnHistoryMessage,
+    TurnKind,
+    TurnRequest,
+    TurnRouter,
+)
 
 from .contracts import MessageKind, MessageRole, WorkspaceRun, WorkspaceStage
 from .store import WorkspaceStore
@@ -70,6 +76,7 @@ class WorkspaceRuntime:
         context: Callable[[], TaskContext],
         *,
         model_status: Callable[[], Mapping[str, object]] | None = None,
+        turn_router: TurnRouter | None = None,
         workers: int = 2,
         max_pending: int = 32,
     ) -> None:
@@ -83,6 +90,7 @@ class WorkspaceRuntime:
         self.executor = executor
         self.context = context
         self.model_status = model_status
+        self.turn_router = turn_router
         self._pool = ThreadPoolExecutor(
             max_workers=workers, thread_name_prefix="workspace-runtime"
         )
@@ -128,7 +136,12 @@ class WorkspaceRuntime:
                 confirmed=confirmed,
                 transport_context=transport_context,
             )
-            self._finish_result(workspace_run.run_id, result, locale)
+            self._finish_result(
+                workspace_run.run_id,
+                result,
+                locale,
+                compose_conversation=self.turn_router is None,
+            )
             return result
         except Exception:
             self._finish_failure(workspace_run.run_id, locale)
@@ -151,9 +164,61 @@ class WorkspaceRuntime:
             if readiness is not None:
                 self._finish_model_unavailable(run_id, readiness, locale)
                 return
+            model_text = text
+            if self.turn_router is not None:
+                try:
+                    classification = self.turn_router.route(
+                        TurnRequest(
+                            text,
+                            locale,
+                            history=self._turn_history(user_message_id),
+                        )
+                    )
+                except Exception:
+                    # A classifier is advisory. Malformed or unavailable model
+                    # output must never fall through into action compilation.
+                    classification = None
+                if classification is None or classification.kind is TurnKind.CLARIFICATION:
+                    self.store.transition(run_id, WorkspaceStage.SUMMARIZING)
+                    response = self.store.append_message(
+                        MessageRole.ASSISTANT,
+                        MessageKind.CLARIFICATION,
+                        self._clarification(locale),
+                    )
+                    self.store.complete(run_id, response.message_id)
+                    return
+                if classification.kind in {TurnKind.CONVERSATION, TurnKind.MIXED}:
+                    conversation_text = classification.conversation_text
+                    if conversation_text is None:
+                        raise ValueError("conversation classification has no text")
+                    chat = getattr(self.model, "respond_chat", None)
+                    if not callable(chat):
+                        raise ValueError("chat provider is unavailable")
+                    chat_response = chat(
+                        ModelRequest(
+                            user_text=conversation_text,
+                            locale=locale,
+                            context=self.context().for_model(),
+                            output_schema={},
+                            instructions="",
+                            history=self._conversation_history(user_message_id),
+                        )
+                    )
+                    message = self.store.append_message(
+                        MessageRole.ASSISTANT,
+                        MessageKind.CONVERSATION,
+                        chat_response,
+                    )
+                    if classification.kind is TurnKind.CONVERSATION:
+                        self.store.transition(run_id, WorkspaceStage.SUMMARIZING)
+                        self.store.complete(run_id, message.message_id)
+                        return
+                if classification.action_text is None:
+                    raise ValueError("action classification has no text")
+                model_text = classification.action_text
             turn = self.model.route(
                 ModelRequest(
-                    user_text=text,
+                    user_text=model_text,
                     locale=locale,
                     context=self.context().for_model(),
                     output_schema=deepcopy(INTENT_OUTPUT_SCHEMA),
@@ -193,7 +258,7 @@ class WorkspaceRuntime:
             self.store.transition(run_id, WorkspaceStage.PLANNING)
             compilation = self.compiler.compile_payload(
                 turn.intent_payload,
-                text=text,
+                text=model_text,
                 context=self.context(),
             )
             if turn.response_text:
@@ -249,12 +314,22 @@ class WorkspaceRuntime:
                     task_id=result.run_id,
                 )
                 return
-            self._finish_result(run_id, result, locale)
+            self._finish_result(
+                run_id,
+                result,
+                locale,
+                compose_conversation=self.turn_router is None,
+            )
         except Exception:
             self._finish_failure(run_id, locale)
 
     def _finish_result(
-        self, workspace_run_id: str, result: OrchestrationResult, locale: str
+        self,
+        workspace_run_id: str,
+        result: OrchestrationResult,
+        locale: str,
+        *,
+        compose_conversation: bool = True,
     ) -> None:
         if result.state is OrchestrationState.COMPLETED:
             self.store.transition(workspace_run_id, WorkspaceStage.SUMMARIZING)
@@ -265,7 +340,11 @@ class WorkspaceRuntime:
                 if workspace_run.user_message_id is None:
                     raise ValueError("workspace run has no user message")
                 user_message = self.store.message(workspace_run.user_message_id)
-                compose = getattr(self.model, "compose_conversation", None)
+                compose = (
+                    getattr(self.model, "compose_conversation", None)
+                    if compose_conversation
+                    else None
+                )
                 if callable(compose):
                     natural = compose(
                         ModelRequest(
@@ -392,6 +471,43 @@ class WorkspaceRuntime:
             characters += len(content)
         selected.reverse()
         return tuple(selected)
+
+    def _conversation_history(
+        self, current_user_message_id: str
+    ) -> tuple[ModelHistoryMessage, ...]:
+        eligible = [
+            message
+            for message in self.store.list_messages(limit=50)
+            if message.message_id != current_user_message_id
+            and message.kind is MessageKind.CONVERSATION
+            and message.role in {MessageRole.USER, MessageRole.ASSISTANT}
+        ]
+        selected: list[ModelHistoryMessage] = []
+        seen_assistant: set[str] = set()
+        characters = 0
+        for message in reversed(eligible):
+            if len(selected) >= 10:
+                break
+            content = message.content.strip()
+            fingerprint = content.casefold()
+            if message.role is MessageRole.ASSISTANT:
+                if fingerprint in seen_assistant:
+                    continue
+                seen_assistant.add(fingerprint)
+            if not content or characters + len(content) > 6_000:
+                continue
+            selected.append(ModelHistoryMessage(message.role.value, content))
+            characters += len(content)
+        selected.reverse()
+        return tuple(selected)
+
+    def _turn_history(
+        self, current_user_message_id: str
+    ) -> tuple[TurnHistoryMessage, ...]:
+        return tuple(
+            TurnHistoryMessage(item.role, item.content)
+            for item in self._conversation_history(current_user_message_id)
+        )
 
     def _finish_model_unavailable(
         self,

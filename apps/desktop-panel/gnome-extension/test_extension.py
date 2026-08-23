@@ -62,7 +62,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "entry.clutter_text.single_line_mode = false",
             "message.clutter_text.ellipsize = Pango.EllipsizeMode.NONE",
             "_animateHighlight",
-            "Qwen 3 1.7B",
+            "Qwen 3.5 2B",
             "Рабочая область",
             "Сообщение для вашего ИИ",
             "import {RuntimeClient, RuntimeRequestError} from './runtime-client.js'",
@@ -72,7 +72,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "stylesheet load failed",
             "this._workspace = new ChatView(",
             "taskId => this._openTaskLedger(taskId)",
-            "const WORKSPACE_MODEL_LABEL = 'Qwen 3 1.7B'",
+            "const WORKSPACE_MODEL_LABEL = 'Qwen 3.5 2B'",
             "style_class: 'ai-model ai-model-fixed'",
             "const SidebarView = GObject.registerClass",
             "class SidebarView extends St.Widget",
@@ -155,7 +155,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             self.assertIn(marker, source)
         self.assertNotIn("St.CheckButton", source)
         self.assertNotIn("Gemma 2 2B", source)
-        self.assertNotIn("Qwen 3.5 2B", source)
+        self.assertNotIn("Qwen 3 1.7B", source)
         self.assertNotIn("Qwen 3.5 4B", source)
 
     def test_runtime_client_uses_closed_authenticated_ipc_contract(self):

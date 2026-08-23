@@ -53,8 +53,8 @@ class InferenceLifecycleRegressionTests(unittest.TestCase):
                 "models": [
                     {
                         "model_id": "workspace.qwen",
-                        "provider_model": "qwen3:1.7b",
-                        "display_name": "Qwen 3 1.7B",
+                        "provider_model": "qwen3.5:2b",
+                        "display_name": "Qwen 3.5 2B",
                         "required": True,
                         "state": "ready",
                         "prompt_required": False,

@@ -22,7 +22,7 @@ Endpoint строит preview и ничего не исполняет.
 `approval_required`. Значение `ready` не является разрешением на выполнение:
 изменяющие шаги всё равно проходят Permission Gateway.
 
-По умолчанию runtime использует локальный Ollama adapter с `qwen3:1.7b`. Если
+По умолчанию runtime использует локальный Ollama adapter с `qwen3.5:2b`. Если
 Ollama или модель временно недоступны, ответ имеет `needs_clarification` и
 диагностику `provider_unavailable`; остальные runtime-возможности продолжают
 работать. HTTP 503 `intent_compiler_unavailable` используется, когда compiler

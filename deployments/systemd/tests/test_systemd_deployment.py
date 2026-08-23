@@ -116,6 +116,7 @@ class SystemdDeploymentTests(unittest.TestCase):
                 "services/agent-runtime/src",
                 "services/task-ledger/src",
                 "services/workspace-service/src",
+                "services/turn-router/src",
                 "services/permission-gateway/src",
                 "services/execution-orchestrator/src",
                 "services/intent-compiler/src",
@@ -167,6 +168,7 @@ class SystemdDeploymentTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn(f"{fake_repository}/modules/system-monitor/src", result.stdout)
         self.assertIn(f"{fake_repository}/services/workspace-service/src", result.stdout)
+        self.assertIn(f"{fake_repository}/services/turn-router/src", result.stdout)
         self.assertIn("existing-package-path", result.stdout)
         self.assertIn("ARG=--serve-panel", result.stdout)
         self.assertIn("ARG=--transport", result.stdout)
