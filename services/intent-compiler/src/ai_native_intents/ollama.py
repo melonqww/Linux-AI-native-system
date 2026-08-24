@@ -113,6 +113,9 @@ conversation means ordinary talk or a question requiring no operation on the com
 action means a requested computer operation. mixed means both. clarification means the goal
 cannot be separated reliably. Copy conversation_text and action_text as exact, non-overlapping
 substrings of the current user message; use null where the kind does not require a fragment.
+For a pure conversation, conversation_text is the entire current message. For a pure action,
+action_text is the entire current message. Do not classify knowledge questions such as cooking,
+math, explanations, identity, or capabilities as computer actions.
 Never answer the user, plan an action, or use history as a new command. History is context only.
 """
 _CHAT_INSTRUCTIONS: Final = """You are the friendly local assistant inside a Linux workspace.

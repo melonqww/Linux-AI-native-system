@@ -175,47 +175,56 @@ class WorkspaceRuntime:
                         )
                     )
                 except Exception:
-                    # A classifier is advisory. Malformed or unavailable model
-                    # output must never fall through into action compilation.
+                    # A classifier is advisory. Its malformed output is never
+                    # trusted as an action fragment; semantic routing below
+                    # re-evaluates the complete original message.
                     classification = None
-                if classification is None or classification.kind is TurnKind.CLARIFICATION:
-                    self.store.transition(run_id, WorkspaceStage.SUMMARIZING)
-                    response = self.store.append_message(
-                        MessageRole.ASSISTANT,
-                        MessageKind.CLARIFICATION,
-                        self._clarification(locale),
-                    )
-                    self.store.complete(run_id, response.message_id)
-                    return
-                if classification.kind in {TurnKind.CONVERSATION, TurnKind.MIXED}:
+                # Classification is an optimization, not a single point of
+                # failure. On malformed/uncertain output, the provider's
+                # validated semantic route still safely distinguishes chat
+                # from tool calls and the compiler remains the execution gate.
+                if classification is not None and classification.kind in {
+                    TurnKind.CONVERSATION,
+                    TurnKind.MIXED,
+                }:
                     conversation_text = classification.conversation_text
                     if conversation_text is None:
                         raise ValueError("conversation classification has no text")
                     chat = getattr(self.model, "respond_chat", None)
                     if not callable(chat):
                         raise ValueError("chat provider is unavailable")
-                    chat_response = chat(
-                        ModelRequest(
-                            user_text=conversation_text,
-                            locale=locale,
-                            context=self.context().for_model(),
-                            output_schema={},
-                            instructions="",
-                            history=self._conversation_history(user_message_id),
+                    try:
+                        chat_response = chat(
+                            ModelRequest(
+                                user_text=conversation_text,
+                                locale=locale,
+                                context=self.context().for_model(),
+                                output_schema={},
+                                instructions="",
+                                history=self._conversation_history(user_message_id),
+                            )
                         )
-                    )
-                    message = self.store.append_message(
-                        MessageRole.ASSISTANT,
-                        MessageKind.CONVERSATION,
-                        chat_response,
-                    )
-                    if classification.kind is TurnKind.CONVERSATION:
-                        self.store.transition(run_id, WorkspaceStage.SUMMARIZING)
-                        self.store.complete(run_id, message.message_id)
-                        return
-                if classification.action_text is None:
-                    raise ValueError("action classification has no text")
-                model_text = classification.action_text
+                    except Exception:
+                        chat_response = None
+                    if chat_response is not None:
+                        message = self.store.append_message(
+                            MessageRole.ASSISTANT,
+                            MessageKind.CONVERSATION,
+                            chat_response,
+                        )
+                        if classification.kind is TurnKind.CONVERSATION:
+                            self.store.transition(run_id, WorkspaceStage.SUMMARIZING)
+                            self.store.complete(run_id, message.message_id)
+                            return
+                    elif classification.kind is TurnKind.CONVERSATION:
+                        classification = None
+                if classification is not None and classification.kind in {
+                    TurnKind.ACTION,
+                    TurnKind.MIXED,
+                }:
+                    if classification.action_text is None:
+                        raise ValueError("action classification has no text")
+                    model_text = classification.action_text
             turn = self.model.route(
                 ModelRequest(
                     user_text=model_text,

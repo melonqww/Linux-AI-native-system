@@ -46,6 +46,11 @@ class TurnRouter:
             raise TurnRoutingError("turn confidence is invalid")
         conversation = self._optional_text(payload["conversation_text"], "conversation_text")
         action = self._optional_text(payload["action_text"], "action_text")
+        # Pure turns do not need model-authored extraction: their only trusted
+        # fragment is the complete user message. Small local models frequently
+        # paraphrase the fragment even when the kind itself is correct.
+        if kind is TurnKind.CONVERSATION and action is None:
+            conversation = request.user_text
         self._validate_fragments(request.user_text, kind, conversation, action)
         if float(confidence) < self.minimum_confidence:
             return TurnClassification(
@@ -92,4 +97,3 @@ class TurnRouter:
     @classmethod
     def _optional_text(cls, value: object, label: str) -> str | None:
         return None if value is None else cls._text(value, label, maximum=4_000)
-

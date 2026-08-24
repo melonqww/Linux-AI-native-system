@@ -22,6 +22,24 @@ def payload(kind, conversation=None, action=None, confidence=0.9):
 
 
 class TurnRouterTests(unittest.TestCase):
+    def test_pure_conversation_uses_original_text_when_small_model_paraphrases(self):
+        text = "А при какой температуре печь хлеб"
+        result = TurnRouter(Classifier(payload(
+            "conversation", "Вопрос о температуре хлеба", None
+        ))).route(TurnRequest(text, "ru"))
+
+        self.assertEqual(result.kind, TurnKind.CONVERSATION)
+        self.assertEqual(result.conversation_text, text)
+
+    def test_pure_action_accepts_exact_original_text(self):
+        text = "Найди все PDF на моём компьютере"
+        result = TurnRouter(Classifier(payload(
+            "action", None, text
+        ))).route(TurnRequest(text, "ru"))
+
+        self.assertEqual(result.kind, TurnKind.ACTION)
+        self.assertEqual(result.action_text, text)
+
     def test_accepts_mixed_exact_non_overlapping_fragments(self):
         text = "Расскажи про хлеб и найди все PDF"
         result = TurnRouter(Classifier(payload(

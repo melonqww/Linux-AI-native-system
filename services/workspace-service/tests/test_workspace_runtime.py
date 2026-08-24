@@ -76,6 +76,12 @@ class SplitModel(Model):
         return self.chat_reply
 
 
+class FailingChatModel(SplitModel):
+    def respond_chat(self, request):
+        self.chat_calls += 1
+        raise RuntimeError("transient local model response failure")
+
+
 class Compiler:
     def __init__(self, result):
         self.result = result
@@ -124,6 +130,72 @@ def completed_result(*, count=3, task_id=None):
 
 
 class WorkspaceRuntimeTests(unittest.TestCase):
+    def test_classifier_clarification_falls_back_to_semantic_conversation_route(self):
+        model = SplitModel(
+            ModelTurn(
+                ModelTurnKind.CONVERSATION,
+                response_text="Хлеб обычно выпекают при 175–190 °C.",
+            ),
+            {
+                "kind": "clarification",
+                "language": "ru",
+                "confidence": 0.4,
+                "conversation_text": None,
+                "action_text": None,
+            },
+        )
+        runtime = WorkspaceRuntime(
+            self.store,
+            model,
+            Compiler(None),
+            Executor(None),
+            lambda: TaskContext(locale="ru"),
+            turn_router=TurnRouter(model),
+        )
+        try:
+            run = runtime.submit(
+                "А при какой температуре печь хлеб",
+                transport_context=TransportContext.internal(),
+            )
+            self.wait_for(run.run_id, WorkspaceStage.COMPLETED)
+        finally:
+            runtime.close()
+
+        self.assertEqual(model.classify_calls, 1)
+        self.assertEqual(model.route_calls, 1)
+        self.assertEqual(model.chat_calls, 0)
+        self.assertEqual(self.store.list_messages()[-1].content, "Хлеб обычно выпекают при 175–190 °C.")
+
+    def test_failed_chat_response_falls_back_to_validated_semantic_route(self):
+        text = "Так а что ты можешь в целом и какой ты ИИ"
+        model = FailingChatModel(
+            ModelTurn(ModelTurnKind.CONVERSATION, response_text="Я локальный помощник системы."),
+            {
+                "kind": "conversation",
+                "language": "ru",
+                "confidence": 0.95,
+                "conversation_text": text,
+                "action_text": None,
+            },
+        )
+        runtime = WorkspaceRuntime(
+            self.store,
+            model,
+            Compiler(None),
+            Executor(None),
+            lambda: TaskContext(locale="ru"),
+            turn_router=TurnRouter(model),
+        )
+        try:
+            run = runtime.submit(text, transport_context=TransportContext.internal())
+            self.wait_for(run.run_id, WorkspaceStage.COMPLETED)
+        finally:
+            runtime.close()
+
+        self.assertEqual(model.chat_calls, 1)
+        self.assertEqual(model.route_calls, 1)
+        self.assertEqual(self.store.list_messages()[-1].content, "Я локальный помощник системы.")
+
     def test_split_conversation_never_calls_intent_route_or_compiler(self):
         model = SplitModel(
             ModelTurn(ModelTurnKind.CONVERSATION, response_text="unused"),

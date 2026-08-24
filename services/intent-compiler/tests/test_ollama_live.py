@@ -6,6 +6,7 @@ import unittest
 from ai_native_intents import (
     CompilationState,
     IntentCompiler,
+    ModelRequest,
     OllamaModelProvider,
     OperationKind,
     TaskContext,
@@ -70,6 +71,26 @@ class OllamaLiveEvals(unittest.TestCase):
             with self.subTest(text=text):
                 result = router.route(TurnRequest(text, "ru"))
                 self.assertEqual(result.kind, expected_kind)
+
+    def test_everyday_questions_from_workspace_are_answered_as_conversation(self):
+        router = TurnRouter(self.provider)
+        for text in (
+            "Так а что ты можешь в целом и какой ты ИИ",
+            "А при какой температуре печь хлеб",
+        ):
+            with self.subTest(text=text):
+                classification = router.route(TurnRequest(text, "ru"))
+                self.assertEqual(classification.kind, TurnKind.CONVERSATION)
+                reply = self.provider.respond_chat(
+                    ModelRequest(
+                        user_text=text,
+                        locale="ru",
+                        context={},
+                        output_schema={},
+                        instructions="",
+                    )
+                )
+                self.assertGreater(len(reply.strip()), 3)
 
     def test_compound_search_and_copy_requires_approval(self):
         text = "Найди PDF по математике и скопируй результаты на рабочий стол"
