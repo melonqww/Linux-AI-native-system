@@ -213,6 +213,71 @@
     font-style: italic;
 }
 
+.ai-workspace-model-note {
+    background-color: rgba(45, 45, 45, 0.92);
+    border: 1px solid rgba(240, 209, 139, 0.28);
+    border-radius: 14px;
+    max-width: 355px;
+    padding: 11px 12px;
+    spacing: 8px;
+}
+
+.ai-workspace-model-note-text {
+    color: #e5e5e5;
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.ai-workspace-model-note-action {
+    background-color: #454545;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    color: #eeeeee;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 6px 9px;
+}
+
+.ai-workspace-model-note-action:hover,
+.ai-workspace-model-note-action:focus {
+    background-color: #535353;
+}
+
+.ai-workspace-error-note {
+    background-color: #332d2d;
+    border: 1px solid rgba(239, 155, 155, 0.42);
+    border-radius: 14px;
+    max-width: 355px;
+    padding: 11px 12px;
+    spacing: 8px;
+}
+
+.ai-workspace-error-title {
+    color: #ef9b9b;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.ai-workspace-error-text {
+    color: #eeeeee;
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.ai-workspace-error-action {
+    background-color: #eeeeec;
+    border-radius: 8px;
+    color: #292929;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 6px 14px;
+}
+
+.ai-workspace-error-action:hover,
+.ai-workspace-error-action:focus {
+    background-color: #ffffff;
+}
+
 .ai-task-result {
     spacing: 8px;
     x-expand: true;
@@ -401,6 +466,111 @@
 .ai-empty-view {
     background-color: #343434;
     border-radius: 0 0 20px 20px;
+}
+
+.ai-settings-view {
+    background-color: #343434;
+    border-radius: 0 0 20px 20px;
+}
+
+.ai-settings-scroll {
+    min-height: 0;
+}
+
+.ai-settings-content {
+    spacing: 10px;
+    padding: 14px 14px 18px 14px;
+}
+
+.ai-settings-heading {
+    padding: 1px 2px 3px 2px;
+    spacing: 4px;
+}
+
+.ai-settings-heading-title {
+    color: #f1f1f1;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.ai-settings-heading-subtitle {
+    color: #bdbdbd;
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+.ai-settings-card {
+    background-color: #2d2d2d;
+    border: 1px solid rgba(255, 255, 255, 0.13);
+    border-radius: 14px;
+    padding: 11px 12px 5px 12px;
+    spacing: 2px;
+}
+
+.ai-settings-card-title {
+    color: #f0d18b;
+    font-size: 12px;
+    font-weight: 700;
+    padding-bottom: 4px;
+}
+
+.ai-settings-row {
+    min-height: 43px;
+    padding: 7px 0;
+    spacing: 8px;
+}
+
+.ai-settings-row-info {
+    spacing: 2px;
+}
+
+.ai-settings-row-title {
+    color: #eeeeee;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.ai-settings-row-detail {
+    color: #a9a9a9;
+    font-size: 10px;
+    line-height: 1.25;
+}
+
+.ai-settings-status {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 4px 6px;
+}
+
+.ai-settings-status-connected {
+    color: #9ed59b;
+}
+
+.ai-settings-status-offline {
+    color: #c9c9c9;
+}
+
+.ai-settings-status-error {
+    color: #ef9b9b;
+}
+
+.ai-settings-status-neutral {
+    color: #d2c28d;
+}
+
+.ai-settings-action {
+    background-color: #454545;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    color: #eeeeee;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 6px 8px;
+}
+
+.ai-settings-action:hover,
+.ai-settings-action:focus {
+    background-color: #555555;
 }
 
 .ai-sidebar-view {

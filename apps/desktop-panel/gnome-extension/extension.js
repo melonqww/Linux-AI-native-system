@@ -99,7 +99,7 @@ class TabButton extends St.Button {
 
 const ChatView = GObject.registerClass(
 class ChatView extends St.BoxLayout {
-    _init(runtime, onTaskLedger = null) {
+    _init(runtime, onTaskLedger = null, onOpenSettings = null) {
         super._init({
             vertical: true,
             style_class: 'ai-chat-view',
@@ -109,6 +109,7 @@ class ChatView extends St.BoxLayout {
 
         this._runtime = runtime;
         this._onTaskLedger = onTaskLedger;
+        this._onOpenSettings = onOpenSettings;
         this._busy = false;
         this._disposed = false;
         this._workspaceRunId = null;
@@ -150,7 +151,8 @@ class ChatView extends St.BoxLayout {
         this.add_child(this._scroll);
 
         this._dependencyNotices = this._buildDependencyNotices();
-        this.add_child(this._dependencyNotices);
+        // Model/provider controls live in Settings. Workspace only exposes a
+        // compact link when the runtime says that a dependency is missing.
 
         this._composer = this._buildComposer();
         this.add_child(this._composer);
@@ -767,7 +769,7 @@ class ChatView extends St.BoxLayout {
             this._startWorkspacePolling(entry);
         } catch (error) {
             if (!this._disposed) {
-                this._append(this._assistant(this._friendlyError(error)));
+                this._append(this._workspaceErrorNotice(this._friendlyError(error)));
                 this._setBusy(entry, false);
             }
         }
@@ -790,7 +792,7 @@ class ChatView extends St.BoxLayout {
                 this._startWorkspacePolling(null);
         } catch (error) {
             if (!this._disposed)
-                this._append(this._assistant(this._friendlyError(error)));
+                this._append(this._workspaceErrorNotice(this._friendlyError(error)));
         }
     }
 
@@ -839,9 +841,8 @@ class ChatView extends St.BoxLayout {
         } catch (error) {
             if (!this._disposed && !this._workspacePollErrorShown) {
                 this._workspacePollErrorShown = true;
-                this._append(this._assistant(
+                this._append(this._workspaceErrorNotice(
                     this._friendlyError(error),
-                    'ai-assistant-message ai-work-status',
                 ));
             }
         } finally {
@@ -857,15 +858,28 @@ class ChatView extends St.BoxLayout {
                 continue;
             }
             if (message.role === 'system' || message.kind === 'notice') {
-                if (this._isBaseModelNotice(message))
+                if (this._isWorkspaceErrorMessage(message)) {
+                    this._messages.add_child(this._workspaceErrorNotice(message.content));
+                    continue;
+                }
+                if (this._isBaseModelNotice(message)) {
                     this._revealBaseModelPrompt();
-                this._messages.add_child(this._assistant(
-                    message.content,
-                    'ai-assistant-message ai-work-status',
-                ));
+                    this._messages.add_child(this._workspaceModelNotice(
+                        'Для работы нужна базовая модель. Управление загрузкой находится в настройках.',
+                    ));
+                } else {
+                    this._messages.add_child(this._assistant(
+                        message.content,
+                        'ai-assistant-message ai-work-status',
+                    ));
+                }
                 continue;
             }
             if (message.kind === 'task_result' && message.task_id) {
+                if (this._isWorkspaceErrorMessage(message)) {
+                    this._messages.add_child(this._workspaceErrorNotice(message.content));
+                    continue;
+                }
                 const taskStage = run?.task_id === message.task_id
                     ? run.stage
                     : this._workspaceRunStages.get(message.task_id);
@@ -932,7 +946,7 @@ class ChatView extends St.BoxLayout {
                 this._startWorkspacePolling(this._workspaceEntry);
             } catch (error) {
                 if (!this._disposed)
-                    this._append(this._assistant(this._friendlyError(error)));
+                    this._append(this._workspaceErrorNotice(this._friendlyError(error)));
             }
         };
         confirm.connect('clicked', () => respond(true));
@@ -1037,7 +1051,7 @@ class ChatView extends St.BoxLayout {
                     this._renderExecution(result);
             } catch (error) {
                 if (!this._disposed)
-                    this._append(this._assistant(this._friendlyError(error)));
+                    this._append(this._workspaceErrorNotice(this._friendlyError(error)));
             }
         };
         confirm.connect('clicked', () => respond(true));
@@ -1052,12 +1066,179 @@ class ChatView extends St.BoxLayout {
         return runtimeErrorMessage(error instanceof RuntimeRequestError ? error.code : null);
     }
 
+    _workspaceModelNotice(text) {
+        const card = new St.BoxLayout({
+            vertical: true,
+            style_class: 'ai-workspace-model-note',
+            x_expand: true,
+        });
+        const label = new St.Label({
+            text,
+            style_class: 'ai-workspace-model-note-text',
+            x_expand: true,
+        });
+        label.clutter_text.line_wrap = true;
+        label.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
+        card.add_child(label);
+        if (this._onOpenSettings) {
+            const open = new St.Button({
+                label: 'Открыть настройки',
+                style_class: 'ai-workspace-model-note-action',
+                x_align: Clutter.ActorAlign.START,
+            });
+            open.connect('clicked', () => this._onOpenSettings());
+            card.add_child(open);
+        }
+        return card;
+    }
+
+    _isWorkspaceErrorMessage(message) {
+        if (!message || typeof message.content !== 'string')
+            return false;
+        return /ошибк|не удалось|error|failed|could not/i.test(message.content);
+    }
+
+    _workspaceErrorNotice(text) {
+        const card = new St.BoxLayout({
+            vertical: true,
+            style_class: 'ai-workspace-error-note',
+            x_expand: true,
+        });
+        card.add_child(new St.Label({
+            text: 'Ошибка',
+            style_class: 'ai-workspace-error-title',
+        }));
+        const body = new St.Label({
+            text,
+            style_class: 'ai-workspace-error-text',
+            x_expand: true,
+        });
+        body.clutter_text.line_wrap = true;
+        body.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
+        card.add_child(body);
+        const ok = new St.Button({
+            label: 'Хорошо',
+            style_class: 'ai-workspace-error-action',
+            x_align: Clutter.ActorAlign.START,
+        });
+        ok.connect('clicked', () => card.destroy());
+        card.add_child(ok);
+        return card;
+    }
+
 });
 
-const WorkspaceView = GObject.registerClass(
-class WorkspaceView extends St.Widget {
+const SettingsView = GObject.registerClass(
+class SettingsView extends St.Widget {
     _init() {
-        super._init({style_class: 'ai-empty-view', x_expand: true, y_expand: true});
+        super._init({
+            style_class: 'ai-settings-view',
+            layout_manager: new Clutter.BinLayout(),
+            x_expand: true,
+            y_expand: true,
+        });
+        this._scroll = new St.ScrollView({
+            style_class: 'ai-settings-scroll',
+            x_expand: true,
+            y_expand: true,
+        });
+        this._scroll.set_policy(St.PolicyType.NEVER, St.PolicyType.AUTOMATIC);
+        this._content = new St.BoxLayout({
+            vertical: true,
+            style_class: 'ai-settings-content',
+            x_expand: true,
+        });
+        this._scroll.set_child(this._content);
+        this.add_child(this._scroll);
+        this._build();
+    }
+
+    _build() {
+        this._content.add_child(this._sectionHeading(
+            'Настройки',
+            'Управление моделями, плагинами и поведением AI-native Linux.',
+        ));
+
+        const models = this._card('Модели и провайдер');
+        models.add_child(this._row('Ollama', 'Локальный провайдер моделей', 'Подключён', 'connected'));
+        models.add_child(this._row('Qwen 3.5 2B', 'Базовая модель рабочей области', 'Загружена', 'connected'));
+        models.add_child(this._row('LLaMA 3.2 3B', 'Дополнительная модель', 'Не подключена', 'offline', 'Загрузить'));
+        this._content.add_child(models);
+
+        const behavior = this._card('Поведение системы');
+        behavior.add_child(this._row('Запуск вместе с Linux', 'Автоматически открывать панель', 'Включён', 'connected'));
+        behavior.add_child(this._row('Уведомления', 'Показывать события и завершение задач', 'Включены', 'connected'));
+        behavior.add_child(this._row('История рабочей области', 'Срок хранения сообщений', '24 часа', 'neutral'));
+        this._content.add_child(behavior);
+
+        const plugins = this._card('Разные плагины');
+        plugins.add_child(this._row('Системный монитор', 'CPU, RAM, батарея и диски', 'Подключён', 'connected'));
+        plugins.add_child(this._row('Документы PDF', 'Поиск и чтение PDF-файлов', 'Не подключён', 'offline', 'Подключить'));
+        plugins.add_child(this._row('Навигация браузера', 'Открытие ссылок и страниц', 'Ошибка', 'error', 'Повторить'));
+        plugins.add_child(this._row('Журнал действий', 'История операций системы', 'Подключён', 'connected'));
+        this._content.add_child(plugins);
+
+        const security = this._card('Безопасность');
+        security.add_child(this._row('Подтверждение опасных действий', 'Запрашивать подтверждение перед изменениями', 'Включено', 'connected'));
+        security.add_child(this._row('Разрешённые директории', 'Источники для поиска файлов', 'Домашняя папка', 'neutral'));
+        this._content.add_child(security);
+    }
+
+    _sectionHeading(title, subtitle) {
+        const heading = new St.BoxLayout({
+            vertical: true,
+            style_class: 'ai-settings-heading',
+            x_expand: true,
+        });
+        heading.add_child(new St.Label({text: title, style_class: 'ai-settings-heading-title'}));
+        const description = new St.Label({
+            text: subtitle,
+            style_class: 'ai-settings-heading-subtitle',
+            x_expand: true,
+        });
+        description.clutter_text.line_wrap = true;
+        heading.add_child(description);
+        return heading;
+    }
+
+    _card(title) {
+        const card = new St.BoxLayout({
+            vertical: true,
+            style_class: 'ai-settings-card',
+            x_expand: true,
+        });
+        card.add_child(new St.Label({text: title, style_class: 'ai-settings-card-title'}));
+        return card;
+    }
+
+    _row(title, detail, status, statusClass, actionLabel = null) {
+        const row = new St.BoxLayout({style_class: 'ai-settings-row', x_expand: true});
+        const info = new St.BoxLayout({
+            vertical: true,
+            style_class: 'ai-settings-row-info',
+            x_expand: true,
+        });
+        info.add_child(new St.Label({text: title, style_class: 'ai-settings-row-title'}));
+        const detailLabel = new St.Label({
+            text: detail,
+            style_class: 'ai-settings-row-detail',
+            x_expand: true,
+        });
+        detailLabel.clutter_text.line_wrap = true;
+        info.add_child(detailLabel);
+        row.add_child(info);
+        row.add_child(new St.Label({
+            text: status,
+            style_class: `ai-settings-status ai-settings-status-${statusClass}`,
+        }));
+        if (actionLabel) {
+            const action = new St.Button({
+                label: actionLabel,
+                style_class: 'ai-settings-action',
+            });
+            row.add_child(action);
+        }
+        return row;
     }
 });
 
@@ -1770,12 +1951,13 @@ class Panel extends St.Widget {
         this._workspace = new ChatView(
             this._runtime,
             taskId => this._openTaskLedger(taskId),
+            () => this._selectTab(2),
         );
         this._workspace.set_position(0, 0);
         this._workspace.set_size(PANEL_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
         this._workspace.hide();
         this._views.add_child(this._workspace);
-        this._settings = new WorkspaceView();
+        this._settings = new SettingsView();
         this._settings.set_position(0, 0);
         this._settings.set_size(PANEL_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
         this._settings.hide();
