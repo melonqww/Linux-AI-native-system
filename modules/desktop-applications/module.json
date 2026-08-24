@@ -12,5 +12,18 @@
   "lifecycle": "on-demand",
   "resource_class": "tiny",
   "default_enabled": true,
-  "entrypoint": {"kind": "python-service", "module": "ai_native_applications", "python_path": "src"}
+  "entrypoint": {"kind": "python-service", "module": "ai_native_applications", "python_path": "src"},
+  "intent_routes": [
+    {
+      "capability_id": "desktop.applications.find",
+      "operation": "find_application",
+      "description": "Find the installation or launcher of a desktop application on this computer.",
+      "examples": [
+        "найди приложение Discord",
+        "где установлен Firefox",
+        "покажи расположение программы",
+        "find the installed application"
+      ]
+    }
+  ]
 }

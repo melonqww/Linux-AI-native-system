@@ -12,5 +12,28 @@
   "lifecycle": "on-demand",
   "resource_class": "tiny",
   "default_enabled": true,
-  "entrypoint": {"kind": "python-service", "module": "ai_native_browser", "python_path": "src"}
+  "entrypoint": {"kind": "python-service", "module": "ai_native_browser", "python_path": "src"},
+  "intent_routes": [
+    {
+      "capability_id": "browser.search.plan",
+      "operation": "plan_web_search",
+      "description": "Search the public internet or web for a site or information explicitly requested by the user.",
+      "examples": [
+        "найди в интернете официальный сайт",
+        "поищи это в сети",
+        "выполни поиск в интернете",
+        "search the web for this"
+      ]
+    },
+    {
+      "capability_id": "browser.url.plan",
+      "operation": "plan_open_url",
+      "description": "Open an explicit HTTP or HTTPS website address from the user.",
+      "examples": [
+        "открой этот сайт по ссылке",
+        "перейди на https адрес",
+        "open this website URL"
+      ]
+    }
+  ]
 }

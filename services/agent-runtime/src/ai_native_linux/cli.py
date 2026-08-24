@@ -198,7 +198,22 @@ def main() -> int:
                     task_ledger=task_ledger,
                 )
                 from ai_native_workspace import WorkspaceRuntime
-                from ai_native_turns import TurnRouter
+                from ai_native_turns import (
+                    CapabilityCandidateRouter,
+                    CapabilityDescriptor,
+                )
+
+                executable_capabilities = set(plan_executor.available_capabilities())
+                capability_router = CapabilityCandidateRouter(
+                    CapabilityDescriptor(
+                        route.capability_id,
+                        route.operation,
+                        route.description,
+                        route.examples,
+                    )
+                    for route in registry.intent_routes()
+                    if route.capability_id in executable_capabilities
+                )
 
                 workspace_controller = WorkspaceRuntime(
                     workspace,
@@ -209,7 +224,7 @@ def main() -> int:
                     model_status=lambda: workspace_model_readiness(
                         ollama_provider_status, model_status
                     ),
-                    turn_router=TurnRouter(provider),
+                    capability_router=capability_router,
                 )
                 for capability in plan_executor.available_capabilities():
                     required_scopes = plan_executor.permission_gateway.required_scopes(

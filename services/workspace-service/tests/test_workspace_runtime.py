@@ -88,6 +88,17 @@ class BrokenClassifierModel(SplitModel):
         raise ValueError("malformed classifier envelope")
 
 
+class CandidateRouter:
+    def __init__(self, *operations):
+        self.operations = operations
+
+    def candidates(self, _text):
+        return tuple(
+            SimpleNamespace(operation=operation, capability_id=f"capability.{operation}")
+            for operation in self.operations
+        )
+
+
 class Compiler:
     def __init__(self, result):
         self.result = result
@@ -136,6 +147,65 @@ def completed_result(*, count=3, task_id=None):
 
 
 class WorkspaceRuntimeTests(unittest.TestCase):
+    def test_capability_router_sends_plain_conversation_only_to_chat(self):
+        model = SplitModel(
+            ModelTurn(ModelTurnKind.ACTION, intent_payload={"hallucinated": True}),
+            {},
+            "Привет! Я локальный помощник.",
+        )
+        compiler = Compiler(None)
+        executor = Executor(None)
+        runtime = WorkspaceRuntime(
+            self.store,
+            model,
+            compiler,
+            executor,
+            lambda: TaskContext(locale="ru"),
+            capability_router=CandidateRouter(),
+        )
+        try:
+            run = runtime.submit("Привет", transport_context=TransportContext.internal())
+            self.wait_for(run.run_id, WorkspaceStage.COMPLETED)
+        finally:
+            runtime.close()
+
+        self.assertEqual(model.chat_calls, 1)
+        self.assertEqual(model.route_calls, 0)
+        self.assertEqual(compiler.calls, 0)
+        self.assertFalse(executor.called.is_set())
+
+    def test_capability_router_limits_qwen_and_uses_deterministic_result(self):
+        model = Model(
+            ModelTurn(
+                ModelTurnKind.ACTION,
+                response_text="Хорошо, запускаю поиск.",
+                intent_payload={"safe": True},
+            )
+        )
+        compiler = Compiler(SimpleNamespace(state=CompilationState.READY, plan=object()))
+        executor = Executor(completed_result(count=4))
+        runtime = WorkspaceRuntime(
+            self.store,
+            model,
+            compiler,
+            executor,
+            lambda: TaskContext(locale="ru"),
+            capability_router=CandidateRouter("search_documents"),
+        )
+        try:
+            run = runtime.submit(
+                "Найди все PDF", transport_context=TransportContext.internal()
+            )
+            self.wait_for(run.run_id, WorkspaceStage.COMPLETED)
+        finally:
+            runtime.close()
+
+        self.assertEqual(model.requests[0].allowed_operations, ("search_documents",))
+        self.assertEqual(model.summary_calls, 0)
+        messages = self.store.list_messages()
+        self.assertTrue(any(item.content == "Хорошо, запускаю поиск." for item in messages))
+        self.assertEqual(messages[-1].content, "Поиск завершён. Найдено файлов: 4.")
+
     def test_malformed_classifier_uses_chat_and_cannot_reach_hallucinated_tool(self):
         model = BrokenClassifierModel(
             ModelTurn(ModelTurnKind.ACTION, intent_payload={"hallucinated": True}),

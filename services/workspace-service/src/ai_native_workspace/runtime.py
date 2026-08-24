@@ -46,6 +46,10 @@ class RouteProvider(Protocol):
     ) -> str | None: ...
 
 
+class CapabilityRouter(Protocol):
+    def candidates(self, text: str) -> tuple[object, ...]: ...
+
+
 class PlanExecutor(Protocol):
     def execute(
         self, plan: object, *, transport_context: TransportContext | None = None
@@ -77,6 +81,7 @@ class WorkspaceRuntime:
         *,
         model_status: Callable[[], Mapping[str, object]] | None = None,
         turn_router: TurnRouter | None = None,
+        capability_router: CapabilityRouter | None = None,
         workers: int = 2,
         max_pending: int = 32,
     ) -> None:
@@ -91,6 +96,7 @@ class WorkspaceRuntime:
         self.context = context
         self.model_status = model_status
         self.turn_router = turn_router
+        self.capability_router = capability_router
         self._pool = ThreadPoolExecutor(
             max_workers=workers, thread_name_prefix="workspace-runtime"
         )
@@ -140,7 +146,9 @@ class WorkspaceRuntime:
                 workspace_run.run_id,
                 result,
                 locale,
-                compose_conversation=self.turn_router is None,
+                compose_conversation=(
+                    self.turn_router is None and self.capability_router is None
+                ),
             )
             return result
         except Exception:
@@ -165,7 +173,25 @@ class WorkspaceRuntime:
                 self._finish_model_unavailable(run_id, readiness, locale)
                 return
             model_text = text
-            if self.turn_router is not None:
+            allowed_operations: tuple[str, ...] | None = None
+            if self.capability_router is not None:
+                candidates = self.capability_router.candidates(text)
+                if not candidates:
+                    chat_response = self._respond_chat(text, locale, user_message_id)
+                    self.store.transition(run_id, WorkspaceStage.SUMMARIZING)
+                    response = self.store.append_message(
+                        MessageRole.ASSISTANT,
+                        MessageKind.CONVERSATION,
+                        chat_response,
+                    )
+                    self.store.complete(run_id, response.message_id)
+                    return
+                allowed_operations = tuple(
+                    dict.fromkeys(
+                        str(getattr(candidate, "operation")) for candidate in candidates
+                    )
+                )
+            elif self.turn_router is not None:
                 try:
                     classification = self.turn_router.route(
                         TurnRequest(
@@ -235,6 +261,7 @@ class WorkspaceRuntime:
                     output_schema=deepcopy(INTENT_OUTPUT_SCHEMA),
                     instructions=MODEL_INSTRUCTIONS,
                     history=self._model_history(user_message_id),
+                    allowed_operations=allowed_operations,
                 )
             )
             if turn.kind is ModelTurnKind.CONVERSATION:
@@ -329,7 +356,9 @@ class WorkspaceRuntime:
                 run_id,
                 result,
                 locale,
-                compose_conversation=self.turn_router is None,
+                compose_conversation=(
+                    self.turn_router is None and self.capability_router is None
+                ),
             )
         except Exception:
             self._finish_failure(run_id, locale)
@@ -371,39 +400,36 @@ class WorkspaceRuntime:
             self.store.transition(workspace_run_id, WorkspaceStage.SUMMARIZING)
             facts = self._result_facts(result)
             system_result = self._fallback_summary(facts, locale)
-            try:
-                workspace_run = self.store.run(workspace_run_id)
-                if workspace_run.user_message_id is None:
-                    raise ValueError("workspace run has no user message")
-                user_message = self.store.message(workspace_run.user_message_id)
-                compose = (
-                    getattr(self.model, "compose_conversation", None)
-                    if compose_conversation
-                    else None
-                )
-                if callable(compose):
-                    natural = compose(
-                        ModelRequest(
-                            user_text=user_message.content,
-                            locale=locale,
-                            context=self.context().for_model(),
-                            output_schema=deepcopy(INTENT_OUTPUT_SCHEMA),
-                            instructions=MODEL_INSTRUCTIONS,
-                            history=self._model_history(user_message.message_id),
-                        ),
-                        system_result=system_result,
-                    )
-                    if natural:
-                        self.store.append_message(
-                            MessageRole.ASSISTANT,
-                            MessageKind.CONVERSATION,
-                            natural,
+            content = system_result
+            if compose_conversation:
+                try:
+                    workspace_run = self.store.run(workspace_run_id)
+                    if workspace_run.user_message_id is None:
+                        raise ValueError("workspace run has no user message")
+                    user_message = self.store.message(workspace_run.user_message_id)
+                    compose = getattr(self.model, "compose_conversation", None)
+                    if callable(compose):
+                        natural = compose(
+                            ModelRequest(
+                                user_text=user_message.content,
+                                locale=locale,
+                                context=self.context().for_model(),
+                                output_schema=deepcopy(INTENT_OUTPUT_SCHEMA),
+                                instructions=MODEL_INSTRUCTIONS,
+                                history=self._model_history(user_message.message_id),
+                            ),
+                            system_result=system_result,
                         )
+                        if natural:
+                            self.store.append_message(
+                                MessageRole.ASSISTANT,
+                                MessageKind.CONVERSATION,
+                                natural,
+                            )
+                    else:
+                        content = self.model.summarize_result(facts, locale=locale)
+                except Exception:
                     content = system_result
-                else:
-                    content = self.model.summarize_result(facts, locale=locale)
-            except Exception:
-                content = system_result
             message = self.store.append_message(
                 MessageRole.ASSISTANT,
                 MessageKind.TASK_RESULT,

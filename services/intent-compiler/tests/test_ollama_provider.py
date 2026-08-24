@@ -105,6 +105,53 @@ class OllamaProviderTests(unittest.TestCase):
             {"mode": "metadata", "extensions": ["pdf"]},
         )
 
+    def test_candidate_operations_limit_tools_exposed_to_qwen(self):
+        response = FakeResponse({"message": {"content": "", "tool_calls": [{
+            "function": {"name": "search_documents", "arguments": {
+                "mode": "metadata", "extensions": ["pdf"], "confidence": 0.98,
+            }}
+        }]}})
+        captured = []
+
+        def open_request(request, _timeout):
+            captured.append(json.loads(request.data))
+            return response
+
+        request = model_request("Найди PDF")
+        request = ModelRequest(
+            request.user_text,
+            request.locale,
+            request.context,
+            request.output_schema,
+            request.instructions,
+            allowed_operations=("search_documents",),
+        )
+        with patch("ai_native_intents.ollama._open_loopback", side_effect=open_request):
+            turn = OllamaModelProvider().route(request)
+
+        names = [tool["function"]["name"] for tool in captured[0]["tools"]]
+        self.assertEqual(names, ["search_documents"])
+        self.assertEqual(turn.kind, ModelTurnKind.ACTION)
+
+    def test_rejects_hallucinated_tool_outside_candidate_set(self):
+        response = FakeResponse({"message": {"content": "", "tool_calls": [{
+            "function": {"name": "copy_results", "arguments": {
+                "destination": "desktop", "confidence": 0.8,
+            }}
+        }]}})
+        request = model_request("Найди PDF")
+        request = ModelRequest(
+            request.user_text,
+            request.locale,
+            request.context,
+            request.output_schema,
+            request.instructions,
+            allowed_operations=("search_documents",),
+        )
+        with patch("ai_native_intents.ollama._open_loopback", return_value=response):
+            with self.assertRaises(OllamaProviderError):
+                OllamaModelProvider().route(request)
+
     def test_composes_only_conversational_part_of_mixed_turn(self):
         response = FakeResponse({"message": {
             "content": '{"conversation_reply":"Для хлеба уточните рецепт."}'

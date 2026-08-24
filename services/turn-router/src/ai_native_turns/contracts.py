@@ -25,10 +25,24 @@ class TurnRequest:
 
 
 @dataclass(frozen=True)
+class CapabilityDescriptor:
+    capability_id: str
+    operation: str
+    description: str
+    examples: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class CapabilityMatch:
+    capability_id: str
+    operation: str
+    score: float
+
+
+@dataclass(frozen=True)
 class TurnClassification:
     kind: TurnKind
     language: str
     confidence: float
     conversation_text: str | None = None
     action_text: str | None = None
-

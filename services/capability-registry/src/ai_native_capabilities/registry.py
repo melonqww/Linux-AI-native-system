@@ -10,6 +10,7 @@ from pathlib import Path
 
 from .contracts import (
     CapabilityProvider,
+    IntentRouteDescriptor,
     ModuleManifest,
     ModuleState,
     RegisteredModule,
@@ -227,6 +228,15 @@ class CapabilityRegistry:
                 (ModuleState.ENABLED.value,),
             ).fetchall()
         return [str(row["capability_id"]) for row in rows]
+
+    def intent_routes(self) -> tuple[IntentRouteDescriptor, ...]:
+        """Publish routes only from modules that are currently enabled."""
+        return tuple(
+            route
+            for module in self.list_modules()
+            if module.state is ModuleState.ENABLED
+            for route in module.manifest.intent_routes
+        )
 
     def providers(
         self,

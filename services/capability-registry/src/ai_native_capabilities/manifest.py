@@ -6,7 +6,7 @@ import json
 import re
 from pathlib import Path
 
-from .contracts import ModuleEntrypoint, ModuleManifest
+from .contracts import IntentRouteDescriptor, ModuleEntrypoint, ModuleManifest
 
 
 MANIFEST_FILENAME = "module.json"
@@ -30,9 +30,13 @@ _EXPECTED_FIELDS = frozenset(
         "resource_class",
         "default_enabled",
         "entrypoint",
+        "intent_routes",
     }
 )
 _ENTRYPOINT_FIELDS = frozenset({"kind", "module", "python_path"})
+_INTENT_ROUTE_FIELDS = frozenset(
+    {"capability_id", "operation", "description", "examples"}
+)
 
 
 class ManifestValidationError(ValueError):
@@ -65,7 +69,8 @@ def load_manifest(path: Path) -> ModuleManifest:
 def validate_manifest(payload: object) -> ModuleManifest:
     if not isinstance(payload, dict):
         raise ManifestValidationError("manifest must be a JSON object")
-    if set(payload) != _EXPECTED_FIELDS:
+    required_fields = _EXPECTED_FIELDS - {"intent_routes"}
+    if not required_fields <= set(payload) or set(payload) - _EXPECTED_FIELDS:
         raise ManifestValidationError("manifest fields do not match schema version 1")
     if payload["schema_version"] != 1:
         raise ManifestValidationError("schema_version must be 1")
@@ -106,6 +111,31 @@ def validate_manifest(payload: object) -> ModuleManifest:
         raise ManifestValidationError("entrypoint.kind is invalid")
     python_module = _pattern(entrypoint_payload["module"], "entrypoint.module", _PYTHON_MODULE)
     python_path = _relative_path(entrypoint_payload["python_path"])
+    routes_payload = payload.get("intent_routes", [])
+    if not isinstance(routes_payload, list) or len(routes_payload) > 32:
+        raise ManifestValidationError("intent_routes must be a bounded JSON array")
+    intent_routes: list[IntentRouteDescriptor] = []
+    route_operations: set[str] = set()
+    for ordinal, route in enumerate(routes_payload):
+        if not isinstance(route, dict) or set(route) != _INTENT_ROUTE_FIELDS:
+            raise ManifestValidationError(f"intent route {ordinal} fields are invalid")
+        capability_id = _identifier(route["capability_id"], "intent route capability_id")
+        if capability_id not in capabilities:
+            raise ManifestValidationError("intent route capability is not provided by module")
+        operation = _pattern(
+            route["operation"], "intent route operation", re.compile(r"^[a-z][a-z0-9_]{0,63}$")
+        )
+        if operation in route_operations:
+            raise ManifestValidationError("intent route operations must be unique per module")
+        route_operations.add(operation)
+        route_description = _text(route["description"], "intent route description", 500)
+        examples_value = route["examples"]
+        if not isinstance(examples_value, list) or not 1 <= len(examples_value) <= 32:
+            raise ManifestValidationError("intent route examples must contain from 1 to 32 items")
+        examples = tuple(_text(value, "intent route example", 300) for value in examples_value)
+        intent_routes.append(
+            IntentRouteDescriptor(capability_id, operation, route_description, examples)
+        )
 
     return ModuleManifest(
         schema_version=1,
@@ -126,6 +156,7 @@ def validate_manifest(payload: object) -> ModuleManifest:
             module=python_module,
             python_path=python_path,
         ),
+        intent_routes=tuple(intent_routes),
     )
 
 
@@ -149,6 +180,15 @@ def manifest_to_dict(manifest: ModuleManifest) -> dict[str, object]:
             "module": manifest.entrypoint.module,
             "python_path": manifest.entrypoint.python_path,
         },
+        "intent_routes": [
+            {
+                "capability_id": route.capability_id,
+                "operation": route.operation,
+                "description": route.description,
+                "examples": list(route.examples),
+            }
+            for route in manifest.intent_routes
+        ],
     }
 
 

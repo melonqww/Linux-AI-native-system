@@ -29,5 +29,18 @@
     "kind": "python-service",
     "module": "ai_native_storage",
     "python_path": "src"
-  }
+  },
+  "intent_routes": [
+    {
+      "capability_id": "storage.materialize.plan-copy",
+      "operation": "copy_results",
+      "description": "Create a destination folder and copy previously found file results into it.",
+      "examples": [
+        "создай папку и скопируй туда найденные файлы",
+        "скопируй результаты на рабочий стол",
+        "сохрани найденные документы в папку",
+        "copy the found files to my desktop"
+      ]
+    }
+  ]
 }

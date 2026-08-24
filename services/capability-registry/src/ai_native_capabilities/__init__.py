@@ -2,6 +2,7 @@
 
 from .contracts import (
     CapabilityProvider,
+    IntentRouteDescriptor,
     ModuleEntrypoint,
     ModuleManifest,
     ModuleState,
@@ -14,6 +15,7 @@ from .registry import CapabilityRegistry
 
 __all__ = [
     "CapabilityProvider",
+    "IntentRouteDescriptor",
     "CapabilityRegistry",
     "ManifestValidationError",
     "ModuleEntrypoint",

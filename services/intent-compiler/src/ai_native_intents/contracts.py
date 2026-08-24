@@ -63,6 +63,7 @@ class ModelRequest:
     output_schema: dict[str, object]
     instructions: str
     history: tuple[ModelHistoryMessage, ...] = ()
+    allowed_operations: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True)

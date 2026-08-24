@@ -92,12 +92,17 @@ class CapabilityRegistryTests(RegistryTestCase):
     def test_registers_first_party_modules_and_publishes_capabilities(self) -> None:
         report = self.registry.sync([PROJECT_ROOT / "services"])
 
-        self.assertEqual(report.scanned, 3)
-        self.assertEqual(report.registered, 3)
+        self.assertEqual(report.scanned, 4)
+        self.assertEqual(report.registered, 4)
         self.assertEqual(report.issues, ())
         self.assertEqual(
             [module.state for module in self.registry.list_modules()],
-            [ModuleState.ENABLED, ModuleState.ENABLED, ModuleState.ENABLED],
+            [
+                ModuleState.ENABLED,
+                ModuleState.ENABLED,
+                ModuleState.ENABLED,
+                ModuleState.ENABLED,
+            ],
         )
         providers = self.registry.providers("documents.text.search")
         self.assertEqual([provider.module_id for provider in providers], ["documents.index"])
@@ -105,7 +110,7 @@ class CapabilityRegistryTests(RegistryTestCase):
     def test_registers_complete_first_party_module_set(self) -> None:
         report = self.registry.sync([PROJECT_ROOT / "services", PROJECT_ROOT / "modules"])
 
-        self.assertEqual(report.scanned, 10)
+        self.assertEqual(report.scanned, 11)
         self.assertEqual(report.issues, ())
         self.assertEqual(
             [module.manifest.module_id for module in self.registry.list_modules()],
@@ -114,6 +119,7 @@ class CapabilityRegistryTests(RegistryTestCase):
                 "desktop.applications",
                 "documents.index",
                 "documents.pdf",
+                "documents.query",
                 "model.ollama",
                 "provider.ollama",
                 "storage.catalog",
@@ -132,6 +138,25 @@ class CapabilityRegistryTests(RegistryTestCase):
         self.assertIn("model.catalog.respond", self.registry.available_capabilities())
         self.assertIn("provider.ollama.status", self.registry.available_capabilities())
         self.assertIn("provider.ollama.respond", self.registry.available_capabilities())
+        self.assertIn("documents.query.search", self.registry.available_capabilities())
+
+    def test_enabled_modules_publish_declarative_intent_routes(self) -> None:
+        self.registry.sync([PROJECT_ROOT / "services", PROJECT_ROOT / "modules"])
+
+        routes = self.registry.intent_routes()
+        by_operation = {route.operation: route for route in routes}
+        self.assertIn("search_documents", by_operation)
+        self.assertIn("copy_results", by_operation)
+        self.assertEqual(
+            by_operation["search_documents"].capability_id,
+            "documents.query.search",
+        )
+
+        self.registry.set_enabled("documents.query", False)
+        self.assertNotIn(
+            "search_documents",
+            {route.operation for route in self.registry.intent_routes()},
+        )
 
     def test_disabling_dependency_makes_dependent_module_unavailable(self) -> None:
         self.registry.sync([PROJECT_ROOT / "services"])

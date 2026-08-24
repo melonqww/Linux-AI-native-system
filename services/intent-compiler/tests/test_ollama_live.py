@@ -10,11 +10,18 @@ from ai_native_intents import (
     CompilationState,
     IntentCompiler,
     ModelRequest,
+    ModelTurnKind,
     OllamaModelProvider,
     OperationKind,
     TaskContext,
 )
-from ai_native_turns import TurnKind, TurnRequest, TurnRouter
+from ai_native_turns import (
+    CapabilityCandidateRouter,
+    CapabilityDescriptor,
+    TurnKind,
+    TurnRequest,
+    TurnRouter,
+)
 from ai_native_permissions import TransportContext
 from ai_native_workspace import MessageKind, WorkspaceRuntime, WorkspaceStage, WorkspaceStore
 
@@ -57,6 +64,20 @@ class OllamaLiveEvals(unittest.TestCase):
                 "storage.collections.manage",
                 "storage.materialize.plan-copy",
             },
+        )
+        cls.capability_router = CapabilityCandidateRouter(
+            (
+                CapabilityDescriptor(
+                    "documents.query.search",
+                    "search_documents",
+                    "Find local files and PDF documents on allowed computer disks.",
+                    (
+                        "найди все PDF файлы на компьютере",
+                        "покажи мои документы",
+                        "find local documents",
+                    ),
+                ),
+            )
         )
 
     def test_exact_qwen35_2b_model_is_served_by_ollama(self):
@@ -131,7 +152,7 @@ class OllamaLiveEvals(unittest.TestCase):
                     compiler,
                     executor,
                     lambda: TaskContext(locale="ru"),
-                    turn_router=TurnRouter(self.provider),
+                    capability_router=self.capability_router,
                 )
                 try:
                     submitted = runtime.submit(
@@ -156,6 +177,33 @@ class OllamaLiveEvals(unittest.TestCase):
                 assistant = store.list_messages()[-1]
                 self.assertEqual(assistant.kind, MessageKind.CONVERSATION)
                 self.assertNotIn("Не удалось надёжно понять запрос", assistant.content)
+
+    def test_capability_candidate_drives_mixed_pdf_request_into_search_only(self):
+        text = (
+            "Очень круто, я просто спросил про моё первое сообщение, "
+            "а теперь можешь найти все PDF файлы у меня на ПК"
+        )
+        candidates = self.capability_router.candidates(text)
+        self.assertEqual(
+            tuple(candidate.operation for candidate in candidates),
+            ("search_documents",),
+        )
+
+        turn = self.provider.route(
+            ModelRequest(
+                user_text=text,
+                locale="ru",
+                context=TaskContext(locale="ru").for_model(),
+                output_schema={},
+                instructions="",
+                allowed_operations=("search_documents",),
+            )
+        )
+        self.assertEqual(turn.kind, ModelTurnKind.ACTION)
+        self.assertEqual(
+            turn.intent_payload["operations"][0]["kind"],
+            "search_documents",
+        )
 
     def test_compound_search_and_copy_requires_approval(self):
         text = "Найди PDF по математике и скопируй результаты на рабочий стол"

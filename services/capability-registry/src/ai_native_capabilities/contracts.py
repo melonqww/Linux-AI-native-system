@@ -22,6 +22,14 @@ class ModuleEntrypoint:
 
 
 @dataclass(frozen=True)
+class IntentRouteDescriptor:
+    capability_id: str
+    operation: str
+    description: str
+    examples: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class ModuleManifest:
     schema_version: int
     module_id: str
@@ -37,6 +45,7 @@ class ModuleManifest:
     resource_class: str
     default_enabled: bool
     entrypoint: ModuleEntrypoint
+    intent_routes: tuple[IntentRouteDescriptor, ...] = ()
 
 
 @dataclass(frozen=True)
