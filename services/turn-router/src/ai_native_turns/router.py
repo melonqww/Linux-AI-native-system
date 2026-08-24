@@ -96,4 +96,8 @@ class TurnRouter:
 
     @classmethod
     def _optional_text(cls, value: object, label: str) -> str | None:
-        return None if value is None else cls._text(value, label, maximum=4_000)
+        # Small local models commonly emit "" instead of JSON null for an
+        # absent optional fragment. Both representations mean "not present".
+        return None if value is None or value == "" else cls._text(
+            value, label, maximum=4_000
+        )

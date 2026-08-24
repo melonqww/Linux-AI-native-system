@@ -31,6 +31,15 @@ class TurnRouterTests(unittest.TestCase):
         self.assertEqual(result.kind, TurnKind.CONVERSATION)
         self.assertEqual(result.conversation_text, text)
 
+    def test_empty_optional_fragments_are_treated_as_json_null(self):
+        text = "Привет"
+        result = TurnRouter(Classifier(payload(
+            "conversation", "", ""
+        ))).route(TurnRequest(text, "ru"))
+
+        self.assertEqual(result.kind, TurnKind.CONVERSATION)
+        self.assertEqual(result.conversation_text, text)
+
     def test_pure_action_accepts_exact_original_text(self):
         text = "Найди все PDF на моём компьютере"
         result = TurnRouter(Classifier(payload(

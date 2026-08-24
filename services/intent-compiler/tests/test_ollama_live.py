@@ -1,7 +1,10 @@
 """Opt-in local Qwen evals; disabled in ordinary deterministic CI."""
 
 import os
+import tempfile
+import threading
 import unittest
+from pathlib import Path
 
 from ai_native_intents import (
     CompilationState,
@@ -12,6 +15,26 @@ from ai_native_intents import (
     TaskContext,
 )
 from ai_native_turns import TurnKind, TurnRequest, TurnRouter
+from ai_native_permissions import TransportContext
+from ai_native_workspace import MessageKind, WorkspaceRuntime, WorkspaceStage, WorkspaceStore
+
+
+class CountingCompiler:
+    def __init__(self):
+        self.calls = 0
+
+    def compile_payload(self, *_args, **_kwargs):
+        self.calls += 1
+        raise AssertionError("conversation reached intent compiler")
+
+
+class CountingExecutor:
+    def __init__(self):
+        self.calls = 0
+
+    def execute(self, *_args, **_kwargs):
+        self.calls += 1
+        raise AssertionError("conversation reached executor")
 
 
 @unittest.skipUnless(
@@ -91,6 +114,48 @@ class OllamaLiveEvals(unittest.TestCase):
                     )
                 )
                 self.assertGreater(len(reply.strip()), 3)
+
+    def test_full_workspace_keeps_screenshot_messages_out_of_action_pipeline(self):
+        for text in (
+            "Привет",
+            "Привет ты ИИ и куда точнее запрос",
+            "Так а что ты можешь в целом и какой ты ИИ",
+        ):
+            with self.subTest(text=text), tempfile.TemporaryDirectory() as directory:
+                store = WorkspaceStore(Path(directory) / "workspace.sqlite3")
+                compiler = CountingCompiler()
+                executor = CountingExecutor()
+                runtime = WorkspaceRuntime(
+                    store,
+                    self.provider,
+                    compiler,
+                    executor,
+                    lambda: TaskContext(locale="ru"),
+                    turn_router=TurnRouter(self.provider),
+                )
+                try:
+                    submitted = runtime.submit(
+                        text, transport_context=TransportContext.internal()
+                    )
+                    for _ in range(1_200):
+                        run = store.run(submitted.run_id)
+                        if run.stage in {
+                            WorkspaceStage.COMPLETED,
+                            WorkspaceStage.FAILED,
+                            WorkspaceStage.CANCELLED,
+                        }:
+                            break
+                        threading.Event().wait(0.1)
+                finally:
+                    runtime.close()
+
+                self.assertEqual(run.stage, WorkspaceStage.COMPLETED)
+                self.assertIsNone(run.task_id)
+                self.assertEqual(compiler.calls, 0)
+                self.assertEqual(executor.calls, 0)
+                assistant = store.list_messages()[-1]
+                self.assertEqual(assistant.kind, MessageKind.CONVERSATION)
+                self.assertNotIn("Не удалось надёжно понять запрос", assistant.content)
 
     def test_compound_search_and_copy_requires_approval(self):
         text = "Найди PDF по математике и скопируй результаты на рабочий стол"

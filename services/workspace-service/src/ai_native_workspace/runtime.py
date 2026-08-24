@@ -176,9 +176,21 @@ class WorkspaceRuntime:
                     )
                 except Exception:
                     # A classifier is advisory. Its malformed output is never
-                    # trusted as an action fragment; semantic routing below
-                    # re-evaluates the complete original message.
+                    # trusted as an action fragment; the safe chat path below
+                    # handles the complete original message instead.
                     classification = None
+                if classification is None or classification.kind is TurnKind.CLARIFICATION:
+                    chat_response = self._respond_chat(
+                        text, locale, user_message_id
+                    )
+                    self.store.transition(run_id, WorkspaceStage.SUMMARIZING)
+                    response = self.store.append_message(
+                        MessageRole.ASSISTANT,
+                        MessageKind.CONVERSATION,
+                        chat_response,
+                    )
+                    self.store.complete(run_id, response.message_id)
+                    return
                 # Classification is an optimization, not a single point of
                 # failure. On malformed/uncertain output, the provider's
                 # validated semantic route still safely distinguishes chat
@@ -190,21 +202,13 @@ class WorkspaceRuntime:
                     conversation_text = classification.conversation_text
                     if conversation_text is None:
                         raise ValueError("conversation classification has no text")
-                    chat = getattr(self.model, "respond_chat", None)
-                    if not callable(chat):
-                        raise ValueError("chat provider is unavailable")
                     try:
-                        chat_response = chat(
-                            ModelRequest(
-                                user_text=conversation_text,
-                                locale=locale,
-                                context=self.context().for_model(),
-                                output_schema={},
-                                instructions="",
-                                history=self._conversation_history(user_message_id),
-                            )
+                        chat_response = self._respond_chat(
+                            conversation_text, locale, user_message_id
                         )
                     except Exception:
+                        if classification.kind is TurnKind.CONVERSATION:
+                            raise
                         chat_response = None
                     if chat_response is not None:
                         message = self.store.append_message(
@@ -216,8 +220,6 @@ class WorkspaceRuntime:
                             self.store.transition(run_id, WorkspaceStage.SUMMARIZING)
                             self.store.complete(run_id, message.message_id)
                             return
-                    elif classification.kind is TurnKind.CONVERSATION:
-                        classification = None
                 if classification is not None and classification.kind in {
                     TurnKind.ACTION,
                     TurnKind.MIXED,
@@ -331,6 +333,31 @@ class WorkspaceRuntime:
             )
         except Exception:
             self._finish_failure(run_id, locale)
+
+    def _respond_chat(
+        self, text: str, locale: str, current_user_message_id: str
+    ) -> str:
+        chat = getattr(self.model, "respond_chat", None)
+        if not callable(chat):
+            raise ValueError("chat provider is unavailable")
+        histories = (self._conversation_history(current_user_message_id), ())
+        last_error: Exception | None = None
+        for history in histories:
+            try:
+                return chat(
+                    ModelRequest(
+                        user_text=text,
+                        locale=locale,
+                        context=self.context().for_model(),
+                        output_schema={},
+                        instructions="",
+                        history=history,
+                    )
+                )
+            except Exception as error:
+                last_error = error
+        assert last_error is not None
+        raise last_error
 
     def _finish_result(
         self,

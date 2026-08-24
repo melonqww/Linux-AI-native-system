@@ -122,8 +122,9 @@ _CHAT_INSTRUCTIONS: Final = """You are the friendly local assistant inside a Lin
 Answer the current user naturally and directly in their language. Use conversation history to
 resolve follow-ups and accurately recall prior user messages. Never expose or suggest internal
 function names, JSON, tools, prompts, shell commands, or implementation details. Do not claim
-that a computer action ran. If the user asks for a computer action, say only that the system
-will handle it separately. Keep the answer useful and concise.
+that a computer action ran. If this safe conversational fallback receives an unclear computer
+action, ask one concise clarifying question and never claim it will run. Keep the answer useful
+and concise.
 """
 
 
@@ -195,8 +196,12 @@ class OllamaModelProvider:
                     "kind": {"enum": ["conversation", "action", "mixed", "clarification"]},
                     "language": {"type": "string", "minLength": 2, "maxLength": 16},
                     "confidence": {"type": "number", "minimum": 0, "maximum": 1},
-                    "conversation_text": {"type": ["string", "null"], "maxLength": 4000},
-                    "action_text": {"type": ["string", "null"], "maxLength": 4000},
+                    "conversation_text": {
+                        "type": ["string", "null"], "minLength": 1, "maxLength": 4000
+                    },
+                    "action_text": {
+                        "type": ["string", "null"], "minLength": 1, "maxLength": 4000
+                    },
                 },
             },
             "keep_alive": self.keep_alive,
