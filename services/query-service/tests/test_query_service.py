@@ -17,7 +17,13 @@ for source in (
     sys.path.insert(0, str(source))
 
 from ai_native_intents import CompilationResult, CompilationState, TaskContext
-from ai_native_query import DocumentQuery, QueryRuntimeApplication, QueryService, SearchMode
+from ai_native_query import (
+    ContentAvailability,
+    DocumentQuery,
+    QueryRuntimeApplication,
+    QueryService,
+    SearchMode,
+)
 from ai_native_storage import PermissionLevel, VolumeRegistry
 from ai_native_storage.contracts import DiscoveredVolume
 
@@ -28,6 +34,14 @@ class Discovery:
 
     def discover(self):
         return [self.volume]
+
+
+class MultiDiscovery:
+    def __init__(self, volumes):
+        self.volumes = volumes
+
+    def discover(self):
+        return list(self.volumes)
 
 
 class FakeIntentPipeline:
@@ -155,8 +169,14 @@ class QueryServiceTests(unittest.TestCase):
         application = QueryRuntimeApplication(self.service)
         self.assertIn("documents.query.search", application.capabilities())
         self.assertIn("catalog", application.index_status())
+        page = application.search_page(
+            {"text": "", "mode": "metadata", "extensions": ["pdf"], "offset": 0}
+        )
+        self.assertEqual(page.total_matches, 0)
         with self.assertRaises(ValueError):
             application.search({"text": [], "limit": 20})
+        with self.assertRaises(ValueError):
+            application.search_page({"text": "", "unexpected": True})
 
     def test_runtime_exposes_storage_enrollment_contract(self) -> None:
         application = QueryRuntimeApplication(self.service)
@@ -183,6 +203,117 @@ class QueryServiceTests(unittest.TestCase):
 
         self.assertEqual({item.name for item in results}, {"study.pdf", "cooking.pdf"})
         self.assertTrue(all(item.sources == ("metadata",) for item in results))
+
+    def test_metadata_results_explain_broken_pdf_content_state(self) -> None:
+        self.make_pdf("Mathematics algebra geometry")
+        broken = self.documents / "broken.pdf"
+        broken.write_bytes(b"%PDF-1.7\ntruncated")
+        self.service.catalog.scan_volume("test-volume")
+
+        report = self.service.ingest_pdfs()
+        results = self.service.search(
+            DocumentQuery(mode=SearchMode.METADATA, extensions=("pdf",), limit=10)
+        )
+        by_name = {result.name: result for result in results}
+
+        self.assertEqual(report.discovered, 2)
+        self.assertEqual(report.failed, 1)
+        self.assertEqual(by_name["study.pdf"].content_state, ContentAvailability.INDEXED)
+        self.assertEqual(by_name["broken.pdf"].content_state, ContentAvailability.UNAVAILABLE)
+        self.assertEqual(by_name["broken.pdf"].content_reason, "damaged")
+        self.assertEqual(by_name["broken.pdf"].size_bytes, broken.stat().st_size)
+
+    def test_hybrid_mode_applies_name_as_filter_to_content_hits(self) -> None:
+        self.make_pdf("Shared algebra theorem", "mathematics.pdf")
+        self.make_pdf("Shared algebra theorem", "cooking.pdf")
+        self.service.catalog.scan_volume("test-volume")
+        self.service.ingest_pdfs()
+
+        results = self.service.search(
+            DocumentQuery(
+                mode=SearchMode.HYBRID,
+                text="algebra",
+                name_contains=("cooking",),
+                extensions=("pdf",),
+            )
+        )
+
+        self.assertEqual([result.name for result in results], ["cooking.pdf"])
+
+    def test_search_page_reports_exact_total_and_stable_metadata_pages(self) -> None:
+        for number in range(5):
+            (self.documents / f"document-{number}.txt").write_text(
+                f"content {number}", encoding="utf-8"
+            )
+        self.service.catalog.scan_volume("test-volume")
+
+        page = self.service.search_page(
+            DocumentQuery(
+                mode=SearchMode.METADATA,
+                extensions=("txt",),
+                limit=2,
+                offset=2,
+            )
+        )
+
+        self.assertEqual(page.total_matches, 5)
+        self.assertTrue(page.total_is_exact)
+        self.assertEqual(page.offset, 2)
+        self.assertEqual(
+            [result.name for result in page.results],
+            ["document-2.txt", "document-3.txt"],
+        )
+
+    def test_content_page_deduplicates_chunks_and_reports_exact_total(self) -> None:
+        long_document = self.documents / "long.txt"
+        long_document.write_text(
+            "algebra theorem\n" * 1_000, encoding="utf-8"
+        )
+        (self.documents / "short.txt").write_text("algebra", encoding="utf-8")
+        self.service.catalog.scan_volume("test-volume")
+        self.service.indexer.index_directory(self.documents)
+
+        page = self.service.search_page(
+            DocumentQuery(mode=SearchMode.CONTENT, text="algebra", limit=1)
+        )
+
+        self.assertEqual(page.total_matches, 2)
+        self.assertTrue(page.total_is_exact)
+        self.assertEqual(len(page.results), 1)
+
+    def test_coverage_is_scoped_to_requested_allowed_volumes(self) -> None:
+        external = self.root / "external"
+        external.mkdir()
+        (self.documents / "system.txt").write_text("system", encoding="utf-8")
+        (external / "external.txt").write_text("external", encoding="utf-8")
+        system_volume = DiscoveredVolume(
+            "test-volume", "Documents", str(self.documents), "test", "testfs",
+            True, False, False,
+        )
+        external_volume = DiscoveredVolume(
+            "external-volume", "External", str(external), "external", "testfs",
+            False, True, False,
+        )
+        self.service.volumes.discovery = MultiDiscovery([system_volume, external_volume])
+        self.service.volumes.refresh()
+        self.service.volumes.set_permission("external-volume", PermissionLevel.CONTENT)
+        self.service.catalog.scan_volume("test-volume")
+        self.service.catalog.scan_volume("external-volume")
+        self.service.coverage_source = lambda: {
+            "state": "updating",
+            "coverage_complete": False,
+            "covered_volume_ids": ("external-volume",),
+            "scanning_volume_ids": ("test-volume",),
+            "inaccessible": 0,
+        }
+
+        coverage = self.service.coverage(("external-volume",))
+
+        self.assertTrue(coverage.complete)
+        self.assertEqual(coverage.cataloged_items, 1)
+        self.assertEqual(coverage.covered_volume_ids, ("external-volume",))
+        self.assertEqual(coverage.scanning_volume_ids, ())
+        self.assertIsNone(coverage.warning)
 
     def test_runtime_exposes_optional_system_monitor_snapshot(self) -> None:
         snapshot = {"schema_version": 1, "supported": True, "processes": []}

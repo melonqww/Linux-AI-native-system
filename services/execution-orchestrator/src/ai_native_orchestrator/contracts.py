@@ -30,6 +30,8 @@ class SearchOutput:
     mode: str = "metadata"
     criteria: str = ""
     coverage: SearchCoverage | None = None
+    total_matches: int | None = None
+    total_is_exact: bool = True
 
 
 @dataclass(frozen=True)

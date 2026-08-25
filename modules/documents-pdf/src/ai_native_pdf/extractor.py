@@ -3,13 +3,29 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import StrEnum
 from pathlib import Path
 
 from pypdf import PdfReader
 
 
+class PdfFailureCode(StrEnum):
+    INVALID_SOURCE = "invalid_source"
+    UNREADABLE = "unreadable"
+    TOO_LARGE = "too_large"
+    DAMAGED = "damaged"
+    ENCRYPTED = "encrypted"
+    TOO_MANY_PAGES = "too_many_pages"
+    PAGE_EXTRACTION_FAILED = "page_extraction_failed"
+    NEEDS_OCR = "needs_ocr"
+
+
 class PdfExtractionError(ValueError):
-    pass
+    """Bounded extraction failure with a stable machine-readable reason."""
+
+    def __init__(self, code: PdfFailureCode, message: str) -> None:
+        super().__init__(message)
+        self.code = code
 
 
 @dataclass(frozen=True)
@@ -39,30 +55,64 @@ class PdfExtractor:
     def extract(self, path: Path) -> PdfExtractionResult:
         path = path.expanduser()
         if path.is_symlink():
-            raise PdfExtractionError("source must be a regular non-symlink file")
-        path = path.resolve(strict=True)
+            raise PdfExtractionError(
+                PdfFailureCode.INVALID_SOURCE,
+                "source must be a regular non-symlink file",
+            )
+        try:
+            path = path.resolve(strict=True)
+        except OSError as error:
+            raise PdfExtractionError(
+                PdfFailureCode.UNREADABLE, "PDF source is unavailable"
+            ) from error
         if path.suffix.casefold() != ".pdf":
-            raise PdfExtractionError("source must be a PDF file")
+            raise PdfExtractionError(PdfFailureCode.INVALID_SOURCE, "source must be a PDF file")
         if not path.is_file():
-            raise PdfExtractionError("source must be a regular non-symlink file")
-        if path.stat().st_size > self.max_bytes:
-            raise PdfExtractionError("PDF exceeds the configured size limit")
+            raise PdfExtractionError(
+                PdfFailureCode.INVALID_SOURCE,
+                "source must be a regular non-symlink file",
+            )
+        try:
+            size = path.stat().st_size
+        except OSError as error:
+            raise PdfExtractionError(
+                PdfFailureCode.UNREADABLE, "PDF metadata is unavailable"
+            ) from error
+        if size > self.max_bytes:
+            raise PdfExtractionError(
+                PdfFailureCode.TOO_LARGE, "PDF exceeds the configured size limit"
+            )
         try:
             reader = PdfReader(path, strict=False)
         except Exception as error:
-            raise PdfExtractionError(f"cannot open PDF: {type(error).__name__}") from error
+            raise PdfExtractionError(
+                PdfFailureCode.DAMAGED,
+                f"cannot open PDF: {type(error).__name__}",
+            ) from error
         if reader.is_encrypted:
-            raise PdfExtractionError("encrypted PDF requires a separate approval flow")
+            raise PdfExtractionError(
+                PdfFailureCode.ENCRYPTED,
+                "encrypted PDF requires a separate approval flow",
+            )
         if len(reader.pages) > self.max_pages:
-            raise PdfExtractionError("PDF exceeds the configured page limit")
+            raise PdfExtractionError(
+                PdfFailureCode.TOO_MANY_PAGES,
+                "PDF exceeds the configured page limit",
+            )
 
         pages: list[PdfPage] = []
         for number, page in enumerate(reader.pages, start=1):
             try:
                 text = (page.extract_text() or "").strip()
             except Exception as error:
-                raise PdfExtractionError(f"cannot extract PDF page {number}") from error
+                raise PdfExtractionError(
+                    PdfFailureCode.PAGE_EXTRACTION_FAILED,
+                    f"cannot extract PDF page {number}",
+                ) from error
             pages.append(PdfPage(page_number=number, text=text))
         if not any(page.text for page in pages):
-            raise PdfExtractionError("PDF contains no extractable text; OCR module is required")
+            raise PdfExtractionError(
+                PdfFailureCode.NEEDS_OCR,
+                "PDF contains no extractable text; OCR module is required",
+            )
         return PdfExtractionResult(path=str(path), pages=tuple(pages), page_count=len(reader.pages))

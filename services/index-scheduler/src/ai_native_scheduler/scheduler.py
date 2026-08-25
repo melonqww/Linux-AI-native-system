@@ -165,8 +165,17 @@ class IndexScheduler:
         root = Path(volume.mount_point)
         if entry.extension == ".pdf":
             if self.pdf_extractor is None:
+                self.indexer.record_unavailable(path, "pdf_module_unavailable")
                 raise RuntimeError("documents.pdf optional dependency is unavailable")
-            extracted = self.pdf_extractor.extract(path)
+            try:
+                extracted = self.pdf_extractor.extract(path)
+            except (OSError, ValueError) as error:
+                reason = getattr(error, "code", "pdf_extraction_failed")
+                try:
+                    self.indexer.record_unavailable(path, str(reason))
+                except ValueError:
+                    self.indexer.record_unavailable(path, "pdf_extraction_failed")
+                raise
             self.indexer.index_text(path, extracted.text)
         else:
             self.indexer.index_file(path, root=root)

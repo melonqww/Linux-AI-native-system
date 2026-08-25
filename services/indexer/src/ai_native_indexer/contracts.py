@@ -1,6 +1,20 @@
 """Stable values returned to the runtime and desktop panel."""
 
 from dataclasses import dataclass, field
+from enum import StrEnum
+
+
+class ContentIndexState(StrEnum):
+    INDEXED = "indexed"
+    UNAVAILABLE = "unavailable"
+    UNSUPPORTED = "unsupported"
+
+
+@dataclass(frozen=True)
+class ContentIndexStatus:
+    path: str
+    state: ContentIndexState
+    reason: str | None = None
 
 
 @dataclass(frozen=True)

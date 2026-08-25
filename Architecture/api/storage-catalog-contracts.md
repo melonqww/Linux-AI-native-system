@@ -66,7 +66,8 @@ runtime: `POST /v1/storage/volumes`. Поле `permission_required` показы
   "extensions": ["pdf"],
   "roles": ["document"],
   "volume_ids": [],
-  "limit": 100
+  "limit": 100,
+  "offset": 0
 }
 ```
 
@@ -110,7 +111,8 @@ runtime: `POST /v1/storage/volumes`. Поле `permission_required` показы
     "extensions": ["pdf"],
     "roles": ["document"],
     "volume_ids": [],
-    "limit": 100
+    "limit": 100,
+    "offset": 0
   },
   "created_at": "2026-08-18T00:00:00+00:00",
   "updated_at": "2026-08-18T00:00:00+00:00"

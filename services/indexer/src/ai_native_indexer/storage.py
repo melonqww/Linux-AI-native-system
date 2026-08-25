@@ -7,7 +7,7 @@ import sqlite3
 from pathlib import Path
 
 from .chunking import TextChunk
-from .contracts import SearchHit
+from .contracts import ContentIndexState, ContentIndexStatus, SearchHit
 
 
 INDEX_FORMAT_VERSION = 1
@@ -35,6 +35,7 @@ class IndexStorage:
                 """
                 DROP TABLE IF EXISTS chunks_fts;
                 DROP TABLE IF EXISTS sources;
+                DROP TABLE IF EXISTS source_states;
                 """
             )
         connection.executescript(
@@ -56,8 +57,22 @@ class IndexStorage:
                 content,
                 tokenize = 'unicode61'
             );
+            CREATE TABLE IF NOT EXISTS source_states (
+                path TEXT PRIMARY KEY,
+                size_bytes INTEGER NOT NULL,
+                mtime_ns INTEGER NOT NULL,
+                state TEXT NOT NULL,
+                reason TEXT
+            );
             PRAGMA user_version = {INDEX_FORMAT_VERSION};
             """
+        )
+        connection.execute(
+            """INSERT OR IGNORE INTO source_states(
+                   path, size_bytes, mtime_ns, state, reason
+               )
+               SELECT path, size_bytes, mtime_ns, ?, NULL FROM sources""",
+            (ContentIndexState.INDEXED.value,),
         )
 
     @staticmethod
@@ -104,7 +119,69 @@ class IndexStorage:
                 for chunk in chunks
             ],
         )
+        connection.execute(
+            """INSERT INTO source_states(path, size_bytes, mtime_ns, state, reason)
+               VALUES (?, ?, ?, ?, NULL)
+               ON CONFLICT(path) DO UPDATE SET
+                 size_bytes = excluded.size_bytes,
+                 mtime_ns = excluded.mtime_ns,
+                 state = excluded.state,
+                 reason = NULL""",
+            (path, size_bytes, mtime_ns, ContentIndexState.INDEXED.value),
+        )
         return was_update
+
+    @classmethod
+    def record_state(
+        cls,
+        connection: sqlite3.Connection,
+        *,
+        path: str,
+        size_bytes: int,
+        mtime_ns: int,
+        state: ContentIndexState,
+        reason: str | None,
+    ) -> None:
+        if state is ContentIndexState.INDEXED:
+            raise ValueError("indexed state must be written with indexed content")
+        cls.remove_source(connection, path, remove_state=False)
+        connection.execute(
+            """INSERT INTO source_states(path, size_bytes, mtime_ns, state, reason)
+               VALUES (?, ?, ?, ?, ?)
+               ON CONFLICT(path) DO UPDATE SET
+                 size_bytes = excluded.size_bytes,
+                 mtime_ns = excluded.mtime_ns,
+                 state = excluded.state,
+                 reason = excluded.reason""",
+            (path, size_bytes, mtime_ns, state.value, reason),
+        )
+
+    @staticmethod
+    def states_by_paths(
+        connection: sqlite3.Connection, paths: list[str]
+    ) -> dict[str, ContentIndexStatus]:
+        result: dict[str, ContentIndexStatus] = {}
+        for start in range(0, len(paths), 500):
+            batch = paths[start : start + 500]
+            if not batch:
+                continue
+            rows = connection.execute(
+                f"SELECT path, state, reason FROM source_states "
+                f"WHERE path IN ({','.join('?' for _ in batch)})",
+                batch,
+            ).fetchall()
+            result.update(
+                (
+                    str(row["path"]),
+                    ContentIndexStatus(
+                        str(row["path"]),
+                        ContentIndexState(str(row["state"])),
+                        None if row["reason"] is None else str(row["reason"]),
+                    ),
+                )
+                for row in rows
+            )
+        return result
 
     @staticmethod
     def remove_missing(connection: sqlite3.Connection, root_path: str, present_paths: set[str]) -> int:
@@ -113,17 +190,23 @@ class IndexStorage:
         for row in missing:
             connection.execute("DELETE FROM chunks_fts WHERE source_id = ?", (int(row["id"]),))
             connection.execute("DELETE FROM sources WHERE id = ?", (int(row["id"]),))
+            connection.execute("DELETE FROM source_states WHERE path = ?", (str(row["path"]),))
         return len(missing)
 
     @staticmethod
-    def remove_source(connection: sqlite3.Connection, path: str) -> bool:
+    def remove_source(
+        connection: sqlite3.Connection, path: str, *, remove_state: bool = True
+    ) -> bool:
         row = connection.execute("SELECT id FROM sources WHERE path = ?", (path,)).fetchone()
-        if row is None:
-            return False
-        source_id = int(row["id"])
-        connection.execute("DELETE FROM chunks_fts WHERE source_id = ?", (source_id,))
-        connection.execute("DELETE FROM sources WHERE id = ?", (source_id,))
-        return True
+        removed = row is not None
+        if row is not None:
+            source_id = int(row["id"])
+            connection.execute("DELETE FROM chunks_fts WHERE source_id = ?", (source_id,))
+            connection.execute("DELETE FROM sources WHERE id = ?", (source_id,))
+        if remove_state:
+            state_cursor = connection.execute("DELETE FROM source_states WHERE path = ?", (path,))
+            removed = removed or state_cursor.rowcount == 1
+        return removed
 
     @staticmethod
     def search(connection: sqlite3.Connection, query: str, limit: int) -> list[SearchHit]:
@@ -133,10 +216,21 @@ class IndexStorage:
         match_query = " OR ".join(f'"{term.replace(chr(34), chr(34) * 2)}"' for term in terms)
         rows = connection.execute(
             """
-            SELECT path, line_start, line_end, content, bm25(chunks_fts) AS rank
-            FROM chunks_fts
-            WHERE chunks_fts MATCH ?
-            ORDER BY rank
+            WITH matching AS (
+                SELECT path, ordinal, line_start, line_end, content,
+                       bm25(chunks_fts) AS rank
+                FROM chunks_fts
+                WHERE chunks_fts MATCH ?
+            ), ranked AS (
+                SELECT *, row_number() OVER (
+                    PARTITION BY path ORDER BY rank, ordinal
+                ) AS position
+                FROM matching
+            )
+            SELECT path, line_start, line_end, content, rank
+            FROM ranked
+            WHERE position = 1
+            ORDER BY rank, path
             LIMIT ?
             """,
             (match_query, limit),
@@ -156,4 +250,21 @@ class IndexStorage:
     def status(connection: sqlite3.Connection) -> dict[str, int]:
         sources = int(connection.execute("SELECT count(*) FROM sources").fetchone()[0])
         chunks = int(connection.execute("SELECT count(*) FROM chunks_fts").fetchone()[0])
-        return {"sources": sources, "chunks": chunks}
+        unavailable = int(
+            connection.execute(
+                "SELECT count(*) FROM source_states WHERE state = ?",
+                (ContentIndexState.UNAVAILABLE.value,),
+            ).fetchone()[0]
+        )
+        unsupported = int(
+            connection.execute(
+                "SELECT count(*) FROM source_states WHERE state = ?",
+                (ContentIndexState.UNSUPPORTED.value,),
+            ).fetchone()[0]
+        )
+        return {
+            "sources": sources,
+            "chunks": chunks,
+            "unavailable": unavailable,
+            "unsupported": unsupported,
+        }

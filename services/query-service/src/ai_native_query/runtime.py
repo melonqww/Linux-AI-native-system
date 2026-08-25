@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, is_dataclass
 from typing import Callable, Protocol
 
-from .contracts import DocumentQuery, QueryResult, SearchMode
+from .contracts import DocumentQuery, QueryResult, SearchMode, SearchPage
 from .service import QueryService
 from ai_native_permissions import TransportContext
 from ai_native_storage import PermissionLevel
@@ -489,6 +489,17 @@ class QueryRuntimeApplication:
         return self.task_ledger.request_continue(self._string(payload, "task_id"))
 
     def search(self, payload: dict[str, object]) -> list[QueryResult]:
+        return self.query_service.search(self._document_query(payload))
+
+    def search_page(self, payload: dict[str, object]) -> SearchPage:
+        return self.query_service.search_page(self._document_query(payload))
+
+    def _document_query(self, payload: dict[str, object]) -> DocumentQuery:
+        unknown = set(payload) - {
+            "text", "mode", "name_contains", "extensions", "volume_ids", "limit", "offset"
+        }
+        if unknown:
+            raise ValueError(f"unknown search fields: {sorted(unknown)}")
         text = self._string(payload, "text")
         raw_mode = payload.get("mode", "content" if text else "metadata")
         if not isinstance(raw_mode, str):
@@ -503,15 +514,17 @@ class QueryRuntimeApplication:
         limit = payload.get("limit", 20)
         if isinstance(limit, bool) or not isinstance(limit, int):
             raise ValueError("limit must be an integer")
-        return self.query_service.search(
-            DocumentQuery(
-                mode=mode,
-                text=text,
-                name_contains=name_contains,
-                extensions=extensions,
-                volume_ids=volume_ids,
-                limit=limit,
-            )
+        offset = payload.get("offset", 0)
+        if isinstance(offset, bool) or not isinstance(offset, int):
+            raise ValueError("offset must be an integer")
+        return DocumentQuery(
+            mode=mode,
+            text=text,
+            name_contains=name_contains,
+            extensions=extensions,
+            volume_ids=volume_ids,
+            limit=limit,
+            offset=offset,
         )
 
     def index_status(self) -> dict[str, object]:

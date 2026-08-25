@@ -210,6 +210,7 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [System Monitor API v1](Architecture/api/system-monitor-v1.md)
 - [System Updates API v1](Architecture/api/system-updates-v1.md)
 - [Контракты Storage Catalog](Architecture/api/storage-catalog-contracts.md)
+- [File Search R1](Architecture/api/file-search-r1.md)
 - [Контракт статуса индекса](Architecture/api/runtime-index-status.md)
 - [JSON Schema manifest модуля](packages/module-sdk/schema/module-manifest.schema.json)
 - [Решение о портфолио-MVP](Architecture/decisions/ADR-001-portfolio-mvp-scope.md)

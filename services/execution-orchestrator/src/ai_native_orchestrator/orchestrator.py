@@ -574,15 +574,20 @@ class ExecutionOrchestrator:
         if not any((text.strip(), name_terms, extensions, volume_ids)):
             raise ValueError("search requires at least one criterion")
         from ai_native_query import SearchMode
-        results = self._query_service.search(
-            DocumentQuery(
-                mode=SearchMode(mode),
-                text=text,
-                name_contains=name_terms,
-                extensions=extensions,
-                volume_ids=volume_ids,
-                limit=50,
-            )
+        document_query = DocumentQuery(
+            mode=SearchMode(mode),
+            text=text,
+            name_contains=name_terms,
+            extensions=extensions,
+            volume_ids=volume_ids,
+            limit=50,
+        )
+        page_method = getattr(self._query_service, "search_page", None)
+        page = page_method(document_query) if callable(page_method) else None
+        results = (
+            list(page.results)
+            if page is not None
+            else self._query_service.search(document_query)
         )
         if deadline_monotonic is not None and monotonic() >= deadline_monotonic:
             raise TimeoutError("search deadline expired before snapshot")
@@ -590,12 +595,20 @@ class ExecutionOrchestrator:
             f"Search {plan_id[:8]}", results
         )
         warnings = list(("language_filter_not_yet_applied",) if languages else ())
-        coverage = None
-        coverage_method = getattr(self._query_service, "coverage", None)
-        if callable(coverage_method):
-            coverage = coverage_method(volume_ids)
+        coverage = page.coverage if page is not None else None
+        if coverage is None:
+            coverage_method = getattr(self._query_service, "coverage", None)
+            if callable(coverage_method):
+                coverage = coverage_method(volume_ids)
+        if coverage is not None:
             if coverage.warning:
                 warnings.append(coverage.warning)
+        total_matches = page.total_matches if page is not None else len(results)
+        total_is_exact = page.total_is_exact if page is not None else True
+        if total_matches > len(results):
+            warnings.append("more_results_available")
+        if not total_is_exact:
+            warnings.append("total_matches_is_lower_bound")
         criteria = text or ", ".join((*name_terms, *extensions))
         return SearchOutput(
             collection_id,
@@ -605,6 +618,8 @@ class ExecutionOrchestrator:
             mode,
             criteria,
             coverage,
+            total_matches,
+            total_is_exact,
         )
 
     def _validate(self, plan: ExecutionPlan) -> None:

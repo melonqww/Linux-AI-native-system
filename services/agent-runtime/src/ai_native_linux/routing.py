@@ -13,6 +13,7 @@ from ai_native_ledger import InvalidTransitionError, TaskNotFoundError
 class RuntimeApplication(Protocol):
     def capabilities(self) -> list[str]: ...
     def search(self, payload: dict[str, object]) -> list[object]: ...
+    def search_page(self, payload: dict[str, object]) -> object: ...
     def index_status(self) -> dict[str, object]: ...
     def system_status(
         self, payload: dict[str, object] | None = None
@@ -146,6 +147,8 @@ class RuntimeRouter:
             return RuntimeResponse(
                 200, {"results": [asdict(item) for item in self.application.search(payload)]}
             )
+        if path == "/v1/search-page":
+            return RuntimeResponse(200, asdict(self.application.search_page(payload)))
         if path in {"/v1/storage/volumes", "/v1/storage/permission"}:
             if not self.allow_r1:
                 return self.error(403, "secure_transport_required", False, request_id)

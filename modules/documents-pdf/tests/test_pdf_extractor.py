@@ -6,7 +6,7 @@ from uuid import uuid4
 from pypdf import PdfWriter
 from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
-from ai_native_pdf import PdfExtractionError, PdfExtractor
+from ai_native_pdf import PdfExtractionError, PdfExtractor, PdfFailureCode
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -58,14 +58,16 @@ class PdfExtractorTests(unittest.TestCase):
     def test_rejects_broken_pdf_without_crashing(self) -> None:
         path = self.root / "broken.pdf"
         path.write_bytes(b"%PDF-1.7\nthis is truncated")
-        with self.assertRaisesRegex(PdfExtractionError, "cannot open PDF"):
+        with self.assertRaisesRegex(PdfExtractionError, "cannot open PDF") as raised:
             PdfExtractor().extract(path)
+        self.assertEqual(raised.exception.code, PdfFailureCode.DAMAGED)
 
     def test_rejects_pdf_over_configured_byte_budget_before_parsing(self) -> None:
         path = self.root / "huge.pdf"
         path.write_bytes(b"%PDF-1.7\n123456789")
-        with self.assertRaisesRegex(PdfExtractionError, "size limit"):
+        with self.assertRaisesRegex(PdfExtractionError, "size limit") as raised:
             PdfExtractor(max_bytes=8).extract(path)
+        self.assertEqual(raised.exception.code, PdfFailureCode.TOO_LARGE)
 
     def test_rejects_pdf_over_configured_page_budget(self) -> None:
         path = self.root / "many-pages.pdf"
@@ -83,8 +85,9 @@ class PdfExtractorTests(unittest.TestCase):
         writer.add_blank_page(width=100, height=100)
         with path.open("wb") as output:
             writer.write(output)
-        with self.assertRaisesRegex(PdfExtractionError, "OCR module is required"):
+        with self.assertRaisesRegex(PdfExtractionError, "OCR module is required") as raised:
             PdfExtractor().extract(path)
+        self.assertEqual(raised.exception.code, PdfFailureCode.NEEDS_OCR)
 
 
 if __name__ == "__main__":

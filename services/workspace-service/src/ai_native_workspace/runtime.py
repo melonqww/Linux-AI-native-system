@@ -645,6 +645,8 @@ class WorkspaceRuntime:
     @staticmethod
     def _result_facts(result: OrchestrationResult) -> dict[str, object]:
         found = 0
+        total_matches = 0
+        total_is_exact = True
         copied = 0
         completed_steps = 0
         search_mode = ""
@@ -658,6 +660,12 @@ class WorkspaceRuntime:
                 completed_steps += 1
             if isinstance(step.output, SearchOutput):
                 found += step.output.result_count
+                total_matches += (
+                    step.output.result_count
+                    if step.output.total_matches is None
+                    else step.output.total_matches
+                )
+                total_is_exact = total_is_exact and step.output.total_is_exact
                 search_mode = step.output.mode
                 criteria = step.output.criteria
                 sample_paths.extend(item.path for item in step.output.results[:5])
@@ -671,6 +679,8 @@ class WorkspaceRuntime:
             "state": result.state.value,
             "completed_steps": completed_steps,
             "found_items": found,
+            "total_matches": total_matches,
+            "total_is_exact": total_is_exact,
             "copied_items": copied,
             "search_mode": search_mode,
             "criteria": criteria,
@@ -683,11 +693,19 @@ class WorkspaceRuntime:
     @staticmethod
     def _fallback_summary(facts: Mapping[str, object], locale: str) -> str:
         found = int(facts.get("found_items", 0))
+        total = int(facts.get("total_matches", found))
         copied = int(facts.get("copied_items", 0))
         if locale.startswith("ru"):
             parts = []
             if facts.get("search_mode"):
-                parts.append(f"Поиск завершён. Найдено файлов: {found}.")
+                if total > found:
+                    qualifier = "не менее " if not facts.get("total_is_exact", True) else ""
+                    parts.append(
+                        f"Поиск завершён. Показано файлов: {found}; "
+                        f"всего совпадений: {qualifier}{total}."
+                    )
+                else:
+                    parts.append(f"Поиск завершён. Найдено файлов: {found}.")
                 if not bool(facts.get("coverage_complete", False)):
                     parts.append(
                         "Индекс разрешённых дисков ещё формируется, поэтому результат неполный."
@@ -703,7 +721,13 @@ class WorkspaceRuntime:
             return " ".join(parts) or "Задача выполнена."
         parts = []
         if facts.get("search_mode"):
-            parts.append(f"Search completed. Files found: {found}.")
+            if total > found:
+                qualifier = "at least " if not facts.get("total_is_exact", True) else ""
+                parts.append(
+                    f"Search completed. Files shown: {found}; total matches: {qualifier}{total}."
+                )
+            else:
+                parts.append(f"Search completed. Files found: {found}.")
             if not bool(facts.get("coverage_complete", False)):
                 parts.append("The allowed-drive index is still being built, so this result is incomplete.")
         if copied:

@@ -17,6 +17,15 @@ SQLite FTS. PDF сначала безопасно извлекается мод�
 `DocumentQuery`. Из результатов можно сохранить immutable snapshot-коллекцию,
 которая затем передаётся в Materialize Service.
 
+File Search R1 добавляет стабильный page envelope с `total_matches`, признаком
+точности total и coverage выбранных томов. Совместимый `/v1/search` возвращает
+список, а `/v1/search-page` — результаты вместе с пагинацией и покрытием.
+Metadata-результат не исчезает из-за ошибки чтения: `content_state` различает
+`indexed`, `pending`, `unavailable`, `not_permitted` и `unsupported`, а
+`content_reason` содержит только ограниченный публичный код.
+
 Каталогизация диска и извлечение PDF не выполняются внутри интерактивного
 поискового запроса: это сохраняет низкую задержку интерфейса. Их должен запускать
 фоновый scheduler после подключения диска или изменения файлов.
+
+Полный контракт: [File Search R1](../../Architecture/api/file-search-r1.md).

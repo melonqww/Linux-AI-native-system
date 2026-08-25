@@ -1,3 +1,15 @@
-from .extractor import PdfExtractionError, PdfExtractionResult, PdfExtractor, PdfPage
+from .extractor import (
+    PdfExtractionError,
+    PdfExtractionResult,
+    PdfExtractor,
+    PdfFailureCode,
+    PdfPage,
+)
 
-__all__ = ["PdfExtractionError", "PdfExtractionResult", "PdfExtractor", "PdfPage"]
+__all__ = [
+    "PdfExtractionError",
+    "PdfExtractionResult",
+    "PdfExtractor",
+    "PdfFailureCode",
+    "PdfPage",
+]

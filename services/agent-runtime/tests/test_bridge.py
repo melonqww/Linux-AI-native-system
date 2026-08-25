@@ -18,6 +18,16 @@ class Result:
 
 
 @dataclass
+class SearchPage:
+    results: tuple[Result, ...]
+    offset: int
+    limit: int
+    total_matches: int
+    total_is_exact: bool
+    coverage: dict
+
+
+@dataclass
 class Compilation:
     state: str
     text: str
@@ -55,6 +65,16 @@ class App:
 
     def search(self, payload):
         return [Result(path=f"result:{payload['text']}")]
+
+    def search_page(self, payload):
+        return SearchPage(
+            (Result(path=f"result:{payload['text']}"),),
+            int(payload.get("offset", 0)),
+            int(payload.get("limit", 20)),
+            1,
+            True,
+            {"complete": True},
+        )
 
     def index_status(self):
         return {"scheduler": {"state": "idle", "queued": 0}}
@@ -154,6 +174,12 @@ class BridgeTests(unittest.TestCase):
                 headers={"Content-Type": "application/json"},
             )
             results = json.load(urllib.request.urlopen(request))
+            page_request = urllib.request.Request(
+                base + "/v1/search-page",
+                data=json.dumps({"text": "math", "offset": 0, "limit": 10}).encode(),
+                headers={"Content-Type": "application/json"},
+            )
+            page = json.load(urllib.request.urlopen(page_request))
             intent_request = urllib.request.Request(
                 base + "/v1/intent/compile",
                 data=json.dumps({"text": "find math PDFs"}).encode(),
@@ -250,6 +276,8 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(updates["available_count"], 2)
         self.assertEqual(tasks, {"tasks": [{"task_id": "task-1", "state": "completed"}]})
         self.assertEqual(results["results"][0]["path"], "result:math")
+        self.assertEqual(page["results"][0]["path"], "result:math")
+        self.assertEqual(page["total_matches"], 1)
         self.assertEqual(compilation, {"state": "ready", "text": "find math PDFs"})
         self.assertEqual(execution, {"state": "completed", "plan_id": "trusted-plan"})
         self.assertEqual(approval_error.exception.code, 403)

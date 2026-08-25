@@ -24,6 +24,12 @@
 Фильтр `languages` пока является advisory: поиск выполняется, а ответ содержит
 warning `language_filter_not_yet_applied`.
 
+R1 search output различает `result_count` (сколько результатов приложено к
+ответу) и `total_matches` (сколько совпадений известно Query Service). Поле
+`total_is_exact=false` означает bounded lower bound; дополнительно возвращаются
+warnings `more_results_available` и `total_matches_is_lower_bound`. Это не даёт
+backend сообщить «найдено 50», если на самом деле показана только первая страница.
+
 ## Ответ на R1 preview
 
 Результат `awaiting_approval` содержит `approval_request`: назначение, имена,

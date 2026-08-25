@@ -4,15 +4,19 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
+import sqlite3
 from pathlib import Path
 
 from .chunking import chunk_text
-from .contracts import IndexReport, SearchHit
+from .contracts import ContentIndexState, ContentIndexStatus, IndexReport, SearchHit
 from .file_policy import FilePolicy, read_allowed_text
 from .storage import IndexStorage
 
 
 class IndexerService:
+    _REASON = re.compile(r"^[a-z][a-z0-9_]{0,79}$")
+
     def __init__(self, database_path: Path, *, file_policy: FilePolicy | None = None) -> None:
         self.storage = IndexStorage(database_path)
         self.file_policy = file_policy or FilePolicy()
@@ -43,6 +47,14 @@ class IndexerService:
                     path = current_path / name
                     reason = self.file_policy.file_reason(path)
                     if reason:
+                        if reason in {
+                            "too_large",
+                            "unreadable",
+                            "unsupported_type",
+                            "binary",
+                            "invalid_utf8",
+                        }:
+                            self._record_reason(connection, path.resolve(strict=False), reason)
                         report.add_skipped(reason)
                         continue
 
@@ -63,6 +75,7 @@ class IndexerService:
 
                     text, reason = read_allowed_text(path, self.file_policy)
                     if reason:
+                        self._record_reason(connection, path, reason)
                         report.add_skipped(reason)
                         continue
                     assert text is not None
@@ -88,6 +101,13 @@ class IndexerService:
     def search(self, query: str, *, limit: int = 5) -> list[SearchHit]:
         if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 50:
             raise ValueError("limit must be an integer from 1 to 50")
+        with self.storage.connect() as connection:
+            return self.storage.search(connection, query, limit)
+
+    def search_candidates(self, query: str, *, limit: int = 10_001) -> list[SearchHit]:
+        """Bounded unique-path candidate set for the cross-module query service."""
+        if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 10_001:
+            raise ValueError("candidate limit must be an integer from 1 to 10001")
         with self.storage.connect() as connection:
             return self.storage.search(connection, query, limit)
 
@@ -122,7 +142,7 @@ class IndexerService:
         path = path.expanduser()
         reason = self.file_policy.file_reason(path)
         if reason:
-            self.remove_path(path)
+            self.record_unavailable(path, reason)
             return f"skipped:{reason}"
         path = path.resolve(strict=True)
         root = path.parent if root is None else root.expanduser().resolve(strict=True)
@@ -132,7 +152,7 @@ class IndexerService:
             raise ValueError("source is outside the declared root") from error
         text, reason = read_allowed_text(path, self.file_policy)
         if reason:
-            self.remove_path(path)
+            self.record_unavailable(path, reason)
             return f"skipped:{reason}"
         assert text is not None
         stat = path.stat()
@@ -159,6 +179,57 @@ class IndexerService:
         with self.storage.connect() as connection:
             return self.storage.remove_source(connection, path_text)
 
+    def record_unavailable(self, path: Path, reason: str) -> None:
+        """Replace stale indexed text with a bounded availability state."""
+        if not isinstance(reason, str) or self._REASON.fullmatch(reason) is None:
+            raise ValueError("content unavailability reason is invalid")
+        candidate = path.expanduser().resolve(strict=False)
+        try:
+            stat = candidate.stat()
+            size_bytes, mtime_ns = stat.st_size, stat.st_mtime_ns
+        except OSError:
+            size_bytes, mtime_ns = 0, 0
+        state = (
+            ContentIndexState.UNSUPPORTED
+            if reason in {"unsupported_type", "binary", "invalid_utf8"}
+            else ContentIndexState.UNAVAILABLE
+        )
+        with self.storage.connect() as connection:
+            self.storage.record_state(
+                connection,
+                path=str(candidate),
+                size_bytes=size_bytes,
+                mtime_ns=mtime_ns,
+                state=state,
+                reason=reason,
+            )
+
+    def content_statuses(self, paths: list[str]) -> dict[str, ContentIndexStatus]:
+        with self.storage.connect() as connection:
+            return self.storage.states_by_paths(connection, paths)
+
     def get_index_status(self) -> dict[str, int]:
         with self.storage.connect() as connection:
             return self.storage.status(connection)
+
+    def _record_reason(
+        self, connection: sqlite3.Connection, path: Path, reason: str
+    ) -> None:
+        try:
+            stat = path.stat()
+            size_bytes, mtime_ns = stat.st_size, stat.st_mtime_ns
+        except OSError:
+            size_bytes, mtime_ns = 0, 0
+        state = (
+            ContentIndexState.UNSUPPORTED
+            if reason in {"unsupported_type", "binary", "invalid_utf8"}
+            else ContentIndexState.UNAVAILABLE
+        )
+        self.storage.record_state(
+            connection,
+            path=str(path),
+            size_bytes=size_bytes,
+            mtime_ns=mtime_ns,
+            state=state,
+            reason=reason,
+        )

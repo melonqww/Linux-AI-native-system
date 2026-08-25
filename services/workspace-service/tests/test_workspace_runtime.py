@@ -135,9 +135,11 @@ class BlockingExecutor(Executor):
         return self.result
 
 
-def completed_result(*, count=3, task_id=None):
+def completed_result(*, count=3, total_matches=None, task_id=None):
     task_id = task_id or str(uuid4())
-    output = SearchOutput(str(uuid4()), count, ())
+    output = SearchOutput(
+        str(uuid4()), count, (), total_matches=total_matches
+    )
     return OrchestrationResult(
         task_id,
         str(uuid4()),
@@ -183,7 +185,7 @@ class WorkspaceRuntimeTests(unittest.TestCase):
             )
         )
         compiler = Compiler(SimpleNamespace(state=CompilationState.READY, plan=object()))
-        executor = Executor(completed_result(count=4))
+        executor = Executor(completed_result(count=4, total_matches=12))
         runtime = WorkspaceRuntime(
             self.store,
             model,
@@ -204,7 +206,10 @@ class WorkspaceRuntimeTests(unittest.TestCase):
         self.assertEqual(model.summary_calls, 0)
         messages = self.store.list_messages()
         self.assertTrue(any(item.content == "Хорошо, запускаю поиск." for item in messages))
-        self.assertEqual(messages[-1].content, "Поиск завершён. Найдено файлов: 4.")
+        self.assertEqual(
+            messages[-1].content,
+            "Поиск завершён. Показано файлов: 4; всего совпадений: 12.",
+        )
 
     def test_malformed_classifier_uses_chat_and_cannot_reach_hallucinated_tool(self):
         model = BrokenClassifierModel(

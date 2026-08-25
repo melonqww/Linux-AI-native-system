@@ -105,6 +105,7 @@ class FileQuery:
     roles: tuple[str, ...] = ()
     volume_ids: tuple[str, ...] = ()
     limit: int = 100
+    offset: int = 0
 
 
 @dataclass(frozen=True)

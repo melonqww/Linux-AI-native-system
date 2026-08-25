@@ -332,6 +332,8 @@ class FileCatalog:
     ) -> list[CatalogEntry]:
         if not 1 <= query.limit <= 1_000:
             raise ValueError("query limit must be from 1 to 1000")
+        if not isinstance(query.offset, int) or isinstance(query.offset, bool) or query.offset < 0:
+            raise ValueError("query offset must be a non-negative integer")
 
         clauses = ["v.is_available = 1", "v.permission != 'none'"]
         parameters: list[object] = []
@@ -352,18 +354,55 @@ class FileCatalog:
         if not allow_sensitive_metadata:
             clauses.append("e.sensitive = 0")
 
-        parameters.append(query.limit)
+        parameters.extend((query.limit, query.offset))
         sql = f"""
             SELECT e.*
             FROM catalog_entries AS e
             JOIN volumes AS v ON v.volume_id = e.volume_id
             WHERE {' AND '.join(clauses)}
             ORDER BY e.name COLLATE NOCASE, e.path
-            LIMIT ?
+            LIMIT ? OFFSET ?
         """
         with self.database.connect() as connection:
             rows = connection.execute(sql, parameters).fetchall()
         return [self._from_row(row) for row in rows]
+
+    def count(
+        self,
+        query: FileQuery,
+        *,
+        allow_sensitive_metadata: bool = False,
+    ) -> int:
+        """Count metadata matches without materializing paths or file contents."""
+        clauses = ["v.is_available = 1", "v.permission != 'none'"]
+        parameters: list[object] = []
+        for term in query.name_contains:
+            escaped = term.casefold().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            clauses.append("e.search_name LIKE ? ESCAPE '\\'")
+            parameters.append(f"%{escaped}%")
+        if query.extensions:
+            extensions = [
+                extension.casefold() if extension.startswith(".") else f".{extension.casefold()}"
+                for extension in query.extensions
+            ]
+            clauses.append(f"e.extension IN ({','.join('?' for _ in extensions)})")
+            parameters.extend(extensions)
+        if query.roles:
+            clauses.append(f"e.role IN ({','.join('?' for _ in query.roles)})")
+            parameters.extend(query.roles)
+        if query.volume_ids:
+            clauses.append(f"e.volume_id IN ({','.join('?' for _ in query.volume_ids)})")
+            parameters.extend(query.volume_ids)
+        if not allow_sensitive_metadata:
+            clauses.append("e.sensitive = 0")
+        with self.database.connect() as connection:
+            row = connection.execute(
+                f"""SELECT count(*) FROM catalog_entries AS e
+                    JOIN volumes AS v ON v.volume_id = e.volume_id
+                    WHERE {' AND '.join(clauses)}""",
+                parameters,
+            ).fetchone()
+        return int(row[0])
 
     def resolve_reference(
         self,
