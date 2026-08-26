@@ -218,6 +218,7 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [Решение о модульном capability-ядре](Architecture/decisions/ADR-003-modular-capability-core.md)
 - [Решение о единой системной рабочей области](Architecture/decisions/ADR-009-system-workspace-runtime.md)
 - [Решение о модульном Workspace Turn Pipeline v2](Architecture/decisions/ADR-014-modular-workspace-turn-pipeline.md)
+- [Решение о долговечном модуле установки приложений](Architecture/decisions/ADR-015-durable-software-manager.md)
 - [Решение о модульном жизненном цикле локальных моделей](Architecture/decisions/ADR-011-model-lifecycle-module.md)
 - [Решение об Intent Compiler](Architecture/decisions/ADR-004-model-neutral-intent-compiler.md)
 - [Решение об оркестрации серверных планов](Architecture/decisions/ADR-005-server-owned-execution-orchestration.md)
