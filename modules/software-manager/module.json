@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "module_id": "software.manager",
+  "display_name": "Software Manager",
+  "description": "Provides a durable Snap application catalog, installation task state and backup metadata.",
+  "module_version": "0.2.0",
+  "core_api": "1",
+  "capabilities": [
+    "software.catalog.read",
+    "software.tasks.read",
+    "software.backups.read",
+    "software.install.prepare",
+    "software.install.commit",
+    "software.remove.prepare",
+    "software.remove.commit",
+    "software.tasks.control"
+  ],
+  "dependencies": [],
+  "optional_dependencies": [],
+  "requested_permissions": ["system.read-software", "software.manage"],
+  "lifecycle": "background",
+  "resource_class": "light",
+  "default_enabled": true,
+  "entrypoint": {"kind": "python-service", "module": "ai_native_software.worker_api", "python_path": "src"}
+}

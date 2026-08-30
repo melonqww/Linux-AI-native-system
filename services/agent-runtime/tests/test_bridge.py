@@ -61,6 +61,14 @@ class App:
             "inference.lifecycle.read",
             "storage.volumes.read",
             "storage.volumes.enroll",
+            "software.catalog.read",
+            "software.tasks.read",
+            "software.backups.read",
+            "software.install.prepare",
+            "software.install.commit",
+            "software.remove.prepare",
+            "software.remove.commit",
+            "software.tasks.control",
         ]
 
     def search(self, payload):
@@ -138,6 +146,20 @@ class App:
 
     def storage_permission(self, payload):
         return payload
+
+    def software_snapshot(self, payload):
+        if payload:
+            raise ValueError("unexpected payload")
+        return {"schema_version": 1, "catalog": [], "tasks": [], "backups": []}
+
+    def software_prepare(self, payload, *, transport_context):
+        return {"schema_version": 1, "task": payload}
+
+    def software_respond(self, payload, *, transport_context):
+        return {"schema_version": 1, "task": payload}
+
+    def software_control(self, payload, *, transport_context):
+        return {"schema_version": 1, "task": payload}
 
 
 class BridgeTests(unittest.TestCase):
@@ -251,6 +273,20 @@ class BridgeTests(unittest.TestCase):
             )
             with self.assertRaises(urllib.error.HTTPError) as storage_error:
                 urllib.request.urlopen(storage_request)
+            software_request = urllib.request.Request(
+                base + "/v1/software/snapshot",
+                data=b"{}",
+                headers={"Content-Type": "application/json"},
+            )
+            with self.assertRaises(urllib.error.HTTPError) as software_error:
+                urllib.request.urlopen(software_request)
+            software_prepare_request = urllib.request.Request(
+                base + "/v1/software/prepare",
+                data=json.dumps({"application_id": "steam", "action": "install"}).encode(),
+                headers={"Content-Type": "application/json"},
+            )
+            with self.assertRaises(urllib.error.HTTPError) as software_prepare_error:
+                urllib.request.urlopen(software_prepare_request)
         finally:
             server.shutdown()
             server.server_close()
@@ -267,6 +303,14 @@ class BridgeTests(unittest.TestCase):
         self.assertNotIn("inference.lifecycle.read", capabilities["capabilities"])
         self.assertNotIn("storage.volumes.read", capabilities["capabilities"])
         self.assertNotIn("storage.volumes.enroll", capabilities["capabilities"])
+        self.assertNotIn("software.catalog.read", capabilities["capabilities"])
+        self.assertNotIn("software.tasks.read", capabilities["capabilities"])
+        self.assertNotIn("software.backups.read", capabilities["capabilities"])
+        self.assertNotIn("software.install.prepare", capabilities["capabilities"])
+        self.assertNotIn("software.install.commit", capabilities["capabilities"])
+        self.assertNotIn("software.remove.prepare", capabilities["capabilities"])
+        self.assertNotIn("software.remove.commit", capabilities["capabilities"])
+        self.assertNotIn("software.tasks.control", capabilities["capabilities"])
         self.assertEqual(status["scheduler"]["state"], "idle")
         self.assertEqual(system_status["schema_version"], 1)
         self.assertTrue(system_status["supported"])
@@ -284,6 +328,8 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(approval["error"]["code"], "secure_transport_required")
         self.assertEqual(cancel_error.exception.code, 403)
         self.assertEqual(storage_error.exception.code, 403)
+        self.assertEqual(software_error.exception.code, 403)
+        self.assertEqual(software_prepare_error.exception.code, 403)
         self.assertEqual(workspace_error.exception.code, 403)
         self.assertEqual(submit_error.exception.code, 403)
         self.assertEqual(models_error.exception.code, 403)

@@ -5,15 +5,16 @@ import json
 import re
 import socket
 from collections.abc import Callable
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 from urllib.parse import quote
 
-from .contracts import BackendProgress
+from .contracts import BackendProgress, SnapshotSummary
 
 
 _PACKAGE_NAME = re.compile(r"^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$")
 _CHANGE_ID = re.compile(r"^[0-9]{1,20}$")
+_DESKTOP_FILE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,254}\.desktop$")
 _MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 
 
@@ -50,15 +51,26 @@ class SnapdClient:
         self.timeout = timeout
         self._connection_factory = connection_factory
 
-    def start(self, action: str, package_name: str, *, channel: str = "stable") -> str:
+    def start(
+        self,
+        action: str,
+        package_name: str,
+        *,
+        channel: str = "stable",
+        purge: bool = False,
+    ) -> str:
         if action not in {"install", "remove"}:
             raise ValueError("unsupported_snap_action")
         self._validate_package(package_name)
         body: dict[str, object] = {"action": action}
         if action == "install":
+            if purge:
+                raise ValueError("purge_only_supported_for_remove")
             if channel != "stable":
                 raise ValueError("only_stable_channel_supported")
             body["channel"] = channel
+        elif purge:
+            body["purge"] = True
         payload = self._request(
             "POST",
             f"/v2/snaps/{quote(package_name, safe='')}",
@@ -69,6 +81,88 @@ class SnapdClient:
         if not isinstance(change_id, str) or _CHANGE_ID.fullmatch(change_id) is None:
             raise SnapdError("invalid_change_id")
         return change_id
+
+    def list_snapshots(self, package_name: str | None = None) -> tuple[SnapshotSummary, ...]:
+        if package_name is not None:
+            self._validate_package(package_name)
+        payload = self._request("GET", "/v2/snapshots")
+        result = payload.get("result")
+        if not isinstance(result, list):
+            raise SnapdError("invalid_snapshot_response")
+        snapshots: list[SnapshotSummary] = []
+        for snapshot_set in result[:256]:
+            if not isinstance(snapshot_set, dict):
+                continue
+            set_id = snapshot_set.get("id")
+            items = snapshot_set.get("snapshots")
+            if not isinstance(set_id, int) or isinstance(set_id, bool) or set_id < 1:
+                continue
+            if not isinstance(items, list):
+                continue
+            automatic = snapshot_set.get("auto") is True
+            for item in items[:256]:
+                if not isinstance(item, dict):
+                    continue
+                snap = item.get("snap")
+                created_at = item.get("time") or snapshot_set.get("time")
+                size = item.get("size")
+                if not isinstance(snap, str) or _PACKAGE_NAME.fullmatch(snap) is None:
+                    continue
+                if package_name is not None and snap != package_name:
+                    continue
+                if not isinstance(created_at, str) or not created_at:
+                    continue
+                snapshots.append(
+                    SnapshotSummary(
+                        set_id=set_id,
+                        package_name=snap,
+                        created_at=created_at,
+                        size_bytes=(
+                            size
+                            if isinstance(size, int) and not isinstance(size, bool) and size >= 0
+                            else None
+                        ),
+                        automatic=automatic or item.get("auto") is True,
+                    )
+                )
+        return tuple(snapshots)
+
+    def restore_snapshot(self, set_id: int, package_name: str) -> str:
+        if not isinstance(set_id, int) or isinstance(set_id, bool) or set_id < 1:
+            raise ValueError("invalid_snapshot_set_id")
+        self._validate_package(package_name)
+        payload = self._request(
+            "POST",
+            "/v2/snapshots",
+            {"action": "restore", "set": set_id, "snaps": [package_name]},
+            allow_interaction=True,
+        )
+        change_id = payload.get("change")
+        if not isinstance(change_id, str) or _CHANGE_ID.fullmatch(change_id) is None:
+            raise SnapdError("invalid_change_id")
+        return change_id
+
+    def desktop_ids(self, package_name: str) -> tuple[str, ...]:
+        self._validate_package(package_name)
+        payload = self._request(
+            "GET", f"/v2/apps?names={quote(package_name, safe='')}"
+        )
+        result = payload.get("result")
+        if not isinstance(result, list):
+            raise SnapdError("invalid_apps_response")
+        desktop_ids: list[str] = []
+        for item in result[:256]:
+            if not isinstance(item, dict) or item.get("snap") != package_name:
+                continue
+            desktop_file = item.get("desktop-file")
+            if not isinstance(desktop_file, str):
+                continue
+            desktop_id = PurePosixPath(desktop_file).name
+            if _DESKTOP_FILE.fullmatch(desktop_id) is None:
+                continue
+            if desktop_id not in desktop_ids:
+                desktop_ids.append(desktop_id)
+        return tuple(desktop_ids)
 
     def progress(self, change_id: str) -> BackendProgress:
         self._validate_change(change_id)
@@ -132,12 +226,24 @@ class SnapdClient:
         elif measurable and totals > 0:
             percent = max(0, min(100, round(completed * 100 / totals)))
 
+        downloaded = None
+        download_total = None
+        if any(word in active_kind for word in ("download", "fetch")):
+            downloaded = active_done
+            download_total = active_total
+
         if ready and status == "done":
             return BackendProgress("completed", "completed", 100)
         if status == "error":
-            return BackendProgress("failed", "failed", percent, "snap_change_failed")
+            return BackendProgress(
+                "failed", "failed", percent, "snap_change_failed", downloaded, download_total
+            )
         if status in {"abort", "hold", "undone"}:
-            return BackendProgress("interrupted", "interrupted", percent)
+            return BackendProgress(
+                "interrupted", "interrupted", percent,
+                downloaded_bytes=downloaded,
+                total_bytes=download_total,
+            )
 
         phase = "working"
         if any(word in active_kind for word in ("download", "fetch")):
@@ -146,7 +252,13 @@ class SnapdClient:
             phase = "removing"
         elif any(word in active_kind for word in ("install", "setup", "mount", "connect")):
             phase = "installing"
-        return BackendProgress("running", phase, percent)
+        return BackendProgress(
+            "running",
+            phase,
+            percent,
+            downloaded_bytes=downloaded,
+            total_bytes=download_total,
+        )
 
     def _request(
         self,

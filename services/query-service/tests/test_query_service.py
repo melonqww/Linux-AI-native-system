@@ -17,6 +17,7 @@ for source in (
     sys.path.insert(0, str(source))
 
 from ai_native_intents import CompilationResult, CompilationState, TaskContext
+from ai_native_permissions import TransportContext
 from ai_native_query import (
     ContentAvailability,
     DocumentQuery,
@@ -565,6 +566,90 @@ class QueryServiceTests(unittest.TestCase):
             [model["effective_state"] for model in ready["models"]],
             ["ready", "declined"],
         )
+
+    def test_runtime_exposes_software_snapshot_only_when_configured(self) -> None:
+        snapshot = {
+            "schema_version": 1,
+            "provider": "snap",
+            "catalog": [{"application_id": "steam"}],
+            "tasks": [],
+            "backups": [],
+        }
+        application = QueryRuntimeApplication(
+            self.service, software_snapshot=lambda: snapshot
+        )
+
+        self.assertEqual(application.software_snapshot({}), snapshot)
+        self.assertIn("software.catalog.read", application.capabilities())
+        self.assertIn("software.tasks.read", application.capabilities())
+        self.assertIn("software.backups.read", application.capabilities())
+        with self.assertRaises(ValueError):
+            application.software_snapshot({"refresh": True})
+        with self.assertRaises(RuntimeError):
+            QueryRuntimeApplication(self.service).software_snapshot({})
+
+    def test_runtime_exposes_validated_software_mutations(self) -> None:
+        calls: list[tuple[str, dict[str, object]]] = []
+
+        def callback(name):
+            def invoke(payload):
+                calls.append((name, payload))
+                return {"schema_version": 1, "task": payload}
+            return invoke
+
+        application = QueryRuntimeApplication(
+            self.service,
+            software_prepare=callback("prepare"),
+            software_respond=callback("respond"),
+            software_control=callback("control"),
+        )
+        transport = TransportContext.internal()
+        prepared = application.software_prepare(
+            {
+                "action": "install",
+                "application_id": "steam",
+                "locale": "system",
+                "install_location": "default",
+                "selected_options": [],
+            },
+            transport_context=transport,
+        )
+        responded = application.software_respond(
+            {
+                "task_id": "task-1",
+                "confirmed": True,
+                "action": "install",
+                "final_confirmation": False,
+            },
+            transport_context=transport,
+        )
+        controlled = application.software_control(
+            {"task_id": "task-1", "action": "pause"},
+            transport_context=transport,
+        )
+
+        self.assertEqual(prepared["task"]["application_id"], "steam")
+        self.assertTrue(responded["task"]["confirmed"])
+        self.assertEqual(controlled["task"]["action"], "pause")
+        self.assertEqual([name for name, _payload in calls], ["prepare", "respond", "control"])
+        self.assertIn("software.install.prepare", application.capabilities())
+        self.assertIn("software.install.commit", application.capabilities())
+        self.assertIn("software.tasks.control", application.capabilities())
+        with self.assertRaises(ValueError):
+            application.software_respond(
+                {
+                    "task_id": "task-1",
+                    "confirmed": "yes",
+                    "action": "install",
+                    "final_confirmation": False,
+                },
+                transport_context=transport,
+            )
+        with self.assertRaises(ValueError):
+            application.software_control(
+                {"task_id": "task-1", "action": "delete"},
+                transport_context=transport,
+            )
 
     def test_runtime_exposes_validated_workspace_projection(self) -> None:
         workspace = FakeWorkspace()

@@ -4,10 +4,18 @@ from __future__ import annotations
 
 from dataclasses import asdict, is_dataclass
 from typing import Callable, Protocol
+from uuid import uuid4
 
 from .contracts import DocumentQuery, QueryResult, SearchMode, SearchPage
 from .service import QueryService
-from ai_native_permissions import TransportContext
+from ai_native_permissions import (
+    CapabilityInvocation,
+    ExecutionContext,
+    ExecutionPhase,
+    PermissionGateway,
+    TransportContext,
+    builtin_policies,
+)
 from ai_native_storage import PermissionLevel
 
 
@@ -82,6 +90,10 @@ class QueryRuntimeApplication:
         model_decision: Callable[[dict[str, object]], dict[str, object]] | None = None,
         ollama_provider_status: Callable[[], dict[str, object]] | None = None,
         ollama_provider_decision: Callable[[dict[str, object]], dict[str, object]] | None = None,
+        software_snapshot: Callable[[], dict[str, object]] | None = None,
+        software_prepare: Callable[[dict[str, object]], dict[str, object]] | None = None,
+        software_respond: Callable[[dict[str, object]], dict[str, object]] | None = None,
+        software_control: Callable[[dict[str, object]], dict[str, object]] | None = None,
     ) -> None:
         self.query_service = query_service
         self.scheduler_status = scheduler_status
@@ -98,6 +110,10 @@ class QueryRuntimeApplication:
         self.model_decision_callback = model_decision
         self.ollama_provider_status_callback = ollama_provider_status
         self.ollama_provider_decision_callback = ollama_provider_decision
+        self.software_snapshot_callback = software_snapshot
+        self.software_prepare_callback = software_prepare
+        self.software_respond_callback = software_respond
+        self.software_control_callback = software_control
         if intent_pipeline is not None and task_context is None:
             raise ValueError("task_context is required with intent_pipeline")
         if (plan_store is None) != (plan_executor is None):
@@ -146,7 +162,163 @@ class QueryRuntimeApplication:
             or self.ollama_provider_status_callback is not None
         ):
             capabilities.append("inference.lifecycle.read")
+        if self.software_snapshot_callback is not None:
+            capabilities.extend(
+                ("software.catalog.read", "software.tasks.read", "software.backups.read")
+            )
+        if self.software_prepare_callback is not None:
+            capabilities.extend(("software.install.prepare", "software.remove.prepare"))
+        if self.software_respond_callback is not None:
+            capabilities.extend(("software.install.commit", "software.remove.commit"))
+        if self.software_control_callback is not None:
+            capabilities.append("software.tasks.control")
         return capabilities
+
+    def software_snapshot(self, payload: dict[str, object]) -> dict[str, object]:
+        if self.software_snapshot_callback is None:
+            raise RuntimeError("software_manager_unavailable")
+        if payload:
+            raise ValueError("software snapshot does not accept fields")
+        result = self.software_snapshot_callback()
+        if not isinstance(result, dict):
+            raise RuntimeError("software_manager_invalid_response")
+        return result
+
+    def software_prepare(
+        self, payload: dict[str, object], *, transport_context: TransportContext
+    ) -> dict[str, object]:
+        if self.software_prepare_callback is None:
+            raise RuntimeError("software_manager_unavailable")
+        self._require_secure_transport(transport_context)
+        action = payload.get("action")
+        if action == "install":
+            expected = {
+                "action", "application_id", "locale", "install_location", "selected_options"
+            }
+            capability = "software.install.prepare"
+            selected_options = payload.get("selected_options")
+            if not isinstance(selected_options, list) or any(
+                not isinstance(item, str) for item in selected_options
+            ):
+                raise ValueError("selected_options must be a string list")
+            arguments = {
+                "application_id": payload.get("application_id"),
+                "locale": payload.get("locale"),
+                "install_location": payload.get("install_location"),
+                "selected_options": tuple(selected_options),
+            }
+        elif action == "remove":
+            expected = {"action", "application_id", "create_backup"}
+            capability = "software.remove.prepare"
+            arguments = {
+                "application_id": payload.get("application_id"),
+                "create_backup": payload.get("create_backup"),
+            }
+        else:
+            raise ValueError("unknown software action")
+        if set(payload) != expected:
+            raise ValueError("software prepare fields are invalid")
+        self._authorize_software(
+            capability,
+            ExecutionPhase.PREPARE,
+            arguments,
+            transport_context,
+            approval_granted=False,
+        )
+        result = self.software_prepare_callback(payload)
+        if not isinstance(result, dict):
+            raise RuntimeError("software_manager_invalid_response")
+        return result
+
+    def software_respond(
+        self, payload: dict[str, object], *, transport_context: TransportContext
+    ) -> dict[str, object]:
+        if self.software_respond_callback is None:
+            raise RuntimeError("software_manager_unavailable")
+        self._require_secure_transport(transport_context)
+        if set(payload) != {"task_id", "confirmed", "action", "final_confirmation"}:
+            raise ValueError("software confirmation fields are required")
+        if not isinstance(payload.get("confirmed"), bool):
+            raise ValueError("confirmed must be boolean")
+        action = payload.get("action")
+        final_confirmation = payload.get("final_confirmation")
+        if action not in {"install", "remove"} or not isinstance(final_confirmation, bool):
+            raise ValueError("software confirmation is invalid")
+        if payload["confirmed"]:
+            capability = f"software.{action}.commit"
+            arguments = {"task_id": payload.get("task_id")}
+            if action == "remove":
+                arguments["final_confirmation"] = final_confirmation
+            self._authorize_software(
+                capability,
+                ExecutionPhase.COMMIT,
+                arguments,
+                transport_context,
+                approval_granted=True,
+            )
+        result = self.software_respond_callback(payload)
+        if not isinstance(result, dict):
+            raise RuntimeError("software_manager_invalid_response")
+        return result
+
+    def software_control(
+        self, payload: dict[str, object], *, transport_context: TransportContext
+    ) -> dict[str, object]:
+        if self.software_control_callback is None:
+            raise RuntimeError("software_manager_unavailable")
+        self._require_secure_transport(transport_context)
+        if set(payload) != {"task_id", "action"}:
+            raise ValueError("task_id and action are required")
+        if payload.get("action") not in {"pause", "resume", "cancel"}:
+            raise ValueError("unknown software control action")
+        self._authorize_software(
+            "software.tasks.control",
+            ExecutionPhase.EXECUTE,
+            {"task_id": payload.get("task_id"), "action": payload.get("action")},
+            transport_context,
+            approval_granted=False,
+        )
+        result = self.software_control_callback(payload)
+        if not isinstance(result, dict):
+            raise RuntimeError("software_manager_invalid_response")
+        return result
+
+    @staticmethod
+    def _require_secure_transport(transport_context: TransportContext) -> None:
+        if transport_context.transport.value not in {"internal", "unix_peer"}:
+            raise PermissionError("secure_transport_required")
+
+    @staticmethod
+    def _authorize_software(
+        capability: str,
+        phase: ExecutionPhase,
+        arguments: dict[str, object],
+        transport_context: TransportContext,
+        *,
+        approval_granted: bool,
+    ) -> None:
+        gateway = PermissionGateway(
+            builtin_policies(), capability_source=lambda: (capability,)
+        )
+        policy = gateway.policy(capability)
+        invocation = CapabilityInvocation(
+            request_id=str(uuid4()),
+            plan_id=str(uuid4()),
+            step_id="step_software",
+            capability_id=capability,
+            phase=phase,
+            arguments=arguments,
+            declared_risk=policy.risk.value,
+            declared_approval_required=policy.plan_approval_required,
+            context=ExecutionContext(
+                transport_context,
+                frozenset({"software.manage"}),
+                approval_granted,
+            ),
+        )
+        decision = gateway.evaluate(invocation)
+        if not decision.allowed:
+            raise PermissionError(decision.reason_code)
 
     def storage_volumes(self, payload: dict[str, object]) -> dict[str, object]:
         if set(payload) - {"refresh", "available_only"}:

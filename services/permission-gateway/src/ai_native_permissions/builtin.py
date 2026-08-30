@@ -67,4 +67,83 @@ def builtin_policies() -> tuple[CapabilityPolicy, ...]:
             max_concurrency=1,
             timeout_seconds=300,
         ),
+        CapabilityPolicy(
+            capability_id="software.install.prepare",
+            risk=RiskLevel.REVERSIBLE_WRITE,
+            plan_approval_required=True,
+            allowed_arguments=frozenset(
+                {"application_id", "locale", "install_location", "selected_options"}
+            ),
+            required_arguments=frozenset({"application_id"}),
+            phases=(
+                PhasePolicy(
+                    ExecutionPhase.PREPARE,
+                    SECURE_WRITE_TRANSPORTS,
+                    frozenset({"software.manage"}),
+                ),
+            ),
+            timeout_seconds=15,
+        ),
+        CapabilityPolicy(
+            capability_id="software.install.commit",
+            risk=RiskLevel.PRIVILEGED,
+            plan_approval_required=True,
+            allowed_arguments=frozenset({"task_id"}),
+            required_arguments=frozenset({"task_id"}),
+            phases=(
+                PhasePolicy(
+                    ExecutionPhase.COMMIT,
+                    SECURE_WRITE_TRANSPORTS,
+                    frozenset({"software.manage"}),
+                    approval_required=True,
+                ),
+            ),
+            timeout_seconds=60,
+        ),
+        CapabilityPolicy(
+            capability_id="software.remove.prepare",
+            risk=RiskLevel.REVERSIBLE_WRITE,
+            plan_approval_required=True,
+            allowed_arguments=frozenset({"application_id", "create_backup"}),
+            required_arguments=frozenset({"application_id", "create_backup"}),
+            phases=(
+                PhasePolicy(
+                    ExecutionPhase.PREPARE,
+                    SECURE_WRITE_TRANSPORTS,
+                    frozenset({"software.manage"}),
+                ),
+            ),
+            timeout_seconds=15,
+        ),
+        CapabilityPolicy(
+            capability_id="software.remove.commit",
+            risk=RiskLevel.PRIVILEGED,
+            plan_approval_required=True,
+            allowed_arguments=frozenset({"task_id", "final_confirmation"}),
+            required_arguments=frozenset({"task_id", "final_confirmation"}),
+            phases=(
+                PhasePolicy(
+                    ExecutionPhase.COMMIT,
+                    SECURE_WRITE_TRANSPORTS,
+                    frozenset({"software.manage"}),
+                    approval_required=True,
+                ),
+            ),
+            timeout_seconds=60,
+        ),
+        CapabilityPolicy(
+            capability_id="software.tasks.control",
+            risk=RiskLevel.REVERSIBLE_WRITE,
+            plan_approval_required=False,
+            allowed_arguments=frozenset({"task_id", "action"}),
+            required_arguments=frozenset({"task_id", "action"}),
+            phases=(
+                PhasePolicy(
+                    ExecutionPhase.EXECUTE,
+                    SECURE_WRITE_TRANSPORTS,
+                    frozenset({"software.manage"}),
+                ),
+            ),
+            timeout_seconds=60,
+        ),
     )

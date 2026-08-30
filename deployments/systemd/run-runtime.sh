@@ -47,6 +47,7 @@ source_paths=(
     "services/index-scheduler/src"
     "modules/documents-pdf/src"
     "modules/system-monitor/src"
+    "modules/software-manager/src"
 )
 runtime_pythonpath=""
 for relative_path in "${source_paths[@]}"; do

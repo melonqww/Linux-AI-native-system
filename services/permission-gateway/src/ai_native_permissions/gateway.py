@@ -176,7 +176,9 @@ class PermissionGateway:
                     for item in value
                 ):
                     return False
-            elif value is not None and (isinstance(value, bool) or not isinstance(value, (int, float))):
+            elif isinstance(value, bool):
+                continue
+            elif value is not None and not isinstance(value, (int, float)):
                 return False
         return True
 

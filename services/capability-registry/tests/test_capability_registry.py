@@ -110,7 +110,7 @@ class CapabilityRegistryTests(RegistryTestCase):
     def test_registers_complete_first_party_module_set(self) -> None:
         report = self.registry.sync([PROJECT_ROOT / "services", PROJECT_ROOT / "modules"])
 
-        self.assertEqual(report.scanned, 11)
+        self.assertEqual(report.scanned, 12)
         self.assertEqual(report.issues, ())
         self.assertEqual(
             [module.manifest.module_id for module in self.registry.list_modules()],
@@ -122,6 +122,7 @@ class CapabilityRegistryTests(RegistryTestCase):
                 "documents.query",
                 "model.ollama",
                 "provider.ollama",
+                "software.manager",
                 "storage.catalog",
                 "storage.watch",
                 "system.monitor",
@@ -138,6 +139,14 @@ class CapabilityRegistryTests(RegistryTestCase):
         self.assertIn("model.catalog.respond", self.registry.available_capabilities())
         self.assertIn("provider.ollama.status", self.registry.available_capabilities())
         self.assertIn("provider.ollama.respond", self.registry.available_capabilities())
+        self.assertIn("software.catalog.read", self.registry.available_capabilities())
+        self.assertIn("software.tasks.read", self.registry.available_capabilities())
+        self.assertIn("software.backups.read", self.registry.available_capabilities())
+        self.assertIn("software.install.prepare", self.registry.available_capabilities())
+        self.assertIn("software.install.commit", self.registry.available_capabilities())
+        self.assertIn("software.remove.prepare", self.registry.available_capabilities())
+        self.assertIn("software.remove.commit", self.registry.available_capabilities())
+        self.assertIn("software.tasks.control", self.registry.available_capabilities())
         self.assertIn("documents.query.search", self.registry.available_capabilities())
 
     def test_enabled_modules_publish_declarative_intent_routes(self) -> None:

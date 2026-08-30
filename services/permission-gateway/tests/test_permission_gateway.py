@@ -132,6 +132,40 @@ class PermissionGatewayTests(unittest.TestCase):
             },
         )
 
+    def test_software_commit_requires_unix_transport_approval_and_scope(self):
+        gateway = PermissionGateway(
+            builtin_policies(),
+            capability_source=lambda: {"software.install.commit"},
+        )
+        base = invocation(
+            capability="software.install.commit",
+            phase=ExecutionPhase.COMMIT,
+            step_id="step_install",
+            arguments={"task_id": "trusted-task"},
+            declared_risk="R3",
+            declared_approval_required=True,
+            context=ExecutionContext(
+                TransportContext(TransportKind.UNIX_PEER, "uid:1000", 20, 1000, 1000),
+                frozenset({"software.manage"}),
+                False,
+            ),
+        )
+
+        self.assertEqual(gateway.evaluate(base).reason_code, "approval_required")
+        approved = replace(
+            base,
+            context=replace(base.context, approval_granted=True),
+        )
+        self.assertTrue(gateway.evaluate(approved).allowed)
+        http = replace(
+            approved,
+            context=replace(
+                approved.context,
+                transport=TransportContext(TransportKind.LOOPBACK_HTTP, "http"),
+            ),
+        )
+        self.assertEqual(gateway.evaluate(http).reason_code, "transport_not_allowed")
+
 
 class ExecutionRegistryTests(unittest.TestCase):
     def setUp(self):

@@ -95,6 +95,23 @@ class ModuleManagerTests(unittest.TestCase):
         self.assertIn(result["state"], {"updates_available", "up_to_date", "unavailable"})
         self.assertLessEqual(len(json.dumps(result).encode("utf-8")), 64 * 1024)
 
+    def test_reads_software_snapshot_from_isolated_background_worker(self) -> None:
+        provider = self.manager.start_for_capability("software.catalog.read")
+        result = self.manager.invoke(provider, "snapshot", timeout=15)
+
+        self.assertEqual(provider, "software.manager")
+        self.assertEqual(result["schema_version"], 1)
+        self.assertEqual(result["provider"], "snap")
+        self.assertEqual(len(result["catalog"]), 20)
+        self.assertEqual(result["tasks"], [])
+        self.assertEqual(result["backups"], [])
+        self.assertIn("software.manager", self.manager.running_modules())
+        self.assertNotIn("software.manager", self.manager.reap_idle(now=float("inf")))
+        self.assertFalse(self.manager.health_details(provider)["recovery_active"])
+        activated = self.manager.invoke(provider, "activate", timeout=15)
+        self.assertTrue(activated["recovery_active"])
+        self.assertTrue(self.manager.health_details(provider)["recovery_active"])
+
     def test_invokes_ollama_provider_status_without_starting_download(self) -> None:
         provider = self.manager.start_for_capability("provider.ollama.status")
         result = self.manager.invoke(provider, "status", timeout=15)

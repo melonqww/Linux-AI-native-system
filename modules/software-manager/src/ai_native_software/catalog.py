@@ -1,6 +1,20 @@
 from __future__ import annotations
 
-from .contracts import Application
+from .contracts import Application, ApplicationOption
+
+
+COMMON_INSTALL_OPTIONS = (
+    ApplicationOption(
+        "pin_to_gnome",
+        "Закрепить в панели GNOME",
+        "После установки добавить приложение в избранное GNOME.",
+    ),
+    ApplicationOption(
+        "launch_after_install",
+        "Запустить после установки",
+        "Запуск считается успешным только после подтверждения состояния GNOME.",
+    ),
+)
 
 
 def _application(
@@ -16,6 +30,7 @@ def _application(
         category=category,
         description=description,
         store_url=f"https://snapcraft.io/{package_name}",
+        install_options=COMMON_INSTALL_OPTIONS,
     )
 
 

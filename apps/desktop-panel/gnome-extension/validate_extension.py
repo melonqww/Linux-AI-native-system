@@ -72,7 +72,7 @@ def main() -> int:
         ("this._theme.load_stylesheet(this._stylesheet)", "stylesheet is loaded into GNOME theme"),
         ("this._theme.unload_stylesheet(this._stylesheet)", "stylesheet is unloaded on disable"),
         ("this._runtime = runtime", "panel keeps the runtime client"),
-        ("new ChatView(this._runtime)", "chat receives the runtime client"),
+        ("this._workspace = new ChatView(", "chat receives the runtime client"),
         ("Main.layoutManager.addChrome", "panel is attached to GNOME Shell"),
         ("this._scroll.set_child(this._messages)", "scroll view uses the GNOME 46 child API"),
         ("new SidebarView(this._runtime)", "sidebar receives the runtime client"),

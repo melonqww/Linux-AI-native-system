@@ -482,6 +482,218 @@
     padding: 14px 14px 18px 14px;
 }
 
+.ai-software-shortcut,
+.ai-software-back,
+.ai-software-refresh {
+    background-color: #454545;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 18px;
+    color: #eeeeee;
+    min-height: 36px;
+    min-width: 36px;
+    padding: 0;
+}
+
+.ai-software-shortcut StIcon,
+.ai-software-back StIcon,
+.ai-software-refresh StIcon {
+    icon-size: 16px;
+}
+
+.ai-software-shortcut:hover,
+.ai-software-shortcut:focus,
+.ai-software-back:hover,
+.ai-software-back:focus,
+.ai-software-refresh:hover,
+.ai-software-refresh:focus {
+    background-color: #565656;
+}
+
+.ai-software-toolbar {
+    min-height: 38px;
+    spacing: 9px;
+}
+
+.ai-software-title {
+    color: #f1f1f1;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.ai-software-sections {
+    spacing: 5px;
+}
+
+.ai-software-section {
+    background-color: transparent;
+    border-radius: 9px;
+    color: #bdbdbd;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 7px 8px;
+}
+
+.ai-software-section:hover,
+.ai-software-section:focus,
+.ai-software-section.active {
+    background-color: #4a4a4a;
+    color: #ffffff;
+}
+
+.ai-software-list {
+    spacing: 7px;
+}
+
+.ai-software-app {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+    min-height: 66px;
+    padding: 8px 2px;
+    spacing: 9px;
+}
+
+.ai-software-app-icon {
+    color: #b7d8ae;
+    icon-size: 28px;
+    min-width: 34px;
+}
+
+.ai-software-app-name {
+    color: #eeeeee;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.ai-software-app-description {
+    color: #aaaaaa;
+    font-size: 10px;
+    line-height: 1.25;
+}
+
+.ai-software-link {
+    background-color: transparent;
+    color: #a9cce8;
+    font-size: 9px;
+    padding: 3px 0 0 0;
+}
+
+.ai-software-link:hover,
+.ai-software-link:focus {
+    color: #d0e8fa;
+}
+
+.ai-software-install {
+    border-radius: 8px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 6px 8px;
+}
+
+.ai-software-install-pending {
+    background-color: #454545;
+    color: #c8c8c8;
+}
+
+.ai-software-app-actions {
+    max-width: 116px;
+    min-width: 88px;
+    spacing: 5px;
+}
+
+.ai-software-task-state {
+    color: #c8d9b8;
+    font-size: 9px;
+    text-align: center;
+}
+
+.ai-software-install {
+    background-color: #eeeeec;
+    color: #292929;
+}
+
+.ai-software-install:hover,
+.ai-software-install:focus {
+    background-color: #ffffff;
+}
+
+.ai-software-install.secondary {
+    background-color: #454545;
+    color: #eeeeee;
+}
+
+.ai-software-install.danger,
+.ai-software-confirm.danger {
+    background-color: #b94f4f;
+    color: #ffffff;
+}
+
+.ai-software-confirmation {
+    background-color: #2d2d2d;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 15px;
+    padding: 15px;
+    spacing: 9px;
+}
+
+.ai-software-confirmation-title {
+    color: #f1f1f1;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.ai-software-confirmation-detail {
+    color: #bdbdbd;
+    font-size: 11px;
+}
+
+.ai-software-confirmation-actions {
+    margin-top: 5px;
+    spacing: 8px;
+}
+
+.ai-software-confirm,
+.ai-software-confirm-cancel,
+.ai-software-option {
+    border-radius: 9px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 8px 10px;
+}
+
+.ai-software-confirm {
+    background-color: #eeeeec;
+    color: #292929;
+}
+
+.ai-software-confirm-cancel,
+.ai-software-option {
+    background-color: #454545;
+    color: #eeeeee;
+}
+
+.ai-software-option.checked {
+    background-color: rgba(183, 216, 174, 0.18);
+    border: 1px solid rgba(183, 216, 174, 0.38);
+    color: #dcebd7;
+}
+
+.ai-software-empty,
+.ai-software-empty-action {
+    color: #bdbdbd;
+    font-size: 11px;
+    line-height: 1.35;
+    padding: 18px 8px;
+}
+
+.ai-software-empty-action {
+    background-color: transparent;
+    text-align: left;
+}
+
+.ai-software-empty-action:hover,
+.ai-software-empty-action:focus {
+    color: #ffffff;
+}
+
 .ai-settings-heading {
     padding: 1px 2px 3px 2px;
     spacing: 4px;

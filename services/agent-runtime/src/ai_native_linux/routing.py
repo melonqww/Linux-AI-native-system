@@ -48,6 +48,16 @@ class RuntimeApplication(Protocol):
     def inference_lifecycle(self, payload: dict[str, object]) -> dict[str, object]: ...
     def storage_volumes(self, payload: dict[str, object]) -> dict[str, object]: ...
     def storage_permission(self, payload: dict[str, object]) -> dict[str, object]: ...
+    def software_snapshot(self, payload: dict[str, object]) -> dict[str, object]: ...
+    def software_prepare(
+        self, payload: dict[str, object], *, transport_context: TransportContext
+    ) -> dict[str, object]: ...
+    def software_respond(
+        self, payload: dict[str, object], *, transport_context: TransportContext
+    ) -> dict[str, object]: ...
+    def software_control(
+        self, payload: dict[str, object], *, transport_context: TransportContext
+    ) -> dict[str, object]: ...
 
 
 @dataclass(frozen=True)
@@ -97,6 +107,8 @@ class RuntimeRouter:
             return self.error(409, "task_action_not_available", False, correlation_id)
         except RuntimeError:
             return self.error(503, "service_unavailable", True, correlation_id)
+        except PermissionError:
+            return self.error(403, "permission_denied", False, correlation_id)
         except (ValueError, KeyError):
             return self.error(400, "invalid_request", False, correlation_id)
         except Exception:
@@ -123,6 +135,14 @@ class RuntimeRouter:
                     "inference.lifecycle.read",
                     "storage.volumes.read",
                     "storage.volumes.enroll",
+                    "software.catalog.read",
+                    "software.tasks.read",
+                    "software.backups.read",
+                    "software.install.prepare",
+                    "software.install.commit",
+                    "software.remove.prepare",
+                    "software.remove.commit",
+                    "software.tasks.control",
                 }
                 capabilities = [item for item in capabilities if item not in restricted]
             return RuntimeResponse(200, {"capabilities": capabilities})
@@ -187,6 +207,25 @@ class RuntimeRouter:
             if not self.allow_r1:
                 return self.error(403, "secure_transport_required", False, request_id)
             return RuntimeResponse(200, self.application.inference_lifecycle(payload))
+        if path == "/v1/software/snapshot":
+            if not self.allow_r1:
+                return self.error(403, "secure_transport_required", False, request_id)
+            return RuntimeResponse(200, self.application.software_snapshot(payload))
+        if path in {
+            "/v1/software/prepare",
+            "/v1/software/respond",
+            "/v1/software/control",
+        }:
+            if not self.allow_r1:
+                return self.error(403, "secure_transport_required", False, request_id)
+            operation = {
+                "/v1/software/prepare": self.application.software_prepare,
+                "/v1/software/respond": self.application.software_respond,
+                "/v1/software/control": self.application.software_control,
+            }[path]
+            return RuntimeResponse(
+                200, operation(payload, transport_context=transport_context)
+            )
         if path in {"/v1/workspace/submit", "/v1/workspace/approval/respond"}:
             if not self.allow_r1:
                 return self.error(403, "secure_transport_required", False, request_id)

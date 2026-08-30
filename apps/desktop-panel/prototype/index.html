@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AI-native Linux — desktop panel prototype</title>
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=software-concept-4" />
   </head>
   <body>
     <main class="desktop" aria-label="Прототип AI-панели">
@@ -76,13 +76,84 @@
             </form>
           </section>
 
-          <section class="settings-view view" id="settings-view" aria-label="Настройки"></section>
+          <section class="settings-view view" id="settings-view" aria-label="Настройки">
+            <div class="settings-topline">
+              <button class="library-quick-button" id="library-quick-button" type="button" aria-label="Открыть библиотеку приложений" title="Библиотека">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5h11.5A2.5 2.5 0 0 1 19 8v10.5H7.5A2.5 2.5 0 0 1 5 16V5.5Z"/><path d="M5 16a2.5 2.5 0 0 1 2.5-2.5H19M9 5.5v8"/></svg>
+              </button>
+              <div class="settings-heading">
+                <span class="eyebrow">AI-NATIVE LINUX</span>
+                <h1>Настройки</h1>
+                <p>Модели, приложения и поведение локальной системы.</p>
+              </div>
+            </div>
+            <section class="settings-card">
+              <strong>Приложения</strong>
+              <button class="setting-row" id="open-catalog-button" type="button">
+                <span><b>Каталог приложений</b><small>Установка, удаление и управление загрузками</small></span>
+                <span class="setting-value">Открыть ›</span>
+              </button>
+            </section>
+            <section class="settings-card">
+              <strong>Модели и провайдер</strong>
+              <div class="setting-row static-row"><span><b>Qwen 3.5 2B</b><small>Базовая модель рабочей области</small></span><span class="setting-value">Загружена</span></div>
+              <div class="setting-row static-row"><span><b>Ollama</b><small>Локальный провайдер моделей</small></span><span class="setting-value">Подключён</span></div>
+            </section>
+            <section class="settings-card">
+              <strong>Поведение системы</strong>
+              <div class="setting-row static-row"><span><b>Уведомления</b><small>События и завершение задач</small></span><span class="setting-value">Включены</span></div>
+            </section>
+          </section>
+
+          <section class="software-view view" id="software-view" aria-label="Приложения">
+            <header class="software-header">
+              <button class="round-back-button" id="software-back-button" type="button" aria-label="Вернуться в настройки">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg>
+              </button>
+              <div><span class="eyebrow">SOFTWARE.MANAGER</span><h1>Приложения</h1></div>
+            </header>
+            <nav class="software-main-tabs" aria-label="Разделы приложений">
+              <button class="software-tab active" type="button" data-software-tab="catalog">Каталог</button>
+              <button class="software-tab" type="button" data-software-tab="library">Библиотека</button>
+            </nav>
+
+            <section class="software-section active" id="software-catalog-section" aria-label="Каталог приложений">
+              <div class="network-banner hidden" id="network-banner" role="status">
+                <span class="network-banner-dot" aria-hidden="true"></span>
+                <span><strong>Нет подключения</strong><small>Загрузки продолжатся автоматически после появления сети.</small></span>
+              </div>
+              <label class="catalog-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="5.5"/><path d="m15 15 4 4"/></svg><input id="catalog-search" type="search" placeholder="Найти приложение" aria-label="Найти приложение" /></label>
+              <div class="software-list" id="catalog-list"></div>
+            </section>
+
+            <section class="software-section" id="software-library-section" aria-label="Библиотека приложений">
+              <nav class="library-tabs" aria-label="Разделы библиотеки">
+                <button class="library-tab active" type="button" data-library-tab="installed">Установленные</button>
+                <button class="library-tab" type="button" data-library-tab="backups">Бэкапы <span id="backup-count"></span></button>
+              </nav>
+              <div class="software-list" id="installed-list"></div>
+              <div class="software-list hidden" id="backup-list"></div>
+            </section>
+
+            <div class="software-dialog-backdrop hidden" id="software-dialog-backdrop">
+              <section class="software-dialog" role="dialog" aria-modal="true" aria-labelledby="software-dialog-title">
+                <div class="dialog-app-icon" id="dialog-app-icon"></div>
+                <h2 id="software-dialog-title"></h2>
+                <p id="software-dialog-message"></p>
+                <div class="software-dialog-options hidden" id="software-dialog-options"></div>
+                <div class="software-dialog-actions">
+                  <button class="secondary-action" id="dialog-cancel" type="button">Отмена</button>
+                  <button class="danger-action" id="dialog-confirm" type="button">Удалить</button>
+                </div>
+              </section>
+            </div>
+          </section>
 
           <section class="sidebar-view view" id="sidebar-view" aria-label="Боковая панель"></section>
         </section>
 
       </section>
     </main>
-    <script src="app.js"></script>
+    <script src="app.js?v=software-concept-4"></script>
   </body>
 </html>

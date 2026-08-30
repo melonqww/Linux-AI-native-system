@@ -78,6 +78,30 @@ export class RuntimeClient {
         return this.request('POST', '/v1/inference/status');
     }
 
+    softwareSnapshot() {
+        return this.request('POST', '/v1/software/snapshot');
+    }
+
+    softwarePrepare(payload) {
+        return this.request('POST', '/v1/software/prepare', payload);
+    }
+
+    softwareRespond(taskId, confirmed, action, finalConfirmation = false) {
+        return this.request('POST', '/v1/software/respond', {
+            task_id: taskId,
+            confirmed,
+            action,
+            final_confirmation: finalConfirmation,
+        });
+    }
+
+    softwareControl(taskId, action) {
+        return this.request('POST', '/v1/software/control', {
+            task_id: taskId,
+            action,
+        });
+    }
+
     tasks() {
         return this.request('GET', '/v1/tasks');
     }

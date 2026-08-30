@@ -149,6 +149,29 @@ def main() -> int:
                     "state": "unavailable",
                     "reason": "model_manager_unavailable",
                 }
+            software_snapshot = None
+            software_module_id = None
+            try:
+                software_module_id = manager.start_for_capability(
+                    "software.catalog.read"
+                )
+                software_snapshot = lambda: manager.invoke(
+                    software_module_id, "snapshot", timeout=15
+                )
+                software_prepare = lambda payload: manager.invoke(
+                    software_module_id, "prepare", payload, timeout=15
+                )
+                software_respond = lambda payload: manager.invoke(
+                    software_module_id, "respond", payload, timeout=60
+                )
+                software_control = lambda payload: manager.invoke(
+                    software_module_id, "control", payload, timeout=60
+                )
+            except ModuleProcessError:
+                print("Software manager: unavailable")
+                software_prepare = None
+                software_respond = None
+                software_control = None
             if not args.no_intent_compiler:
                 from ai_native_intents import (
                     IntentCompiler,
@@ -256,6 +279,10 @@ def main() -> int:
                 model_decision=model_decision,
                 ollama_provider_status=ollama_provider_status,
                 ollama_provider_decision=ollama_provider_decision,
+                software_snapshot=software_snapshot,
+                software_prepare=software_prepare,
+                software_respond=software_respond,
+                software_control=software_control,
             )
             transport = (
                 "unix" if args.transport == "auto" and sys.platform.startswith("linux")
@@ -272,6 +299,8 @@ def main() -> int:
 
                 server = create_server(application, host=args.host, port=args.port)
                 print(f"Panel runtime (development fallback): http://{args.host}:{server.server_port}")
+            if software_module_id is not None:
+                manager.invoke(software_module_id, "activate", timeout=15)
             # Recovery is deliberately delayed until this process has acquired
             # the unique runtime transport. A losing second instance must not
             # mark the active daemon's tasks as interrupted.

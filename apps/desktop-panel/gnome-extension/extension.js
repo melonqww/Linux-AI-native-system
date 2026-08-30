@@ -1130,13 +1130,18 @@ class ChatView extends St.BoxLayout {
 
 const SettingsView = GObject.registerClass(
 class SettingsView extends St.Widget {
-    _init() {
+    _init(runtime) {
         super._init({
             style_class: 'ai-settings-view',
             layout_manager: new Clutter.BinLayout(),
             x_expand: true,
             y_expand: true,
         });
+        this._runtime = runtime;
+        this._softwareGeneration = 0;
+        this._softwarePollSourceId = 0;
+        this._softwarePollInFlight = false;
+        this.connect('destroy', () => this._stopSoftwarePolling());
         this._scroll = new St.ScrollView({
             style_class: 'ai-settings-scroll',
             x_expand: true,
@@ -1150,10 +1155,24 @@ class SettingsView extends St.Widget {
         });
         this._scroll.set_child(this._content);
         this.add_child(this._scroll);
-        this._build();
+        this._buildSettings();
     }
 
-    _build() {
+    _clearContent() {
+        this._content.get_children().forEach(child => child.destroy());
+    }
+
+    _buildSettings() {
+        this._stopSoftwarePolling();
+        this._softwareGeneration += 1;
+        this._clearContent();
+        const softwareShortcut = new St.Button({
+            style_class: 'ai-software-shortcut',
+            child: new St.Icon({icon_name: 'system-software-install-symbolic'}),
+            can_focus: true,
+        });
+        softwareShortcut.connect('clicked', () => this._openSoftware('library'));
+        this._content.add_child(softwareShortcut);
         this._content.add_child(this._sectionHeading(
             'Настройки',
             'Управление моделями, плагинами и поведением AI-native Linux.',
@@ -1182,6 +1201,520 @@ class SettingsView extends St.Widget {
         security.add_child(this._row('Подтверждение опасных действий', 'Запрашивать подтверждение перед изменениями', 'Включено', 'connected'));
         security.add_child(this._row('Разрешённые директории', 'Источники для поиска файлов', 'Домашняя папка', 'neutral'));
         this._content.add_child(security);
+    }
+
+    _openSoftware(initialSection = 'catalog') {
+        this._stopSoftwarePolling();
+        const generation = ++this._softwareGeneration;
+        this._lastSoftwareSnapshotSignature = null;
+        this._clearContent();
+        this._content.opacity = 0;
+
+        const toolbar = new St.BoxLayout({style_class: 'ai-software-toolbar', x_expand: true});
+        const back = new St.Button({
+            style_class: 'ai-software-back',
+            child: new St.Icon({icon_name: 'go-previous-symbolic'}),
+            can_focus: true,
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        back.connect('clicked', () => this._buildSettings());
+        toolbar.add_child(back);
+        toolbar.add_child(new St.Label({
+            text: 'Приложения',
+            style_class: 'ai-software-title',
+            x_expand: true,
+            y_align: Clutter.ActorAlign.CENTER,
+        }));
+        const refresh = new St.Button({
+            style_class: 'ai-software-refresh',
+            child: new St.Icon({icon_name: 'view-refresh-symbolic'}),
+            can_focus: true,
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        refresh.connect('clicked', () => this._openSoftware(initialSection));
+        toolbar.add_child(refresh);
+        this._content.add_child(toolbar);
+
+        const sections = new St.BoxLayout({style_class: 'ai-software-sections', x_expand: true});
+        for (const [section, label] of [
+            ['catalog', 'Каталог'],
+            ['library', 'Библиотека'],
+            ['backups', 'Бэкапы'],
+        ]) {
+            const button = new St.Button({
+                label,
+                style_class: `ai-software-section${section === initialSection ? ' active' : ''}`,
+                x_expand: true,
+            });
+            button.connect('clicked', () => this._openSoftware(section));
+            sections.add_child(button);
+        }
+        this._content.add_child(sections);
+        const body = new St.BoxLayout({
+            vertical: true,
+            style_class: 'ai-software-list',
+            x_expand: true,
+        });
+        body.add_child(new St.Label({
+            text: 'Подключение к модулю приложений…',
+            style_class: 'ai-software-empty',
+        }));
+        this._content.add_child(body);
+        this._content.ease({
+            opacity: 255,
+            duration: 160,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        });
+        this._loadSoftwareSnapshot(body, initialSection, generation);
+        this._softwarePollSourceId = GLib.timeout_add_seconds(
+            GLib.PRIORITY_DEFAULT,
+            2,
+            () => {
+                if (generation !== this._softwareGeneration) {
+                    this._softwarePollSourceId = 0;
+                    return GLib.SOURCE_REMOVE;
+                }
+                if (!this._softwarePollInFlight) {
+                    this._softwarePollInFlight = true;
+                    this._loadSoftwareSnapshot(body, initialSection, generation)
+                        .finally(() => this._softwarePollInFlight = false);
+                }
+                return GLib.SOURCE_CONTINUE;
+            },
+        );
+    }
+
+    _stopSoftwarePolling() {
+        if (this._softwarePollSourceId) {
+            GLib.Source.remove(this._softwarePollSourceId);
+            this._softwarePollSourceId = 0;
+        }
+        this._softwarePollInFlight = false;
+    }
+
+    async _loadSoftwareSnapshot(body, section, generation) {
+        try {
+            const snapshot = await this._runtime.softwareSnapshot();
+            if (generation !== this._softwareGeneration)
+                return;
+            const signature = JSON.stringify(snapshot);
+            if (signature === this._lastSoftwareSnapshotSignature)
+                return;
+            this._lastSoftwareSnapshotSignature = signature;
+            this._renderSoftwareSnapshot(body, section, snapshot);
+        } catch (error) {
+            if (generation !== this._softwareGeneration)
+                return;
+            body.get_children().forEach(child => child.destroy());
+            const message = error instanceof RuntimeRequestError
+                ? 'Модуль приложений сейчас недоступен. Остальная панель продолжает работать.'
+                : 'Не удалось прочитать каталог приложений.';
+            body.add_child(new St.Label({text: message, style_class: 'ai-software-empty'}));
+        }
+    }
+
+    _renderSoftwareSnapshot(body, section, snapshot) {
+        body.get_children().forEach(child => child.destroy());
+        const catalog = Array.isArray(snapshot?.catalog) ? snapshot.catalog : [];
+        this._lastSoftwareCatalog = catalog;
+        const tasks = Array.isArray(snapshot?.tasks) ? snapshot.tasks : [];
+        const backups = Array.isArray(snapshot?.backups) ? snapshot.backups : [];
+        const latestTasks = new Map();
+        for (const task of tasks) {
+            if (task && typeof task.application_id === 'string' &&
+                !latestTasks.has(task.application_id))
+                latestTasks.set(task.application_id, task);
+        }
+        if (section === 'backups') {
+            if (backups.length === 0) {
+                body.add_child(new St.Label({
+                    text: 'Сохранённых бэкапов пока нет.',
+                    style_class: 'ai-software-empty',
+                }));
+                return;
+            }
+            backups.forEach(backup => body.add_child(this._backupRow(backup)));
+            return;
+        }
+        const applications = section === 'library'
+            ? catalog.filter(application => {
+                const task = latestTasks.get(application.application_id);
+                return task?.action === 'install' && task?.state === 'completed';
+            })
+            : catalog;
+        if (applications.length === 0) {
+            const empty = new St.Button({
+                label: section === 'library'
+                    ? 'В библиотеке пока пусто. Загляните в каталог — там есть что вам нужно.'
+                    : 'Каталог пока недоступен.',
+                style_class: 'ai-software-empty-action',
+            });
+            if (section === 'library')
+                empty.connect('clicked', () => this._openSoftware('catalog'));
+            body.add_child(empty);
+            return;
+        }
+        applications.forEach(application => {
+            body.add_child(this._applicationRow(
+                application,
+                latestTasks.get(application.application_id),
+                section,
+            ));
+        });
+    }
+
+    _applicationRow(application, task, section) {
+        const row = new St.BoxLayout({style_class: 'ai-software-app', x_expand: true});
+        row.add_child(new St.Icon({
+            icon_name: 'application-x-executable-symbolic',
+            style_class: 'ai-software-app-icon',
+            y_align: Clutter.ActorAlign.CENTER,
+        }));
+        const info = new St.BoxLayout({vertical: true, x_expand: true});
+        info.add_child(new St.Label({text: application.display_name, style_class: 'ai-software-app-name'}));
+        const description = new St.Label({
+            text: application.description,
+            style_class: 'ai-software-app-description',
+            x_expand: true,
+        });
+        description.clutter_text.line_wrap = true;
+        info.add_child(description);
+        const link = new St.Button({
+            label: 'Snapcraft ↗  ·  официальный сайт',
+            style_class: 'ai-software-link',
+            x_align: Clutter.ActorAlign.START,
+        });
+        link.connect('clicked', () => {
+            try {
+                Gio.AppInfo.launch_default_for_uri(application.store_url, null);
+            } catch (error) {
+                logError(error, 'AI-native Linux: не удалось открыть официальный сайт');
+            }
+        });
+        info.add_child(link);
+        row.add_child(info);
+        row.add_child(this._softwareActions(application, task, section));
+        return row;
+    }
+
+    _softwareActions(application, task, section) {
+        const actions = new St.BoxLayout({
+            vertical: true,
+            style_class: 'ai-software-app-actions',
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        const add = (label, callback, extraClass = '') => {
+            const button = new St.Button({
+                label,
+                style_class: `ai-software-install ${extraClass}`.trim(),
+                can_focus: true,
+            });
+            button.connect('clicked', callback);
+            actions.add_child(button);
+        };
+        if (!task || ['failed', 'canceled'].includes(task.state) ||
+            (task.action === 'remove' && task.state === 'completed')) {
+            add('Установить', () => this._prepareInstall(application));
+            return actions;
+        }
+        actions.add_child(new St.Label({
+            text: this._softwareTransferLabel(task, section),
+            style_class: 'ai-software-task-state',
+        }));
+        if (task.requires_confirmation) {
+            add('Подтвердить', () => this._resumeSoftwareConfirmation(application, task));
+            add('Отменить', () => this._controlSoftware(task, 'cancel'), 'secondary');
+            return actions;
+        }
+        if (task.action === 'install' && task.state === 'completed') {
+            add('Удалить', () => this._prepareRemove(application), 'danger');
+            return actions;
+        }
+        if (task.can_pause)
+            add('Пауза', () => this._controlSoftware(task, 'pause'));
+        if (task.can_resume)
+            add('Продолжить', () => this._controlSoftware(task, 'resume'));
+        if (task.can_cancel)
+            add('Отменить', () => this._controlSoftware(task, 'cancel'), 'secondary');
+        return actions;
+    }
+
+    _softwareTransferLabel(task, section) {
+        const parts = [this._softwareTaskLabel(task, section)];
+        if (Number.isInteger(task.download_speed_bps) && task.download_speed_bps > 0)
+            parts.push(`${this._formatSoftwareRate(task.download_speed_bps)}/с`);
+        if (Number.isInteger(task.eta_seconds) && task.eta_seconds >= 0)
+            parts.push(`≈ ${this._formatSoftwareEta(task.eta_seconds)}`);
+        return parts.join(' · ');
+    }
+
+    _formatSoftwareRate(bytes) {
+        if (bytes >= 1024 * 1024)
+            return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`;
+        if (bytes >= 1024)
+            return `${Math.round(bytes / 1024)} КБ`;
+        return `${bytes} Б`;
+    }
+
+    _formatSoftwareEta(seconds) {
+        if (seconds < 60)
+            return `${seconds} сек.`;
+        const minutes = Math.ceil(seconds / 60);
+        if (minutes < 60)
+            return `${minutes} мин.`;
+        const hours = Math.floor(minutes / 60);
+        return `${hours} ч. ${minutes % 60} мин.`;
+    }
+
+    async _prepareInstall(application) {
+        try {
+            const result = await this._runtime.softwarePrepare({
+                action: 'install',
+                application_id: application.application_id,
+                locale: 'system',
+                install_location: 'default',
+                selected_options: [],
+            });
+            this._showInstallConfirmation(application, result.task);
+        } catch (error) {
+            this._showSoftwareError('Не удалось подготовить установку.');
+        }
+    }
+
+    _showInstallConfirmation(application, task) {
+        this._showSoftwareConfirmation({
+            title: `Установить ${application.display_name}?`,
+            details: [
+                'Источник: Snapcraft',
+                `Канал: ${application.channel ?? 'stable'}`,
+                'Язык: системный',
+                'Расположение: стандартное для Snap',
+            ],
+            confirmLabel: 'Установить',
+            onCancel: () => this._respondSoftware(task, false, 'catalog'),
+            onConfirm: () => this._respondSoftware(task, true, 'catalog'),
+        });
+    }
+
+    _prepareRemove(application) {
+        let createBackup = true;
+        const backupToggle = new St.Button({
+            label: '✓  Сохранить бэкап данных приложения',
+            style_class: 'ai-software-option checked',
+            toggle_mode: true,
+            checked: true,
+            can_focus: true,
+        });
+        backupToggle.connect('notify::checked', () => {
+            createBackup = backupToggle.checked;
+            backupToggle.label = createBackup
+                ? '✓  Сохранить бэкап данных приложения'
+                : 'Не сохранять бэкап данных приложения';
+            backupToggle.set_style_class_name(
+                `ai-software-option${createBackup ? ' checked' : ''}`,
+            );
+        });
+        this._showSoftwareConfirmation({
+            title: `Удалить ${application.display_name}?`,
+            details: ['Приложение будет удалено через snapd.'],
+            extra: backupToggle,
+            confirmLabel: 'Удалить',
+            destructive: true,
+            onCancel: () => this._openSoftware('library'),
+            onConfirm: async () => {
+                try {
+                    const result = await this._runtime.softwarePrepare({
+                        action: 'remove',
+                        application_id: application.application_id,
+                        create_backup: createBackup,
+                    });
+                    const staged = await this._runtime.softwareRespond(
+                        result.task.task_id,
+                        true,
+                        result.task.action,
+                        result.task.requires_final_confirmation,
+                    );
+                    this._showFinalRemovalConfirmation(application, staged.task);
+                } catch (_error) {
+                    this._showSoftwareError('Не удалось подготовить удаление.');
+                }
+            },
+        });
+    }
+
+    _showFinalRemovalConfirmation(application, task) {
+        const backup = task.removal_preferences?.create_backup === true
+            ? 'Бэкап будет сохранён.'
+            : 'Бэкап не будет создан.';
+        this._showSoftwareConfirmation({
+            title: `Вы точно хотите удалить ${application.display_name}?`,
+            details: [backup, 'После подтверждения начнётся системная операция.'],
+            confirmLabel: 'Да, удалить',
+            destructive: true,
+            onCancel: () => this._respondSoftware(task, false, 'library'),
+            onConfirm: () => this._respondSoftware(task, true, 'library'),
+        });
+    }
+
+    _resumeSoftwareConfirmation(application, task) {
+        if (task.action === 'remove' && task.requires_final_confirmation)
+            this._showFinalRemovalConfirmation(application, task);
+        else if (task.action === 'remove') {
+            const backup = task.removal_preferences?.create_backup === true
+                ? 'Бэкап данных будет сохранён.'
+                : 'Бэкап данных создавать не будем.';
+            this._showSoftwareConfirmation({
+                title: `Удалить ${application.display_name}?`,
+                details: [backup],
+                confirmLabel: 'Удалить',
+                destructive: true,
+                onCancel: () => this._respondSoftware(task, false, 'library'),
+                onConfirm: () => this._respondSoftware(task, true, 'library'),
+            });
+        }
+        else
+            this._showInstallConfirmation(application, task);
+    }
+
+    _showSoftwareConfirmation({
+        title,
+        details,
+        confirmLabel,
+        onCancel,
+        onConfirm,
+        extra = null,
+        destructive = false,
+    }) {
+        this._stopSoftwarePolling();
+        this._softwareGeneration += 1;
+        this._clearContent();
+        const card = new St.BoxLayout({
+            vertical: true,
+            style_class: 'ai-software-confirmation',
+            x_expand: true,
+        });
+        card.add_child(new St.Label({text: title, style_class: 'ai-software-confirmation-title'}));
+        for (const detail of details)
+            card.add_child(new St.Label({text: detail, style_class: 'ai-software-confirmation-detail'}));
+        if (extra)
+            card.add_child(extra);
+        const buttons = new St.BoxLayout({style_class: 'ai-software-confirmation-actions'});
+        const cancel = new St.Button({label: 'Отмена', style_class: 'ai-software-confirm-cancel'});
+        const confirm = new St.Button({
+            label: confirmLabel,
+            style_class: `ai-software-confirm${destructive ? ' danger' : ''}`,
+        });
+        cancel.connect('clicked', onCancel);
+        confirm.connect('clicked', async () => {
+            cancel.reactive = false;
+            confirm.reactive = false;
+            await onConfirm();
+        });
+        buttons.add_child(cancel);
+        buttons.add_child(new St.Widget({x_expand: true}));
+        buttons.add_child(confirm);
+        card.add_child(buttons);
+        this._content.add_child(card);
+        card.opacity = 0;
+        card.set_scale(0.97, 0.97);
+        card.ease({
+            opacity: 255,
+            scale_x: 1,
+            scale_y: 1,
+            duration: 170,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        });
+    }
+
+    async _respondSoftware(task, confirmed, section) {
+        try {
+            const result = await this._runtime.softwareRespond(
+                task.task_id,
+                confirmed,
+                task.action,
+                task.requires_final_confirmation,
+            );
+            if (result.task?.requires_final_confirmation) {
+                const application = this._softwareApplicationForTask(task);
+                if (application)
+                    this._showFinalRemovalConfirmation(application, result.task);
+                else
+                    this._openSoftware(section);
+                return;
+            }
+            this._openSoftware(section);
+        } catch (_error) {
+            this._showSoftwareError('Не удалось выполнить подтверждённое действие.');
+        }
+    }
+
+    async _controlSoftware(task, action) {
+        try {
+            await this._runtime.softwareControl(task.task_id, action);
+            this._openSoftware('library');
+        } catch (_error) {
+            this._showSoftwareError('Действие сейчас недоступно для этой задачи.');
+        }
+    }
+
+    _softwareApplicationForTask(task) {
+        return this._lastSoftwareCatalog?.find(
+            application => application.application_id === task.application_id,
+        ) ?? null;
+    }
+
+    _showSoftwareError(message) {
+        this._stopSoftwarePolling();
+        this._softwareGeneration += 1;
+        this._clearContent();
+        const card = new St.BoxLayout({vertical: true, style_class: 'ai-software-confirmation'});
+        card.add_child(new St.Label({text: 'Ошибка приложений', style_class: 'ai-software-confirmation-title'}));
+        card.add_child(new St.Label({text: message, style_class: 'ai-software-confirmation-detail'}));
+        const back = new St.Button({label: 'Вернуться в библиотеку', style_class: 'ai-software-confirm'});
+        back.connect('clicked', () => this._openSoftware('library'));
+        card.add_child(back);
+        this._content.add_child(card);
+    }
+
+    _softwareTaskLabel(task, section) {
+        if (!task)
+            return section === 'library' ? 'Установлено' : 'Установить';
+        if (Number.isInteger(task.progress_percent) &&
+            !['completed', 'failed', 'canceled'].includes(task.state))
+            return `${task.progress_percent}%`;
+        const labels = {
+            paused: 'На паузе',
+            waiting_for_network: 'Нет сети',
+            retry_wait: 'Ожидание сети',
+            completed: task.action === 'remove' ? 'Удалено' : 'Установлено',
+            failed: 'Ошибка',
+            canceled: 'Отменено',
+        };
+        return labels[task.state] ?? 'В очереди';
+    }
+
+    _backupRow(backup) {
+        const row = new St.BoxLayout({style_class: 'ai-software-app', x_expand: true});
+        row.add_child(new St.Icon({
+            icon_name: 'document-save-symbolic',
+            style_class: 'ai-software-app-icon',
+            y_align: Clutter.ActorAlign.CENTER,
+        }));
+        const info = new St.BoxLayout({vertical: true, x_expand: true});
+        info.add_child(new St.Label({text: backup.display_name, style_class: 'ai-software-app-name'}));
+        const days = Number.isInteger(backup.remaining_days)
+            ? `До удаления: ${backup.remaining_days} дн.`
+            : 'Срок хранения не определён';
+        info.add_child(new St.Label({text: days, style_class: 'ai-software-app-description'}));
+        row.add_child(info);
+        row.add_child(new St.Button({
+            label: 'Восстановить',
+            style_class: 'ai-software-install ai-software-install-pending',
+            reactive: false,
+            can_focus: false,
+            y_align: Clutter.ActorAlign.CENTER,
+        }));
+        return row;
     }
 
     _sectionHeading(title, subtitle) {
@@ -1957,7 +2490,7 @@ class Panel extends St.Widget {
         this._workspace.set_size(PANEL_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
         this._workspace.hide();
         this._views.add_child(this._workspace);
-        this._settings = new SettingsView();
+        this._settings = new SettingsView(this._runtime);
         this._settings.set_position(0, 0);
         this._settings.set_size(PANEL_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
         this._settings.hide();
