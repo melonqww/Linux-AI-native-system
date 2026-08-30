@@ -33,6 +33,28 @@ const TAB_HEIGHT = 43;
 // name here in sync with that backend default; model switching is not exposed
 // until the runtime supports selecting a different model per run.
 const WORKSPACE_MODEL_LABEL = 'Qwen 3.5 2B';
+const SOFTWARE_ICON_ASSETS = Object.freeze({
+    steam: ['steam.svg', 'steam'],
+    discord: ['discord.svg', 'discord'],
+    spotify: ['spotify.svg', 'spotify'],
+    'telegram-desktop': ['telegram.svg', 'telegram'],
+    vlc: ['vlc.svg', 'vlc'],
+    code: ['visualstudiocode.png', 'code'],
+    chromium: ['chromium.svg', 'chromium'],
+    firefox: ['firefox.svg', 'firefox'],
+    'obs-studio': ['obsstudio.svg', 'obs'],
+    blender: ['blender.svg', 'blender'],
+    inkscape: ['inkscape.svg', 'inkscape'],
+    gimp: ['gimp.svg', 'gimp'],
+    slack: ['slack.svg', 'slack'],
+    'zoom-client': ['zoom.svg', 'zoom'],
+    postman: ['postman.svg', 'postman'],
+    'pycharm-community': ['pycharm.svg', 'pycharm'],
+    'intellij-idea-community': ['intellijidea.svg', 'intellij'],
+    libreoffice: ['libreoffice.svg', 'libreoffice'],
+    thunderbird: ['thunderbird.svg', 'thunderbird'],
+    bitwarden: ['bitwarden.svg', 'bitwarden'],
+});
 const TabButton = GObject.registerClass(
 class TabButton extends St.Button {
     _init(label, icon) {
@@ -1130,14 +1152,16 @@ class ChatView extends St.BoxLayout {
 
 const SettingsView = GObject.registerClass(
 class SettingsView extends St.Widget {
-    _init(runtime) {
+    _init(runtime, extensionDir) {
         super._init({
             style_class: 'ai-settings-view',
             layout_manager: new Clutter.BinLayout(),
             x_expand: true,
             y_expand: true,
+            clip_to_allocation: true,
         });
         this._runtime = runtime;
+        this._extensionDir = extensionDir;
         this._softwareGeneration = 0;
         this._softwarePollSourceId = 0;
         this._softwarePollInFlight = false;
@@ -1146,12 +1170,32 @@ class SettingsView extends St.Widget {
             style_class: 'ai-settings-scroll',
             x_expand: true,
             y_expand: true,
+            clip_to_allocation: true,
         });
         this._scroll.set_policy(St.PolicyType.NEVER, St.PolicyType.AUTOMATIC);
+        this._lastSettingsScrollValue = 0;
+        this._scroll.get_vadjustment().connect('notify::value', adjustment => {
+            if (!this._settingsShortcut)
+                return;
+            const value = Number(adjustment.value ?? 0);
+            const delta = value - this._lastSettingsScrollValue;
+            this._lastSettingsScrollValue = value;
+            if (Math.abs(delta) < 2)
+                return;
+            const visible = delta < 0 || value <= 2;
+            this._settingsShortcut.reactive = visible;
+            this._settingsShortcut.ease({
+                opacity: visible ? 255 : 0,
+                translation_y: visible ? 0 : -8,
+                duration: 150,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            });
+        });
         this._content = new St.BoxLayout({
             vertical: true,
             style_class: 'ai-settings-content',
             x_expand: true,
+            clip_to_allocation: true,
         });
         this._scroll.set_child(this._content);
         this.add_child(this._scroll);
@@ -1159,29 +1203,46 @@ class SettingsView extends St.Widget {
     }
 
     _clearContent() {
+        this._settingsShortcut = null;
         this._content.get_children().forEach(child => child.destroy());
+        this._scroll.get_vadjustment().value = 0;
+        this._lastSettingsScrollValue = 0;
     }
 
     _buildSettings() {
         this._stopSoftwarePolling();
         this._softwareGeneration += 1;
         this._clearContent();
+        const header = new St.BoxLayout({style_class: 'ai-settings-hero', x_expand: true});
         const softwareShortcut = new St.Button({
             style_class: 'ai-software-shortcut',
             child: new St.Icon({icon_name: 'system-software-install-symbolic'}),
             can_focus: true,
+            y_align: Clutter.ActorAlign.CENTER,
         });
         softwareShortcut.connect('clicked', () => this._openSoftware('library'));
-        this._content.add_child(softwareShortcut);
-        this._content.add_child(this._sectionHeading(
+        this._settingsShortcut = softwareShortcut;
+        this._lastSettingsScrollValue = Number(this._scroll.get_vadjustment().value ?? 0);
+        header.add_child(softwareShortcut);
+        header.add_child(this._sectionHeading(
             'Настройки',
-            'Управление моделями, плагинами и поведением AI-native Linux.',
+            'Модели, приложения и поведение локальной системы.',
+            'AI-NATIVE LINUX',
         ));
+        this._content.add_child(header);
+
+        const software = this._card('Приложения');
+        software.add_child(this._navigationRow(
+            'Каталог приложений',
+            'Установка, удаление и управление загрузками',
+            'Открыть ›',
+            () => this._openSoftware('library'),
+        ));
+        this._content.add_child(software);
 
         const models = this._card('Модели и провайдер');
-        models.add_child(this._row('Ollama', 'Локальный провайдер моделей', 'Подключён', 'connected'));
         models.add_child(this._row('Qwen 3.5 2B', 'Базовая модель рабочей области', 'Загружена', 'connected'));
-        models.add_child(this._row('LLaMA 3.2 3B', 'Дополнительная модель', 'Не подключена', 'offline', 'Загрузить'));
+        models.add_child(this._row('Ollama', 'Локальный провайдер моделей', 'Подключён', 'connected'));
         this._content.add_child(models);
 
         const behavior = this._card('Поведение системы');
@@ -1219,37 +1280,27 @@ class SettingsView extends St.Widget {
         });
         back.connect('clicked', () => this._buildSettings());
         toolbar.add_child(back);
-        toolbar.add_child(new St.Label({
-            text: 'Приложения',
-            style_class: 'ai-software-title',
-            x_expand: true,
-            y_align: Clutter.ActorAlign.CENTER,
-        }));
-        const refresh = new St.Button({
-            style_class: 'ai-software-refresh',
-            child: new St.Icon({icon_name: 'view-refresh-symbolic'}),
-            can_focus: true,
-            y_align: Clutter.ActorAlign.CENTER,
-        });
-        refresh.connect('clicked', () => this._openSoftware(initialSection));
-        toolbar.add_child(refresh);
+        toolbar.add_child(this._sectionHeading('Приложения', '', 'SOFTWARE.MANAGER'));
         this._content.add_child(toolbar);
 
         const sections = new St.BoxLayout({style_class: 'ai-software-sections', x_expand: true});
         for (const [section, label] of [
             ['catalog', 'Каталог'],
             ['library', 'Библиотека'],
-            ['backups', 'Бэкапы'],
         ]) {
+            const active = section === initialSection ||
+                (section === 'library' && initialSection === 'backups');
             const button = new St.Button({
                 label,
-                style_class: `ai-software-section${section === initialSection ? ' active' : ''}`,
+                style_class: `ai-software-section${active ? ' active' : ''}`,
                 x_expand: true,
             });
             button.connect('clicked', () => this._openSoftware(section));
             sections.add_child(button);
         }
         this._content.add_child(sections);
+        if (initialSection !== 'catalog')
+            this._content.add_child(this._softwareLibrarySections(initialSection));
         const body = new St.BoxLayout({
             vertical: true,
             style_class: 'ai-software-list',
@@ -1364,25 +1415,23 @@ class SettingsView extends St.Widget {
     }
 
     _applicationRow(application, task, section) {
-        const row = new St.BoxLayout({style_class: 'ai-software-app', x_expand: true});
-        row.add_child(new St.Icon({
-            icon_name: 'application-x-executable-symbolic',
-            style_class: 'ai-software-app-icon',
-            y_align: Clutter.ActorAlign.CENTER,
-        }));
-        const info = new St.BoxLayout({vertical: true, x_expand: true});
-        info.add_child(new St.Label({text: application.display_name, style_class: 'ai-software-app-name'}));
-        const description = new St.Label({
-            text: application.description,
-            style_class: 'ai-software-app-description',
+        const row = new St.BoxLayout({
+            style_class: 'ai-software-app',
             x_expand: true,
+            clip_to_allocation: true,
         });
-        description.clutter_text.line_wrap = true;
-        info.add_child(description);
+        row.add_child(this._softwareIcon(application.application_id));
+        const info = new St.BoxLayout({
+            vertical: true,
+            style_class: 'ai-software-app-info',
+            x_expand: true,
+            clip_to_allocation: true,
+        });
+        const nameLine = new St.BoxLayout({style_class: 'ai-software-app-name-line'});
+        nameLine.add_child(new St.Label({text: application.display_name, style_class: 'ai-software-app-name'}));
         const link = new St.Button({
-            label: 'Snapcraft ↗  ·  официальный сайт',
+            label: 'Официальный сайт ↗',
             style_class: 'ai-software-link',
-            x_align: Clutter.ActorAlign.START,
         });
         link.connect('clicked', () => {
             try {
@@ -1391,7 +1440,16 @@ class SettingsView extends St.Widget {
                 logError(error, 'AI-native Linux: не удалось открыть официальный сайт');
             }
         });
-        info.add_child(link);
+        nameLine.add_child(link);
+        info.add_child(nameLine);
+        const description = new St.Label({
+            text: application.description,
+            style_class: 'ai-software-app-description',
+            x_expand: true,
+        });
+        description.clutter_text.line_wrap = true;
+        info.add_child(description);
+        info.add_child(new St.Label({text: 'Snapcraft', style_class: 'ai-software-source'}));
         row.add_child(info);
         row.add_child(this._softwareActions(application, task, section));
         return row;
@@ -1694,12 +1752,12 @@ class SettingsView extends St.Widget {
     }
 
     _backupRow(backup) {
-        const row = new St.BoxLayout({style_class: 'ai-software-app', x_expand: true});
-        row.add_child(new St.Icon({
-            icon_name: 'document-save-symbolic',
-            style_class: 'ai-software-app-icon',
-            y_align: Clutter.ActorAlign.CENTER,
-        }));
+        const row = new St.BoxLayout({
+            style_class: 'ai-software-app',
+            x_expand: true,
+            clip_to_allocation: true,
+        });
+        row.add_child(this._softwareIcon(backup.application_id));
         const info = new St.BoxLayout({vertical: true, x_expand: true});
         info.add_child(new St.Label({text: backup.display_name, style_class: 'ai-software-app-name'}));
         const days = Number.isInteger(backup.remaining_days)
@@ -1717,13 +1775,57 @@ class SettingsView extends St.Widget {
         return row;
     }
 
-    _sectionHeading(title, subtitle) {
+    _softwareLibrarySections(activeSection) {
+        const sections = new St.BoxLayout({style_class: 'ai-software-library-sections'});
+        for (const [section, label] of [['library', 'Установленные'], ['backups', 'Бэкапы']]) {
+            const button = new St.Button({
+                label,
+                style_class: `ai-software-library-section${section === activeSection ? ' active' : ''}`,
+            });
+            button.connect('clicked', () => this._openSoftware(section));
+            sections.add_child(button);
+        }
+        return sections;
+    }
+
+    _softwareIcon(applicationId) {
+        const [assetName, colorClass] = SOFTWARE_ICON_ASSETS[applicationId] ?? [null, 'fallback'];
+        const box = new St.Widget({
+            style_class: `ai-software-icon ai-software-icon-${colorClass}`,
+            layout_manager: new Clutter.BinLayout(),
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        let icon;
+        if (assetName && this._extensionDir) {
+            const file = this._extensionDir
+                .get_child('assets')
+                .get_child('software-icons')
+                .get_child(assetName);
+            icon = new St.Icon({
+                gicon: new Gio.FileIcon({file}),
+                style_class: 'ai-software-logo',
+            });
+        } else {
+            icon = new St.Icon({
+                icon_name: 'application-x-executable-symbolic',
+                style_class: 'ai-software-logo',
+            });
+        }
+        box.add_child(icon);
+        return box;
+    }
+
+    _sectionHeading(title, subtitle, kicker = '') {
         const heading = new St.BoxLayout({
             vertical: true,
             style_class: 'ai-settings-heading',
             x_expand: true,
         });
+        if (kicker)
+            heading.add_child(new St.Label({text: kicker, style_class: 'ai-settings-heading-kicker'}));
         heading.add_child(new St.Label({text: title, style_class: 'ai-settings-heading-title'}));
+        if (!subtitle)
+            return heading;
         const description = new St.Label({
             text: subtitle,
             style_class: 'ai-settings-heading-subtitle',
@@ -1742,6 +1844,17 @@ class SettingsView extends St.Widget {
         });
         card.add_child(new St.Label({text: title, style_class: 'ai-settings-card-title'}));
         return card;
+    }
+
+    _navigationRow(title, detail, status, callback) {
+        const button = new St.Button({
+            style_class: 'ai-settings-navigation-row',
+            x_expand: true,
+            can_focus: true,
+        });
+        button.set_child(this._row(title, detail, status, 'connected'));
+        button.connect('clicked', callback);
+        return button;
     }
 
     _row(title, detail, status, statusClass, actionLabel = null) {
@@ -2418,13 +2531,14 @@ class SidebarView extends St.Widget {
 
 const Panel = GObject.registerClass(
 class Panel extends St.Widget {
-    _init(runtime) {
+    _init(runtime, extensionDir) {
         super._init({
             style_class: 'ai-native-shell',
             reactive: true,
             layout_manager: new Clutter.FixedLayout(),
         });
         this._runtime = runtime;
+        this._extensionDir = extensionDir;
         this.set_size(SHELL_WIDTH, DEFAULT_PANEL_HEIGHT);
         this._collapsed = false;
         this._collapsedTranslation = PANEL_WIDTH + PANEL_HORIZONTAL_MARGIN;
@@ -2432,6 +2546,7 @@ class Panel extends St.Widget {
         this._content = new St.Widget({
             style_class: 'ai-panel-content',
             layout_manager: new Clutter.FixedLayout(),
+            clip_to_allocation: true,
         });
         this._content.set_position(TOGGLE_WIDTH, 0);
         this._content.set_size(PANEL_WIDTH, DEFAULT_PANEL_HEIGHT);
@@ -2472,7 +2587,10 @@ class Panel extends St.Widget {
         this._tabs.set_size(PANEL_WIDTH, TAB_HEIGHT);
         this._content.add_child(this._tabs);
 
-        this._views = new St.Widget({layout_manager: new Clutter.FixedLayout()});
+        this._views = new St.Widget({
+            layout_manager: new Clutter.FixedLayout(),
+            clip_to_allocation: true,
+        });
         this._views.set_position(0, TAB_HEIGHT);
         this._views.set_size(PANEL_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
         this._content.add_child(this._views);
@@ -2490,7 +2608,7 @@ class Panel extends St.Widget {
         this._workspace.set_size(PANEL_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
         this._workspace.hide();
         this._views.add_child(this._workspace);
-        this._settings = new SettingsView(this._runtime);
+        this._settings = new SettingsView(this._runtime, this._extensionDir);
         this._settings.set_position(0, 0);
         this._settings.set_size(PANEL_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
         this._settings.hide();
@@ -2553,7 +2671,7 @@ class Panel extends St.Widget {
 
 export default class AiNativeLinuxExtension extends Extension {
     _attachPanel() {
-        this._panel = new Panel(this._runtime);
+        this._panel = new Panel(this._runtime, this.dir);
         Main.layoutManager.addChrome(this._panel, {trackFullscreen: false, affectsStruts: false});
         this._monitorChangedId = Main.layoutManager.connect('monitors-changed', () => this._positionPanel());
         this._positionPanel();

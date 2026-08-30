@@ -29,6 +29,13 @@ for panel_file in "${panel_files[@]}"; do
     fi
 done
 
+rm -rf "${TARGET_DIR}/assets"
+cp -R "${SCRIPT_DIR}/assets" "${TARGET_DIR}/assets"
+if ! diff -qr "${SCRIPT_DIR}/assets" "${TARGET_DIR}/assets" >/dev/null; then
+    echo "Ошибка: установленные ресурсы панели не совпадают с репозиторием" >&2
+    exit 1
+fi
+
 echo "Установлено в ${TARGET_DIR}"
 echo "PASS: файлы панели побайтно совпадают с репозиторием"
 if command -v gnome-extensions >/dev/null 2>&1; then

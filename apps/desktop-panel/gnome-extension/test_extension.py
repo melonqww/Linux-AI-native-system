@@ -141,7 +141,11 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "download_speed_bps",
             "eta_seconds",
             "Сохранённых бэкапов пока нет.",
-            "Snapcraft ↗  ·  официальный сайт",
+            "Официальный сайт ↗",
+            "SOFTWARE_ICON_ASSETS",
+            "clip_to_allocation: true",
+            "ai-software-library-sections",
+            "this._settingsShortcut.ease({",
             "_loadInferenceLifecycle",
             "_requestInferenceStatus",
             "this._runtime.request('POST', '/v1/inference/status')",
@@ -178,6 +182,34 @@ class GnomeExtensionFilesTest(unittest.TestCase):
         self.assertNotIn("Gemma 2 2B", source)
         self.assertNotIn("Qwen 3 1.7B", source)
         self.assertNotIn("Qwen 3.5 4B", source)
+
+    def test_software_catalog_icons_are_bundled(self):
+        assets = ROOT / "assets" / "software-icons"
+        expected = {
+            "steam.svg",
+            "discord.svg",
+            "spotify.svg",
+            "telegram.svg",
+            "vlc.svg",
+            "visualstudiocode.png",
+            "chromium.svg",
+            "firefox.svg",
+            "obsstudio.svg",
+            "blender.svg",
+            "inkscape.svg",
+            "gimp.svg",
+            "slack.svg",
+            "zoom.svg",
+            "postman.svg",
+            "pycharm.svg",
+            "intellijidea.svg",
+            "libreoffice.svg",
+            "thunderbird.svg",
+            "bitwarden.svg",
+        }
+        self.assertEqual(expected, {path.name for path in assets.iterdir() if path.suffix in {".svg", ".png"}})
+        install = (ROOT / "install.sh").read_text(encoding="utf-8")
+        self.assertIn('cp -R "${SCRIPT_DIR}/assets" "${TARGET_DIR}/assets"', install)
 
     def test_runtime_client_uses_closed_authenticated_ipc_contract(self):
         source = (ROOT / "runtime-client.js").read_text(encoding="utf-8")
