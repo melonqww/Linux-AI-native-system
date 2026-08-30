@@ -58,6 +58,9 @@ class RuntimeApplication(Protocol):
     def software_control(
         self, payload: dict[str, object], *, transport_context: TransportContext
     ) -> dict[str, object]: ...
+    def software_restore(
+        self, payload: dict[str, object], *, transport_context: TransportContext
+    ) -> dict[str, object]: ...
 
 
 @dataclass(frozen=True)
@@ -143,6 +146,7 @@ class RuntimeRouter:
                     "software.remove.prepare",
                     "software.remove.commit",
                     "software.tasks.control",
+                    "software.backups.restore",
                 }
                 capabilities = [item for item in capabilities if item not in restricted]
             return RuntimeResponse(200, {"capabilities": capabilities})
@@ -215,6 +219,7 @@ class RuntimeRouter:
             "/v1/software/prepare",
             "/v1/software/respond",
             "/v1/software/control",
+            "/v1/software/restore",
         }:
             if not self.allow_r1:
                 return self.error(403, "secure_transport_required", False, request_id)
@@ -222,6 +227,7 @@ class RuntimeRouter:
                 "/v1/software/prepare": self.application.software_prepare,
                 "/v1/software/respond": self.application.software_respond,
                 "/v1/software/control": self.application.software_control,
+                "/v1/software/restore": self.application.software_restore,
             }[path]
             return RuntimeResponse(
                 200, operation(payload, transport_context=transport_context)

@@ -602,6 +602,7 @@ class QueryServiceTests(unittest.TestCase):
             software_prepare=callback("prepare"),
             software_respond=callback("respond"),
             software_control=callback("control"),
+            software_restore=callback("restore"),
         )
         transport = TransportContext.internal()
         prepared = application.software_prepare(
@@ -627,14 +628,23 @@ class QueryServiceTests(unittest.TestCase):
             {"task_id": "task-1", "action": "pause"},
             transport_context=transport,
         )
+        restored = application.software_restore(
+            {"backup_id": "snap:35:steam", "confirmed": True},
+            transport_context=transport,
+        )
 
         self.assertEqual(prepared["task"]["application_id"], "steam")
         self.assertTrue(responded["task"]["confirmed"])
         self.assertEqual(controlled["task"]["action"], "pause")
-        self.assertEqual([name for name, _payload in calls], ["prepare", "respond", "control"])
+        self.assertEqual(restored["task"]["backup_id"], "snap:35:steam")
+        self.assertEqual(
+            [name for name, _payload in calls],
+            ["prepare", "respond", "control", "restore"],
+        )
         self.assertIn("software.install.prepare", application.capabilities())
         self.assertIn("software.install.commit", application.capabilities())
         self.assertIn("software.tasks.control", application.capabilities())
+        self.assertIn("software.backups.restore", application.capabilities())
         with self.assertRaises(ValueError):
             application.software_respond(
                 {

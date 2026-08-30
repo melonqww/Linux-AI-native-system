@@ -8,6 +8,12 @@ COMMON_INSTALL_OPTIONS = (
         "pin_to_gnome",
         "Закрепить в панели GNOME",
         "После установки добавить приложение в избранное GNOME.",
+        default_enabled=True,
+    ),
+    ApplicationOption(
+        "restore_from_backup",
+        "Восстановить данные из бэкапа",
+        "Внутренняя последовательность: установка Snap, затем восстановление данных.",
     ),
     ApplicationOption(
         "launch_after_install",

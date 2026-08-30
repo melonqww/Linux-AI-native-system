@@ -248,6 +248,35 @@ class SoftwareManagerTests(unittest.TestCase):
         finally:
             worker_api._manager = None
 
+    def test_worker_restore_reinstalls_before_snapshot_data(self) -> None:
+        backup_backend = FakeSnapshotBackend()
+        backup_backend.snapshots = (
+            SnapshotSummary(35, "steam", "2026-08-25T12:00:00Z", 2048, True),
+        )
+        backups = BackupManager(
+            BackupStore(self.root / "backups.sqlite3"),
+            backup_backend,
+            now_fn=self.clock,
+        )
+        backup = backups.sync()[0]
+        worker_api._manager = self.manager
+        worker_api._backups = backups
+        try:
+            result = worker_api.worker_invoke(
+                "restore", {"backup_id": backup.backup_id}
+            )
+        finally:
+            worker_api._manager = None
+            worker_api._backups = None
+
+        self.assertEqual(result["task"]["state"], "running")
+        self.assertEqual(result["backup"]["state"], "reinstalling")
+        self.assertEqual(
+            result["task"]["preferences"]["selected_options"],
+            ("pin_to_gnome", "restore_from_backup"),
+        )
+        self.assertEqual(backup_backend.restore_calls, [])
+
     def test_download_speed_eta_and_completion_notification_are_durable(self) -> None:
         clock = ManualClock()
         manager = SoftwareManager(
@@ -288,6 +317,7 @@ class SoftwareManagerTests(unittest.TestCase):
         )
         completed = manager.refresh(running.task_id)
         self.assertTrue(completed.completion_notification_pending)
+        self.assertIsNone(completed.eta_seconds)
         self.assertEqual(
             completed.to_dict()["notification"]["kind"],
             "software_install_completed",
@@ -846,8 +876,27 @@ class BackupManagerTests(unittest.TestCase):
 
         self.backend.progress_by_id["91"] = BackendProgress("completed", "completed", 100)
         completed = self.manager.refresh_restore(backup.backup_id)
-        self.assertEqual(completed.state, "available")
+        self.assertEqual(completed.state, "restored")
         self.assertIsNotNone(completed.last_restored_at)
+
+    def test_restore_reinstalls_snap_before_restoring_its_data(self) -> None:
+        self.backend.snapshots = (
+            SnapshotSummary(35, "steam", "2026-08-25T12:00:00Z", 2048, True),
+        )
+        backup = self.manager.sync()[0]
+        self.manager.prepare_restore(backup.backup_id)
+        staged = self.manager.begin_reinstall(backup.backup_id, "restore-task")
+
+        self.assertEqual(staged.state, "reinstalling")
+        self.assertEqual(self.backend.restore_calls, [])
+        self.assertEqual(
+            self.manager.continue_reinstall(backup.backup_id, "running").state,
+            "reinstalling",
+        )
+
+        restoring = self.manager.continue_reinstall(backup.backup_id, "completed")
+        self.assertEqual(restoring.state, "restoring")
+        self.assertEqual(self.backend.restore_calls, [(35, "steam")])
 
 
 class FakeRuntimeAdapter:
@@ -1020,6 +1069,22 @@ class SnapdClientTests(unittest.TestCase):
         self.assertEqual(progress.progress_percent, 45)
         self.assertEqual(progress.downloaded_bytes, 45)
         self.assertEqual(progress.total_bytes, 100)
+
+    def test_running_change_reserves_one_hundred_percent_for_ready_state(self) -> None:
+        progress = SnapdClient._parse_progress({
+            "status": "Doing",
+            "ready": False,
+            "tasks": [
+                {
+                    "kind": "download-snap",
+                    "status": "Doing",
+                    "progress": {"done": 100, "total": 100},
+                },
+            ],
+        })
+
+        self.assertEqual(progress.state, "running")
+        self.assertEqual(progress.progress_percent, 99)
 
     def test_snapd_error_returns_stable_code(self) -> None:
         connection = FakeConnection([

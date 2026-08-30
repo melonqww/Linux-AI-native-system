@@ -3,7 +3,7 @@
   "module_id": "software.manager",
   "display_name": "Software Manager",
   "description": "Provides a durable Snap application catalog, installation task state and backup metadata.",
-  "module_version": "0.2.0",
+  "module_version": "0.3.0",
   "core_api": "1",
   "capabilities": [
     "software.catalog.read",
@@ -13,7 +13,8 @@
     "software.install.commit",
     "software.remove.prepare",
     "software.remove.commit",
-    "software.tasks.control"
+    "software.tasks.control",
+    "software.backups.restore"
   ],
   "dependencies": [],
   "optional_dependencies": [],

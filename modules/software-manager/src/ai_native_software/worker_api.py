@@ -25,10 +25,11 @@ _manager: SoftwareManager | None = None
 _backups: BackupManager | None = None
 _stop_event: threading.Event | None = None
 _recovery_thread: threading.Thread | None = None
+_desktop_ids: dict[str, tuple[str, ...]] = {}
 
 
 def worker_start() -> None:
-    global _manager, _backups, _stop_event, _recovery_thread
+    global _manager, _backups, _stop_event, _recovery_thread, _desktop_ids
     if _manager is not None:
         raise RuntimeError("software_manager_already_started")
     database = Path(
@@ -51,6 +52,7 @@ def worker_start() -> None:
     # Unix socket. A losing second runtime instance must remain read-only.
     _stop_event = None
     _recovery_thread = None
+    _desktop_ids = {}
 
 
 def worker_health() -> dict[str, object]:
@@ -77,6 +79,8 @@ def worker_invoke(operation: str, payload: dict[str, object]) -> dict[str, objec
             return _respond(payload)
         if operation == "control":
             return _control(payload)
+        if operation == "restore":
+            return _restore(payload)
         raise ValueError("unknown_operation")
     if payload:
         raise ValueError("invalid_payload")
@@ -84,7 +88,7 @@ def worker_invoke(operation: str, payload: dict[str, object]) -> dict[str, objec
 
 
 def worker_stop() -> None:
-    global _manager, _backups, _stop_event, _recovery_thread
+    global _manager, _backups, _stop_event, _recovery_thread, _desktop_ids
     if _stop_event is not None:
         _stop_event.set()
     if _recovery_thread is not None:
@@ -93,6 +97,7 @@ def worker_stop() -> None:
     _backups = None
     _stop_event = None
     _recovery_thread = None
+    _desktop_ids = {}
 
 
 def _require_manager() -> SoftwareManager:
@@ -125,13 +130,66 @@ def _start_recovery() -> None:
 def _snapshot() -> dict[str, object]:
     manager = _require_manager()
     backups = _require_backups()
+    _reconcile_backups(manager, backups)
+    tasks = manager.list_tasks()
+    backup_records = backups.list()
+    restore_by_task = {
+        backup.restore_task_id: backup
+        for backup in backup_records
+        if backup.restore_task_id is not None
+    }
+    latest: dict[str, object] = {}
+    for task in tasks:
+        latest.setdefault(task.application_id, task)
+    catalog: list[dict[str, object]] = []
+    desktop_lookup = getattr(manager.backend, "desktop_ids", None)
+    for application in manager.catalog():
+        payload = application.to_dict()
+        task = latest.get(application.application_id)
+        installed = bool(
+            task is not None
+            and getattr(task, "action", None) == "install"
+            and getattr(task, "state", None) == "completed"
+        )
+        if installed and callable(desktop_lookup):
+            if application.application_id not in _desktop_ids:
+                try:
+                    discovered = tuple(
+                        desktop_lookup(application.package_name)
+                    )
+                    if discovered:
+                        _desktop_ids[application.application_id] = discovered
+                except Exception:
+                    pass
+            payload["desktop_ids"] = list(
+                _desktop_ids.get(application.application_id, ())
+            )
+        else:
+            _desktop_ids.pop(application.application_id, None)
+            payload["desktop_ids"] = []
+        catalog.append(payload)
     return {
         "schema_version": 1,
         "provider": "snap",
         "platform_supported": sys.platform.startswith("linux"),
-        "catalog": [application.to_dict() for application in manager.catalog()],
-        "tasks": [task.to_dict() for task in manager.list_tasks()],
-        "backups": [backup.to_dict(now=backups.current_time()) for backup in backups.list()],
+        "catalog": catalog,
+        "tasks": [
+            {
+                **task.to_dict(),
+                **(
+                    {
+                        "install_source": "backup",
+                        "restore_state": restore_by_task[task.task_id].state,
+                    }
+                    if task.task_id in restore_by_task
+                    else {}
+                ),
+            }
+            for task in tasks
+        ],
+        "backups": [
+            backup.to_dict(now=backups.current_time()) for backup in backup_records
+        ],
     }
 
 
@@ -213,6 +271,45 @@ def _control(payload: dict[str, object]) -> dict[str, object]:
         raise ValueError("invalid_control_action")
     task = operations[action](task_id)
     return {"schema_version": 1, "task": task.to_dict()}
+
+
+def _restore(payload: dict[str, object]) -> dict[str, object]:
+    if set(payload) != {"backup_id"}:
+        raise ValueError("invalid_payload")
+    backup_id = _required_string(payload, "backup_id")
+    manager = _require_manager()
+    backups = _require_backups()
+    prepared = backups.prepare_restore(backup_id)
+    try:
+        task = manager.prepare_install(
+            prepared.application_id,
+            InstallPreferences(
+                selected_options=("pin_to_gnome", "restore_from_backup"),
+            ),
+        )
+        task = manager.confirm(task.task_id)
+        backup = backups.begin_reinstall(backup_id, task.task_id)
+    except Exception:
+        backups.cancel_restore_preparation(backup_id, "restore_reinstall_start_failed")
+        raise
+    return {
+        "schema_version": 1,
+        "task": task.to_dict(),
+        "backup": backup.to_dict(now=backups.current_time()),
+    }
+
+
+def _reconcile_backups(manager: SoftwareManager, backups: BackupManager) -> None:
+    for backup in backups.list():
+        if backup.state == "reinstalling" and backup.restore_task_id:
+            try:
+                task = manager.get(backup.restore_task_id)
+            except KeyError:
+                backups.continue_reinstall(backup.backup_id, "failed")
+                continue
+            backups.continue_reinstall(backup.backup_id, task.state)
+        elif backup.state == "restoring":
+            backups.refresh_restore(backup.backup_id)
 
 
 def _required_string(payload: dict[str, object], field: str) -> str:

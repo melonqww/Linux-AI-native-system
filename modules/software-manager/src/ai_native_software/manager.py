@@ -582,7 +582,7 @@ class SoftwareManager:
         downloaded = progress.downloaded_bytes
         total = progress.total_bytes
         if progress.state == "completed":
-            return downloaded, total, None, 0
+            return downloaded, total, None, None
         if progress.phase != "downloading" or downloaded is None or total is None:
             return downloaded, total, None, None
         speed = task.download_speed_bps
@@ -600,6 +600,13 @@ class SoftwareManager:
 
     @staticmethod
     def _monotonic_percent(task: SoftwareTask, percent: int | None) -> int | None:
+        if (
+            task.progress_percent == 100
+            and task.state not in TERMINAL_STATES
+            and percent is not None
+            and percent < 100
+        ):
+            return percent
         if task.progress_percent is not None and percent is not None:
             return max(task.progress_percent, percent)
         return task.progress_percent if percent is None else percent

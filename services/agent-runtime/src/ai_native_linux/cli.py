@@ -167,11 +167,15 @@ def main() -> int:
                 software_control = lambda payload: manager.invoke(
                     software_module_id, "control", payload, timeout=60
                 )
+                software_restore = lambda payload: manager.invoke(
+                    software_module_id, "restore", payload, timeout=60
+                )
             except ModuleProcessError:
                 print("Software manager: unavailable")
                 software_prepare = None
                 software_respond = None
                 software_control = None
+                software_restore = None
             if not args.no_intent_compiler:
                 from ai_native_intents import (
                     IntentCompiler,
@@ -283,6 +287,7 @@ def main() -> int:
                 software_prepare=software_prepare,
                 software_respond=software_respond,
                 software_control=software_control,
+                software_restore=software_restore,
             )
             transport = (
                 "unix" if args.transport == "auto" and sys.platform.startswith("linux")

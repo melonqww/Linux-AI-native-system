@@ -226,6 +226,12 @@ class SnapdClient:
         elif measurable and totals > 0:
             percent = max(0, min(100, round(completed * 100 / totals)))
 
+        # A snap task can report its byte counter as complete while the overall
+        # change is still mounting, connecting or configuring the application.
+        # Reserve 100% for a ready, successfully completed snapd change.
+        if not ready and percent == 100:
+            percent = 99
+
         downloaded = None
         download_total = None
         if any(word in active_kind for word in ("download", "fetch")):

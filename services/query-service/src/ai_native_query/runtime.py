@@ -94,6 +94,7 @@ class QueryRuntimeApplication:
         software_prepare: Callable[[dict[str, object]], dict[str, object]] | None = None,
         software_respond: Callable[[dict[str, object]], dict[str, object]] | None = None,
         software_control: Callable[[dict[str, object]], dict[str, object]] | None = None,
+        software_restore: Callable[[dict[str, object]], dict[str, object]] | None = None,
     ) -> None:
         self.query_service = query_service
         self.scheduler_status = scheduler_status
@@ -114,6 +115,7 @@ class QueryRuntimeApplication:
         self.software_prepare_callback = software_prepare
         self.software_respond_callback = software_respond
         self.software_control_callback = software_control
+        self.software_restore_callback = software_restore
         if intent_pipeline is not None and task_context is None:
             raise ValueError("task_context is required with intent_pipeline")
         if (plan_store is None) != (plan_executor is None):
@@ -172,6 +174,8 @@ class QueryRuntimeApplication:
             capabilities.extend(("software.install.commit", "software.remove.commit"))
         if self.software_control_callback is not None:
             capabilities.append("software.tasks.control")
+        if self.software_restore_callback is not None:
+            capabilities.append("software.backups.restore")
         return capabilities
 
     def software_snapshot(self, payload: dict[str, object]) -> dict[str, object]:
@@ -279,6 +283,31 @@ class QueryRuntimeApplication:
             approval_granted=False,
         )
         result = self.software_control_callback(payload)
+        if not isinstance(result, dict):
+            raise RuntimeError("software_manager_invalid_response")
+        return result
+
+    def software_restore(
+        self, payload: dict[str, object], *, transport_context: TransportContext
+    ) -> dict[str, object]:
+        if self.software_restore_callback is None:
+            raise RuntimeError("software_manager_unavailable")
+        self._require_secure_transport(transport_context)
+        if set(payload) != {"backup_id", "confirmed"}:
+            raise ValueError("backup_id and confirmation are required")
+        backup_id = payload.get("backup_id")
+        if not isinstance(backup_id, str) or not backup_id or len(backup_id) > 256:
+            raise ValueError("backup_id is invalid")
+        if payload.get("confirmed") is not True:
+            raise ValueError("restore confirmation is required")
+        self._authorize_software(
+            "software.backup.restore",
+            ExecutionPhase.COMMIT,
+            {"backup_id": backup_id},
+            transport_context,
+            approval_granted=True,
+        )
+        result = self.software_restore_callback({"backup_id": backup_id})
         if not isinstance(result, dict):
             raise RuntimeError("software_manager_invalid_response")
         return result

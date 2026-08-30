@@ -146,4 +146,20 @@ def builtin_policies() -> tuple[CapabilityPolicy, ...]:
             ),
             timeout_seconds=60,
         ),
+        CapabilityPolicy(
+            capability_id="software.backup.restore",
+            risk=RiskLevel.PRIVILEGED,
+            plan_approval_required=True,
+            allowed_arguments=frozenset({"backup_id"}),
+            required_arguments=frozenset({"backup_id"}),
+            phases=(
+                PhasePolicy(
+                    ExecutionPhase.COMMIT,
+                    SECURE_WRITE_TRANSPORTS,
+                    frozenset({"software.manage"}),
+                    approval_required=True,
+                ),
+            ),
+            timeout_seconds=60,
+        ),
     )

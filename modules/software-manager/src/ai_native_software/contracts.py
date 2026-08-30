@@ -176,6 +176,7 @@ class BackupRecord:
     expiry_estimated: bool
     size_bytes: int | None
     state: str = "available"
+    restore_task_id: str | None = None
     restore_change_id: str | None = None
     last_restored_at: str | None = None
     error_code: str | None = None

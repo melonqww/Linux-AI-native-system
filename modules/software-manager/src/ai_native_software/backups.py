@@ -41,6 +41,14 @@ class BackupStore:
             connection.execute("PRAGMA journal_mode = WAL")
             connection.execute("PRAGMA synchronous = FULL")
             connection.execute(f"CREATE TABLE IF NOT EXISTS software_backups ({columns})")
+            existing = {
+                str(row[1])
+                for row in connection.execute("PRAGMA table_info(software_backups)")
+            }
+            if "restore_task_id" not in existing:
+                connection.execute(
+                    "ALTER TABLE software_backups ADD COLUMN restore_task_id TEXT"
+                )
             connection.execute(
                 "CREATE INDEX IF NOT EXISTS software_backups_package "
                 "ON software_backups(package_name)"
@@ -56,7 +64,10 @@ class BackupStore:
             return "INTEGER NOT NULL"
         if name == "size_bytes":
             return "INTEGER"
-        if name in {"expires_at", "restore_change_id", "last_restored_at", "error_code"}:
+        if name in {
+            "expires_at", "restore_task_id", "restore_change_id",
+            "last_restored_at", "error_code",
+        }:
             return "TEXT"
         return "TEXT NOT NULL"
 
@@ -164,9 +175,13 @@ class BackupManager:
                 state=(
                     current.state
                     if current is not None
-                    and current.state in {"restoring", "awaiting_restore_confirmation"}
+                    and current.state in {
+                        "awaiting_restore_confirmation", "reinstalling",
+                        "restoring", "restored",
+                    }
                     else "available"
                 ),
+                restore_task_id=None if current is None else current.restore_task_id,
                 restore_change_id=None if current is None else current.restore_change_id,
                 last_restored_at=None if current is None else current.last_restored_at,
                 error_code=None if current is None else current.error_code,
@@ -175,7 +190,9 @@ class BackupManager:
         for record in self.store.list():
             if package_name is not None and record.package_name != package_name:
                 continue
-            if record.backup_id not in seen and record.state != "restoring":
+            if record.backup_id not in seen and record.state not in {
+                "awaiting_restore_confirmation", "reinstalling", "restoring", "restored"
+            }:
                 expired = record.remaining_seconds(self._now()) == 0
                 self.store.save(
                     replace(record, state="expired" if expired else "unavailable")
@@ -202,6 +219,63 @@ class BackupManager:
             replace(backup, state="restoring", restore_change_id=change_id, error_code=None)
         )
 
+    def begin_reinstall(self, backup_id: str, task_id: str) -> BackupRecord:
+        backup = self.store.get(backup_id)
+        if backup.state != "awaiting_restore_confirmation":
+            raise ValueError("backup_not_awaiting_restore_confirmation")
+        return self.store.save(
+            replace(
+                backup,
+                state="reinstalling",
+                restore_task_id=task_id,
+                restore_change_id=None,
+                error_code=None,
+            )
+        )
+
+    def cancel_restore_preparation(self, backup_id: str, error_code: str) -> BackupRecord:
+        backup = self.store.get(backup_id)
+        if backup.state != "awaiting_restore_confirmation":
+            return backup
+        return self.store.save(
+            replace(backup, state="available", error_code=error_code)
+        )
+
+    def continue_reinstall(self, backup_id: str, install_state: str) -> BackupRecord:
+        backup = self.store.get(backup_id)
+        if backup.state != "reinstalling":
+            return backup
+        if install_state in {"failed", "canceled"}:
+            return self.store.save(
+                replace(
+                    backup,
+                    state="available",
+                    restore_task_id=None,
+                    error_code="restore_reinstall_failed",
+                )
+            )
+        if install_state != "completed":
+            return backup
+        try:
+            change_id = self.backend.restore_snapshot(backup.set_id, backup.package_name)
+        except SnapdError as error:
+            return self.store.save(
+                replace(
+                    backup,
+                    state="available",
+                    restore_task_id=None,
+                    error_code=error.code,
+                )
+            )
+        return self.store.save(
+            replace(
+                backup,
+                state="restoring",
+                restore_change_id=change_id,
+                error_code=None,
+            )
+        )
+
     def refresh_restore(self, backup_id: str) -> BackupRecord:
         backup = self.store.get(backup_id)
         if backup.state != "restoring" or not backup.restore_change_id:
@@ -214,7 +288,7 @@ class BackupManager:
             return self.store.save(
                 replace(
                     backup,
-                    state="available",
+                    state="restored",
                     last_restored_at=self._now().isoformat(),
                     restore_change_id=None,
                     error_code=None,

@@ -69,6 +69,7 @@ class App:
             "software.remove.prepare",
             "software.remove.commit",
             "software.tasks.control",
+            "software.backups.restore",
         ]
 
     def search(self, payload):
@@ -160,6 +161,9 @@ class App:
 
     def software_control(self, payload, *, transport_context):
         return {"schema_version": 1, "task": payload}
+
+    def software_restore(self, payload, *, transport_context):
+        return {"schema_version": 1, "backup": payload}
 
 
 class BridgeTests(unittest.TestCase):
@@ -311,6 +315,7 @@ class BridgeTests(unittest.TestCase):
         self.assertNotIn("software.remove.prepare", capabilities["capabilities"])
         self.assertNotIn("software.remove.commit", capabilities["capabilities"])
         self.assertNotIn("software.tasks.control", capabilities["capabilities"])
+        self.assertNotIn("software.backups.restore", capabilities["capabilities"])
         self.assertEqual(status["scheduler"]["state"], "idle")
         self.assertEqual(system_status["schema_version"], 1)
         self.assertTrue(system_status["supported"])

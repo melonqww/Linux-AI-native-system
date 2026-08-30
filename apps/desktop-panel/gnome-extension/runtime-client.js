@@ -102,6 +102,13 @@ export class RuntimeClient {
         });
     }
 
+    softwareRestore(backupId) {
+        return this.request('POST', '/v1/software/restore', {
+            backup_id: backupId,
+            confirmed: true,
+        });
+    }
+
     tasks() {
         return this.request('GET', '/v1/tasks');
     }

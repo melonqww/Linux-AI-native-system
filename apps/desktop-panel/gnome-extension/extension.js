@@ -4,7 +4,9 @@ import Gio from 'gi://Gio';
 import GObject from 'gi://GObject';
 import GLib from 'gi://GLib';
 import Pango from 'gi://Pango';
+import Shell from 'gi://Shell';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as AppFavorites from 'resource:///org/gnome/shell/ui/appFavorites.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import {RuntimeClient, RuntimeRequestError} from './runtime-client.js';
 import {
@@ -1164,6 +1166,7 @@ class SettingsView extends St.Widget {
         this._softwareGeneration = 0;
         this._softwarePollSourceId = 0;
         this._softwarePollInFlight = false;
+        this._softwareLaunchRequests = new Map();
         this.connect('destroy', () => this._stopSoftwarePolling());
         this._scroll = new St.ScrollView({
             style_class: 'ai-settings-scroll',
@@ -1356,7 +1359,7 @@ class SettingsView extends St.Widget {
             const snapshot = await this._runtime.softwareSnapshot();
             if (generation !== this._softwareGeneration)
                 return;
-            const signature = JSON.stringify(snapshot);
+            const signature = `${JSON.stringify(snapshot)}:${this._softwareShellSignature(snapshot)}`;
             if (signature === this._lastSoftwareSnapshotSignature)
                 return;
             this._lastSoftwareSnapshotSignature = signature;
@@ -1385,14 +1388,16 @@ class SettingsView extends St.Widget {
                 latestTasks.set(task.application_id, task);
         }
         if (section === 'backups') {
-            if (backups.length === 0) {
+            const visibleBackups = backups.filter(backup =>
+                !['reinstalling', 'restoring', 'restored'].includes(backup.state));
+            if (visibleBackups.length === 0) {
                 body.add_child(new St.Label({
                     text: 'Сохранённых бэкапов пока нет.',
                     style_class: 'ai-software-empty',
                 }));
                 return;
             }
-            backups.forEach(backup => body.add_child(this._backupRow(backup)));
+            visibleBackups.forEach(backup => body.add_child(this._backupRow(backup)));
             return;
         }
         const applications = section === 'library'
@@ -1482,34 +1487,172 @@ class SettingsView extends St.Widget {
             add('Установить', () => this._prepareInstall(application));
             return actions;
         }
-        actions.add_child(new St.Label({
-            text: this._softwareTransferLabel(task, section),
-            style_class: 'ai-software-task-state',
-        }));
+        const completedInstall = task.action === 'install' && task.state === 'completed';
+        const restoringFromBackup = completedInstall && task.install_source === 'backup' &&
+            task.restore_state !== 'restored';
+        if (!completedInstall || restoringFromBackup) {
+            const stateLabel = new St.Label({
+                text: this._softwareTransferLabel(task, section),
+                style_class: 'ai-software-task-state',
+                x_expand: true,
+            });
+            stateLabel.clutter_text.line_wrap = true;
+            stateLabel.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
+            actions.add_child(stateLabel);
+        }
         if (task.requires_confirmation) {
             add('Подтвердить', () => this._resumeSoftwareConfirmation(application, task));
-            add('Отменить', () => this._controlSoftware(task, 'cancel'), 'secondary');
+            add('Отменить', () => this._controlSoftware(task, 'cancel', section), 'secondary');
             return actions;
         }
-        if (task.action === 'install' && task.state === 'completed') {
+        if (restoringFromBackup)
+            return actions;
+        if (completedInstall) {
+            const runtime = this._softwareRuntime(application);
+            this._ensureSoftwareFavorite(application, task, runtime.app);
+            const runtimeLabel = new St.Label({
+                text: task.install_source === 'backup' && runtime.label === 'Установлено'
+                    ? 'Установлено из бэкапа'
+                    : runtime.label,
+                style_class: 'ai-software-runtime-state',
+                x_expand: true,
+            });
+            runtimeLabel.clutter_text.line_wrap = true;
+            actions.insert_child_at_index(runtimeLabel, 0);
+            if (runtime.canClose)
+                add('Закрыть', () => this._closeSoftwareApplication(application, section));
+            else
+                add(runtime.failed ? 'Повторить' : 'Запустить',
+                    () => this._launchSoftwareApplication(application, section));
+            if (runtime.app && !this._isSoftwareFavorite(runtime.app.get_id()))
+                add('Закрепить', () => this._pinSoftwareApplication(runtime.app, section), 'secondary');
             add('Удалить', () => this._prepareRemove(application), 'danger');
             return actions;
         }
         if (task.can_pause)
-            add('Пауза', () => this._controlSoftware(task, 'pause'));
+            add('Пауза', () => this._controlSoftware(task, 'pause', section));
         if (task.can_resume)
-            add('Продолжить', () => this._controlSoftware(task, 'resume'));
+            add('Продолжить', () => this._controlSoftware(task, 'resume', section));
         if (task.can_cancel)
-            add('Отменить', () => this._controlSoftware(task, 'cancel'), 'secondary');
+            add('Отменить', () => this._controlSoftware(task, 'cancel', section), 'secondary');
         return actions;
+    }
+
+    _softwareShellApp(application) {
+        const ids = Array.isArray(application.desktop_ids)
+            ? application.desktop_ids.filter(id => typeof id === 'string')
+            : [];
+        for (const candidate of [
+            ...ids,
+            `${application.package_name}.desktop`,
+            `${application.package_name}_${application.package_name}.desktop`,
+        ]) {
+            const app = Shell.AppSystem.get_default().lookup_app(candidate);
+            if (app)
+                return app;
+        }
+        return null;
+    }
+
+    _softwareRuntime(application) {
+        const app = this._softwareShellApp(application);
+        const state = app?.get_state();
+        if (state === Shell.AppState.RUNNING)
+            this._softwareLaunchRequests.delete(application.application_id);
+        const requestedAt = this._softwareLaunchRequests.get(application.application_id);
+        const pending = requestedAt !== undefined &&
+            (GLib.get_monotonic_time() - requestedAt) < 15 * 1_000_000;
+        const failed = requestedAt !== undefined && !pending && state !== Shell.AppState.RUNNING;
+        if (!app)
+            return {app: null, label: 'Ярлык приложения не найден', canClose: false, failed: false};
+        if (state === Shell.AppState.RUNNING)
+            return {app, label: 'Запущено', canClose: true, failed: false};
+        if (state === Shell.AppState.STARTING || pending)
+            return {app, label: 'Запускается', canClose: false, failed: false};
+        return {
+            app,
+            label: failed ? 'Не удалось запустить' : 'Установлено',
+            canClose: false,
+            failed,
+        };
+    }
+
+    _softwareShellSignature(snapshot) {
+        const catalog = Array.isArray(snapshot?.catalog) ? snapshot.catalog : [];
+        return catalog.map(application => {
+            const runtime = this._softwareRuntime(application);
+            return `${application.application_id}:${runtime.label}`;
+        }).join('|');
+    }
+
+    _launchSoftwareApplication(application, section) {
+        const app = this._softwareShellApp(application);
+        if (!app) {
+            this._showSoftwareError('GNOME не нашёл ярлык установленного приложения.');
+            return;
+        }
+        try {
+            this._softwareLaunchRequests.set(application.application_id, GLib.get_monotonic_time());
+            app.activate();
+            this._openSoftware(section);
+        } catch (error) {
+            this._softwareLaunchRequests.set(
+                application.application_id,
+                GLib.get_monotonic_time() - 16 * 1_000_000,
+            );
+            logError(error, 'AI-native Linux: запуск приложения завершился ошибкой');
+            this._openSoftware(section);
+        }
+    }
+
+    _closeSoftwareApplication(application, section) {
+        const app = this._softwareShellApp(application);
+        if (!app)
+            return;
+        try {
+            app.request_quit();
+        } catch (error) {
+            logError(error, 'AI-native Linux: не удалось закрыть приложение');
+        }
+        this._softwareLaunchRequests.delete(application.application_id);
+        this._openSoftware(section);
+    }
+
+    _isSoftwareFavorite(desktopId) {
+        return AppFavorites.getAppFavorites().isFavorite(desktopId);
+    }
+
+    _pinSoftwareApplication(app, section) {
+        try {
+            AppFavorites.getAppFavorites().addFavorite(app.get_id());
+        } catch (error) {
+            logError(error, 'AI-native Linux: не удалось закрепить приложение');
+        }
+        this._openSoftware(section);
+    }
+
+    _ensureSoftwareFavorite(application, task, app) {
+        const selected = task.preferences?.selected_options;
+        if (!app || !Array.isArray(selected) || !selected.includes('pin_to_gnome'))
+            return;
+        if (!this._isSoftwareFavorite(app.get_id())) {
+            try {
+                AppFavorites.getAppFavorites().addFavorite(app.get_id());
+            } catch (error) {
+                logError(error, `AI-native Linux: не удалось закрепить ${application.application_id}`);
+            }
+        }
     }
 
     _softwareTransferLabel(task, section) {
         const parts = [this._softwareTaskLabel(task, section)];
-        if (Number.isInteger(task.download_speed_bps) && task.download_speed_bps > 0)
+        const transferring = task.state === 'running' && task.phase === 'downloading';
+        if (transferring && Number.isInteger(task.download_speed_bps) && task.download_speed_bps > 0)
             parts.push(`${this._formatSoftwareRate(task.download_speed_bps)}/с`);
-        if (Number.isInteger(task.eta_seconds) && task.eta_seconds >= 0)
+        if (transferring && Number.isInteger(task.eta_seconds) && task.eta_seconds > 0)
             parts.push(`≈ ${this._formatSoftwareEta(task.eta_seconds)}`);
+        else if (transferring)
+            parts.push('расчёт времени…');
         return parts.join(' · ');
     }
 
@@ -1531,19 +1674,56 @@ class SettingsView extends St.Widget {
         return `${hours} ч. ${minutes % 60} мин.`;
     }
 
-    async _prepareInstall(application) {
-        try {
-            const result = await this._runtime.softwarePrepare({
-                action: 'install',
-                application_id: application.application_id,
-                locale: 'system',
-                install_location: 'default',
-                selected_options: [],
-            });
-            this._showInstallConfirmation(application, result.task);
-        } catch (error) {
-            this._showSoftwareError('Не удалось подготовить установку.');
-        }
+    _prepareInstall(application) {
+        let pinToGnome = true;
+        const pinToggle = new St.Button({
+            label: '✓  Закрепить в панели GNOME',
+            style_class: 'ai-software-option checked',
+            toggle_mode: true,
+            checked: true,
+            can_focus: true,
+        });
+        pinToggle.connect('notify::checked', () => {
+            pinToGnome = pinToggle.checked;
+            pinToggle.label = pinToGnome
+                ? '✓  Закрепить в панели GNOME'
+                : 'Не закреплять в панели GNOME';
+            pinToggle.set_style_class_name(
+                `ai-software-option${pinToGnome ? ' checked' : ''}`,
+            );
+        });
+        this._showSoftwareConfirmation({
+            title: `Установить ${application.display_name}?`,
+            details: [
+                'Источник: Snapcraft',
+                `Канал: ${application.channel ?? 'stable'}`,
+                'Язык: системный',
+                'Расположение: стандартное для Snap',
+            ],
+            extra: pinToggle,
+            confirmLabel: 'Установить',
+            onCancel: () => this._openSoftware('catalog'),
+            onConfirm: async () => {
+                try {
+                    const result = await this._runtime.softwarePrepare({
+                        action: 'install',
+                        application_id: application.application_id,
+                        locale: 'system',
+                        install_location: 'default',
+                        selected_options: pinToGnome ? ['pin_to_gnome'] : [],
+                    });
+                    await this._runtime.softwareRespond(
+                        result.task.task_id,
+                        true,
+                        'install',
+                        false,
+                    );
+                    this._openSoftware('catalog');
+                } catch (error) {
+                    this._showSoftwareError('Не удалось начать установку.');
+                }
+            },
+        });
     }
 
     _showInstallConfirmation(application, task) {
@@ -1713,10 +1893,10 @@ class SettingsView extends St.Widget {
         }
     }
 
-    async _controlSoftware(task, action) {
+    async _controlSoftware(task, action, section) {
         try {
             await this._runtime.softwareControl(task.task_id, action);
-            this._openSoftware('library');
+            this._openSoftware(section);
         } catch (_error) {
             this._showSoftwareError('Действие сейчас недоступно для этой задачи.');
         }
@@ -1744,6 +1924,15 @@ class SettingsView extends St.Widget {
     _softwareTaskLabel(task, section) {
         if (!task)
             return section === 'library' ? 'Установлено' : 'Установить';
+        if (task.install_source === 'backup') {
+            if (task.restore_state === 'restoring')
+                return 'Восстановление данных';
+            if (task.restore_state === 'restored')
+                return 'Установлено из бэкапа';
+            if (Number.isInteger(task.progress_percent) && task.state !== 'completed')
+                return `Установка из бэкапа · ${task.progress_percent}%`;
+            return 'Установка из бэкапа';
+        }
         if (Number.isInteger(task.progress_percent) &&
             !['completed', 'failed', 'canceled'].includes(task.state))
             return `${task.progress_percent}%`;
@@ -1771,14 +1960,36 @@ class SettingsView extends St.Widget {
             : 'Срок хранения не определён';
         info.add_child(new St.Label({text: days, style_class: 'ai-software-app-description'}));
         row.add_child(info);
-        row.add_child(new St.Button({
+        const restore = new St.Button({
             label: 'Восстановить',
-            style_class: 'ai-software-install ai-software-install-pending',
-            reactive: false,
-            can_focus: false,
+            style_class: 'ai-software-install',
+            reactive: backup.state === 'available',
+            can_focus: backup.state === 'available',
             y_align: Clutter.ActorAlign.CENTER,
-        }));
+        });
+        restore.connect('clicked', () => this._prepareRestore(backup));
+        row.add_child(restore);
         return row;
+    }
+
+    _prepareRestore(backup) {
+        this._showSoftwareConfirmation({
+            title: `Восстановить ${backup.display_name}?`,
+            details: [
+                'Приложение будет заново установлено через Snapcraft.',
+                'После установки snapd восстановит данные из выбранного бэкапа.',
+            ],
+            confirmLabel: 'Восстановить',
+            onCancel: () => this._openSoftware('backups'),
+            onConfirm: async () => {
+                try {
+                    await this._runtime.softwareRestore(backup.backup_id);
+                    this._openSoftware('catalog');
+                } catch (error) {
+                    this._showSoftwareError('Не удалось начать восстановление из бэкапа.');
+                }
+            },
+        });
     }
 
     _softwareLibrarySections(activeSection) {

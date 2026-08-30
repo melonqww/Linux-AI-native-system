@@ -134,12 +134,14 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "this._runtime.softwarePrepare({",
             "this._runtime.softwareRespond(",
             "this._runtime.softwareControl(",
+            "this._runtime.softwareRestore(",
             "Вы точно хотите удалить",
             "Сохранить бэкап данных приложения",
             "Язык: системный",
             "Расположение: стандартное для Snap",
             "download_speed_bps",
             "eta_seconds",
+            "task.eta_seconds > 0",
             "Сохранённых бэкапов пока нет.",
             "Официальный сайт ↗",
             "SOFTWARE_ICON_ASSETS",
@@ -147,6 +149,10 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "this._queueViewportRedraw();",
             "ai-software-library-sections",
             "this._settingsShortcut.ease({",
+            "Shell.AppSystem.get_default().lookup_app",
+            "app.request_quit()",
+            "AppFavorites.getAppFavorites().addFavorite",
+            "Установлено из бэкапа",
             "_loadInferenceLifecycle",
             "_requestInferenceStatus",
             "this._runtime.request('POST', '/v1/inference/status')",
@@ -245,6 +251,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "'/v1/software/prepare'",
             "'/v1/software/respond'",
             "'/v1/software/control'",
+            "'/v1/software/restore'",
         ):
             self.assertIn(marker, source)
         self.assertNotIn("http://", source)
