@@ -31,6 +31,7 @@ const PANEL_HORIZONTAL_MARGIN = 20;
 const PANEL_BOTTOM_MARGIN = 18;
 const TOGGLE_DURATION = 260;
 const TAB_HEIGHT = 43;
+const SOFTWARE_LAUNCH_TIMEOUT_SECONDS = 60;
 // The runtime's real Ollama model is qwen3.5:2b. Keep the human-readable
 // name here in sync with that backend default; model switching is not exposed
 // until the runtime supports selecting a different model per run.
@@ -1247,7 +1248,7 @@ class SettingsView extends St.Widget {
             'Каталог приложений',
             'Установка, удаление и управление загрузками',
             'Открыть ›',
-            () => this._openSoftware('library'),
+            () => this._openSoftware('catalog'),
         ));
         this._content.add_child(software);
 
@@ -1433,7 +1434,7 @@ class SettingsView extends St.Widget {
             style_class: 'ai-software-app',
             x_expand: true,
         });
-        row.add_child(this._softwareIcon(application.application_id));
+        row.add_child(this._softwareIcon(application));
         const info = new St.BoxLayout({
             vertical: true,
             style_class: 'ai-software-app-info',
@@ -1508,6 +1509,10 @@ class SettingsView extends St.Widget {
         if (restoringFromBackup)
             return actions;
         if (completedInstall) {
+            if (section === 'catalog') {
+                add('Удалить', () => this._prepareRemove(application), 'danger');
+                return actions;
+            }
             const runtime = this._softwareRuntime(application);
             this._ensureSoftwareFavorite(application, task, runtime.app);
             const runtimeLabel = new St.Label({
@@ -1561,7 +1566,8 @@ class SettingsView extends St.Widget {
             this._softwareLaunchRequests.delete(application.application_id);
         const requestedAt = this._softwareLaunchRequests.get(application.application_id);
         const pending = requestedAt !== undefined &&
-            (GLib.get_monotonic_time() - requestedAt) < 15 * 1_000_000;
+            (GLib.get_monotonic_time() - requestedAt) <
+                SOFTWARE_LAUNCH_TIMEOUT_SECONDS * 1_000_000;
         const failed = requestedAt !== undefined && !pending && state !== Shell.AppState.RUNNING;
         if (!app)
             return {app: null, label: 'Ярлык приложения не найден', canClose: false, failed: false};
@@ -1598,7 +1604,8 @@ class SettingsView extends St.Widget {
         } catch (error) {
             this._softwareLaunchRequests.set(
                 application.application_id,
-                GLib.get_monotonic_time() - 16 * 1_000_000,
+                GLib.get_monotonic_time() -
+                    (SOFTWARE_LAUNCH_TIMEOUT_SECONDS + 1) * 1_000_000,
             );
             logError(error, 'AI-native Linux: запуск приложения завершился ошибкой');
             this._openSoftware(section);
@@ -2005,7 +2012,13 @@ class SettingsView extends St.Widget {
         return sections;
     }
 
-    _softwareIcon(applicationId) {
+    _softwareIcon(applicationOrId) {
+        const application = typeof applicationOrId === 'object'
+            ? applicationOrId
+            : this._lastSoftwareCatalog?.find(
+                item => item.application_id === applicationOrId,
+            );
+        const applicationId = application?.application_id ?? applicationOrId;
         const [assetName, colorClass] = SOFTWARE_ICON_ASSETS[applicationId] ?? [null, 'fallback'];
         const box = new St.Widget({
             style_class: `ai-software-icon ai-software-icon-${colorClass}`,
@@ -2013,7 +2026,10 @@ class SettingsView extends St.Widget {
             y_align: Clutter.ActorAlign.CENTER,
         });
         let icon;
-        if (assetName && this._extensionDir) {
+        const shellApp = application ? this._softwareShellApp(application) : null;
+        if (shellApp) {
+            icon = shellApp.create_icon_texture(30);
+        } else if (assetName && this._extensionDir) {
             const file = this._extensionDir
                 .get_child('assets')
                 .get_child('software-icons')

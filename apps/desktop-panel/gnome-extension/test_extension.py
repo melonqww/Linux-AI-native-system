@@ -153,6 +153,9 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "app.request_quit()",
             "AppFavorites.getAppFavorites().addFavorite",
             "Установлено из бэкапа",
+            "SOFTWARE_LAUNCH_TIMEOUT_SECONDS = 60",
+            "if (section === 'catalog')",
+            "shellApp.create_icon_texture(30)",
             "_loadInferenceLifecycle",
             "_requestInferenceStatus",
             "this._runtime.request('POST', '/v1/inference/status')",
@@ -190,6 +193,10 @@ class GnomeExtensionFilesTest(unittest.TestCase):
         self.assertNotIn("Qwen 3 1.7B", source)
         self.assertNotIn("Qwen 3.5 4B", source)
         self.assertNotIn("clip_to_allocation: true", source)
+        self.assertIn(
+            "'Открыть ›',\n            () => this._openSoftware('catalog')",
+            source,
+        )
 
     def test_software_catalog_icons_are_bundled(self):
         assets = ROOT / "assets" / "software-icons"

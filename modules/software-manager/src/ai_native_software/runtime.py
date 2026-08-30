@@ -28,7 +28,7 @@ class ApplicationLifecycleManager:
         adapter: DesktopRuntimeAdapter,
         *,
         now_fn: Callable[[], datetime] | None = None,
-        launch_timeout: timedelta = timedelta(seconds=15),
+        launch_timeout: timedelta = timedelta(seconds=60),
     ) -> None:
         if launch_timeout <= timedelta(0):
             raise ValueError("launch_timeout must be positive")
