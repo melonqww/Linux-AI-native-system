@@ -143,7 +143,8 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "Сохранённых бэкапов пока нет.",
             "Официальный сайт ↗",
             "SOFTWARE_ICON_ASSETS",
-            "clip_to_allocation: true",
+            "this._scroll.set_overlay_scrollbars(false)",
+            "this._queueViewportRedraw();",
             "ai-software-library-sections",
             "this._settingsShortcut.ease({",
             "_loadInferenceLifecycle",
@@ -182,6 +183,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
         self.assertNotIn("Gemma 2 2B", source)
         self.assertNotIn("Qwen 3 1.7B", source)
         self.assertNotIn("Qwen 3.5 4B", source)
+        self.assertNotIn("clip_to_allocation: true", source)
 
     def test_software_catalog_icons_are_bundled(self):
         assets = ROOT / "assets" / "software-icons"

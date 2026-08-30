@@ -1158,7 +1158,6 @@ class SettingsView extends St.Widget {
             layout_manager: new Clutter.BinLayout(),
             x_expand: true,
             y_expand: true,
-            clip_to_allocation: true,
         });
         this._runtime = runtime;
         this._extensionDir = extensionDir;
@@ -1170,11 +1169,12 @@ class SettingsView extends St.Widget {
             style_class: 'ai-settings-scroll',
             x_expand: true,
             y_expand: true,
-            clip_to_allocation: true,
         });
         this._scroll.set_policy(St.PolicyType.NEVER, St.PolicyType.AUTOMATIC);
+        this._scroll.set_overlay_scrollbars(false);
         this._lastSettingsScrollValue = 0;
         this._scroll.get_vadjustment().connect('notify::value', adjustment => {
+            this._queueViewportRedraw();
             if (!this._settingsShortcut)
                 return;
             const value = Number(adjustment.value ?? 0);
@@ -1195,7 +1195,6 @@ class SettingsView extends St.Widget {
             vertical: true,
             style_class: 'ai-settings-content',
             x_expand: true,
-            clip_to_allocation: true,
         });
         this._scroll.set_child(this._content);
         this.add_child(this._scroll);
@@ -1207,6 +1206,15 @@ class SettingsView extends St.Widget {
         this._content.get_children().forEach(child => child.destroy());
         this._scroll.get_vadjustment().value = 0;
         this._lastSettingsScrollValue = 0;
+    }
+
+    _queueViewportRedraw() {
+        for (const actor of [this._content, this._scroll, this, this.get_parent()]) {
+            if (!actor)
+                continue;
+            actor.invalidate_paint_volume();
+            actor.queue_redraw();
+        }
     }
 
     _buildSettings() {
@@ -1412,20 +1420,19 @@ class SettingsView extends St.Widget {
                 section,
             ));
         });
+        this._queueViewportRedraw();
     }
 
     _applicationRow(application, task, section) {
         const row = new St.BoxLayout({
             style_class: 'ai-software-app',
             x_expand: true,
-            clip_to_allocation: true,
         });
         row.add_child(this._softwareIcon(application.application_id));
         const info = new St.BoxLayout({
             vertical: true,
             style_class: 'ai-software-app-info',
             x_expand: true,
-            clip_to_allocation: true,
         });
         const nameLine = new St.BoxLayout({style_class: 'ai-software-app-name-line'});
         nameLine.add_child(new St.Label({text: application.display_name, style_class: 'ai-software-app-name'}));
@@ -1755,7 +1762,6 @@ class SettingsView extends St.Widget {
         const row = new St.BoxLayout({
             style_class: 'ai-software-app',
             x_expand: true,
-            clip_to_allocation: true,
         });
         row.add_child(this._softwareIcon(backup.application_id));
         const info = new St.BoxLayout({vertical: true, x_expand: true});
@@ -2546,7 +2552,6 @@ class Panel extends St.Widget {
         this._content = new St.Widget({
             style_class: 'ai-panel-content',
             layout_manager: new Clutter.FixedLayout(),
-            clip_to_allocation: true,
         });
         this._content.set_position(TOGGLE_WIDTH, 0);
         this._content.set_size(PANEL_WIDTH, DEFAULT_PANEL_HEIGHT);
@@ -2589,7 +2594,6 @@ class Panel extends St.Widget {
 
         this._views = new St.Widget({
             layout_manager: new Clutter.FixedLayout(),
-            clip_to_allocation: true,
         });
         this._views.set_position(0, TAB_HEIGHT);
         this._views.set_size(PANEL_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
