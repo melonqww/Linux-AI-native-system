@@ -56,6 +56,12 @@ class PermissionGatewayTests(unittest.TestCase):
         self.assertEqual(decision.kind, DecisionKind.ALLOW)
         self.assertEqual(decision.risk, "R0")
 
+    def test_allows_the_compiler_owned_search_mode_argument(self):
+        decision = self.gateway.evaluate(
+            invocation(arguments={"mode": "metadata", "extensions": ("pdf",)})
+        )
+        self.assertEqual(decision.kind, DecisionKind.ALLOW)
+
     def test_module_availability_does_not_grant_policy_or_override_risk(self):
         unknown = invocation(capability="module.claimed.admin", declared_risk="R0")
         self.available.add("module.claimed.admin")

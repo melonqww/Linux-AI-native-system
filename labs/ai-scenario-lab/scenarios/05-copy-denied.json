@@ -1,0 +1,29 @@
+{
+  "id": "copy-denied",
+  "title": "A denied R1 operation has no filesystem effect",
+  "locale": "ru",
+  "tags": ["smoke", "files", "r1", "denial"],
+  "fixture": "base-desktop.json",
+  "turns": [
+    {
+      "user": "Найди все PDF-файлы на моём компьютере",
+      "expect": {
+        "stage": "completed",
+        "capabilities": ["documents.query.search"],
+        "found": 3
+      }
+    },
+    {
+      "user": "Скопируй их в папку НеКопировать на рабочем столе",
+      "approval": "deny",
+      "expect": {
+        "stage": "cancelled",
+        "capabilities": ["storage.materialize.plan-copy"],
+        "copied": 0,
+        "approval_required": true,
+        "paths_absent": ["/home/test-user/Desktop/НеКопировать"],
+        "assistant_excludes": ["Скопировано объектов: 3", "Items copied: 3"]
+      }
+    }
+  ]
+}

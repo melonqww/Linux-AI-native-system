@@ -24,7 +24,14 @@ def builtin_policies() -> tuple[CapabilityPolicy, ...]:
             risk=RiskLevel.READ_ONLY,
             plan_approval_required=False,
             allowed_arguments=frozenset(
-                {"text", "name_terms", "extensions", "volume_ids", "languages"}
+                {
+                    "mode",
+                    "text",
+                    "name_terms",
+                    "extensions",
+                    "volume_ids",
+                    "languages",
+                }
             ),
             required_arguments=frozenset(),
             phases=(

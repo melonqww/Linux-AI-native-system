@@ -1,0 +1,29 @@
+{
+  "id": "chat-memory",
+  "title": "Conversation stays conversational and remembers the prior turn",
+  "locale": "ru",
+  "tags": ["smoke", "chat", "memory"],
+  "fixture": "base-desktop.json",
+  "turns": [
+    {
+      "user": "Привет! Как у тебя дела?",
+      "expect": {
+        "stage": "completed",
+        "capabilities": [],
+        "no_operations": true,
+        "message_kinds": ["conversation"],
+        "assistant_excludes": ["tool_call", "<bool>", "не удалось надёжно понять"]
+      }
+    },
+    {
+      "user": "Какой вопрос я задал тебе перед этим?",
+      "expect": {
+        "stage": "completed",
+        "capabilities": [],
+        "no_operations": true,
+        "message_kinds": ["conversation"],
+        "assistant_contains_any": ["дела", "как у тебя"]
+      }
+    }
+  ]
+}

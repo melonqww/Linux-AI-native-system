@@ -1,0 +1,76 @@
+{
+  "volumes": [
+    {
+      "id": "system",
+      "name": "Virtual System Disk",
+      "virtual_root": "/",
+      "permission": "content",
+      "system": true
+    },
+    {
+      "id": "archive",
+      "name": "Virtual Archive Disk",
+      "virtual_root": "/mnt/archive",
+      "permission": "metadata",
+      "system": false
+    },
+    {
+      "id": "locked",
+      "name": "Virtual Locked Disk",
+      "virtual_root": "/mnt/locked",
+      "permission": "none",
+      "system": false
+    }
+  ],
+  "files": [
+    {
+      "volume": "system",
+      "path": "home/test-user/Documents/algebra.pdf",
+      "kind": "pdf",
+      "content": "Linear algebra theorem matrix vector mathematics"
+    },
+    {
+      "volume": "system",
+      "path": "home/test-user/Documents/broken.pdf",
+      "kind": "broken_pdf",
+      "content": ""
+    },
+    {
+      "volume": "system",
+      "path": "home/test-user/Documents/notes.txt",
+      "kind": "text",
+      "content": "Personal notes about mathematics and geometry."
+    },
+    {
+      "volume": "system",
+      "path": "home/test-user/Downloads/bread.txt",
+      "kind": "text",
+      "content": "Bake bread around 180 to 200 degrees Celsius."
+    },
+    {
+      "volume": "system",
+      "path": "home/test-user/Documents/large-notes.txt",
+      "kind": "large_text",
+      "content": "largefiletoken",
+      "size_bytes": 2097152
+    },
+    {
+      "volume": "archive",
+      "path": "geometry.pdf",
+      "kind": "pdf",
+      "content": "Geometry triangle circle mathematics"
+    },
+    {
+      "volume": "archive",
+      "path": "archive-note.txt",
+      "kind": "text",
+      "content": "externalcontenttoken"
+    },
+    {
+      "volume": "locked",
+      "path": "private.pdf",
+      "kind": "pdf",
+      "content": "This disk is not enrolled and must never be searched"
+    }
+  ]
+}

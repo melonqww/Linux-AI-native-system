@@ -211,6 +211,52 @@ class WorkspaceRuntimeTests(unittest.TestCase):
             "Поиск завершён. Показано файлов: 4; всего совпадений: 12.",
         )
 
+    def test_capability_and_turn_routers_split_mixed_before_limited_intent(self):
+        model = SplitModel(
+            ModelTurn(ModelTurnKind.ACTION, intent_payload={"safe": True}),
+            {
+                "kind": "mixed",
+                "language": "ru",
+                "confidence": 0.95,
+                "conversation_text": "При какой температуре печь хлеб",
+                "action_text": "найди все PDF",
+            },
+            "Хлеб обычно выпекают при 180 градусах.",
+        )
+        compiler = Compiler(SimpleNamespace(state=CompilationState.READY, plan=object()))
+        executor = Executor(completed_result(count=3))
+        runtime = WorkspaceRuntime(
+            self.store,
+            model,
+            compiler,
+            executor,
+            lambda: TaskContext(locale="ru"),
+            turn_router=TurnRouter(model),
+            capability_router=CandidateRouter("search_documents"),
+        )
+        try:
+            run = runtime.submit(
+                "При какой температуре печь хлеб и найди все PDF",
+                transport_context=TransportContext.internal(),
+            )
+            self.wait_for(run.run_id, WorkspaceStage.COMPLETED)
+        finally:
+            runtime.close()
+
+        self.assertEqual(model.classify_calls, 1)
+        self.assertEqual(model.chat_calls, 1)
+        self.assertEqual(model.route_calls, 1)
+        self.assertEqual(model.requests[-1].user_text, "найди все PDF")
+        self.assertEqual(
+            model.requests[-1].allowed_operations, ("search_documents",)
+        )
+        self.assertTrue(
+            any(
+                message.content == "Хлеб обычно выпекают при 180 градусах."
+                for message in self.store.list_messages()
+            )
+        )
+
     def test_malformed_classifier_uses_chat_and_cannot_reach_hallucinated_tool(self):
         model = BrokenClassifierModel(
             ModelTurn(ModelTurnKind.ACTION, intent_payload={"hallucinated": True}),
@@ -239,6 +285,38 @@ class WorkspaceRuntimeTests(unittest.TestCase):
         self.assertEqual(model.route_calls, 0)
         self.assertEqual(compiler.calls, 0)
         self.assertFalse(executor.called.is_set())
+
+    def test_malformed_classifier_uses_only_trusted_candidate_route_when_available(self):
+        model = BrokenClassifierModel(
+            ModelTurn(ModelTurnKind.ACTION, intent_payload={"safe": True}),
+            {},
+            "unused",
+        )
+        compiler = Compiler(SimpleNamespace(state=CompilationState.READY, plan=object()))
+        executor = Executor(completed_result(count=3))
+        runtime = WorkspaceRuntime(
+            self.store,
+            model,
+            compiler,
+            executor,
+            lambda: TaskContext(locale="ru"),
+            turn_router=TurnRouter(model),
+            capability_router=CandidateRouter("search_documents"),
+        )
+        try:
+            run = runtime.submit(
+                "Найди все PDF", transport_context=TransportContext.internal()
+            )
+            self.wait_for(run.run_id, WorkspaceStage.COMPLETED)
+        finally:
+            runtime.close()
+
+        self.assertEqual(model.classify_calls, 1)
+        self.assertEqual(model.chat_calls, 0)
+        self.assertEqual(model.route_calls, 1)
+        self.assertEqual(model.requests[-1].allowed_operations, ("search_documents",))
+        self.assertEqual(compiler.calls, 1)
+        self.assertTrue(executor.called.is_set())
 
     def test_classifier_clarification_falls_back_to_chat_without_tool_route(self):
         model = SplitModel(

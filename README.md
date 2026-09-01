@@ -180,6 +180,13 @@ GitHub Actions повторяет набор на Windows и Ubuntu 24.04, гд�
 выполняется настоящий inotify integration test. Подробности находятся в
 [`docs/developer/testing.md`](docs/developer/testing.md).
 
+Отдельный мини-проект [`labs/ai-scenario-lab`](labs/ai-scenario-lab/README.md)
+поднимает виртуальный компьютер внутри репозитория и прогоняет настоящую
+`qwen3.5:2b` через production workspace, индексатор, Permission Gateway и
+Execution Orchestrator. Он проверяет разговор, память, смешанные запросы,
+поиск, approval, отказ и отсутствие эффектов за пределами песочницы без GNOME
+и Linux VM.
+
 ## Запуск нативной панели в Ubuntu
 
 В Ubuntu с GNOME из корня репозитория сначала установите и запустите
@@ -219,6 +226,7 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [Решение о единой системной рабочей области](Architecture/decisions/ADR-009-system-workspace-runtime.md)
 - [Решение о модульном Workspace Turn Pipeline v2](Architecture/decisions/ADR-014-modular-workspace-turn-pipeline.md)
 - [Решение о долговечном модуле установки приложений](Architecture/decisions/ADR-015-durable-software-manager.md)
+- [Решение об изолированной лаборатории AI-сценариев](Architecture/decisions/ADR-017-isolated-ai-scenario-lab.md)
 - [Решение о модульном жизненном цикле локальных моделей](Architecture/decisions/ADR-011-model-lifecycle-module.md)
 - [Решение об Intent Compiler](Architecture/decisions/ADR-004-model-neutral-intent-compiler.md)
 - [Решение об оркестрации серверных планов](Architecture/decisions/ADR-005-server-owned-execution-orchestration.md)

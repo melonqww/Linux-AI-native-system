@@ -228,6 +228,7 @@ def main() -> int:
                 from ai_native_turns import (
                     CapabilityCandidateRouter,
                     CapabilityDescriptor,
+                    TurnRouter,
                 )
 
                 executable_capabilities = set(plan_executor.available_capabilities())
@@ -251,6 +252,7 @@ def main() -> int:
                     model_status=lambda: workspace_model_readiness(
                         ollama_provider_status, model_status
                     ),
+                    turn_router=TurnRouter(provider),
                     capability_router=capability_router,
                 )
                 for capability in plan_executor.available_capabilities():

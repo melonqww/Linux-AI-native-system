@@ -32,3 +32,7 @@ Thumbs.db
 *.vmdk
 *.vbox-prev
 VirtualBox VMs/
+
+# Local AI Scenario Lab runs and generated reports
+labs/ai-scenario-lab/.runtime/
+labs/ai-scenario-lab/reports/

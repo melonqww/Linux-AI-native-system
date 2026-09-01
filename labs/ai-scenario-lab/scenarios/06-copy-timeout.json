@@ -1,0 +1,28 @@
+{
+  "id": "copy-timeout",
+  "title": "No approval leaves a write operation pending and untouched",
+  "locale": "ru",
+  "tags": ["full", "files", "r1", "timeout"],
+  "fixture": "base-desktop.json",
+  "turns": [
+    {
+      "user": "Найди все PDF-файлы на моём компьютере",
+      "expect": {
+        "stage": "completed",
+        "found": 3,
+        "capabilities": ["documents.query.search"]
+      }
+    },
+    {
+      "user": "Скопируй их в папку Ожидает на рабочем столе",
+      "approval": "timeout",
+      "expect": {
+        "stage": "awaiting_approval",
+        "capabilities": ["storage.materialize.plan-copy"],
+        "copied": 0,
+        "approval_required": true,
+        "paths_absent": ["/home/test-user/Desktop/Ожидает"]
+      }
+    }
+  ]
+}

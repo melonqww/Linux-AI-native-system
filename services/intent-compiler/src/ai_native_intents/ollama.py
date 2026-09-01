@@ -113,10 +113,14 @@ conversation means ordinary talk or a question requiring no operation on the com
 action means a requested computer operation. mixed means both. clarification means the goal
 cannot be separated reliably. Copy conversation_text and action_text as exact, non-overlapping
 substrings of the current user message; use null where the kind does not require a fragment.
+If the proposed conversation and action fragments would be identical, the turn is action,
+not mixed: use the complete message as action_text and null as conversation_text.
 For a pure conversation, conversation_text is the entire current message. For a pure action,
 action_text is the entire current message. Do not classify knowledge questions such as cooking,
 math, explanations, identity, or capabilities as computer actions.
 Never answer the user, plan an action, or use history as a new command. History is context only.
+Return only one JSON object with exactly these fields: kind, language, confidence,
+conversation_text, action_text.
 """
 _CHAT_INSTRUCTIONS: Final = """You are the friendly local assistant inside a Linux workspace.
 Answer the current user naturally and directly in their language. Use conversation history to
@@ -186,24 +190,10 @@ class OllamaModelProvider:
             ],
             "stream": False,
             "think": False,
-            "format": {
-                "type": "object",
-                "additionalProperties": False,
-                "required": [
-                    "kind", "language", "confidence", "conversation_text", "action_text"
-                ],
-                "properties": {
-                    "kind": {"enum": ["conversation", "action", "mixed", "clarification"]},
-                    "language": {"type": "string", "minLength": 2, "maxLength": 16},
-                    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
-                    "conversation_text": {
-                        "type": ["string", "null"], "minLength": 1, "maxLength": 4000
-                    },
-                    "action_text": {
-                        "type": ["string", "null"], "minLength": 1, "maxLength": 4000
-                    },
-                },
-            },
+            # Qwen 3.5 follows Ollama JSON mode but can serialize a supplied
+            # JSON Schema as YAML-like text. TurnRouter remains the strict
+            # schema and exact-substring validation boundary.
+            "format": "json",
             "keep_alive": self.keep_alive,
             "options": {
                 "num_ctx": self.context_tokens,

@@ -51,12 +51,44 @@ class TurnRouter:
         # paraphrase the fragment even when the kind itself is correct.
         if kind is TurnKind.CONVERSATION and action is None:
             conversation = request.user_text
+        if kind is TurnKind.MIXED and action is not None:
+            conversation = self._recover_conversation_fragment(
+                request.user_text, conversation, action
+            )
         self._validate_fragments(request.user_text, kind, conversation, action)
         if float(confidence) < self.minimum_confidence:
             return TurnClassification(
                 TurnKind.CLARIFICATION, language, float(confidence)
             )
         return TurnClassification(kind, language, float(confidence), conversation, action)
+
+    @staticmethod
+    def _recover_conversation_fragment(
+        original: str, conversation: str | None, action: str
+    ) -> str | None:
+        """Recover only the non-executing side when a small model overlaps it.
+
+        The action must already be an exact user-authored substring. We never
+        derive or broaden an executable fragment from model output.
+        """
+        folded = original.casefold()
+        action_start = folded.find(action.casefold())
+        if action_start < 0:
+            return conversation
+        if conversation is not None:
+            conversation_start = folded.find(conversation.casefold())
+            if conversation_start >= 0:
+                conversation_end = conversation_start + len(conversation)
+                action_end = action_start + len(action)
+                if conversation_end <= action_start or action_end <= conversation_start:
+                    return conversation
+        prefix = original[:action_start].strip()
+        suffix = original[action_start + len(action) :].strip()
+        # A single TurnClassification fragment must stay contiguous. If the
+        # action sits in the middle, there is no safe one-fragment recovery.
+        if bool(prefix) == bool(suffix):
+            return conversation
+        return prefix or suffix
 
     @staticmethod
     def _validate_fragments(

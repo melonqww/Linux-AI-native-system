@@ -1,0 +1,25 @@
+{
+  "id": "broken-and-large-files",
+  "title": "Broken PDFs and files above one megabyte do not break the search",
+  "locale": "ru",
+  "tags": ["full", "files", "resilience"],
+  "fixture": "base-desktop.json",
+  "turns": [
+    {
+      "user": "Найди все PDF-файлы на компьютере",
+      "expect": {
+        "stage": "completed",
+        "capabilities": ["documents.query.search"],
+        "found": 3
+      }
+    },
+    {
+      "user": "Найди текстовые файлы, в которых встречается largefiletoken",
+      "expect": {
+        "stage": "completed",
+        "capabilities": ["documents.query.search"],
+        "found": 1
+      }
+    }
+  ]
+}

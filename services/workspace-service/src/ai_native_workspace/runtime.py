@@ -191,7 +191,7 @@ class WorkspaceRuntime:
                         str(getattr(candidate, "operation")) for candidate in candidates
                     )
                 )
-            elif self.turn_router is not None:
+            if self.turn_router is not None:
                 try:
                     classification = self.turn_router.route(
                         TurnRequest(
@@ -206,17 +206,18 @@ class WorkspaceRuntime:
                     # handles the complete original message instead.
                     classification = None
                 if classification is None or classification.kind is TurnKind.CLARIFICATION:
-                    chat_response = self._respond_chat(
-                        text, locale, user_message_id
-                    )
-                    self.store.transition(run_id, WorkspaceStage.SUMMARIZING)
-                    response = self.store.append_message(
-                        MessageRole.ASSISTANT,
-                        MessageKind.CONVERSATION,
-                        chat_response,
-                    )
-                    self.store.complete(run_id, response.message_id)
-                    return
+                    if allowed_operations is None:
+                        chat_response = self._respond_chat(
+                            text, locale, user_message_id
+                        )
+                        self.store.transition(run_id, WorkspaceStage.SUMMARIZING)
+                        response = self.store.append_message(
+                            MessageRole.ASSISTANT,
+                            MessageKind.CONVERSATION,
+                            chat_response,
+                        )
+                        self.store.complete(run_id, response.message_id)
+                        return
                 # Classification is an optimization, not a single point of
                 # failure. On malformed/uncertain output, the provider's
                 # validated semantic route still safely distinguishes chat

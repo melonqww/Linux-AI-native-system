@@ -1,0 +1,20 @@
+{
+  "id": "mixed-bread-and-pdf",
+  "title": "One turn combines a useful answer with a trusted file search",
+  "locale": "ru",
+  "tags": ["smoke", "mixed", "files"],
+  "fixture": "base-desktop.json",
+  "turns": [
+    {
+      "user": "При какой температуре печь хлеб и найди все PDF-файлы на моём компьютере",
+      "expect": {
+        "stage": "completed",
+        "capabilities": ["documents.query.search"],
+        "found": 3,
+        "approval_required": false,
+        "message_kinds": ["conversation", "notice", "task_result"],
+        "assistant_contains_any": ["180", "температур"]
+      }
+    }
+  ]
+}

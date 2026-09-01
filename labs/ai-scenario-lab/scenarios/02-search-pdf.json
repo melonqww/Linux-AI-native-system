@@ -1,0 +1,20 @@
+{
+  "id": "search-pdf",
+  "title": "Metadata search finds PDFs only on enrolled disks",
+  "locale": "ru",
+  "tags": ["smoke", "files", "r0"],
+  "fixture": "base-desktop.json",
+  "turns": [
+    {
+      "user": "Найди все PDF-файлы на моём компьютере",
+      "expect": {
+        "stage": "completed",
+        "capabilities": ["documents.query.search"],
+        "found": 3,
+        "approval_required": false,
+        "message_kinds": ["conversation", "notice", "task_result"],
+        "assistant_excludes": ["private.pdf", "tool_call", "<bool>"]
+      }
+    }
+  ]
+}

@@ -64,7 +64,7 @@ class OllamaProviderTests(unittest.TestCase):
 
         self.assertEqual(result["kind"], "mixed")
         self.assertNotIn("tools", captured[0])
-        self.assertEqual(captured[0]["format"]["properties"]["kind"]["enum"][2], "mixed")
+        self.assertEqual(captured[0]["format"], "json")
         self.assertFalse(captured[0]["think"])
 
     def test_chat_has_no_tools_and_exposes_previous_user_message_as_context(self):

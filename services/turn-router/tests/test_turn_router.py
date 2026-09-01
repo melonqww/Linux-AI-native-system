@@ -56,6 +56,18 @@ class TurnRouterTests(unittest.TestCase):
         ))).route(TurnRequest(text, "ru"))
         self.assertEqual(result.kind, TurnKind.MIXED)
 
+    def test_recovers_only_conversation_when_model_overlaps_exact_action(self):
+        text = "При какой температуре печь хлеб и найди все PDF"
+        result = TurnRouter(Classifier(payload(
+            "mixed", text, "найди все PDF"
+        ))).route(TurnRequest(text, "ru"))
+
+        self.assertEqual(result.kind, TurnKind.MIXED)
+        self.assertEqual(
+            result.conversation_text, "При какой температуре печь хлеб и"
+        )
+        self.assertEqual(result.action_text, "найди все PDF")
+
     def test_accepts_english_conversation_and_action_split(self):
         text = "What temperature should I bake bread at, and find my PDF files"
         result = TurnRouter(Classifier(payload(
@@ -74,15 +86,18 @@ class TurnRouterTests(unittest.TestCase):
         self.assertIsNone(result.action_text)
 
     def test_rejects_invented_or_overlapping_fragments(self):
-        cases = (
-            payload("action", action="удали всё"),
-            payload("mixed", "про хлеб и найди", "найди PDF"),
-        )
-        for item in cases:
-            with self.subTest(item=item), self.assertRaises(TurnRoutingError):
-                TurnRouter(Classifier(item)).route(
-                    TurnRequest("Расскажи про хлеб и найди PDF", "ru")
-                )
+        with self.assertRaises(TurnRoutingError):
+            TurnRouter(Classifier(payload("action", action="удали всё"))).route(
+                TurnRequest("Расскажи про хлеб и найди PDF", "ru")
+            )
+
+        # Conversation recovery cannot collapse two separated fragments around
+        # an action in the middle of the message.
+        text = "Расскажи про хлеб, найди PDF, пожалуйста"
+        with self.assertRaises(TurnRoutingError):
+            TurnRouter(Classifier(payload(
+                "mixed", text, "найди PDF"
+            ))).route(TurnRequest(text, "ru"))
 
     def test_rejects_shape_mismatch(self):
         with self.assertRaises(TurnRoutingError):

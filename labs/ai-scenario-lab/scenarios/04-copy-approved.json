@@ -1,0 +1,32 @@
+{
+  "id": "copy-approved",
+  "title": "A follow-up copy runs only after explicit approval",
+  "locale": "ru",
+  "tags": ["smoke", "files", "r1", "approval"],
+  "fixture": "base-desktop.json",
+  "turns": [
+    {
+      "user": "Найди все PDF-файлы на моём компьютере",
+      "expect": {
+        "stage": "completed",
+        "capabilities": ["documents.query.search"],
+        "found": 3
+      }
+    },
+    {
+      "user": "Скопируй их в папку Математика на рабочем столе",
+      "approval": "grant",
+      "expect": {
+        "stage": "completed",
+        "capabilities": ["storage.materialize.plan-copy"],
+        "copied": 3,
+        "approval_required": true,
+        "paths_exist": [
+          "/home/test-user/Desktop/Математика/algebra.pdf",
+          "/home/test-user/Desktop/Математика/broken.pdf",
+          "/home/test-user/Desktop/Математика/geometry.pdf"
+        ]
+      }
+    }
+  ]
+}
