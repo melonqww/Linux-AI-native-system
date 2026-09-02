@@ -127,6 +127,9 @@ model reasoning и технические причины ошибок в пол�
 [`ADR-009`](Architecture/decisions/ADR-009-system-workspace-runtime.md).
 Гибридные сообщения и полнота поиска разделены между модулями в
 [`ADR-014`](Architecture/decisions/ADR-014-modular-workspace-turn-pipeline.md).
+Устойчивый к опечаткам и длинным формулировкам candidate routing остаётся
+рекомендательным и описан в
+[`ADR-019`](Architecture/decisions/ADR-019-advisory-capability-routing.md).
 Backend API рабочей области:
 [`Architecture/api/workspace-runtime-v1.md`](Architecture/api/workspace-runtime-v1.md).
 Жизненный цикл локальной модели вынесен в first-party `model.ollama`: ядро
@@ -234,6 +237,7 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [Решение о модульном capability-ядре](Architecture/decisions/ADR-003-modular-capability-core.md)
 - [Решение о единой системной рабочей области](Architecture/decisions/ADR-009-system-workspace-runtime.md)
 - [Решение о модульном Workspace Turn Pipeline v2](Architecture/decisions/ADR-014-modular-workspace-turn-pipeline.md)
+- [Решение об advisory capability routing](Architecture/decisions/ADR-019-advisory-capability-routing.md)
 - [Решение о долговечном модуле установки приложений](Architecture/decisions/ADR-015-durable-software-manager.md)
 - [Решение об изолированной лаборатории AI-сценариев](Architecture/decisions/ADR-017-isolated-ai-scenario-lab.md)
 - [Решение о goal-driven User Journey Lab](Architecture/decisions/ADR-018-goal-driven-user-journey-lab.md)

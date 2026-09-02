@@ -157,6 +157,32 @@ class IntentCompilerTests(unittest.TestCase):
         self.assertEqual(result.state, CompilationState.NEEDS_CLARIFICATION)
         self.assertIn("Which results", result.clarification_question)
 
+    def test_complete_intent_at_confidence_boundary_is_ready(self):
+        text = "Скопируй найденные файлы на рабочий стол"
+        response = payload(
+            text,
+            [
+                operation(
+                    "copy",
+                    "copy_results",
+                    {
+                        "results_from": "context.active_results",
+                        "destination": "desktop",
+                    },
+                    text,
+                )
+            ],
+            confidence=0.5,
+        )
+        result = self.compiler(
+            response, {"storage.materialize.plan-copy"}
+        ).compile_and_plan(
+            text,
+            context=TaskContext(active_collection_id="collection-1"),
+        )
+
+        self.assertEqual(result.state, CompilationState.READY)
+
     def test_missing_module_marks_plan_unavailable(self):
         text = "Открой сайт https://example.com"
         response = payload(

@@ -14,7 +14,7 @@ class ClarificationPolicy:
         context: TaskContext,
     ) -> str | None:
         russian = context.locale.casefold().startswith("ru")
-        if intent.grounded_confidence < 0.55:
+        if intent.grounded_confidence < 0.5:
             return (
                 "Уточните, пожалуйста, что именно нужно найти или сделать."
                 if russian

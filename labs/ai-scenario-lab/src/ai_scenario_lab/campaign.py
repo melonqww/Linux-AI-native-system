@@ -269,6 +269,24 @@ def _journey_evidence(outcome) -> dict[str, object]:
         for check in outcome.evaluation.checks:
             if not check.passed and check.name.startswith("forbidden_effect"):
                 return {"unauthorized_side_effect": True, "component": "policy"}
+        unmet_goal = next(
+            (
+                check
+                for check in outcome.evaluation.checks
+                if not check.passed
+                and (
+                    check.name.startswith("required_effect")
+                    or check.name.startswith("result:")
+                )
+            ),
+            None,
+        )
+        if unmet_goal is not None and not outcome.capabilities:
+            return {
+                "code": "intent_not_recognized",
+                "component": "router",
+                "check_name": unmet_goal.name,
+            }
     return {"code": "unclassified_journey_failure"}
 
 

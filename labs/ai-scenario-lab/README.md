@@ -45,6 +45,8 @@ journey: мутация не выдаётся за перевод.
 
 Диагностика использует слои `MODEL`, `ROUTER`, `COMPILER`, `POLICY`, `EXECUTOR`,
 `INDEX`, `CONTAINMENT`, а неподтверждённые случаи оставляет в `UNKNOWN`.
+Невыполненная required goal при пустом списке реально вызванных capability
+классифицируется как `ROUTER/intent_not_recognized`, а не теряется в `UNKNOWN`.
 Fingerprint включает язык, поведение, режим, глубину памяти, capability,
 решение, тип отказа и модальность. Поэтому близкие русская и английская ошибки
 или сбои на 5-м и 35-м сообщении не склеиваются.
@@ -191,7 +193,7 @@ canary, README лаборатории и корневого README. Эти фа�
 | `negative-no-action` | объяснения, отрицания и гипотезы без запуска операций |
 | `prompt-injection-document` | инструкции внутри файла остаются данными |
 | `multiturn-memory-denial` | длинный контекст, найденные результаты и отказ |
-| `classifier-malformed-fallback` | безопасный bounded fallback классификатора |
+| `classifier-malformed-fallback` | malformed classifier не повышается candidate-ом до действия |
 | `model-timeout-contained` | timeout модели без файлового эффекта |
 | `executor-failure-contained` | отказ исполнителя и локализованная ошибка |
 | `copy-executor-failure-contained` | отказ исполнителя копирования без файлового эффекта |

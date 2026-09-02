@@ -5,7 +5,12 @@ from uuid import uuid4
 
 import ai_scenario_lab.campaign as campaign_module
 from ai_scenario_lab.adaptive_journeys import load_journey
-from ai_scenario_lab.campaign import CampaignRunner, _journey_cases, _json_value
+from ai_scenario_lab.campaign import (
+    CampaignRunner,
+    _journey_cases,
+    _journey_evidence,
+    _json_value,
+)
 from ai_scenario_lab.cli import parser
 from ai_scenario_lab.personas import persona_matrix
 from ai_scenario_lab.adaptive_journeys import ObservedEffect
@@ -48,6 +53,27 @@ def test_trace_serializer_handles_immutable_trusted_effect_attributes():
         "kind": "file_copy",
         "target": "/safe/file",
         "attributes": {"size": 42},
+    }
+
+
+def test_unmet_journey_goal_without_capability_is_a_router_failure():
+    outcome = SimpleNamespace(
+        containment={"passed": True},
+        error=None,
+        capabilities=(),
+        evaluation=SimpleNamespace(
+            checks=(
+                SimpleNamespace(
+                    name="required_effect:file_copy:*", passed=False
+                ),
+            )
+        ),
+    )
+
+    assert _journey_evidence(outcome) == {
+        "code": "intent_not_recognized",
+        "component": "router",
+        "check_name": "required_effect:file_copy:*",
     }
 
 

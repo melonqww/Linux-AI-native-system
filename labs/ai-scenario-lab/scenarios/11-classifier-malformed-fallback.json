@@ -1,6 +1,6 @@
 {
   "id": "classifier-malformed-fallback",
-  "title": "Malformed classification falls back only to the trusted capability route",
+  "title": "Malformed classification cannot be upgraded to an executable action",
   "locale": "ru",
   "tags": ["full", "fault", "resilience", "files"],
   "fixture": "base-desktop.json",
@@ -16,8 +16,9 @@
       "user": "Найди все PDF-файлы на моём компьютере",
       "expect": {
         "stage": "completed",
-        "capabilities": ["documents.query.search"],
-        "found": 3,
+        "capabilities": [],
+        "no_operations": true,
+        "message_kinds": ["conversation"],
         "faults_triggered": ["model.classify_turn"]
       }
     }

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from typing import Protocol
 
@@ -24,6 +25,13 @@ class TurnRouter:
         self.minimum_confidence = minimum_confidence
 
     def route(self, request: TurnRequest) -> TurnClassification:
+        if self._is_negative_guard(request.user_text):
+            return TurnClassification(
+                TurnKind.CONVERSATION,
+                request.locale,
+                1.0,
+                conversation_text=request.user_text,
+            )
         payload = self.classifier.classify_turn(request)
         if not isinstance(payload, Mapping):
             raise TurnRoutingError("turn classification must be an object")
@@ -47,10 +55,15 @@ class TurnRouter:
         conversation = self._optional_text(payload["conversation_text"], "conversation_text")
         action = self._optional_text(payload["action_text"], "action_text")
         # Pure turns do not need model-authored extraction: their only trusted
-        # fragment is the complete user message. Small local models frequently
-        # paraphrase the fragment even when the kind itself is correct.
-        if kind is TurnKind.CONVERSATION and action is None:
+        # fragment is the complete current user message. Small local models
+        # frequently paraphrase, correct a typo, or copy a historical fragment
+        # even when the turn kind itself is correct.
+        if kind is TurnKind.CONVERSATION:
             conversation = request.user_text
+            action = None
+        if kind is TurnKind.ACTION:
+            conversation = None
+            action = request.user_text
         if kind is TurnKind.MIXED and action is not None:
             conversation = self._recover_conversation_fragment(
                 request.user_text, conversation, action
@@ -132,4 +145,16 @@ class TurnRouter:
         # absent optional fragment. Both representations mean "not present".
         return None if value is None or value == "" else cls._text(
             value, label, maximum=4_000
+        )
+
+    @staticmethod
+    def _is_negative_guard(text: str) -> bool:
+        """Keep leading negation away from tools when a small model wavers."""
+        normalized = " ".join(text.casefold().split())
+        return bool(
+            re.match(
+                r"^(?:ничего\s+не\b|не\s+(?!только\b)\S+|"
+                r"do\s+not\b|don't\b|never\b)",
+                normalized,
+            )
         )

@@ -58,6 +58,31 @@ class CapabilityCandidateRouterTests(unittest.TestCase):
             {"search_documents", "copy_results"},
         )
 
+    def test_typo_and_verbose_text_keep_document_candidate(self):
+        for text in (
+            "Найди мои учебные дкоументы",
+            (
+                "Если получится, помоги мне со следующим: "
+                "найди мои учебные документы. Заранее большое спасибо."
+            ),
+        ):
+            with self.subTest(text=text):
+                matches = self.router.candidates(text)
+                self.assertTrue(matches)
+                self.assertEqual(matches[0].operation, "search_documents")
+
+    def test_related_talk_may_be_a_candidate_but_never_an_execution_decision(self):
+        matches = self.router.candidates("Я люблю читать документы")
+
+        self.assertTrue(matches)
+        self.assertEqual(matches[0].operation, "search_documents")
+
+    def test_exposes_only_module_declared_operations_for_semantic_fallback(self):
+        self.assertEqual(
+            self.router.available_operations(),
+            ("search_documents", "copy_results"),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

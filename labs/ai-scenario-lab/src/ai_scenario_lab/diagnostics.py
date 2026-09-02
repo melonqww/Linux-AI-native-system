@@ -121,7 +121,12 @@ _RULES: tuple[tuple[ProblemLayer, str, tuple[str, ...], tuple[str, ...]], ...] =
     (
         ProblemLayer.ROUTER,
         "router",
-        ("route_mismatch", "classifier_fallback", "unsupported_route"),
+        (
+            "route_mismatch",
+            "classifier_fallback",
+            "unsupported_route",
+            "intent_not_recognized",
+        ),
         ("router", "route", "classifier"),
     ),
     (

@@ -91,13 +91,31 @@ class BrokenClassifierModel(SplitModel):
 
 class CandidateRouter:
     def __init__(self, *operations):
-        self.operations = operations
+        self.selected_operations = operations
 
     def candidates(self, _text):
         return tuple(
             SimpleNamespace(operation=operation, capability_id=f"capability.{operation}")
-            for operation in self.operations
+            for operation in self.selected_operations
         )
+
+    def available_operations(self):
+        return self.selected_operations
+
+
+class TextCandidateRouter:
+    def candidates(self, text):
+        if "документ" not in text.casefold():
+            return ()
+        return (
+            SimpleNamespace(
+                operation="search_documents",
+                capability_id="documents.query.search",
+            ),
+        )
+
+    def available_operations(self):
+        return ("search_documents",)
 
 
 class Compiler:
@@ -212,6 +230,126 @@ class WorkspaceRuntimeTests(unittest.TestCase):
             "Поиск завершён. Показано файлов: 4; всего совпадений: 12.",
         )
 
+    def test_empty_candidates_do_not_veto_a_classified_action(self):
+        text = "Найди мои учебные дкоументы"
+        model = SplitModel(
+            ModelTurn(ModelTurnKind.ACTION, intent_payload={"safe": True}),
+            {
+                "kind": "action",
+                "language": "ru",
+                "confidence": 0.91,
+                "conversation_text": None,
+                "action_text": text,
+            },
+        )
+        compiler = Compiler(SimpleNamespace(state=CompilationState.READY, plan=object()))
+        executor = Executor(completed_result(count=3))
+        runtime = WorkspaceRuntime(
+            self.store,
+            model,
+            compiler,
+            executor,
+            lambda: TaskContext(locale="ru"),
+            turn_router=TurnRouter(model),
+            capability_router=TextCandidateRouter(),
+        )
+        try:
+            run = runtime.submit(text, transport_context=TransportContext.internal())
+            self.wait_for(run.run_id, WorkspaceStage.COMPLETED)
+        finally:
+            runtime.close()
+
+        self.assertEqual(model.classify_calls, 1)
+        self.assertEqual(model.chat_calls, 0)
+        self.assertEqual(model.route_calls, 1)
+        self.assertEqual(model.requests[-1].user_text, text)
+        self.assertEqual(
+            model.requests[-1].allowed_operations, ("search_documents",)
+        )
+        self.assertEqual(compiler.calls, 1)
+        self.assertTrue(executor.called.is_set())
+
+    def test_related_candidate_cannot_override_conversation_classification(self):
+        text = "Я люблю читать документы"
+        model = SplitModel(
+            ModelTurn(ModelTurnKind.ACTION, intent_payload={"hallucinated": True}),
+            {
+                "kind": "conversation",
+                "language": "ru",
+                "confidence": 0.98,
+                "conversation_text": text,
+                "action_text": None,
+            },
+            "А какие документы вам нравятся?",
+        )
+        compiler = Compiler(None)
+        executor = Executor(None)
+        runtime = WorkspaceRuntime(
+            self.store,
+            model,
+            compiler,
+            executor,
+            lambda: TaskContext(locale="ru"),
+            turn_router=TurnRouter(model),
+            capability_router=TextCandidateRouter(),
+        )
+        try:
+            run = runtime.submit(text, transport_context=TransportContext.internal())
+            self.wait_for(run.run_id, WorkspaceStage.COMPLETED)
+        finally:
+            runtime.close()
+
+        self.assertEqual(model.classify_calls, 1)
+        self.assertEqual(model.chat_calls, 1)
+        self.assertEqual(model.route_calls, 0)
+        self.assertEqual(compiler.calls, 0)
+        self.assertFalse(executor.called.is_set())
+
+    def test_ungrounded_mixed_split_routes_original_without_chat_side_effect(self):
+        text = (
+            "Если получится, помоги мне со следующим: "
+            "Найди мои учебные документы Заранее спасибо."
+        )
+        model = SplitModel(
+            ModelTurn(ModelTurnKind.ACTION, intent_payload={"safe": True}),
+            {
+                "kind": "mixed",
+                "language": "ru",
+                "confidence": 0.95,
+                "conversation_text": (
+                    "Если получится, помоги мне со следующим: "
+                    "Найди мои учебные документы"
+                ),
+                "action_text": "Заранее спасибо.",
+            },
+        )
+        compiler = Compiler(SimpleNamespace(state=CompilationState.READY, plan=object()))
+        executor = Executor(completed_result(count=3))
+        runtime = WorkspaceRuntime(
+            self.store,
+            model,
+            compiler,
+            executor,
+            lambda: TaskContext(locale="ru"),
+            turn_router=TurnRouter(model),
+            capability_router=TextCandidateRouter(),
+        )
+        try:
+            run = runtime.submit(text, transport_context=TransportContext.internal())
+            self.wait_for(run.run_id, WorkspaceStage.COMPLETED)
+        finally:
+            runtime.close()
+
+        self.assertEqual(model.classify_calls, 1)
+        self.assertEqual(model.chat_calls, 0)
+        self.assertEqual(model.route_calls, 1)
+        self.assertEqual(model.requests[-1].user_text, text)
+        self.assertEqual(
+            model.requests[-1].allowed_operations, ("search_documents",)
+        )
+        self.assertEqual(compiler.calls, 1)
+        self.assertTrue(executor.called.is_set())
+
     def test_capability_and_turn_routers_split_mixed_before_limited_intent(self):
         model = SplitModel(
             ModelTurn(ModelTurnKind.ACTION, intent_payload={"safe": True}),
@@ -287,11 +425,11 @@ class WorkspaceRuntimeTests(unittest.TestCase):
         self.assertEqual(compiler.calls, 0)
         self.assertFalse(executor.called.is_set())
 
-    def test_malformed_classifier_uses_only_trusted_candidate_route_when_available(self):
+    def test_malformed_classifier_cannot_be_upgraded_by_candidate(self):
         model = BrokenClassifierModel(
             ModelTurn(ModelTurnKind.ACTION, intent_payload={"safe": True}),
             {},
-            "unused",
+            "Уточните, пожалуйста, что нужно сделать.",
         )
         compiler = Compiler(SimpleNamespace(state=CompilationState.READY, plan=object()))
         executor = Executor(completed_result(count=3))
@@ -313,11 +451,10 @@ class WorkspaceRuntimeTests(unittest.TestCase):
             runtime.close()
 
         self.assertEqual(model.classify_calls, 1)
-        self.assertEqual(model.chat_calls, 0)
-        self.assertEqual(model.route_calls, 1)
-        self.assertEqual(model.requests[-1].allowed_operations, ("search_documents",))
-        self.assertEqual(compiler.calls, 1)
-        self.assertTrue(executor.called.is_set())
+        self.assertEqual(model.chat_calls, 1)
+        self.assertEqual(model.route_calls, 0)
+        self.assertEqual(compiler.calls, 0)
+        self.assertFalse(executor.called.is_set())
 
     def test_classifier_clarification_falls_back_to_chat_without_tool_route(self):
         model = SplitModel(

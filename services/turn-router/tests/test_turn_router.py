@@ -22,6 +22,28 @@ def payload(kind, conversation=None, action=None, confidence=0.9):
 
 
 class TurnRouterTests(unittest.TestCase):
+    def test_leading_negation_is_conversation_without_model_classification(self):
+        classifier = Classifier(payload("action", action="не ищи PDF"))
+        for text in (
+            "Не ищи PDF",
+            "Ничего не меняй",
+            "Do not copy the files",
+            "Don't search my disk",
+            "Never delete anything",
+        ):
+            with self.subTest(text=text):
+                result = TurnRouter(classifier).route(TurnRequest(text, "ru"))
+                self.assertEqual(result.kind, TurnKind.CONVERSATION)
+                self.assertEqual(result.conversation_text, text)
+
+    def test_not_only_phrase_is_not_mistaken_for_negative_guard(self):
+        text = "Не только найди PDF, но и скопируй их"
+        result = TurnRouter(
+            Classifier(payload("action", action=text))
+        ).route(TurnRequest(text, "ru"))
+
+        self.assertEqual(result.kind, TurnKind.ACTION)
+
     def test_pure_conversation_uses_original_text_when_small_model_paraphrases(self):
         text = "А при какой температуре печь хлеб"
         result = TurnRouter(Classifier(payload(
@@ -47,6 +69,18 @@ class TurnRouterTests(unittest.TestCase):
         ))).route(TurnRequest(text, "ru"))
 
         self.assertEqual(result.kind, TurnKind.ACTION)
+        self.assertEqual(result.action_text, text)
+
+    def test_pure_action_uses_current_original_when_model_rewrites_fragments(self):
+        text = "Найди мои учебные дкоументы"
+        result = TurnRouter(Classifier(payload(
+            "action",
+            conversation="Найди мои учебные документы",
+            action="Найди мои учебные документы",
+        ))).route(TurnRequest(text, "ru"))
+
+        self.assertEqual(result.kind, TurnKind.ACTION)
+        self.assertIsNone(result.conversation_text)
         self.assertEqual(result.action_text, text)
 
     def test_accepts_mixed_exact_non_overlapping_fragments(self):
@@ -86,9 +120,12 @@ class TurnRouterTests(unittest.TestCase):
         self.assertIsNone(result.action_text)
 
     def test_rejects_invented_or_overlapping_fragments(self):
+        text = "Расскажи про хлеб и найди PDF"
         with self.assertRaises(TurnRoutingError):
-            TurnRouter(Classifier(payload("action", action="удали всё"))).route(
-                TurnRequest("Расскажи про хлеб и найди PDF", "ru")
+            TurnRouter(Classifier(payload(
+                "mixed", conversation="Расскажи про хлеб", action="удали всё"
+            ))).route(
+                TurnRequest(text, "ru")
             )
 
         # Conversation recovery cannot collapse two separated fragments around
@@ -101,7 +138,7 @@ class TurnRouterTests(unittest.TestCase):
 
     def test_rejects_shape_mismatch(self):
         with self.assertRaises(TurnRoutingError):
-            TurnRouter(Classifier(payload("conversation", action="Привет"))).route(
+            TurnRouter(Classifier(payload("mixed", action="Привет"))).route(
                 TurnRequest("Привет", "ru")
             )
 

@@ -26,6 +26,7 @@ from ai_native_orchestrator import (
 )
 from ai_native_permissions import TransportContext
 from ai_native_turns import (
+    TurnClassification,
     TurnHistoryMessage,
     TurnKind,
     TurnRequest,
@@ -48,6 +49,8 @@ class RouteProvider(Protocol):
 
 class CapabilityRouter(Protocol):
     def candidates(self, text: str) -> tuple[object, ...]: ...
+
+    def available_operations(self) -> tuple[str, ...]: ...
 
 
 class PlanExecutor(Protocol):
@@ -174,9 +177,10 @@ class WorkspaceRuntime:
                 return
             model_text = text
             allowed_operations: tuple[str, ...] | None = None
+            candidates: tuple[object, ...] = ()
             if self.capability_router is not None:
                 candidates = self.capability_router.candidates(text)
-                if not candidates:
+                if not candidates and self.turn_router is None:
                     chat_response = self._respond_chat(text, locale, user_message_id)
                     self.store.transition(run_id, WorkspaceStage.SUMMARIZING)
                     response = self.store.append_message(
@@ -190,38 +194,56 @@ class WorkspaceRuntime:
                     dict.fromkeys(
                         str(getattr(candidate, "operation")) for candidate in candidates
                     )
-                )
+                ) or None
             if self.turn_router is not None:
-                try:
-                    classification = self.turn_router.route(
-                        TurnRequest(
-                            text,
-                            locale,
-                            history=self._turn_history(user_message_id),
-                        )
-                    )
-                except Exception:
-                    # A classifier is advisory. Its malformed output is never
-                    # trusted as an action fragment; the safe chat path below
-                    # handles the complete original message instead.
-                    classification = None
+                classification = self._classify_turn(
+                    text, locale, user_message_id
+                )
                 if classification is None or classification.kind is TurnKind.CLARIFICATION:
-                    if allowed_operations is None:
-                        chat_response = self._respond_chat(
-                            text, locale, user_message_id
+                    # A malformed or low-confidence classifier cannot be
+                    # upgraded to an action by lexical candidates. Chat may
+                    # clarify the complete original message, but tools remain
+                    # physically unavailable on this turn.
+                    chat_response = self._respond_chat(
+                        text, locale, user_message_id
+                    )
+                    self.store.transition(run_id, WorkspaceStage.SUMMARIZING)
+                    response = self.store.append_message(
+                        MessageRole.ASSISTANT,
+                        MessageKind.CONVERSATION,
+                        chat_response,
+                    )
+                    self.store.complete(run_id, response.message_id)
+                    return
+                if classification is not None and classification.kind in {
+                    TurnKind.ACTION,
+                    TurnKind.MIXED,
+                }:
+                    if classification.action_text is None:
+                        raise ValueError("action classification has no text")
+                    action_candidates: tuple[object, ...] = ()
+                    if self.capability_router is not None:
+                        action_candidates = self.capability_router.candidates(
+                            classification.action_text
                         )
-                        self.store.transition(run_id, WorkspaceStage.SUMMARIZING)
-                        response = self.store.append_message(
-                            MessageRole.ASSISTANT,
-                            MessageKind.CONVERSATION,
-                            chat_response,
+                    if action_candidates:
+                        allowed_operations = tuple(
+                            dict.fromkeys(
+                                str(getattr(candidate, "operation"))
+                                for candidate in action_candidates
+                            )
                         )
-                        self.store.complete(run_id, response.message_id)
-                        return
-                # Classification is an optimization, not a single point of
-                # failure. On malformed/uncertain output, the provider's
-                # validated semantic route still safely distinguishes chat
-                # from tool calls and the compiler remains the execution gate.
+                    elif candidates:
+                        # The model produced a syntactically valid split, but
+                        # its alleged action no longer grounds any capability
+                        # found in the original message. Route the immutable
+                        # original through the restricted semantic tools and
+                        # do not answer the wrongly extracted chat fragment.
+                        classification = None
+                        model_text = text
+                    else:
+                        allowed_operations = self._available_operations()
+
                 if classification is not None and classification.kind in {
                     TurnKind.CONVERSATION,
                     TurnKind.MIXED,
@@ -363,6 +385,37 @@ class WorkspaceRuntime:
             )
         except Exception:
             self._finish_failure(run_id, locale)
+
+    def _available_operations(self) -> tuple[str, ...] | None:
+        if self.capability_router is None:
+            return None
+        source = getattr(self.capability_router, "available_operations", None)
+        if not callable(source):
+            return None
+        values = source()
+        if not isinstance(values, tuple):
+            raise ValueError("candidate router operations must be a tuple")
+        operations = tuple(
+            dict.fromkeys(value for value in values if isinstance(value, str) and value)
+        )
+        return operations or None
+
+    def _classify_turn(
+        self, text: str, locale: str, current_user_message_id: str
+    ) -> TurnClassification | None:
+        if self.turn_router is None:
+            return None
+        histories = (self._turn_history(current_user_message_id), ())
+        for ordinal, history in enumerate(histories):
+            if ordinal and not histories[0]:
+                break
+            try:
+                return self.turn_router.route(
+                    TurnRequest(text, locale, history=history)
+                )
+            except Exception:
+                continue
+        return None
 
     def _respond_chat(
         self, text: str, locale: str, current_user_message_id: str

@@ -47,6 +47,7 @@ def test_safety_evidence_has_priority_over_lower_layer_failure():
 def test_each_requested_problem_layer_has_a_deterministic_rule():
     cases = {
         "route_mismatch": ProblemLayer.ROUTER,
+        "intent_not_recognized": ProblemLayer.ROUTER,
         "invalid_plan": ProblemLayer.COMPILER,
         "approval_bypass": ProblemLayer.POLICY,
         "execution_failed": ProblemLayer.EXECUTOR,
