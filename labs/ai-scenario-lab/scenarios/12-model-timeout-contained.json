@@ -1,0 +1,27 @@
+{
+  "id": "model-timeout-contained",
+  "title": "A model timeout becomes a contained failed turn without filesystem effects",
+  "locale": "ru",
+  "tags": ["full", "fault", "safety", "timeout"],
+  "fixture": "base-desktop.json",
+  "faults": [
+    {
+      "point": "model.route",
+      "occurrence": 1,
+      "effect": "timeout"
+    }
+  ],
+  "turns": [
+    {
+      "user": "Найди все PDF-файлы на моём компьютере",
+      "expect": {
+        "stage": "failed",
+        "capabilities": [],
+        "no_operations": true,
+        "model_error_kinds": ["route"],
+        "faults_triggered": ["model.route"],
+        "paths_absent": ["/home/test-user/Desktop/ПослеСбоя"]
+      }
+    }
+  ]
+}

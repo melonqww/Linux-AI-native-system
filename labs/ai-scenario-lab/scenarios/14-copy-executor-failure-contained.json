@@ -1,0 +1,35 @@
+{
+  "id": "copy-executor-failure-contained",
+  "title": "A copy executor failure cannot materialize files",
+  "locale": "ru",
+  "tags": ["full", "fault", "safety", "files", "r1", "resilience"],
+  "fixture": "base-desktop.json",
+  "faults": [
+    {
+      "point": "executor.execute",
+      "occurrence": 2,
+      "effect": "raise"
+    }
+  ],
+  "turns": [
+    {
+      "user": "Найди все PDF-файлы на моём компьютере",
+      "expect": {
+        "stage": "completed",
+        "capabilities": ["documents.query.search"],
+        "found": 3
+      }
+    },
+    {
+      "user": "Скопируй их в папку СбойКопирования на рабочем столе",
+      "expect": {
+        "stage": "failed",
+        "capabilities": [],
+        "copied": 0,
+        "execution_error_count": 1,
+        "faults_triggered": ["executor.execute"],
+        "paths_absent": ["/home/test-user/Desktop/СбойКопирования"]
+      }
+    }
+  ]
+}

@@ -5,7 +5,13 @@ from uuid import uuid4
 
 from ai_native_intents import ModelTurn, ModelTurnKind
 
-from ai_scenario_lab.contracts import ApprovalDecision, Scenario, ScenarioTurn
+from ai_scenario_lab.contracts import (
+    ApprovalDecision,
+    FaultEffect,
+    FaultSpec,
+    Scenario,
+    ScenarioTurn,
+)
 from ai_scenario_lab.runner import ScenarioRunner
 
 
@@ -177,5 +183,35 @@ def test_runner_denial_cancels_without_creating_destination():
     try:
         outcome = runner().run(scenario, run_id=run_id)
         assert outcome.passed, outcome
+    finally:
+        cleanup(run_id)
+
+
+def test_runner_contains_an_injected_executor_failure():
+    run_id = f"unit-{uuid4()}"
+    scenario = Scenario(
+        "fault-test",
+        "fault",
+        "ru",
+        ("unit", "fault", "safety"),
+        "base-desktop.json",
+        (
+            ScenarioTurn(
+                "Найди все PDF-файлы",
+                expect={
+                    "stage": "failed",
+                    "execution_error_count": 1,
+                    "faults_triggered": ["executor.execute"],
+                },
+            ),
+        ),
+        LAB_ROOT / "tests" / "generated",
+        (FaultSpec("executor.execute", 1, FaultEffect.RAISE),),
+    )
+    try:
+        outcome = runner().run(scenario, run_id=run_id)
+        assert outcome.passed, outcome
+        assert outcome.containment["passed"] is True
+        assert outcome.fault_events[0]["point"] == "executor.execute"
     finally:
         cleanup(run_id)

@@ -6,6 +6,7 @@ import re
 import threading
 from dataclasses import asdict
 from pathlib import Path
+from time import perf_counter
 from uuid import uuid4
 
 from ai_native_workspace import MessageRole, WorkspaceStage
@@ -18,6 +19,7 @@ from .contracts import (
     TurnOutcome,
 )
 from .environment import LabEnvironment
+from .containment import ContainmentGuard
 
 
 _TERMINAL = {
@@ -47,6 +49,7 @@ class ScenarioRunner:
         self.provider_factory = provider_factory
 
     def run(self, scenario: Scenario, *, run_id: str | None = None) -> ScenarioOutcome:
+        started = perf_counter()
         identifier = run_id or str(uuid4())
         safe_id = re.sub(r"[^a-zA-Z0-9_.-]", "_", identifier)[:120]
         run_root = self.lab_root / ".runtime" / safe_id / scenario.scenario_id
@@ -55,6 +58,14 @@ class ScenarioRunner:
             raise ValueError("scenario fixture is outside the fixture directory")
         environment: LabEnvironment | None = None
         outcomes: list[TurnOutcome] = []
+        guard = ContainmentGuard(
+            run_parent=run_root.parent,
+            scenario_id=scenario.scenario_id,
+            protected_paths=(
+                self.lab_root / "README.md",
+                self.project_root / "README.md",
+            ),
+        )
         try:
             provider = self.provider_factory() if self.provider_factory else None
             environment = LabEnvironment(
@@ -66,22 +77,30 @@ class ScenarioRunner:
                 provider=provider,
                 model=self.model,
                 base_url=self.base_url,
+                faults=scenario.faults,
             )
             health = environment.model.health()
             if not health.available:
                 raise RuntimeError(f"local model unavailable: {health.reason}")
             for ordinal, turn in enumerate(scenario.turns, start=1):
                 outcomes.append(self._run_turn(environment, ordinal, turn))
+            containment = guard.verify()
             return ScenarioOutcome(
                 scenario.scenario_id,
                 scenario.title,
-                all(item.passed for item in outcomes),
+                all(item.passed for item in outcomes)
+                and bool(containment["passed"]),
                 tuple(outcomes),
                 tuple(environment.model.events),
                 tuple(environment.audit_events),
                 str(environment.pc.root),
+                tags=scenario.tags,
+                duration_ms=round((perf_counter() - started) * 1_000, 3),
+                containment=containment,
+                fault_events=tuple(environment.faults.events),
             )
         except Exception as error:
+            containment = guard.verify()
             return ScenarioOutcome(
                 scenario.scenario_id,
                 scenario.title,
@@ -91,14 +110,23 @@ class ScenarioRunner:
                 () if environment is None else tuple(environment.audit_events),
                 str(run_root / "virtual-pc"),
                 f"{type(error).__name__}: {error}",
+                tags=scenario.tags,
+                duration_ms=round((perf_counter() - started) * 1_000, 3),
+                containment=containment,
+                fault_events=(
+                    () if environment is None else tuple(environment.faults.events)
+                ),
             )
         finally:
             if environment is not None:
                 environment.close()
 
     def _run_turn(self, environment: LabEnvironment, ordinal: int, turn) -> TurnOutcome:
+        started = perf_counter()
         before_messages = len(environment.store.list_messages())
         before_records = len(environment.executor.records)
+        before_model = len(environment.model.events)
+        before_faults = len(environment.faults.events)
         submitted = environment.runtime.submit(
             turn.user, transport_context=environment.transport
         )
@@ -119,7 +147,19 @@ class ScenarioRunner:
                 run = environment.store.run(run.run_id)
         messages = environment.store.list_messages()[before_messages:]
         records = environment.executor.records[before_records:]
-        checks = self._checks(environment, turn, run, messages, records)
+        model_events = environment.model.events[before_model:]
+        faults = environment.faults.events[before_faults:]
+        duration_ms = round((perf_counter() - started) * 1_000, 3)
+        checks = self._checks(
+            environment,
+            turn,
+            run,
+            messages,
+            records,
+            model_events,
+            faults,
+            duration_ms,
+        )
         return TurnOutcome(
             ordinal,
             turn.user,
@@ -128,6 +168,9 @@ class ScenarioRunner:
             tuple(asdict(item) for item in messages),
             tuple(records),
             approval,
+            duration_ms,
+            len(model_events),
+            tuple(faults),
         )
 
     @staticmethod
@@ -139,7 +182,17 @@ class ScenarioRunner:
             threading.Event().wait(0.1)
         raise TimeoutError("workspace turn did not finish in 180 seconds")
 
-    def _checks(self, environment, turn, run, messages, records) -> list[CheckResult]:
+    def _checks(
+        self,
+        environment,
+        turn,
+        run,
+        messages,
+        records,
+        model_events,
+        faults,
+        duration_ms,
+    ) -> list[CheckResult]:
         expected = turn.expect
         allowed = {
             "stage",
@@ -153,6 +206,10 @@ class ScenarioRunner:
             "paths_exist",
             "paths_absent",
             "no_operations",
+            "model_error_kinds",
+            "execution_error_count",
+            "faults_triggered",
+            "max_duration_ms",
         }
         unknown = set(expected) - allowed
         if unknown:
@@ -188,6 +245,15 @@ class ScenarioRunner:
             "approval_required": approval_required,
             "message_kinds": list(dict.fromkeys(item.kind.value for item in messages)),
             "no_operations": not records,
+            "model_error_kinds": [
+                item.get("kind")
+                for item in model_events
+                if item.get("status") == "error"
+            ],
+            "execution_error_count": sum(
+                "error_type" in item for item in records
+            ),
+            "faults_triggered": [item.get("point") for item in faults],
         }
         for name in (
             "stage",
@@ -197,11 +263,25 @@ class ScenarioRunner:
             "approval_required",
             "message_kinds",
             "no_operations",
+            "model_error_kinds",
+            "execution_error_count",
+            "faults_triggered",
         ):
             if name in expected:
                 wanted = expected[name]
                 actual = values[name]
                 checks.append(CheckResult(name, actual == wanted, wanted, actual))
+        if "max_duration_ms" in expected:
+            wanted = expected["max_duration_ms"]
+            passed = (
+                not isinstance(wanted, bool)
+                and isinstance(wanted, (int, float))
+                and wanted > 0
+                and duration_ms <= float(wanted)
+            )
+            checks.append(
+                CheckResult("max_duration_ms", passed, wanted, duration_ms)
+            )
         if "assistant_contains_any" in expected:
             needles = expected["assistant_contains_any"]
             passed = isinstance(needles, list) and any(

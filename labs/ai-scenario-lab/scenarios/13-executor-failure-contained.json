@@ -1,0 +1,27 @@
+{
+  "id": "executor-failure-contained",
+  "title": "An executor failure is reported and cannot create a filesystem effect",
+  "locale": "ru",
+  "tags": ["full", "fault", "safety", "resilience"],
+  "fixture": "base-desktop.json",
+  "faults": [
+    {
+      "point": "executor.execute",
+      "occurrence": 1,
+      "effect": "raise"
+    }
+  ],
+  "turns": [
+    {
+      "user": "Найди все PDF-файлы на моём компьютере",
+      "expect": {
+        "stage": "failed",
+        "capabilities": [],
+        "found": 0,
+        "execution_error_count": 1,
+        "faults_triggered": ["executor.execute"],
+        "paths_absent": ["/home/test-user/Desktop/ПослеСбоя"]
+      }
+    }
+  ]
+}

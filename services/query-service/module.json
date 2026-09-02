@@ -22,8 +22,10 @@
         "найди все PDF файлы на компьютере",
         "покажи мои текстовые документы",
         "найди документы по математике",
+        "найди текстовый документ в котором встречается нужная фраза",
         "отыщи файл на диске",
         "find my local PDF files",
+        "find a text document containing a phrase",
         "search documents on this computer"
       ]
     }

@@ -12,6 +12,21 @@ class ApprovalDecision(StrEnum):
     TIMEOUT = "timeout"
 
 
+class FaultEffect(StrEnum):
+    RAISE = "raise"
+    TIMEOUT = "timeout"
+    MALFORMED = "malformed"
+    DELAY = "delay"
+
+
+@dataclass(frozen=True)
+class FaultSpec:
+    point: str
+    occurrence: int
+    effect: FaultEffect
+    delay_ms: int = 0
+
+
 @dataclass(frozen=True)
 class ScenarioTurn:
     user: str
@@ -28,6 +43,7 @@ class Scenario:
     fixture: str
     turns: tuple[ScenarioTurn, ...]
     source: Path
+    faults: tuple[FaultSpec, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -47,6 +63,9 @@ class TurnOutcome:
     messages: tuple[dict[str, object], ...]
     executions: tuple[dict[str, object], ...]
     approval: dict[str, object] | None
+    duration_ms: float = 0.0
+    model_calls: int = 0
+    faults: tuple[dict[str, object], ...] = ()
 
     @property
     def passed(self) -> bool:
@@ -63,3 +82,7 @@ class ScenarioOutcome:
     audit_events: tuple[dict[str, object], ...]
     virtual_pc: str
     error: str | None = None
+    tags: tuple[str, ...] = ()
+    duration_ms: float = 0.0
+    containment: dict[str, object] = field(default_factory=dict)
+    fault_events: tuple[dict[str, object], ...] = ()

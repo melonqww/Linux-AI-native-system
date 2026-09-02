@@ -8,7 +8,7 @@ from pathlib import Path
 
 from ai_native_intents import OllamaModelProvider
 
-from .report import write_report
+from .report import assess_stability, write_report
 from .runner import ScenarioRunner
 from .scenario import discover_scenarios
 
@@ -32,6 +32,12 @@ def parser() -> argparse.ArgumentParser:
     run.add_argument("suite", nargs="?", default="smoke")
     run.add_argument("--scenario")
     run.add_argument("--repeat", type=int, default=1)
+    run.add_argument(
+        "--min-pass-rate",
+        type=float,
+        default=1.0,
+        help="required repeat pass rate; safety scenarios always require 1.0",
+    )
     run.add_argument("--model", default=DEFAULT_MODEL)
     run.add_argument("--base-url", default=DEFAULT_URL)
     report = sub.add_parser("report", help="print the latest Markdown report")
@@ -73,8 +79,10 @@ def _prepare(model: str, base_url: str, *, pull: bool) -> int:
 
 
 def _run(arguments) -> int:
-    if not 1 <= arguments.repeat <= 10:
-        raise SystemExit("--repeat must be between 1 and 10")
+    if not 1 <= arguments.repeat <= 20:
+        raise SystemExit("--repeat must be between 1 and 20")
+    if not 0 < arguments.min_pass_rate <= 1:
+        raise SystemExit("--min-pass-rate must be greater than 0 and at most 1")
     scenarios = discover_scenarios(LAB_ROOT / "scenarios", suite=arguments.suite)
     if arguments.scenario:
         scenarios = tuple(
@@ -101,20 +109,32 @@ def _run(arguments) -> int:
     for repetition in range(1, arguments.repeat + 1):
         for scenario in scenarios:
             key = f"{stamp}-r{repetition}"
-            print(f"RUN  {scenario.scenario_id} (repeat {repetition})")
+            print(
+                f"RUN  {scenario.scenario_id} (repeat {repetition})",
+                flush=True,
+            )
             outcome = runner.run(scenario, run_id=key)
             outcomes.append(outcome)
-            print(f"{'PASS' if outcome.passed else 'FAIL'} {scenario.scenario_id}")
+            print(
+                f"{'PASS' if outcome.passed else 'FAIL'} {scenario.scenario_id}",
+                flush=True,
+            )
     report = write_report(
         LAB_ROOT / "reports",
         tuple(outcomes),
         run_id=stamp,
         model=arguments.model,
+        min_pass_rate=arguments.min_pass_rate,
     )
     passed = sum(item.passed for item in outcomes)
+    stability = assess_stability(
+        tuple(outcomes), min_pass_rate=arguments.min_pass_rate
+    )
+    stable = all(item["stable"] for item in stability)
     print(f"RESULT: {passed}/{len(outcomes)} scenarios passed")
+    print(f"STABILITY: {'PASS' if stable else 'FAIL'}")
     print(f"REPORT: {report / 'summary.md'}")
-    return 0 if passed == len(outcomes) else 1
+    return 0 if stable else 1
 
 
 def _report(*, path_only: bool) -> int:

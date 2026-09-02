@@ -54,14 +54,19 @@ python -m pytest -q services/intent-compiler/tests/test_ollama_live.py
 cd labs/ai-scenario-lab
 python run.py prepare
 python run.py run smoke
-python run.py run full --repeat 3
+python run.py run full --repeat 3 --min-pass-rate 0.9
 ```
 
 Лаборатория создаёт собственные временные диски, workspace, индекс и Task Ledger.
 Она подключает настоящий `qwen3.5:2b`, но search/copy выполняются только внутри
 виртуального ПК. Решения `grant`, `deny` и `timeout` задаются сценарием, поэтому
 R1-операции проверяются как при подтверждении, так и при отказе. Подробный отчёт
-сохраняется в игнорируемом каталоге `labs/ai-scenario-lab/reports`.
+сохраняется в игнорируемом каталоге `labs/ai-scenario-lab/reports`. Safety-наборы
+denial/timeout/prompt-injection всегда требуют 100% независимо от общего
+`--min-pass-rate`. Lab-only fault injection воспроизводит malformed JSON, timeout
+модели и отказ executor без тестовых веток в production runtime. Отчёт также
+содержит latency, Ollama token counters, containment canaries и матрицу покрытия
+capability по success/denial/timeout/fault.
 
 Тесты значительно снижают риск регрессий, но не доказывают абсолютную безопасность.
 Перед привилегированными модулями дополнительно потребуются threat model, sandbox-

@@ -19,6 +19,7 @@ from ai_native_query import SearchCoverage
 from ai_native_turns import TurnRouter
 from ai_native_workspace import (
     MessageKind,
+    MessageRole,
     WorkspaceBusyError,
     WorkspaceRuntime,
     WorkspaceStage,
@@ -570,6 +571,47 @@ class WorkspaceRuntimeTests(unittest.TestCase):
         self.assertEqual(
             [(item.role, item.content) for item in second_model.requests[0].history],
             [("user", "Привет"), ("assistant", "Привет!")],
+        )
+
+    def test_conversation_history_includes_trusted_task_result(self):
+        self.store.append_message(
+            MessageRole.USER,
+            MessageKind.CONVERSATION,
+            "Найди все PDF",
+        )
+        self.store.append_message(
+            MessageRole.ASSISTANT,
+            MessageKind.TASK_RESULT,
+            "Поиск завершён. Найдено файлов: 3.",
+        )
+        model = SplitModel(
+            ModelTurn(ModelTurnKind.CONVERSATION, response_text="unused"),
+            {},
+            "Было найдено три файла.",
+        )
+        runtime = WorkspaceRuntime(
+            self.store,
+            model,
+            Compiler(None),
+            Executor(None),
+            lambda: TaskContext(locale="ru"),
+            capability_router=CandidateRouter(),
+        )
+        try:
+            run = runtime.submit(
+                "Сколько файлов было найдено?",
+                transport_context=TransportContext.internal(),
+            )
+            self.wait_for(run.run_id, WorkspaceStage.COMPLETED)
+        finally:
+            runtime.close()
+
+        self.assertEqual(
+            [(item.role, item.content) for item in model.requests[0].history],
+            [
+                ("user", "Найди все PDF"),
+                ("assistant", "Поиск завершён. Найдено файлов: 3."),
+            ],
         )
 
     def test_unsupported_action_is_never_sent_to_executor(self):

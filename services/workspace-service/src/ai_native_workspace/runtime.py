@@ -542,8 +542,14 @@ class WorkspaceRuntime:
             message
             for message in self.store.list_messages(limit=50)
             if message.message_id != current_user_message_id
-            and message.kind is MessageKind.CONVERSATION
             and message.role in {MessageRole.USER, MessageRole.ASSISTANT}
+            and (
+                message.kind is MessageKind.CONVERSATION
+                or (
+                    message.role is MessageRole.ASSISTANT
+                    and message.kind is MessageKind.TASK_RESULT
+                )
+            )
         ]
         selected: list[ModelHistoryMessage] = []
         seen_assistant: set[str] = set()

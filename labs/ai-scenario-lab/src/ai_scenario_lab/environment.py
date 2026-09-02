@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable, Mapping
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
-from typing import Callable
+from time import perf_counter
 
 from ai_native_intents import IntentCompiler, OllamaModelProvider, TaskContextStore
 from ai_native_ledger import TaskLedger
@@ -24,6 +25,8 @@ from ai_native_turns import CapabilityCandidateRouter, CapabilityDescriptor, Tur
 from ai_native_workspace import WorkspaceRuntime, WorkspaceStore
 
 from .virtual_pc import VirtualComputer
+from .contracts import FaultSpec
+from .faults import FaultController
 
 
 class _Discovery:
@@ -34,11 +37,40 @@ class _Discovery:
         return list(self.volumes)
 
 
+class MeasuredOllamaModelProvider(OllamaModelProvider):
+    """Captures Ollama timing/token counters without changing provider semantics."""
+
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self._usage: list[dict[str, object]] = []
+
+    def _json_request(self, method, path, payload=None, *, timeout=None):
+        started = perf_counter()
+        result = super()._json_request(method, path, payload, timeout=timeout)
+        if method == "POST":
+            self._usage.append(
+                {
+                    "path": path,
+                    "wall_ms": round((perf_counter() - started) * 1_000, 3),
+                    "prompt_tokens": _counter(result, "prompt_eval_count"),
+                    "output_tokens": _counter(result, "eval_count"),
+                    "ollama_total_ns": _counter(result, "total_duration"),
+                }
+            )
+        return result
+
+    def drain_usage(self) -> tuple[dict[str, object], ...]:
+        result = tuple(self._usage)
+        self._usage.clear()
+        return result
+
+
 class TracingModel:
     """Records model boundaries while preserving the exact production provider."""
 
-    def __init__(self, provider: object) -> None:
+    def __init__(self, provider: object, faults: FaultController) -> None:
         self.provider = provider
+        self.faults = faults
         self.events: list[dict[str, object]] = []
 
     def health(self):
@@ -74,12 +106,16 @@ class TracingModel:
         )
 
     def _call(self, kind: str, request: object, callback: Callable[[], object]):
+        started = perf_counter()
         event: dict[str, object] = {
             "kind": kind,
             "request": _trace_request(request),
         }
+        drain = getattr(self.provider, "drain_usage", None)
+        if callable(drain):
+            drain()
         try:
-            response = callback()
+            response = self.faults.call(f"model.{kind}", callback)
             event["response"] = _json_value(response)
             event["status"] = "ok"
             return response
@@ -89,42 +125,30 @@ class TracingModel:
             event["error"] = str(error)[:1_000]
             raise
         finally:
+            event["duration_ms"] = round((perf_counter() - started) * 1_000, 3)
+            if callable(drain):
+                event["ollama_usage"] = list(drain())
             self.events.append(event)
 
 
 class RecordingExecutor:
-    def __init__(self, executor: ExecutionOrchestrator) -> None:
+    def __init__(self, executor: ExecutionOrchestrator, faults: FaultController) -> None:
         self.executor = executor
+        self.faults = faults
         self.records: list[dict[str, object]] = []
 
     def available_capabilities(self) -> tuple[str, ...]:
         return self.executor.available_capabilities()
 
     def execute(self, plan, *, transport_context=None):
+        started = perf_counter()
         record = {"event": "execute", "plan": _json_value(plan)}
         try:
-            result = self.executor.execute(plan, transport_context=transport_context)
-            record["result"] = _json_value(result)
-            return result
-        except Exception as error:
-            record.update(error_type=type(error).__name__, error=str(error)[:1_000])
-            raise
-        finally:
-            self.records.append(record)
-
-    def respond_to_approval(
-        self, approval_request_id: str, *, confirmed: bool, transport_context=None
-    ):
-        record = {
-            "event": "approval_response",
-            "approval_request_id": approval_request_id,
-            "confirmed": confirmed,
-        }
-        try:
-            result = self.executor.respond_to_approval(
-                approval_request_id,
-                confirmed=confirmed,
-                transport_context=transport_context,
+            result = self.faults.call(
+                "executor.execute",
+                lambda: self.executor.execute(
+                    plan, transport_context=transport_context
+                ),
             )
             record["result"] = _json_value(result)
             return result
@@ -132,6 +156,34 @@ class RecordingExecutor:
             record.update(error_type=type(error).__name__, error=str(error)[:1_000])
             raise
         finally:
+            record["duration_ms"] = round((perf_counter() - started) * 1_000, 3)
+            self.records.append(record)
+
+    def respond_to_approval(
+        self, approval_request_id: str, *, confirmed: bool, transport_context=None
+    ):
+        started = perf_counter()
+        record = {
+            "event": "approval_response",
+            "approval_request_id": approval_request_id,
+            "confirmed": confirmed,
+        }
+        try:
+            result = self.faults.call(
+                "executor.approval_response",
+                lambda: self.executor.respond_to_approval(
+                    approval_request_id,
+                    confirmed=confirmed,
+                    transport_context=transport_context,
+                ),
+            )
+            record["result"] = _json_value(result)
+            return result
+        except Exception as error:
+            record.update(error_type=type(error).__name__, error=str(error)[:1_000])
+            raise
+        finally:
+            record["duration_ms"] = round((perf_counter() - started) * 1_000, 3)
             self.records.append(record)
 
 
@@ -149,6 +201,7 @@ class LabEnvironment:
         provider: object | None = None,
         model: str = "qwen3.5:2b",
         base_url: str = "http://127.0.0.1:11434",
+        faults: tuple[FaultSpec, ...] = (),
     ) -> None:
         self.project_root = project_root.resolve()
         self.lab_root = lab_root.resolve()
@@ -158,6 +211,7 @@ class LabEnvironment:
         self.run_root.mkdir(parents=True, exist_ok=True)
         self.pc = VirtualComputer(self.run_root / "virtual-pc", lab_root=self.lab_root)
         self.pc.provision(fixture_path)
+        self.faults = FaultController(faults)
         self.audit_events: list[dict[str, object]] = []
         self._prepare_storage()
         self.query = QueryService(
@@ -193,8 +247,8 @@ class LabEnvironment:
             capability_source=lambda: capabilities,
             task_ledger=self.ledger,
         )
-        self.executor = RecordingExecutor(orchestrator)
-        raw_provider = provider or OllamaModelProvider(
+        self.executor = RecordingExecutor(orchestrator, self.faults)
+        raw_provider = provider or MeasuredOllamaModelProvider(
             model=model,
             base_url=base_url,
             timeout_seconds=90,
@@ -202,7 +256,7 @@ class LabEnvironment:
             max_output_tokens=768,
             keep_alive="10m",
         )
-        self.model = TracingModel(raw_provider)
+        self.model = TracingModel(raw_provider, self.faults)
         self.compiler = IntentCompiler(
             self.model,
             capability_source=self.executor.available_capabilities,
@@ -308,6 +362,13 @@ def _json_value(value: object) -> object:
     if value is None or isinstance(value, (str, int, float, bool)):
         return value
     return repr(value)
+
+
+def _counter(payload: Mapping[str, object], name: str) -> int | None:
+    value = payload.get(name)
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        return None
+    return value
 
 
 def _trace_request(value: object) -> object:

@@ -1,0 +1,25 @@
+{
+  "id": "classifier-malformed-fallback",
+  "title": "Malformed classification falls back only to the trusted capability route",
+  "locale": "ru",
+  "tags": ["full", "fault", "resilience", "files"],
+  "fixture": "base-desktop.json",
+  "faults": [
+    {
+      "point": "model.classify_turn",
+      "occurrence": 1,
+      "effect": "malformed"
+    }
+  ],
+  "turns": [
+    {
+      "user": "Найди все PDF-файлы на моём компьютере",
+      "expect": {
+        "stage": "completed",
+        "capabilities": ["documents.query.search"],
+        "found": 3,
+        "faults_triggered": ["model.classify_turn"]
+      }
+    }
+  ]
+}

@@ -184,8 +184,10 @@ GitHub Actions повторяет набор на Windows и Ubuntu 24.04, гд�
 поднимает виртуальный компьютер внутри репозитория и прогоняет настоящую
 `qwen3.5:2b` через production workspace, индексатор, Permission Gateway и
 Execution Orchestrator. Он проверяет разговор, память, смешанные запросы,
-поиск, approval, отказ и отсутствие эффектов за пределами песочницы без GNOME
-и Linux VM.
+поиск, approval, отказ, отрицательные формулировки, prompt injection и
+контролируемые сбои модели/исполнителя. Повторные прогоны получают pass-rate,
+latency/token metrics и capability-матрицу, а независимые canary-хеши проверяют
+отсутствие эффектов за пределами песочницы без GNOME и Linux VM.
 
 ## Запуск нативной панели в Ubuntu
 

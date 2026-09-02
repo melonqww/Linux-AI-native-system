@@ -90,7 +90,10 @@ class OllamaProviderTests(unittest.TestCase):
         self.assertEqual(reply, "Ты спрашивал про хлеб.")
         self.assertNotIn("tools", captured[0])
         self.assertNotIn("format", captured[0])
-        self.assertIn("Previous user message: Какая температура", captured[0]["messages"][-1]["content"])
+        self.assertIn(
+            "Previous user message: Какая температура",
+            captured[0]["messages"][-1]["content"],
+        )
 
     def test_metadata_file_listing_omits_content_text(self):
         response = FakeResponse({"message": {"content": "", "tool_calls": [{
@@ -131,6 +134,9 @@ class OllamaProviderTests(unittest.TestCase):
 
         names = [tool["function"]["name"] for tool in captured[0]["tools"]]
         self.assertEqual(names, ["search_documents"])
+        properties = captured[0]["tools"][0]["function"]["parameters"]["properties"]
+        self.assertIn("inside indexed document content", properties["text"]["description"])
+        self.assertIn("never content", properties["name_terms"]["description"])
         self.assertEqual(turn.kind, ModelTurnKind.ACTION)
 
     def test_rejects_hallucinated_tool_outside_candidate_set(self):
@@ -267,7 +273,7 @@ class OllamaProviderTests(unittest.TestCase):
         self.assertEqual(result["operations"][0]["kind"], "search_documents")
         self.assertEqual(result["operations"][0]["evidence"], ["Найди PDF по математике"])
 
-    def test_routes_with_bounded_history_and_preserves_action_reply(self):
+    def test_action_route_excludes_untrusted_history_and_preserves_reply(self):
         captured = []
 
         def open_request(request, _timeout):
@@ -310,8 +316,11 @@ class OllamaProviderTests(unittest.TestCase):
         self.assertEqual(turn.response_text, "Понял, подготовлю поиск.")
         self.assertEqual(
             [message["role"] for message in captured[0]["messages"]],
-            ["system", "user", "assistant", "user"],
+            ["system", "user"],
         )
+        prompt = captured[0]["messages"][-1]["content"]
+        self.assertNotIn("PDF по математике", prompt)
+        self.assertIn("Do not copy arguments from earlier turns", prompt)
         self.assertEqual(captured[0]["options"]["num_ctx"], 8192)
 
     def test_reports_unavailable_system_action_without_executing_it(self):
