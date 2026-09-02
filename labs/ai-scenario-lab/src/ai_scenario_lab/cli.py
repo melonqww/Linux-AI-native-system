@@ -8,6 +8,7 @@ from pathlib import Path
 
 from ai_native_intents import OllamaModelProvider
 
+from .campaign import CampaignRunner
 from .report import assess_stability, write_report
 from .runner import ScenarioRunner
 from .scenario import discover_scenarios
@@ -44,6 +45,18 @@ def parser() -> argparse.ArgumentParser:
     report.add_argument(
         "--path", action="store_true", help="print only the report path"
     )
+    campaign = sub.add_parser(
+        "campaign", help="run contract scenarios and adaptive user journeys"
+    )
+    campaign.add_argument("suite", nargs="?", default="full")
+    campaign.add_argument("--repeat", type=int, default=1)
+    campaign.add_argument(
+        "--persona-set", choices=("standard", "all"), default="standard"
+    )
+    campaign.add_argument("--max-journey-cases", type=int, default=24)
+    campaign.add_argument("--seed", type=int, default=0)
+    campaign.add_argument("--model", default=DEFAULT_MODEL)
+    campaign.add_argument("--base-url", default=DEFAULT_URL)
     return result
 
 
@@ -53,7 +66,40 @@ def main(argv: list[str] | None = None) -> int:
         return _prepare(arguments.model, arguments.base_url, pull=arguments.pull)
     if arguments.command == "run":
         return _run(arguments)
+    if arguments.command == "campaign":
+        return _campaign(arguments)
     return _report(path_only=arguments.path)
+
+
+def _campaign(arguments) -> int:
+    if not 1 <= arguments.repeat <= 20:
+        raise SystemExit("--repeat must be between 1 and 20")
+    if not 1 <= arguments.max_journey_cases <= 10_000:
+        raise SystemExit("--max-journey-cases must be between 1 and 10000")
+    health = OllamaModelProvider(
+        model=arguments.model, base_url=arguments.base_url
+    ).health()
+    if not health.available:
+        print(f"NOT READY: {health.reason}")
+        print("Run `python run.py prepare --pull` before a campaign.")
+        return 2
+    report, attempts = CampaignRunner(
+        project_root=PROJECT_ROOT,
+        lab_root=LAB_ROOT,
+        model=arguments.model,
+        base_url=arguments.base_url,
+    ).run(
+        suite=arguments.suite,
+        repeat=arguments.repeat,
+        persona_set=arguments.persona_set,
+        max_journey_cases=arguments.max_journey_cases,
+        seed=arguments.seed,
+    )
+    passed = sum(item.passed for item in attempts)
+    print(f"CAMPAIGN RESULT: {passed}/{len(attempts)} attempts passed")
+    print(f"CAMPAIGN REPORT: {report / 'summary.md'}")
+    print(f"CAMPAIGN FAILURES: {report / 'failures.md'}")
+    return 0 if passed == len(attempts) else 1
 
 
 def _prepare(model: str, base_url: str, *, pull: bool) -> int:
@@ -127,9 +173,7 @@ def _run(arguments) -> int:
         min_pass_rate=arguments.min_pass_rate,
     )
     passed = sum(item.passed for item in outcomes)
-    stability = assess_stability(
-        tuple(outcomes), min_pass_rate=arguments.min_pass_rate
-    )
+    stability = assess_stability(tuple(outcomes), min_pass_rate=arguments.min_pass_rate)
     stable = all(item["stable"] for item in stability)
     print(f"RESULT: {passed}/{len(outcomes)} scenarios passed")
     print(f"STABILITY: {'PASS' if stable else 'FAIL'}")

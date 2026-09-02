@@ -189,6 +189,13 @@ Execution Orchestrator. Он проверяет разговор, память, 
 latency/token metrics и capability-матрицу, а независимые canary-хеши проверяют
 отсутствие эффектов за пределами песочницы без GNOME и Linux VM.
 
+Goal-driven User Journey Lab поверх этого контура воспроизводит живые
+многошаговые сессии: персоны RU/EN/mixed, опечатки и сленг, исправления,
+переформулировки, approve/deny и неподдерживаемый ввод. Команда
+`python run.py campaign` продолжает работу после отдельных провалов и формирует
+отдельные traces, `summary` и `failures` с покрытием по языку, поведению, режиму,
+глубине памяти, capability, решению, типу отказа и модальности.
+
 ## Запуск нативной панели в Ubuntu
 
 В Ubuntu с GNOME из корня репозитория сначала установите и запустите
@@ -229,6 +236,7 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [Решение о модульном Workspace Turn Pipeline v2](Architecture/decisions/ADR-014-modular-workspace-turn-pipeline.md)
 - [Решение о долговечном модуле установки приложений](Architecture/decisions/ADR-015-durable-software-manager.md)
 - [Решение об изолированной лаборатории AI-сценариев](Architecture/decisions/ADR-017-isolated-ai-scenario-lab.md)
+- [Решение о goal-driven User Journey Lab](Architecture/decisions/ADR-018-goal-driven-user-journey-lab.md)
 - [Решение о модульном жизненном цикле локальных моделей](Architecture/decisions/ADR-011-model-lifecycle-module.md)
 - [Решение об Intent Compiler](Architecture/decisions/ADR-004-model-neutral-intent-compiler.md)
 - [Решение об оркестрации серверных планов](Architecture/decisions/ADR-005-server-owned-execution-orchestration.md)

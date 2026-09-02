@@ -14,8 +14,44 @@
 3. остались ли реальные изменения строго внутри тестовой файловой системы;
 4. остаётся ли результат стабильным при повторных запусках и контролируемых сбоях.
 
+Версия v3 добавляет второй уровень — goal-driven User Journey Lab. Contract
+scenarios продолжают точно проверять известные границы, а journeys играют
+пользователя, реагируют на фактический UI-ответ, уточняют запрос, меняют решение
+и оценивают конечную цель по доверенным эффектам.
+
 Архитектурное решение зафиксировано в
-[`ADR-017`](../../Architecture/decisions/ADR-017-isolated-ai-scenario-lab.md).
+[`ADR-017`](../../Architecture/decisions/ADR-017-isolated-ai-scenario-lab.md) и
+[`ADR-018`](../../Architecture/decisions/ADR-018-goal-driven-user-journey-lab.md).
+
+## User Journey Lab
+
+Journey — это не линейный список сообщений. JSON описывает пользовательскую
+цель, видимые условия перехода, максимальное число ходов, обязательные и
+запрещённые эффекты. Симулятор получает только сообщения assistant/system,
+статус, запрос подтверждения и whitelisted result counters. Внутренний plan,
+trace и audit доступны наблюдателю, но никогда не пользовательской policy.
+
+Поддерживаются действия `follow_up`, `correct`, `rephrase`, `approve`, `deny` и
+`stop`. Реальный `JourneyRunner` использует тот же `LabEnvironment` и
+`WorkspaceRuntime`, а trusted effect collector сравнивает виртуальные файлы до и
+после сессии. Semantic judge может оценить связность текста, но не получает
+эффекты и не способен отменить детерминированный safety-провал.
+
+Персоны разделяют `ru`, `en`, `mixed` и поведения `typo`, `slang`,
+`no_punctuation`, `verbose`, `cautious`, `impatient`. `MutationEngine` с seed
+сохраняет исходные intent/goal и отмечает requested/applied transformations.
+Матрица ограничена параметром, а язык persona обязан совпадать с исходным языком
+journey: мутация не выдаётся за перевод.
+
+Диагностика использует слои `MODEL`, `ROUTER`, `COMPILER`, `POLICY`, `EXECUTOR`,
+`INDEX`, `CONTAINMENT`, а неподтверждённые случаи оставляет в `UNKNOWN`.
+Fingerprint включает язык, поведение, режим, глубину памяти, capability,
+решение, тип отказа и модальность. Поэтому близкие русская и английская ошибки
+или сбои на 5-м и 35-м сообщении не склеиваются.
+
+В `journeys/` находятся первые адаптивные проверки: русское уточнение с
+подтверждением копирования, английский отказ от операции и корректная обработка
+неподдерживаемого изображения.
 
 ## Что запускается на самом деле
 
@@ -176,6 +212,8 @@ python run.py prepare --pull
 python run.py run smoke
 python run.py run full --repeat 3 --min-pass-rate 0.9
 python run.py run full --scenario copy-denied
+python run.py campaign
+python run.py campaign full --repeat 3 --persona-set all --max-journey-cases 40 --seed 7
 python run.py report
 python run.py report --path
 ```
@@ -200,6 +238,17 @@ python -m pytest tests -q
 Они используют детерминированный provider, но всё остальное — поиск,
 оркестратор, разрешения, копирование и базы — остаётся production-кодом. Живой
 smoke-прогон отдельно проверяет реальное поведение Qwen.
+
+`campaign` сначала выполняет contract suite, затем persona cases адаптивных
+journeys и продолжает после отдельных ошибок. Для каждой попытки сохраняется
+полный JSON trace. `reports/campaigns/<run-id>/summary.md` показывает покрытие,
+`summary.json` предназначен для автоматического сравнения, а `failures.md`
+содержит только сгруппированные проблемы и отдельный раздел `UNKNOWN`.
+
+Основные оси покрытия: language, behavior, mode, memory depth, capability,
+decision, failure kind и input modality. Отчёт дополнительно строит пересечения
+language×memory, mode×capability и decision×failure, не сводя всё к одному
+проценту.
 
 Для сравнения моделей один и тот же suite запускается с разными точными tags, а
 полученные `summary.json` сравниваются по pass-rate, latency, token counters и

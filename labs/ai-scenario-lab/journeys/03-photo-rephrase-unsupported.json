@@ -1,0 +1,45 @@
+{
+  "id": "photo-rephrase-unsupported",
+  "title": "User rephrases a failed photo request and accepts unsupported input",
+  "tags": ["image", "unsupported", "rephrase", "chat"],
+  "fixture": "base-desktop.json",
+  "dimensions": {
+    "language": "ru",
+    "behavior": ["novice", "ambiguous"],
+    "mode": "chat",
+    "memory_depth": 2,
+    "input_kind": "image"
+  },
+  "goal": {
+    "description": "Explain clearly that image understanding is unavailable without inventing image contents.",
+    "terminal_statuses": ["unsupported"],
+    "required_result_keys": [],
+    "required_effects": [],
+    "forbidden_effects": [
+      {"kind": "vision_inference", "target": null, "minimum": 0, "maximum": null},
+      {"kind": "file_write", "target": null, "minimum": 0, "maximum": null}
+    ]
+  },
+  "max_turns": 2,
+  "initial_state": "ambiguous-photo",
+  "states": [
+    {
+      "id": "ambiguous-photo",
+      "action": {"kind": "follow_up", "text": "ну и что тут? [photo attachment]"},
+      "transitions": [
+        {"when": {"statuses": ["failed"], "approval_present": false, "message_contains": [], "result_keys": []}, "target": "rephrase"},
+        {"when": {"statuses": ["responded"], "approval_present": false, "message_contains": ["изображ"], "result_keys": []}, "target": "stop"}
+      ]
+    },
+    {
+      "id": "rephrase",
+      "action": {"kind": "rephrase", "text": "Ты можешь посмотреть прикреплённую фотографию и описать её?"},
+      "transitions": []
+    },
+    {
+      "id": "stop",
+      "action": {"kind": "stop", "text": null},
+      "transitions": []
+    }
+  ]
+}

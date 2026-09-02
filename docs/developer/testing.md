@@ -55,6 +55,7 @@ cd labs/ai-scenario-lab
 python run.py prepare
 python run.py run smoke
 python run.py run full --repeat 3 --min-pass-rate 0.9
+python run.py campaign full --repeat 3 --persona-set all --max-journey-cases 40 --seed 7
 ```
 
 Лаборатория создаёт собственные временные диски, workspace, индекс и Task Ledger.
@@ -67,6 +68,12 @@ denial/timeout/prompt-injection всегда требуют 100% независ�
 модели и отказ executor без тестовых веток в production runtime. Отчёт также
 содержит latency, Ollama token counters, containment canaries и матрицу покрытия
 capability по success/denial/timeout/fault.
+
+Команда `campaign` объединяет contract suite с адаптивными User Journeys и не
+останавливается после отдельного провала. Persona-матрица всегда ограничивается
+`--max-journey-cases`; seed делает языковые мутации воспроизводимыми. Отчёт
+разделяет язык, поведение, режим, глубину памяти, capability, решение, тип отказа
+и модальность, а неподтверждённые причины оставляет в отдельном `UNKNOWN`.
 
 Тесты значительно снижают риск регрессий, но не доказывают абсолютную безопасность.
 Перед привилегированными модулями дополнительно потребуются threat model, sandbox-

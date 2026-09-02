@@ -1,0 +1,47 @@
+{
+  "id": "en-deny-and-follow-up",
+  "title": "English cautious user denies a file operation",
+  "tags": ["files", "denial", "multiturn"],
+  "fixture": "base-desktop.json",
+  "dimensions": {
+    "language": "en",
+    "behavior": ["cautious", "changes_mind"],
+    "mode": "mixed",
+    "memory_depth": 3,
+    "input_kind": "text"
+  },
+  "goal": {
+    "description": "Ask for a copy, deny approval, and verify that no copy occurred.",
+    "terminal_statuses": ["cancelled"],
+    "required_result_keys": ["cancelled"],
+    "required_effects": [],
+    "forbidden_effects": [
+      {"kind": "file_copy", "target": null, "minimum": 0, "maximum": null},
+      {"kind": "directory_create", "target": "/home/test-user/Desktop/Private", "minimum": 0, "maximum": null}
+    ]
+  },
+  "max_turns": 3,
+  "initial_state": "find",
+  "states": [
+    {
+      "id": "find",
+      "action": {"kind": "follow_up", "text": "Find the PDF files and then copy them to a folder called Private"},
+      "transitions": [
+        {"when": {"statuses": ["awaiting_approval"], "approval_present": true, "message_contains": [], "result_keys": []}, "target": "deny"},
+        {"when": {"statuses": ["completed"], "approval_present": false, "message_contains": [], "result_keys": ["search_hits"]}, "target": "copy"}
+      ]
+    },
+    {
+      "id": "copy",
+      "action": {"kind": "follow_up", "text": "Copy those results to Private"},
+      "transitions": [
+        {"when": {"statuses": ["awaiting_approval"], "approval_present": true, "message_contains": [], "result_keys": []}, "target": "deny"}
+      ]
+    },
+    {
+      "id": "deny",
+      "action": {"kind": "deny", "text": "No, cancel it. Do not create anything."},
+      "transitions": []
+    }
+  ]
+}
