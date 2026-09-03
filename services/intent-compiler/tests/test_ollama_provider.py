@@ -398,7 +398,8 @@ class OllamaProviderTests(unittest.TestCase):
             }
         )
         with patch("ai_native_intents.ollama._open_loopback", return_value=response):
-            result = OllamaModelProvider().compile(model_request())
+            from dataclasses import replace
+            result = OllamaModelProvider().compile(replace(model_request(), user_text="Найди PDF и скопируй их на рабочий стол"))
 
         search, copy = result["operations"]
         self.assertEqual(copy["arguments"]["results_from"], search["id"])

@@ -57,6 +57,14 @@ def parser() -> argparse.ArgumentParser:
     campaign.add_argument("--seed", type=int, default=0)
     campaign.add_argument("--model", default=DEFAULT_MODEL)
     campaign.add_argument("--base-url", default=DEFAULT_URL)
+    foundation = sub.add_parser("foundation", help="prepare/start/inspect a durable foundation campaign")
+    foundation.add_argument("action", choices=("prepare", "start", "run", "status"))
+    foundation.add_argument("--run", help="prepared run directory; defaults to reports/latest.json")
+    foundation.add_argument("--seeds", type=int, nargs="+", default=[7, 19])
+    foundation.add_argument("--budget-seconds", type=int, default=14400)
+    worker = sub.add_parser("foundation-worker", help=argparse.SUPPRESS)
+    worker.add_argument("--run", required=True)
+    worker.add_argument("--case", required=True)
     return result
 
 
@@ -68,7 +76,33 @@ def main(argv: list[str] | None = None) -> int:
         return _run(arguments)
     if arguments.command == "campaign":
         return _campaign(arguments)
+    if arguments.command == "foundation":
+        return _foundation(arguments)
+    if arguments.command == "foundation-worker":
+        from .foundation import resolve_run
+        from .foundation_worker import run_case
+        return run_case(LAB_ROOT, PROJECT_ROOT, resolve_run(LAB_ROOT, arguments.run), arguments.case)
     return _report(path_only=arguments.path)
+
+
+def _foundation(arguments) -> int:
+    import json
+    from .foundation import prepare, resolve_run, start_background, status, supervise
+    if arguments.action == "prepare":
+        run = prepare(LAB_ROOT, PROJECT_ROOT, seeds=tuple(arguments.seeds), budget_seconds=arguments.budget_seconds)
+        print(f"PREPARED (not started): {run}")
+        print(f"REPORT: {run / 'summary.md'}")
+        return 0
+    run = resolve_run(LAB_ROOT, arguments.run)
+    if arguments.action == "start":
+        pid = start_background(LAB_ROOT, run)
+        print(f"DISPATCHED supervisor PID {pid}; use foundation status to verify startup.")
+        print(f"REPORT: {run / 'summary.md'}")
+        return 0
+    if arguments.action == "status":
+        print(json.dumps(status(run), ensure_ascii=False, indent=2))
+        return 0
+    return supervise(LAB_ROOT, PROJECT_ROOT, run)
 
 
 def _campaign(arguments) -> int:

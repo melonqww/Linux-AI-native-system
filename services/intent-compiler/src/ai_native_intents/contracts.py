@@ -28,6 +28,7 @@ class ModelTurnKind(StrEnum):
     CONVERSATION = "conversation"
     ACTION = "action"
     UNSUPPORTED_ACTION = "unsupported_action"
+    CLARIFICATION = "clarification"
 
 
 class RiskClass(StrEnum):
@@ -72,6 +73,7 @@ class ModelTurn:
     response_text: str | None = None
     intent_payload: dict[str, object] | None = None
     unsupported_actions: tuple[str, ...] = ()
+    clarification_key: str | None = None
 
 
 @dataclass(frozen=True)

@@ -199,6 +199,15 @@ Goal-driven User Journey Lab поверх этого контура воспро
 отдельные traces, `summary` и `failures` с покрытием по языку, поведению, режиму,
 глубине памяти, capability, решению, типу отказа и модальности.
 
+Для автономной проверки фундамента добавлен `python run.py foundation prepare`
+(из папки лаборатории): он сохраняет матрицу и данные, но ничего не запускает.
+Отдельная команда `foundation start` запускает фоновый supervisor с отдельными
+процессами, таймаутами и промежуточными отчётами; `foundation status` показывает
+состояние. Постоянный указатель — `labs/ai-scenario-lab/reports/latest.json`.
+Прохождение профиля означает backend-кандидата, а не автоматический релиз 0.1;
+Linux-проверки и непокрытые случаи перечислены в отчёте. См.
+[`ADR-020`](Architecture/decisions/ADR-020-autonomous-foundation-validation.md).
+
 ## Запуск нативной панели в Ubuntu
 
 В Ubuntu с GNOME из корня репозитория сначала установите и запустите
@@ -233,6 +242,7 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [Контракт статуса индекса](Architecture/api/runtime-index-status.md)
 - [JSON Schema manifest модуля](packages/module-sdk/schema/module-manifest.schema.json)
 - [Решение о портфолио-MVP](Architecture/decisions/ADR-001-portfolio-mvp-scope.md)
+- [Границы действий, уточнения и недоступные вложения](Architecture/decisions/ADR-021-grounded-actions-and-input-facts.md)
 - [Решение о каталоге хранилищ и виртуальных коллекциях](Architecture/decisions/ADR-002-storage-catalog-and-virtual-collections.md)
 - [Решение о модульном capability-ядре](Architecture/decisions/ADR-003-modular-capability-core.md)
 - [Решение о единой системной рабочей области](Architecture/decisions/ADR-009-system-workspace-runtime.md)

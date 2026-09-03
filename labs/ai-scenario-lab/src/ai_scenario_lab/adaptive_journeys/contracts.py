@@ -31,6 +31,7 @@ class ObservationStatus(StrEnum):
     CANCELLED = "cancelled"
     FAILED = "failed"
     UNSUPPORTED = "unsupported"
+    CLARIFICATION = "clarification"
 
 
 @dataclass(frozen=True)

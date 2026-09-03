@@ -89,3 +89,18 @@ frontend различал естественный ответ, ход выпол
 Сообщения удаляются через 24 часа. Связанный `task_id` остаётся в Task Ledger
 семь суток. После рестарта незавершённый workspace run закрывается безопасным
 состоянием `failed`, поэтому frontend не показывает вечное выполнение.
+# Addendum: input metadata and clarification (ADR-021)
+
+`POST /v1/workspace/submit` still accepts `{"text":"..."}`. It additionally
+accepts `attachments: [{"kind":"image","name":"photo.png"}]` (maximum 8,
+kind image/document/audio/video, name 1..200 printable characters). No paths,
+bytes or access grants are accepted. The current text channel cannot process
+these attachments; the new message kind `input_unavailable` represents that
+fact. No tools run for that entire turn, including mixed requests. The user
+can send a separate text-only task; no visual facts are inferred from metadata.
+
+`clarification` remains a question, not approval. A destination reply can resume
+the immediately preceding saved request for the same authenticated principal,
+within 10 minutes and with unchanged active collection. It creates a new plan;
+R1 still requires its ordinary approval. Topic changes and cancellations do not
+execute pending work. Legacy text-only clients need no payload change.

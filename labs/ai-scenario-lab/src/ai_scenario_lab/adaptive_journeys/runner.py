@@ -10,7 +10,7 @@ from pathlib import Path
 from time import perf_counter
 from uuid import uuid4
 
-from ai_native_workspace import MessageKind, MessageRole, WorkspaceStage
+from ai_native_workspace import MessageKind, MessageRole, WorkspaceStage, WorkspaceAttachment
 
 from ai_scenario_lab.containment import ContainmentGuard
 from ai_scenario_lab.environment import LabEnvironment
@@ -75,6 +75,10 @@ class WorkspaceObservationAdapter:
         status = run.stage.value
         if run.stage is WorkspaceStage.COMPLETED and any(
             item.kind is MessageKind.CLARIFICATION for item in messages
+        ):
+            status = "clarification"
+        if run.stage is WorkspaceStage.COMPLETED and any(
+            item.kind is MessageKind.INPUT_UNAVAILABLE for item in messages
         ):
             status = "unsupported"
         results: dict[str, object] = {}
@@ -184,6 +188,7 @@ class JourneyRunner:
         model: str = "qwen3.5:2b",
         base_url: str = "http://127.0.0.1:11434",
         provider_factory=None,
+        on_turn=None,
     ) -> None:
         self.project_root = project_root.resolve()
         self.lab_root = lab_root.resolve()
@@ -191,6 +196,7 @@ class JourneyRunner:
         self.model = model
         self.base_url = base_url
         self.provider_factory = provider_factory
+        self.on_turn = on_turn
 
     def run(self, spec: JourneySpec, *, run_id: str | None = None) -> JourneyOutcome:
         started = perf_counter()
@@ -245,8 +251,10 @@ class JourneyRunner:
                     ActionKind.REPHRASE,
                 }:
                     assert decision.action.text is not None
+                    input_options = ({"attachments": (WorkspaceAttachment("image", "unavailable-test-image"),)}
+                                     if spec.dimensions.input_kind == "image" else {})
                     submitted = environment.runtime.submit(
-                        decision.action.text, transport_context=environment.transport
+                        decision.action.text, transport_context=environment.transport, **input_options
                     )
                     workspace_run = self._wait(environment, submitted.run_id)
                 elif decision.action.kind in {ActionKind.APPROVE, ActionKind.DENY}:
@@ -281,10 +289,14 @@ class JourneyRunner:
                     if workspace_run.stage is WorkspaceStage.AWAITING_APPROVAL
                     else None
                 )
+                if self.on_turn:
+                    self.on_turn({"turn": turns[-1], "model_events": tuple(environment.model.events),
+                                  "execution_records": tuple(environment.executor.records)})
                 decision = session.react(final_observation)
             stop_reason = decision.reason
             containment = guard.verify()
             effects = collector.collect(containment)
+            effects += tuple(ObservedEffect("capability_call", capability) for capability in _recorded_capabilities(tuple(environment.executor.records)))
             if final_observation is None:
                 raise RuntimeError("journey produced no observation")
             evaluation = evaluate_deterministically(

@@ -40,6 +40,7 @@ class ScenarioRunner:
         model: str = "qwen3.5:2b",
         base_url: str = "http://127.0.0.1:11434",
         provider_factory=None,
+        on_turn=None,
     ) -> None:
         self.project_root = project_root.resolve()
         self.lab_root = lab_root.resolve()
@@ -47,6 +48,7 @@ class ScenarioRunner:
         self.model = model
         self.base_url = base_url
         self.provider_factory = provider_factory
+        self.on_turn = on_turn
 
     def run(self, scenario: Scenario, *, run_id: str | None = None) -> ScenarioOutcome:
         started = perf_counter()
@@ -84,6 +86,9 @@ class ScenarioRunner:
                 raise RuntimeError(f"local model unavailable: {health.reason}")
             for ordinal, turn in enumerate(scenario.turns, start=1):
                 outcomes.append(self._run_turn(environment, ordinal, turn))
+                if self.on_turn:
+                    self.on_turn({"turn": outcomes[-1], "model_events": tuple(environment.model.events),
+                                  "audit_events": tuple(environment.audit_events)})
             containment = guard.verify()
             return ScenarioOutcome(
                 scenario.scenario_id,
@@ -201,6 +206,7 @@ class ScenarioRunner:
             "copied",
             "approval_required",
             "assistant_contains_any",
+            "assistant_nonempty",
             "assistant_excludes",
             "message_kinds",
             "paths_exist",
@@ -238,6 +244,7 @@ class ScenarioRunner:
             item.content for item in messages if item.role is MessageRole.ASSISTANT
         )
         values = {
+            "assistant_nonempty": bool(assistant.strip()),
             "stage": run.stage.value,
             "capabilities": list(dict.fromkeys(capabilities)),
             "found": found,
@@ -256,6 +263,7 @@ class ScenarioRunner:
             "faults_triggered": [item.get("point") for item in faults],
         }
         for name in (
+            "assistant_nonempty",
             "stage",
             "capabilities",
             "found",

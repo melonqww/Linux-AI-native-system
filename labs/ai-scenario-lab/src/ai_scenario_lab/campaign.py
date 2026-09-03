@@ -166,20 +166,23 @@ def _journey_cases(
     profiles = persona_matrix()
     if persona_set == "standard":
         profiles = tuple(item for item in profiles if not item.behaviors)
-    cases: list[JourneyCase] = []
+    groups: list[tuple[JourneyCase, ...]] = []
     for journey in journeys:
         compatible = tuple(
             item
             for item in profiles
             if _language_compatible(journey.dimensions.language, item)
         )
-        remaining = max_cases - len(cases)
-        if remaining <= 0:
-            break
-        cases.extend(
-            build_journey_cases((journey,), compatible, max_cases=remaining, seed=seed)
+        groups.append(
+            build_journey_cases((journey,), compatible, max_cases=max_cases, seed=seed)
         )
-    return tuple(cases)
+    # Round-robin: a small budget must not spend all slots on the first language.
+    return tuple(
+        group[index]
+        for index in range(max((len(group) for group in groups), default=0))
+        for group in groups
+        if index < len(group)
+    )[:max_cases]
 
 
 def _language_compatible(source: str, persona: PersonaProfile) -> bool:
@@ -226,6 +229,10 @@ def _scenario_context(scenario, outcome) -> DiagnosticContext:
 def _scenario_evidence(outcome) -> dict[str, object]:
     if not bool(outcome.containment.get("passed")):
         return {"containment_passed": False, "component": "containment"}
+    for turn in outcome.turns:
+        for check in turn.checks:
+            if check.name == "no_operations" and not check.passed and check.expected is True:
+                return {"code": "unrequested_operation", "component": "router"}
     if any(event.get("status") == "error" for event in outcome.model_events):
         return {"code": "model_error", "component": "model"}
     for turn in outcome.turns:

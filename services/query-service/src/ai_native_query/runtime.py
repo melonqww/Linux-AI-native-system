@@ -58,9 +58,7 @@ class WorkspaceHistory(Protocol):
 
 
 class WorkspaceController(Protocol):
-    def submit(
-        self, text: str, *, transport_context: TransportContext
-    ) -> object: ...
+    def submit(self, text: str, *, transport_context: TransportContext) -> object: ...
 
     def respond_to_approval(
         self,
@@ -77,8 +75,10 @@ class QueryRuntimeApplication:
         query_service: QueryService,
         *,
         scheduler_status: Callable[[], object] | None = None,
-        system_monitor_status: Callable[[dict[str, object]], dict[str, object]] | None = None,
-        system_updates_check: Callable[[dict[str, object]], dict[str, object]] | None = None,
+        system_monitor_status: Callable[[dict[str, object]], dict[str, object]]
+        | None = None,
+        system_updates_check: Callable[[dict[str, object]], dict[str, object]]
+        | None = None,
         intent_pipeline: IntentPipeline | None = None,
         task_context: Callable[[], object] | None = None,
         plan_store: PlanStore | None = None,
@@ -89,12 +89,17 @@ class QueryRuntimeApplication:
         model_catalog: Callable[[], dict[str, object]] | None = None,
         model_decision: Callable[[dict[str, object]], dict[str, object]] | None = None,
         ollama_provider_status: Callable[[], dict[str, object]] | None = None,
-        ollama_provider_decision: Callable[[dict[str, object]], dict[str, object]] | None = None,
+        ollama_provider_decision: Callable[[dict[str, object]], dict[str, object]]
+        | None = None,
         software_snapshot: Callable[[], dict[str, object]] | None = None,
-        software_prepare: Callable[[dict[str, object]], dict[str, object]] | None = None,
-        software_respond: Callable[[dict[str, object]], dict[str, object]] | None = None,
-        software_control: Callable[[dict[str, object]], dict[str, object]] | None = None,
-        software_restore: Callable[[dict[str, object]], dict[str, object]] | None = None,
+        software_prepare: Callable[[dict[str, object]], dict[str, object]]
+        | None = None,
+        software_respond: Callable[[dict[str, object]], dict[str, object]]
+        | None = None,
+        software_control: Callable[[dict[str, object]], dict[str, object]]
+        | None = None,
+        software_restore: Callable[[dict[str, object]], dict[str, object]]
+        | None = None,
     ) -> None:
         self.query_service = query_service
         self.scheduler_status = scheduler_status
@@ -133,7 +138,10 @@ class QueryRuntimeApplication:
             capabilities.append("intent.compile")
         if self.plan_executor is not None:
             capabilities.append("execution.plan.execute")
-            if "storage.materialize.plan-copy" in self.plan_executor.available_capabilities():
+            if (
+                "storage.materialize.plan-copy"
+                in self.plan_executor.available_capabilities()
+            ):
                 capabilities.append("execution.r1.copy")
         if self.task_ledger is not None:
             capabilities.extend(
@@ -166,7 +174,11 @@ class QueryRuntimeApplication:
             capabilities.append("inference.lifecycle.read")
         if self.software_snapshot_callback is not None:
             capabilities.extend(
-                ("software.catalog.read", "software.tasks.read", "software.backups.read")
+                (
+                    "software.catalog.read",
+                    "software.tasks.read",
+                    "software.backups.read",
+                )
             )
         if self.software_prepare_callback is not None:
             capabilities.extend(("software.install.prepare", "software.remove.prepare"))
@@ -197,7 +209,11 @@ class QueryRuntimeApplication:
         action = payload.get("action")
         if action == "install":
             expected = {
-                "action", "application_id", "locale", "install_location", "selected_options"
+                "action",
+                "application_id",
+                "locale",
+                "install_location",
+                "selected_options",
             }
             capability = "software.install.prepare"
             selected_options = payload.get("selected_options")
@@ -246,7 +262,9 @@ class QueryRuntimeApplication:
             raise ValueError("confirmed must be boolean")
         action = payload.get("action")
         final_confirmation = payload.get("final_confirmation")
-        if action not in {"install", "remove"} or not isinstance(final_confirmation, bool):
+        if action not in {"install", "remove"} or not isinstance(
+            final_confirmation, bool
+        ):
             raise ValueError("software confirmation is invalid")
         if payload["confirmed"]:
             capability = f"software.{action}.commit"
@@ -373,7 +391,9 @@ class QueryRuntimeApplication:
             permission = PermissionLevel(self._string(payload, "permission"))
         except ValueError as error:
             raise ValueError("unknown storage permission") from error
-        return asdict(self.query_service.enrollment.set_permission(volume_id, permission))
+        return asdict(
+            self.query_service.enrollment.set_permission(volume_id, permission)
+        )
 
     def inference_lifecycle(self, payload: dict[str, object]) -> dict[str, object]:
         if payload:
@@ -397,7 +417,9 @@ class QueryRuntimeApplication:
                 "total_bytes": None,
                 "reason": "provider_status_unavailable",
             }
-            errors.append({"component": "provider.ollama", "code": "status_unavailable"})
+            errors.append(
+                {"component": "provider.ollama", "code": "status_unavailable"}
+            )
         try:
             catalog = self.model_catalog({})
         except Exception:
@@ -447,7 +469,9 @@ class QueryRuntimeApplication:
             if provider_ready:
                 model["effective_state"] = lifecycle_state
                 model["blocked_by"] = None
-                model["effective_prompt_required"] = model.get("prompt_required") is True
+                model["effective_prompt_required"] = (
+                    model.get("prompt_required") is True
+                )
             else:
                 model["effective_state"] = "blocked"
                 model["blocked_by"] = "provider.ollama"
@@ -472,7 +496,9 @@ class QueryRuntimeApplication:
             raise RuntimeError("ollama_provider_invalid_response")
         return result
 
-    def respond_to_ollama_provider(self, payload: dict[str, object]) -> dict[str, object]:
+    def respond_to_ollama_provider(
+        self, payload: dict[str, object]
+    ) -> dict[str, object]:
         if self.ollama_provider_decision_callback is None:
             raise RuntimeError("ollama_provider_unavailable")
         if set(payload) != {"decision"}:
@@ -523,7 +549,11 @@ class QueryRuntimeApplication:
         if provider_state in {"starting", "downloading", "installing"}:
             return "provider_preparing"
         if provider_state != "ready":
-            return "action_required" if provider.get("prompt_required") is True else "blocked"
+            return (
+                "action_required"
+                if provider.get("prompt_required") is True
+                else "blocked"
+            )
         states = {model.get("state") for model in models}
         if states & {"error", "unavailable"}:
             return "error"
@@ -532,7 +562,11 @@ class QueryRuntimeApplication:
         if any(model.get("prompt_required") is True for model in models):
             return "action_required"
         required = [model for model in models if model.get("required") is True]
-        return "ready" if required and all(model.get("state") == "ready" for model in required) else "blocked"
+        return (
+            "ready"
+            if required and all(model.get("state") == "ready" for model in required)
+            else "blocked"
+        )
 
     def model_catalog(self, payload: dict[str, object]) -> dict[str, object]:
         if self.model_catalog_callback is None:
@@ -570,13 +604,29 @@ class QueryRuntimeApplication:
     ) -> object:
         if self.workspace_controller is None:
             raise RuntimeError("workspace_controller_unavailable")
-        if set(payload) != {"text"}:
-            raise ValueError("exactly text is required")
+        if "text" not in payload or set(payload) - {"text", "attachments"}:
+            raise ValueError("text and optional attachments are required")
         text = self._string(payload, "text")
         if not text.strip() or len(text) > 4_000:
             raise ValueError("workspace text must contain from 1 to 4000 characters")
+        if "attachments" not in payload:
+            return self.workspace_controller.submit(
+                text, transport_context=transport_context
+            )
+        from ai_native_workspace import WorkspaceAttachment
+
+        entries = payload["attachments"]
+        if not isinstance(entries, list) or len(entries) > 8:
+            raise ValueError("attachments must be a bounded list")
+        if any(
+            not isinstance(item, dict) or set(item) != {"kind", "name"}
+            for item in entries
+        ):
+            raise ValueError("attachment metadata must contain kind and name only")
         return self.workspace_controller.submit(
-            text, transport_context=transport_context
+            text,
+            transport_context=transport_context,
+            attachments=tuple(WorkspaceAttachment(**item) for item in entries),
         )
 
     def workspace_approval(
@@ -604,7 +654,11 @@ class QueryRuntimeApplication:
         if set(payload) - {"limit"}:
             raise ValueError("unknown workspace message field")
         limit = payload.get("limit", 200)
-        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 500:
+        if (
+            isinstance(limit, bool)
+            or not isinstance(limit, int)
+            or not 1 <= limit <= 500
+        ):
             raise ValueError("workspace message limit must be from 1 to 500")
         return self.workspace.list_messages(limit=limit)
 
@@ -622,7 +676,11 @@ class QueryRuntimeApplication:
             raise ValueError("unknown workspace runs field")
         limit = payload.get("limit", 20)
         active_only = payload.get("active_only", False)
-        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 100:
+        if (
+            isinstance(limit, bool)
+            or not isinstance(limit, int)
+            or not 1 <= limit <= 100
+        ):
             raise ValueError("workspace runs limit must be from 1 to 100")
         if not isinstance(active_only, bool):
             raise ValueError("active_only must be a boolean")
@@ -697,7 +755,13 @@ class QueryRuntimeApplication:
 
     def _document_query(self, payload: dict[str, object]) -> DocumentQuery:
         unknown = set(payload) - {
-            "text", "mode", "name_contains", "extensions", "volume_ids", "limit", "offset"
+            "text",
+            "mode",
+            "name_contains",
+            "extensions",
+            "volume_ids",
+            "limit",
+            "offset",
         }
         if unknown:
             raise ValueError(f"unknown search fields: {sorted(unknown)}")
@@ -735,7 +799,9 @@ class QueryRuntimeApplication:
         }
         if self.scheduler_status is not None:
             scheduler = self.scheduler_status()
-            status["scheduler"] = asdict(scheduler) if is_dataclass(scheduler) else scheduler
+            status["scheduler"] = (
+                asdict(scheduler) if is_dataclass(scheduler) else scheduler
+            )
         return status
 
     def compile_intent(self, payload: dict[str, object]) -> object:
@@ -749,7 +815,9 @@ class QueryRuntimeApplication:
             raise ValueError("text is required")
         if self.task_context is None:
             raise RuntimeError("intent_context_unavailable")
-        result = self.intent_pipeline.compile_and_plan(text, context=self.task_context())
+        result = self.intent_pipeline.compile_and_plan(
+            text, context=self.task_context()
+        )
         plan = getattr(result, "plan", None)
         if plan is not None and self.plan_store is not None:
             self.plan_store.put(plan)
@@ -808,7 +876,9 @@ class QueryRuntimeApplication:
     @staticmethod
     def _strings(payload: dict[str, object], key: str) -> tuple[str, ...]:
         value = payload.get(key, ())
-        if not isinstance(value, (list, tuple)) or any(not isinstance(item, str) for item in value):
+        if not isinstance(value, (list, tuple)) or any(
+            not isinstance(item, str) for item in value
+        ):
             raise ValueError(f"{key} must be a list of strings")
         if len(value) > 100:
             raise ValueError(f"{key} has too many values")

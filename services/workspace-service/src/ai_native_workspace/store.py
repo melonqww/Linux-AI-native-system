@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import json
 import sqlite3
 from collections.abc import Callable
 from contextlib import contextmanager
@@ -62,6 +63,12 @@ CREATE TABLE IF NOT EXISTS workspace_run_events (
 );
 CREATE INDEX IF NOT EXISTS workspace_events_by_run
     ON workspace_run_events(run_id, sequence);
+CREATE TABLE IF NOT EXISTS workspace_clarifications (
+    principal TEXT PRIMARY KEY,
+    message_id TEXT NOT NULL REFERENCES workspace_messages(message_id) ON DELETE CASCADE,
+    payload TEXT NOT NULL,
+    expires_at TEXT NOT NULL
+);
 PRAGMA user_version = 2;
 """
 
@@ -107,6 +114,52 @@ _STAGE_LABELS = {
 
 
 class WorkspaceStore:
+    def save_clarification(
+        self, principal: str, message_id: str, payload: dict
+    ) -> None:
+        with self._transaction() as connection:
+            latest = connection.execute(
+                "SELECT message_id FROM workspace_messages WHERE role = 'user' ORDER BY rowid DESC LIMIT 1"
+            ).fetchone()
+            if latest is None or latest[0] != message_id:
+                return
+            connection.execute(
+                "INSERT OR REPLACE INTO workspace_clarifications VALUES (?, ?, ?, ?)",
+                (
+                    principal,
+                    message_id,
+                    json.dumps(payload, ensure_ascii=False),
+                    (self._now_fn() + timedelta(minutes=10)).isoformat(),
+                ),
+            )
+
+    def take_clarification(
+        self, principal: str, current_message_id: str | None = None
+    ) -> dict | None:
+        with self._transaction() as connection:
+            connection.execute(
+                "DELETE FROM workspace_clarifications WHERE expires_at <= ?",
+                (self._now_fn().isoformat(),),
+            )
+            row = connection.execute(
+                "SELECT payload, message_id FROM workspace_clarifications WHERE principal = ?",
+                (principal,),
+            ).fetchone()
+            connection.execute(
+                "DELETE FROM workspace_clarifications WHERE principal = ?", (principal,)
+            )
+            if row and current_message_id is not None:
+                recent = connection.execute(
+                    "SELECT message_id FROM workspace_messages WHERE role = 'user' ORDER BY rowid DESC LIMIT 2"
+                ).fetchall()
+                if (
+                    len(recent) != 2
+                    or recent[0][0] != current_message_id
+                    or recent[1][0] != row[1]
+                ):
+                    return None
+            return json.loads(row[0]) if row else None
+
     def __init__(
         self,
         database: Path,
@@ -128,7 +181,8 @@ class WorkspaceStore:
             connection.execute("PRAGMA synchronous = FULL")
             connection.executescript(_SCHEMA)
             columns = {
-                row[1] for row in connection.execute("PRAGMA table_info(workspace_runs)")
+                row[1]
+                for row in connection.execute("PRAGMA table_info(workspace_runs)")
             }
             if "approval_request_id" not in columns:
                 connection.execute(
@@ -252,7 +306,9 @@ class WorkspaceStore:
             if MessageRole(message["role"]) is not MessageRole.ASSISTANT:
                 raise ValueError("completion requires an assistant message")
             if message["task_id"] != task_id:
-                raise ValueError("assistant message and workspace run task_id must match")
+                raise ValueError(
+                    "assistant message and workspace run task_id must match"
+                )
             row = self._run_row(connection, run_id)
             current = WorkspaceStage(row["stage"])
             if stage not in _TRANSITIONS.get(current, set()):
@@ -331,7 +387,11 @@ class WorkspaceStore:
             return self._message(self._message_row(connection, message_id))
 
     def list_messages(self, *, limit: int = 200) -> tuple[WorkspaceMessage, ...]:
-        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 500:
+        if (
+            isinstance(limit, bool)
+            or not isinstance(limit, int)
+            or not 1 <= limit <= 500
+        ):
             raise ValueError("limit must be an integer from 1 to 500")
         now = self._timestamp(self._now())
         with self._connect() as connection:
@@ -349,7 +409,11 @@ class WorkspaceStore:
     def list_runs(
         self, *, limit: int = 20, active_only: bool = False
     ) -> tuple[WorkspaceRun, ...]:
-        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 100:
+        if (
+            isinstance(limit, bool)
+            or not isinstance(limit, int)
+            or not 1 <= limit <= 100
+        ):
             raise ValueError("limit must be an integer from 1 to 100")
         if not isinstance(active_only, bool):
             raise ValueError("active_only must be a boolean")
@@ -365,9 +429,7 @@ class WorkspaceStore:
     def purge_expired(self) -> tuple[int, int]:
         current = self._now()
         now = self._timestamp(current)
-        run_cutoff = self._timestamp(
-            current - timedelta(hours=self.retention_hours)
-        )
+        run_cutoff = self._timestamp(current - timedelta(hours=self.retention_hours))
         with self._transaction() as connection:
             messages = connection.execute(
                 "DELETE FROM workspace_messages WHERE expires_at <= ?", (now,)
@@ -428,7 +490,9 @@ class WorkspaceStore:
             started_at=row["started_at"],
             finished_at=row["finished_at"],
             elapsed_ms=max(0, int((endpoint - started).total_seconds() * 1000)),
-            stage_elapsed_ms=max(0, int((stage_endpoint - stage_started).total_seconds() * 1000)),
+            stage_elapsed_ms=max(
+                0, int((stage_endpoint - stage_started).total_seconds() * 1000)
+            ),
             user_message_id=row["user_message_id"],
             assistant_message_id=row["assistant_message_id"],
             task_id=row["task_id"],
@@ -459,7 +523,9 @@ class WorkspaceStore:
             source,
         )
 
-    def _message_row(self, connection: sqlite3.Connection, message_id: str) -> sqlite3.Row:
+    def _message_row(
+        self, connection: sqlite3.Connection, message_id: str
+    ) -> sqlite3.Row:
         self._uuid(message_id, "message_id")
         row = connection.execute(
             "SELECT * FROM workspace_messages WHERE message_id = ?", (message_id,)

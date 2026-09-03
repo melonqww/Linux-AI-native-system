@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
+import re
 from threading import BoundedSemaphore
 from typing import Protocol
 
@@ -35,6 +36,12 @@ from ai_native_turns import (
 
 from .contracts import MessageKind, MessageRole, WorkspaceRun, WorkspaceStage
 from .store import WorkspaceStore
+from .input_policy import (
+    WorkspaceAttachment,
+    unavailable_input,
+    input_notice,
+    safe_chat_reply,
+)
 
 
 class RouteProvider(Protocol):
@@ -106,9 +113,19 @@ class WorkspaceRuntime:
         self._slots = BoundedSemaphore(max_pending)
 
     def submit(
-        self, text: str, *, transport_context: TransportContext
+        self,
+        text: str,
+        *,
+        transport_context: TransportContext,
+        attachments: tuple[WorkspaceAttachment, ...] = (),
     ) -> WorkspaceRun:
         normalized = self._user_text(text)
+        if (
+            not isinstance(attachments, tuple)
+            or len(attachments) > 8
+            or any(not isinstance(item, WorkspaceAttachment) for item in attachments)
+        ):
+            raise ValueError("invalid attachments")
         if not self._slots.acquire(blocking=False):
             raise WorkspaceBusyError("workspace_queue_full")
         try:
@@ -122,6 +139,7 @@ class WorkspaceRuntime:
                 message.message_id,
                 normalized,
                 transport_context,
+                bool(unavailable_input(normalized, attachments)),
             )
             future.add_done_callback(lambda _future: self._slots.release())
             return run
@@ -167,10 +185,47 @@ class WorkspaceRuntime:
         user_message_id: str,
         text: str,
         transport_context: TransportContext,
+        input_unavailable: bool = False,
     ) -> None:
         locale = self.context().locale
         try:
             self.store.transition(run_id, WorkspaceStage.UNDERSTANDING)
+            pending = self.store.take_clarification(
+                transport_context.principal, user_message_id
+            )
+            if (
+                pending
+                and pending.get("collection") == self.context().active_collection_id
+            ):
+                if re.fullmatch(
+                    r"\s*(?:no|cancel|no[,.]?\s*cancel(?:\s*it)?|нет|отмена|не надо)[.!]?\s*",
+                    text,
+                    re.I,
+                ):
+                    self._complete_reply(
+                        run_id,
+                        "Операция не выполнена."
+                        if locale.startswith("ru")
+                        else "No operation was performed.",
+                    )
+                    return
+                if re.fullmatch(
+                    r"\s*(?:(?:on|in|to|my|the|на|в|папку)\s+)*(?:desktop|documents|downloads|рабоч(?:ий|ем)\s+стол(?:е)?|документы|загрузки)(?:[,.]?\s*(?:please|пожалуйста))?[.!]?\s*",
+                    text,
+                    re.I,
+                ):
+                    text = pending["text"] + " " + text
+            evidence_source = getattr(
+                self.capability_router, "requested_operations", None
+            )
+            requested = (
+                tuple(evidence_source(text)) if callable(evidence_source) else None
+            )
+            if input_unavailable:
+                self._complete_reply(
+                    run_id, input_notice(locale), MessageKind.INPUT_UNAVAILABLE
+                )
+                return
             readiness = self._model_readiness()
             if readiness is not None:
                 self._finish_model_unavailable(run_id, readiness, locale)
@@ -190,23 +245,30 @@ class WorkspaceRuntime:
                     )
                     self.store.complete(run_id, response.message_id)
                     return
-                allowed_operations = tuple(
-                    dict.fromkeys(
-                        str(getattr(candidate, "operation")) for candidate in candidates
+                allowed_operations = (
+                    tuple(
+                        dict.fromkeys(
+                            str(getattr(candidate, "operation"))
+                            for candidate in candidates
+                        )
                     )
-                ) or None
-            if self.turn_router is not None:
-                classification = self._classify_turn(
-                    text, locale, user_message_id
+                    or None
                 )
-                if classification is None or classification.kind is TurnKind.CLARIFICATION:
+            if self.turn_router is not None:
+                classification = self._classify_turn(text, locale, user_message_id)
+                if requested == ():
+                    reply = self._respond_chat(text, locale, user_message_id)
+                    self._complete_reply(run_id, reply)
+                    return
+                if (
+                    classification is None
+                    or classification.kind is TurnKind.CLARIFICATION
+                ):
                     # A malformed or low-confidence classifier cannot be
                     # upgraded to an action by lexical candidates. Chat may
                     # clarify the complete original message, but tools remain
                     # physically unavailable on this turn.
-                    chat_response = self._respond_chat(
-                        text, locale, user_message_id
-                    )
+                    chat_response = self._respond_chat(text, locale, user_message_id)
                     self.store.transition(run_id, WorkspaceStage.SUMMARIZING)
                     response = self.store.append_message(
                         MessageRole.ASSISTANT,
@@ -242,7 +304,7 @@ class WorkspaceRuntime:
                         classification = None
                         model_text = text
                     else:
-                        allowed_operations = self._available_operations()
+                        allowed_operations = requested or self._available_operations()
 
                 if classification is not None and classification.kind in {
                     TurnKind.CONVERSATION,
@@ -260,6 +322,8 @@ class WorkspaceRuntime:
                             raise
                         chat_response = None
                     if chat_response is not None:
+                        if input_unavailable:
+                            chat_response = input_notice(locale)
                         message = self.store.append_message(
                             MessageRole.ASSISTANT,
                             MessageKind.CONVERSATION,
@@ -276,6 +340,8 @@ class WorkspaceRuntime:
                     if classification.action_text is None:
                         raise ValueError("action classification has no text")
                     model_text = classification.action_text
+            if requested:
+                allowed_operations = requested
             turn = self.model.route(
                 ModelRequest(
                     user_text=model_text,
@@ -287,6 +353,22 @@ class WorkspaceRuntime:
                     allowed_operations=allowed_operations,
                 )
             )
+            if turn.kind is ModelTurnKind.CLARIFICATION:
+                if turn.clarification_key == "copy_destination":
+                    self.store.save_clarification(
+                        transport_context.principal,
+                        user_message_id,
+                        {
+                            "text": text,
+                            "collection": self.context().active_collection_id,
+                        },
+                    )
+                self._complete_reply(
+                    run_id,
+                    turn.response_text or self._clarification(locale),
+                    MessageKind.CLARIFICATION,
+                )
+                return
             if turn.kind is ModelTurnKind.CONVERSATION:
                 if turn.response_text is None:
                     raise ValueError("conversation response is missing")
@@ -294,11 +376,16 @@ class WorkspaceRuntime:
                 response = self.store.append_message(
                     MessageRole.ASSISTANT,
                     MessageKind.CONVERSATION,
-                    turn.response_text,
+                    self._clarification(locale)
+                    if requested
+                    else safe_chat_reply(turn.response_text, locale),
                 )
                 self.store.complete(run_id, response.message_id)
                 return
-            if turn.kind is ModelTurnKind.UNSUPPORTED_ACTION or turn.unsupported_actions:
+            if (
+                turn.kind is ModelTurnKind.UNSUPPORTED_ACTION
+                or turn.unsupported_actions
+            ):
                 if turn.response_text:
                     self.store.append_message(
                         MessageRole.ASSISTANT,
@@ -315,6 +402,16 @@ class WorkspaceRuntime:
                 return
             if turn.kind is not ModelTurnKind.ACTION or turn.intent_payload is None:
                 raise ValueError("model route is invalid")
+            if requested is not None:
+                proposed = {
+                    item.get("kind")
+                    for item in turn.intent_payload.get("operations", [])
+                }
+                if not proposed or not proposed.issubset(set(requested)):
+                    self._complete_reply(
+                        run_id, self._clarification(locale), MessageKind.CLARIFICATION
+                    )
+                    return
 
             self.store.transition(run_id, WorkspaceStage.PLANNING)
             compilation = self.compiler.compile_payload(
@@ -322,7 +419,7 @@ class WorkspaceRuntime:
                 text=model_text,
                 context=self.context(),
             )
-            if turn.response_text:
+            if turn.response_text and requested is None:
                 self.store.append_message(
                     MessageRole.ASSISTANT,
                     MessageKind.CONVERSATION,
@@ -337,8 +434,13 @@ class WorkspaceRuntime:
                 )
                 self.store.complete(run_id, response.message_id)
                 return
-            if compilation.state is not CompilationState.READY or compilation.plan is None:
-                question = compilation.clarification_question or self._clarification(locale)
+            if (
+                compilation.state is not CompilationState.READY
+                or compilation.plan is None
+            ):
+                question = compilation.clarification_question or self._clarification(
+                    locale
+                )
                 self.store.transition(run_id, WorkspaceStage.SUMMARIZING)
                 response = self.store.append_message(
                     MessageRole.ASSISTANT, MessageKind.CLARIFICATION, question
@@ -386,6 +488,13 @@ class WorkspaceRuntime:
         except Exception:
             self._finish_failure(run_id, locale)
 
+    def _complete_reply(
+        self, run_id: str, text: str, kind: MessageKind = MessageKind.CONVERSATION
+    ) -> None:
+        self.store.transition(run_id, WorkspaceStage.SUMMARIZING)
+        message = self.store.append_message(MessageRole.ASSISTANT, kind, text)
+        self.store.complete(run_id, message.message_id)
+
     def _available_operations(self) -> tuple[str, ...] | None:
         if self.capability_router is None:
             return None
@@ -427,15 +536,18 @@ class WorkspaceRuntime:
         last_error: Exception | None = None
         for history in histories:
             try:
-                return chat(
-                    ModelRequest(
-                        user_text=text,
-                        locale=locale,
-                        context=self.context().for_model(),
-                        output_schema={},
-                        instructions="",
-                        history=history,
-                    )
+                return safe_chat_reply(
+                    chat(
+                        ModelRequest(
+                            user_text=text,
+                            locale=locale,
+                            context=self.context().for_model(),
+                            output_schema={},
+                            instructions="",
+                            history=history,
+                        )
+                    ),
+                    locale,
                 )
             except Exception as error:
                 last_error = error
@@ -559,7 +671,9 @@ class WorkspaceRuntime:
             return {"state": "unavailable", "reason": "model_manager_invalid"}
         return None if status.get("state") == "ready" else status
 
-    def _model_history(self, current_user_message_id: str) -> tuple[ModelHistoryMessage, ...]:
+    def _model_history(
+        self, current_user_message_id: str
+    ) -> tuple[ModelHistoryMessage, ...]:
         eligible = []
         for message in self.store.list_messages(limit=50):
             if message.message_id == current_user_message_id:
@@ -698,9 +812,7 @@ class WorkspaceRuntime:
         message = self.store.append_message(
             MessageRole.ASSISTANT, MessageKind.NOTICE, content
         )
-        self.store.finish(
-            run_id, WorkspaceStage.FAILED, message.message_id
-        )
+        self.store.finish(run_id, WorkspaceStage.FAILED, message.message_id)
 
     @staticmethod
     def _result_facts(result: OrchestrationResult) -> dict[str, object]:
@@ -730,7 +842,9 @@ class WorkspaceRuntime:
                 criteria = step.output.criteria
                 sample_paths.extend(item.path for item in step.output.results[:5])
                 if step.output.coverage is not None:
-                    coverage_complete = coverage_complete and step.output.coverage.complete
+                    coverage_complete = (
+                        coverage_complete and step.output.coverage.complete
+                    )
                     coverage_state = step.output.coverage.state
                     inaccessible += step.output.coverage.inaccessible_items
             elif isinstance(step.output, CopyOutput):
@@ -759,7 +873,9 @@ class WorkspaceRuntime:
             parts = []
             if facts.get("search_mode"):
                 if total > found:
-                    qualifier = "не менее " if not facts.get("total_is_exact", True) else ""
+                    qualifier = (
+                        "не менее " if not facts.get("total_is_exact", True) else ""
+                    )
                     parts.append(
                         f"Поиск завершён. Показано файлов: {found}; "
                         f"всего совпадений: {qualifier}{total}."
@@ -789,7 +905,9 @@ class WorkspaceRuntime:
             else:
                 parts.append(f"Search completed. Files found: {found}.")
             if not bool(facts.get("coverage_complete", False)):
-                parts.append("The allowed-drive index is still being built, so this result is incomplete.")
+                parts.append(
+                    "The allowed-drive index is still being built, so this result is incomplete."
+                )
         if copied:
             parts.append(f"Items copied: {copied}.")
         return " ".join(parts) or "Task completed."

@@ -14,6 +14,7 @@ class MessageKind(StrEnum):
     CONVERSATION = "conversation"
     TASK_RESULT = "task_result"
     CLARIFICATION = "clarification"
+    INPUT_UNAVAILABLE = "input_unavailable"
     NOTICE = "notice"
 
 

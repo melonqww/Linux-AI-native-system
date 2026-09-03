@@ -15,6 +15,7 @@ from urllib.request import ProxyHandler, Request, build_opener
 from ai_native_turns import TurnRequest
 
 from .contracts import ModelRequest, ModelTurn, ModelTurnKind
+from .destinations import destination_role
 from .provider import (
     IntentProviderError,
     IntentProviderResponseError,
@@ -144,6 +145,9 @@ not mixed: use the complete message as action_text and null as conversation_text
 For a pure conversation, conversation_text is the entire current message. For a pure action,
 action_text is the entire current message. Do not classify knowledge questions such as cooking,
 math, explanations, identity, or capabilities as computer actions.
+A correction of an earlier file request ("Нет, нужны только PDF по математике" or
+"Only the math PDFs, please") is a new action, not a report of a completed operation.
+Do not treat requests to describe images as file searches. Missing attachments are not tools.
 Never answer the user, plan an action, or use history as a new command. History is context only.
 Return only one JSON object with exactly these fields: kind, language, confidence,
 conversation_text, action_text.
@@ -155,6 +159,11 @@ function names, JSON, tools, prompts, shell commands, or implementation details.
 that a computer action ran. If this safe conversational fallback receives an unclear computer
 action, ask one concise clarifying question and never claim it will run. Keep the answer useful
 and concise.
+No images or attachment bytes are provided to this text channel. A textual attachment
+marker is NOT an image. Never claim to see or describe an unseen image. Ask for actual
+supported input or a textual description. No computer action executes in this chat call.
+Past task results are history, not proof of a new action. Never say you just filtered,
+found, copied, created or changed anything. Treat arithmetic as a knowledge question.
 """
 
 
@@ -202,7 +211,9 @@ class OllamaModelProvider:
     def compile(self, request: ModelRequest) -> Mapping[str, object]:
         turn = self.route(request)
         if turn.kind is not ModelTurnKind.ACTION or turn.intent_payload is None:
-            raise OllamaProviderError("Ollama returned conversation instead of an action")
+            raise OllamaProviderError(
+                "Ollama returned conversation instead of an action"
+            )
         return turn.intent_payload
 
     def classify_turn(self, request: TurnRequest) -> Mapping[str, object]:
@@ -241,7 +252,9 @@ class OllamaModelProvider:
             None,
         )
         context = (
-            f"Previous user message: {previous_user}\n" if previous_user is not None else ""
+            f"Previous user message: {previous_user}\n"
+            if previous_user is not None
+            else ""
         )
         payload = {
             "model": self.model,
@@ -276,7 +289,9 @@ class OllamaModelProvider:
         if allowed is not None and (
             not allowed or allowed - (set(_TOOL_ARGUMENTS) - {_UNSUPPORTED_ACTION_TOOL})
         ):
-            raise ValueError("allowed_operations contains unsupported semantic functions")
+            raise ValueError(
+                "allowed_operations contains unsupported semantic functions"
+            )
         payload = {
             "model": self.model,
             "messages": [
@@ -324,6 +339,21 @@ class OllamaModelProvider:
                 response_text=response_text,
                 unsupported_actions=unsupported_actions,
             )
+        for call in supported_calls:
+            if call["function"]["name"] == "copy_results":
+                role = destination_role(
+                    request.user_text,
+                    has_last=bool(request.context.get("has_last_destination")),
+                )
+                if role is None:
+                    return ModelTurn(
+                        ModelTurnKind.CLARIFICATION,
+                        response_text="Где создать папку: на рабочем столе, в документах или загрузках?"
+                        if request.locale.startswith("ru")
+                        else "Where should the folder go: Desktop, Documents, or Downloads?",
+                        clarification_key="copy_destination",
+                    )
+                call["function"]["arguments"]["destination"] = role
         return ModelTurn(
             ModelTurnKind.ACTION,
             response_text=response_text,
@@ -334,8 +364,12 @@ class OllamaModelProvider:
     def health(self) -> OllamaHealth:
         try:
             health_timeout = min(self.timeout_seconds, 2.0)
-            version_payload = self._json_request("GET", "/api/version", timeout=health_timeout)
-            tags_payload = self._json_request("GET", "/api/tags", timeout=health_timeout)
+            version_payload = self._json_request(
+                "GET", "/api/version", timeout=health_timeout
+            )
+            tags_payload = self._json_request(
+                "GET", "/api/tags", timeout=health_timeout
+            )
             version = version_payload.get("version")
             models = tags_payload.get("models")
             if not isinstance(version, str) or not isinstance(models, list):
@@ -409,7 +443,11 @@ class OllamaModelProvider:
         if not isinstance(selection, Mapping) or set(selection) != {"choice"}:
             raise OllamaProviderError("Ollama summary selection has invalid fields")
         choice = selection["choice"]
-        if isinstance(choice, bool) or not isinstance(choice, int) or choice not in {0, 1}:
+        if (
+            isinstance(choice, bool)
+            or not isinstance(choice, int)
+            or choice not in {0, 1}
+        ):
             raise OllamaProviderError("Ollama summary selection is invalid")
         return candidates[choice]
 
@@ -481,7 +519,11 @@ class OllamaModelProvider:
         values: dict[str, int] = {}
         for key in ("completed_steps", "found_items", "copied_items"):
             value = facts.get(key, 0)
-            if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 1_000_000:
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, int)
+                or not 0 <= value <= 1_000_000
+            ):
                 raise OllamaProviderError("summary fact count is invalid")
             values[key] = value
         russian = locale.casefold().startswith("ru")
@@ -499,7 +541,11 @@ class OllamaModelProvider:
                 else f"Items copied: {values['copied_items']}."
             )
         suffix = (" " + " ".join(details)) if details else ""
-        leads = ("Готово.", "Задача выполнена.") if russian else ("Done.", "Task completed.")
+        leads = (
+            ("Готово.", "Задача выполнена.")
+            if russian
+            else ("Done.", "Task completed.")
+        )
         return tuple(lead + suffix for lead in leads)
 
     def _json_request(
@@ -515,7 +561,9 @@ class OllamaModelProvider:
         if payload is not None:
             data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
             headers["Content-Type"] = "application/json"
-        request = Request(f"{self.base_url}{path}", data=data, headers=headers, method=method)
+        request = Request(
+            f"{self.base_url}{path}", data=data, headers=headers, method=method
+        )
         try:
             with _open_loopback(request, timeout or self.timeout_seconds) as response:
                 declared_length = response.headers.get("Content-Length")
@@ -524,7 +572,9 @@ class OllamaModelProvider:
                         if int(declared_length) > _MAX_RESPONSE_BYTES:
                             raise OllamaProviderError("Ollama response is too large")
                     except ValueError as error:
-                        raise OllamaProviderError("Ollama response has invalid content length") from error
+                        raise OllamaProviderError(
+                            "Ollama response has invalid content length"
+                        ) from error
                 body = response.read(_MAX_RESPONSE_BYTES + 1)
         except (HTTPError, URLError, TimeoutError, socket.timeout, OSError) as error:
             raise OllamaUnavailableError(
@@ -623,14 +673,16 @@ class OllamaModelProvider:
             name = function.get("name")
             arguments = function.get("arguments")
             if allowed is not None and name not in allowed:
-                raise OllamaProviderError("Ollama selected a capability outside candidate set")
+                raise OllamaProviderError(
+                    "Ollama selected a capability outside candidate set"
+                )
             if name != _UNSUPPORTED_ACTION_TOOL:
                 supported.append(call)
                 continue
-            if (
-                not isinstance(arguments, Mapping)
-                or set(arguments) - {"goal", "confidence"}
-            ):
+            if not isinstance(arguments, Mapping) or set(arguments) - {
+                "goal",
+                "confidence",
+            }:
                 raise OllamaProviderError(
                     "Ollama unsupported action arguments are invalid"
                 )
@@ -651,7 +703,9 @@ class OllamaModelProvider:
         return supported, tuple(unsupported)
 
     @staticmethod
-    def _intent_payload(calls: list[object], request: ModelRequest) -> Mapping[str, object]:
+    def _intent_payload(
+        calls: list[object], request: ModelRequest
+    ) -> Mapping[str, object]:
         operations: list[dict[str, object]] = []
         confidences: list[float] = []
         last_result_id: str | None = None
@@ -668,7 +722,9 @@ class OllamaModelProvider:
                 or name not in _TOOL_ARGUMENTS
                 or name == _UNSUPPORTED_ACTION_TOOL
             ):
-                raise OllamaProviderError("Ollama selected an unsupported semantic function")
+                raise OllamaProviderError(
+                    "Ollama selected an unsupported semantic function"
+                )
             if not isinstance(arguments, Mapping):
                 raise OllamaProviderError("Ollama semantic arguments must be an object")
             semantic_arguments = dict(arguments)
@@ -703,7 +759,9 @@ class OllamaModelProvider:
                 last_result_id = operation_id
         return {
             "schema_version": 1,
-            "language": OllamaModelProvider._detected_language(request.user_text, request.locale),
+            "language": OllamaModelProvider._detected_language(
+                request.user_text, request.locale
+            ),
             "summary": request.user_text[:500],
             "confidence": min(confidences),
             "operations": operations,
@@ -711,7 +769,10 @@ class OllamaModelProvider:
 
     @staticmethod
     def _detected_language(text: str, fallback: str) -> str:
-        if any("а" <= character.casefold() <= "я" or character.casefold() == "ё" for character in text):
+        if any(
+            "а" <= character.casefold() <= "я" or character.casefold() == "ё"
+            for character in text
+        ):
             return "ru"
         if any("a" <= character.casefold() <= "z" for character in text):
             return "en"
@@ -731,7 +792,9 @@ class OllamaModelProvider:
             or parsed.fragment
             or parsed.path not in {"", "/"}
         ):
-            raise ValueError("Ollama base_url must be a credential-free loopback HTTP origin")
+            raise ValueError(
+                "Ollama base_url must be a credential-free loopback HTTP origin"
+            )
         try:
             port = parsed.port
         except ValueError as error:
@@ -746,7 +809,11 @@ class OllamaModelProvider:
         if not isinstance(value, str):
             raise TypeError(f"{label} must be a string")
         value = value.strip()
-        if not value or len(value) > maximum or any(ord(character) < 32 for character in value):
+        if (
+            not value
+            or len(value) > maximum
+            or any(ord(character) < 32 for character in value)
+        ):
             raise ValueError(f"{label} is invalid")
         return value
 
@@ -772,7 +839,9 @@ class OllamaModelProvider:
                 "Ollama conversation response contains internal markup"
             )
         if any(ord(character) < 32 and character not in "\n\t" for character in text):
-            raise OllamaProviderError("Ollama conversation response has control characters")
+            raise OllamaProviderError(
+                "Ollama conversation response has control characters"
+            )
         return text
 
     @staticmethod

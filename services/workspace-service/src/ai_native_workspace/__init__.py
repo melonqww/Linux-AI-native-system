@@ -9,9 +9,11 @@ from .contracts import (
     WorkspaceTransitionError,
 )
 from .store import WorkspaceStore
+from .input_policy import WorkspaceAttachment
 from .runtime import WorkspaceBusyError, WorkspaceRuntime
 
 __all__ = [
+    "WorkspaceAttachment",
     "MessageKind",
     "MessageRole",
     "MessageSource",

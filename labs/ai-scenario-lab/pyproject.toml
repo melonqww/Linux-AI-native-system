@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ai-native-scenario-lab"
-version = "0.3.0"
+version = "0.4.0"
 description = "Isolated real-model scenario laboratory for AI Native Linux"
 requires-python = ">=3.12"
 dependencies = ["pypdf>=5,<7", "zstandard>=0.23,<1"]

@@ -58,6 +58,25 @@ python run.py run full --repeat 3 --min-pass-rate 0.9
 python run.py campaign full --repeat 3 --persona-set all --max-journey-cases 40 --seed 7
 ```
 
+Для автономной проверки фундамента без ожидания со стороны AI-агента:
+
+```powershell
+python run.py foundation prepare
+# Запуск выполняется отдельно, когда принято решение о длительном прогоне:
+python run.py foundation start
+python run.py foundation status
+```
+
+Подготовка не обращается к модели. Фоновый запуск сначала проверяет обычные
+тесты проекта и лаборатории, затем точный tag/digest Ollama, после чего запускает
+матрицу contract/journey cases с таймаутами. Все промежуточные результаты доступны
+через `labs/ai-scenario-lab/reports/latest.json`; предыдущие папки сохраняются.
+Код во время кампании менять не следует: fingerprint drift делает результат
+неполным и требует нового `prepare`. Общий default budget — 4 часа, без обещания
+успеть за час. `not_run`, crashes и skips не являются успешными live-проверками.
+Полный профиль, критерии, известные пробелы и формат файлов описаны в README
+лаборатории и ADR-020. Успех профиля не заменяет Linux-smoke и не выпускает 0.1.
+
 Лаборатория создаёт собственные временные диски, workspace, индекс и Task Ledger.
 Она подключает настоящий `qwen3.5:2b`, но search/copy выполняются только внутри
 виртуального ПК. Решения `grant`, `deny` и `timeout` задаются сценарием, поэтому

@@ -16,6 +16,7 @@
     "required_result_keys": [],
     "required_effects": [],
     "forbidden_effects": [
+      {"kind": "capability_call", "target": null, "minimum": 0, "maximum": null},
       {"kind": "vision_inference", "target": null, "minimum": 0, "maximum": null},
       {"kind": "file_write", "target": null, "minimum": 0, "maximum": null}
     ]

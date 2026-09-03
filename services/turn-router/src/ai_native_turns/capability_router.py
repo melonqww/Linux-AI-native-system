@@ -42,7 +42,9 @@ class CapabilityCandidateRouter:
         anchored_operations: set[str] = set()
         for descriptor in self.descriptors:
             samples = (descriptor.description, *descriptor.examples)
-            score = max(self._similarity(normalized, self._normalize(item)) for item in samples)
+            score = max(
+                self._similarity(normalized, self._normalize(item)) for item in samples
+            )
             if score >= self.minimum_score:
                 matches.append(
                     CapabilityMatch(
@@ -61,10 +63,14 @@ class CapabilityCandidateRouter:
                 ):
                     anchored_operations.add(descriptor.operation)
         matches.sort(key=lambda item: (-item.score, item.operation, item.capability_id))
-        relative_cutoff = max(
-            self.minimum_score,
-            matches[0].score - self.candidate_margin,
-        ) if matches else self.minimum_score
+        relative_cutoff = (
+            max(
+                self.minimum_score,
+                matches[0].score - self.candidate_margin,
+            )
+            if matches
+            else self.minimum_score
+        )
         selected: list[CapabilityMatch] = []
         seen_operations: set[str] = set()
         for match in matches:
@@ -85,6 +91,42 @@ class CapabilityCandidateRouter:
         """Return only operations declared by the currently enabled modules."""
         return tuple(dict.fromkeys(item.operation for item in self.descriptors))
 
+    def requested_operations(self, text: str) -> tuple[str, ...]:
+        """Conservative action evidence, distinct from broad topical retrieval.
+
+        Module examples must start with a request cue (imperative/refinement).
+        Absence is uncertainty, never permission to expose every tool. Matching
+        tolerates one typo in longer cues, not arbitrary semantic similarity.
+        Quoted examples do not authorize operations.
+        """
+        visible = re.sub(r'"[^"\n]*"|«[^»]*»|`[^`]*`', " ", text)
+        tokens = self._normalize(visible).split()
+        result = []
+        for descriptor in self.descriptors:
+            cues = {
+                self._normalize(example).split()[0]
+                for example in descriptor.examples
+                if self._normalize(example)
+            }
+            for index, token in enumerate(tokens):
+                if any(
+                    word in {"не", "not", "never", "without", "dont"}
+                    for word in tokens[max(0, index - 3) : index]
+                ):
+                    continue
+                if any(
+                    token == cue
+                    or (
+                        min(len(token), len(cue)) >= 4
+                        and token[0] == cue[0]
+                        and self._damerau_levenshtein(token, cue) <= 1
+                    )
+                    for cue in cues
+                ):
+                    result.append(descriptor.operation)
+                    break
+        return tuple(dict.fromkeys(result))
+
     @staticmethod
     def _normalize(value: str) -> str:
         if not isinstance(value, str):
@@ -100,11 +142,16 @@ class CapabilityCandidateRouter:
             return 0.0
 
         token_scores = tuple(
-            max(cls._token_similarity(sample_token, query_token) for query_token in query_tokens)
+            max(
+                cls._token_similarity(sample_token, query_token)
+                for query_token in query_tokens
+            )
             for sample_token in sample_tokens
         )
         token_coverage = sum(token_scores) / len(token_scores)
-        strong_coverage = sum(score >= 0.72 for score in token_scores) / len(token_scores)
+        strong_coverage = sum(score >= 0.72 for score in token_scores) / len(
+            token_scores
+        )
 
         sample_grams = cls._ngrams(sample)
         window_score = max(
@@ -138,7 +185,9 @@ class CapabilityCandidateRouter:
         return max(0.0, distance_score, dice_score)
 
     @staticmethod
-    def _token_windows(tokens: tuple[str, ...], sample_size: int) -> tuple[tuple[str, ...], ...]:
+    def _token_windows(
+        tokens: tuple[str, ...], sample_size: int
+    ) -> tuple[tuple[str, ...], ...]:
         minimum = max(1, sample_size - 2)
         maximum = min(len(tokens), sample_size + 2)
         return tuple(
@@ -168,8 +217,7 @@ class CapabilityCandidateRouter:
                     min(
                         current[right_index - 1] + 1,
                         previous[right_index] + 1,
-                        previous[right_index - 1]
-                        + (left_character != right_character),
+                        previous[right_index - 1] + (left_character != right_character),
                     )
                 )
                 if (
