@@ -42,7 +42,17 @@ def atomic_json(path: Path, payload: object) -> None:
         json.dump(payload, stream, ensure_ascii=False, indent=2, allow_nan=False)
         stream.flush()
         os.fsync(stream.fileno())
-    os.replace(temporary, path)
+    # Windows readers (including status polling and antivirus) may briefly open
+    # the destination without FILE_SHARE_DELETE. Preserve the previous complete
+    # JSON and retry only the atomic rename, never truncate it in place.
+    for attempt in range(20):
+        try:
+            os.replace(temporary, path)
+            return
+        except PermissionError as error:
+            if getattr(error, "winerror", None) not in {5, 32, 33} or attempt == 19:
+                raise
+            time.sleep(0.05)
 
 
 def read_json(path: Path) -> dict:

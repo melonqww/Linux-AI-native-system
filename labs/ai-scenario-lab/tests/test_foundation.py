@@ -56,6 +56,53 @@ def reduce_plan(run, kinds=("scenario", "scenario")):
     return manifest
 
 
+def test_atomic_report_retries_windows_reader_conflict_without_partial_json(
+    tmp_path, monkeypatch
+):
+    path = tmp_path / "progress.json"
+    foundation.atomic_json(path, {"state": "old"})
+    replace = foundation.os.replace
+    calls = []
+
+    def busy(source, target):
+        calls.append(target)
+        assert foundation.read_json(path) == {"state": "old"}
+        if len(calls) < 3:
+            error = PermissionError("reader holds destination")
+            error.winerror = 32
+            raise error
+        replace(source, target)
+
+    monkeypatch.setattr(foundation.os, "replace", busy)
+    monkeypatch.setattr(foundation.time, "sleep", lambda _: None)
+    foundation.atomic_json(path, {"state": "new"})
+    assert len(calls) == 3
+    assert foundation.read_json(path) == {"state": "new"}
+
+
+@pytest.mark.parametrize("winerror, attempts", [(5, 20), (32, 20), (33, 20), (None, 1)])
+def test_atomic_report_failure_is_bounded_and_preserves_previous_state(
+    tmp_path, monkeypatch, winerror, attempts
+):
+    path = tmp_path / "progress.json"
+    foundation.atomic_json(path, {"state": "old"})
+    calls = []
+
+    def denied(*args):
+        calls.append(args)
+        error = PermissionError("persistent failure")
+        if winerror is not None:
+            error.winerror = winerror
+        raise error
+
+    monkeypatch.setattr(foundation.os, "replace", denied)
+    monkeypatch.setattr(foundation.time, "sleep", lambda _: None)
+    with pytest.raises(PermissionError):
+        foundation.atomic_json(path, {"state": "new"})
+    assert len(calls) == attempts
+    assert foundation.read_json(path) == {"state": "old"}
+
+
 def test_prepare_never_calls_model_or_starts_process(prepared, monkeypatch):
     lab, project, _ = prepared
     monkeypatch.setattr(
@@ -63,9 +110,7 @@ def test_prepare_never_calls_model_or_starts_process(prepared, monkeypatch):
     )
     run = foundation.prepare(lab, project)
     manifest = foundation.read_json(run / "manifest.json")
-    assert (
-        len(manifest["cases"]) == 91
-    )  # 3 gates + 2 * (23 contracts + 21 journeys)
+    assert len(manifest["cases"]) == 91  # 3 gates + 2 * (23 contracts + 21 journeys)
     assert len({case["id"] for case in manifest["cases"]}) == 91
     assert manifest["model"] == "qwen3.5:2b"
     assert manifest["context_tokens"] == 8192
@@ -411,10 +456,17 @@ def test_real_detached_supervisor_finishes_without_caller_polling_workers(prepar
     # startup, including when this test itself runs inside a campaign worker.
     deadline = time.monotonic() + 60
     while time.monotonic() < deadline:
-        if foundation.status(run)["state"] in {"completed", "blocked", "interrupted", "incomplete"}:
+        if foundation.status(run)["state"] in {
+            "completed",
+            "blocked",
+            "interrupted",
+            "incomplete",
+        }:
             break
         time.sleep(0.05)
-    assert foundation.status(run)["state"] == "completed", json.dumps(foundation.status(run)) + (run / "supervisor.log").read_text(encoding="utf-8")
+    assert foundation.status(run)["state"] == "completed", json.dumps(
+        foundation.status(run)
+    ) + (run / "supervisor.log").read_text(encoding="utf-8")
     assert foundation.read_json(run / "summary.json")["verdict"] == "backend_candidate"
 
 
