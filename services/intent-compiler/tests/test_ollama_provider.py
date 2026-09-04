@@ -34,7 +34,11 @@ def model_request(user_text="Найди PDF по математике"):
     return ModelRequest(
         user_text=user_text,
         locale="ru",
-        context={"has_active_results": False, "has_last_destination": False, "locale": "ru"},
+        context={
+            "has_active_results": False,
+            "has_last_destination": False,
+            "locale": "ru",
+        },
         output_schema={"type": "object", "additionalProperties": False},
         instructions="Return a validated intent object.",
     )
@@ -42,13 +46,22 @@ def model_request(user_text="Найди PDF по математике"):
 
 class OllamaProviderTests(unittest.TestCase):
     def test_classifies_mixed_turn_with_closed_schema_and_exact_fragments(self):
-        response = FakeResponse({"message": {"content": json.dumps({
-            "kind": "mixed",
-            "language": "ru",
-            "confidence": 0.96,
-            "conversation_text": "Расскажи про хлеб",
-            "action_text": "найди PDF",
-        }, ensure_ascii=False)}})
+        response = FakeResponse(
+            {
+                "message": {
+                    "content": json.dumps(
+                        {
+                            "kind": "mixed",
+                            "language": "ru",
+                            "confidence": 0.96,
+                            "conversation_text": "Расскажи про хлеб",
+                            "action_text": "найди PDF",
+                        },
+                        ensure_ascii=False,
+                    )
+                }
+            }
+        )
         captured = []
 
         def open_request(request, _timeout):
@@ -56,11 +69,13 @@ class OllamaProviderTests(unittest.TestCase):
             return response
 
         with patch("ai_native_intents.ollama._open_loopback", side_effect=open_request):
-            result = OllamaModelProvider().classify_turn(TurnRequest(
-                "Расскажи про хлеб и найди PDF",
-                "ru",
-                (TurnHistoryMessage("user", "Привет"),),
-            ))
+            result = OllamaModelProvider().classify_turn(
+                TurnRequest(
+                    "Расскажи про хлеб и найди PDF",
+                    "ru",
+                    (TurnHistoryMessage("user", "Привет"),),
+                )
+            )
 
         self.assertEqual(result["kind"], "mixed")
         self.assertNotIn("tools", captured[0])
@@ -82,7 +97,9 @@ class OllamaProviderTests(unittest.TestCase):
             request.context,
             {},
             "",
-            history=(ModelHistoryMessage("user", "Какая температура нужна для хлеба?"),),
+            history=(
+                ModelHistoryMessage("user", "Какая температура нужна для хлеба?"),
+            ),
         )
         with patch("ai_native_intents.ollama._open_loopback", side_effect=open_request):
             reply = OllamaModelProvider().respond_chat(request)
@@ -96,11 +113,25 @@ class OllamaProviderTests(unittest.TestCase):
         )
 
     def test_metadata_file_listing_omits_content_text(self):
-        response = FakeResponse({"message": {"content": "", "tool_calls": [{
-            "function": {"name": "search_documents", "arguments": {
-                "mode": "metadata", "extensions": ["pdf"], "confidence": 0.98,
-            }}
-        }]}})
+        response = FakeResponse(
+            {
+                "message": {
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "search_documents",
+                                "arguments": {
+                                    "mode": "metadata",
+                                    "extensions": ["pdf"],
+                                    "confidence": 0.98,
+                                },
+                            }
+                        }
+                    ],
+                }
+            }
+        )
         with patch("ai_native_intents.ollama._open_loopback", return_value=response):
             turn = OllamaModelProvider().route(model_request("Найди все PDF"))
         self.assertEqual(
@@ -109,11 +140,25 @@ class OllamaProviderTests(unittest.TestCase):
         )
 
     def test_candidate_operations_limit_tools_exposed_to_qwen(self):
-        response = FakeResponse({"message": {"content": "", "tool_calls": [{
-            "function": {"name": "search_documents", "arguments": {
-                "mode": "metadata", "extensions": ["pdf"], "confidence": 0.98,
-            }}
-        }]}})
+        response = FakeResponse(
+            {
+                "message": {
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "search_documents",
+                                "arguments": {
+                                    "mode": "metadata",
+                                    "extensions": ["pdf"],
+                                    "confidence": 0.98,
+                                },
+                            }
+                        }
+                    ],
+                }
+            }
+        )
         captured = []
 
         def open_request(request, _timeout):
@@ -135,16 +180,31 @@ class OllamaProviderTests(unittest.TestCase):
         names = [tool["function"]["name"] for tool in captured[0]["tools"]]
         self.assertEqual(names, ["search_documents"])
         properties = captured[0]["tools"][0]["function"]["parameters"]["properties"]
-        self.assertIn("inside indexed document content", properties["text"]["description"])
+        self.assertIn(
+            "inside indexed document content", properties["text"]["description"]
+        )
         self.assertIn("never content", properties["name_terms"]["description"])
         self.assertEqual(turn.kind, ModelTurnKind.ACTION)
 
     def test_rejects_hallucinated_tool_outside_candidate_set(self):
-        response = FakeResponse({"message": {"content": "", "tool_calls": [{
-            "function": {"name": "copy_results", "arguments": {
-                "destination": "desktop", "confidence": 0.8,
-            }}
-        }]}})
+        response = FakeResponse(
+            {
+                "message": {
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "copy_results",
+                                "arguments": {
+                                    "destination": "desktop",
+                                    "confidence": 0.8,
+                                },
+                            }
+                        }
+                    ],
+                }
+            }
+        )
         request = model_request("Найди PDF")
         request = ModelRequest(
             request.user_text,
@@ -158,10 +218,54 @@ class OllamaProviderTests(unittest.TestCase):
             with self.assertRaises(OllamaProviderError):
                 OllamaModelProvider().route(request)
 
+    def test_missing_copy_destination_preserves_a_non_executable_draft(self):
+        response = FakeResponse(
+            {
+                "message": {
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "copy_results",
+                                "arguments": {
+                                    "destination": "documents",
+                                    "directory_name": "Private",
+                                    "confidence": 0.9,
+                                },
+                            }
+                        }
+                    ],
+                }
+            }
+        )
+        request = model_request("Copy those results to a folder called Private")
+        request = ModelRequest(
+            request.user_text,
+            "en",
+            {"has_active_results": True, "has_last_destination": False, "locale": "en"},
+            request.output_schema,
+            request.instructions,
+            allowed_operations=("copy_results",),
+        )
+        with patch("ai_native_intents.ollama._open_loopback", return_value=response):
+            turn = OllamaModelProvider().route(request)
+
+        self.assertEqual(turn.kind, ModelTurnKind.CLARIFICATION)
+        operation = turn.pending_intent_payload["operations"][0]
+        self.assertEqual(operation["arguments"]["directory_name"], "Private")
+        self.assertEqual(
+            operation["arguments"]["results_from"], "context.active_results"
+        )
+        self.assertNotIn("destination", operation["arguments"])
+
     def test_composes_only_conversational_part_of_mixed_turn(self):
-        response = FakeResponse({"message": {
-            "content": '{"conversation_reply":"Для хлеба уточните рецепт."}'
-        }})
+        response = FakeResponse(
+            {
+                "message": {
+                    "content": '{"conversation_reply":"Для хлеба уточните рецепт."}'
+                }
+            }
+        )
         with patch("ai_native_intents.ollama._open_loopback", return_value=response):
             reply = OllamaModelProvider().compose_conversation(
                 model_request("Подскажи про хлеб и найди PDF"),
@@ -189,9 +293,7 @@ class OllamaProviderTests(unittest.TestCase):
                 OllamaModelProvider().compile(model_request("Привет"))
 
     def test_summarizes_only_from_bounded_confirmed_facts(self):
-        response = FakeResponse(
-            {"message": {"content": '{"choice":0}'}}
-        )
+        response = FakeResponse({"message": {"content": '{"choice":0}'}})
         captured = []
 
         def open_request(request, timeout):
@@ -271,7 +373,9 @@ class OllamaProviderTests(unittest.TestCase):
         self.assertNotIn("<think>", body["messages"][1]["content"])
         self.assertEqual(result["summary"], "Найди PDF по математике")
         self.assertEqual(result["operations"][0]["kind"], "search_documents")
-        self.assertEqual(result["operations"][0]["evidence"], ["Найди PDF по математике"])
+        self.assertEqual(
+            result["operations"][0]["evidence"], ["Найди PDF по математике"]
+        )
 
     def test_action_route_excludes_untrusted_history_and_preserves_reply(self):
         captured = []
@@ -357,9 +461,7 @@ class OllamaProviderTests(unittest.TestCase):
     def test_removes_thinking_prefix_and_rejects_control_only_output(self):
         provider = OllamaModelProvider()
         self.assertEqual(provider._assistant_text("/no_think Привет"), "Привет")
-        response = FakeResponse(
-            {"message": {"content": "<bool>false</bool>"}}
-        )
+        response = FakeResponse({"message": {"content": "<bool>false</bool>"}})
         with patch("ai_native_intents.ollama._open_loopback", return_value=response):
             with self.assertRaises(OllamaProviderError):
                 provider.route(model_request("Привет"))
@@ -390,7 +492,10 @@ class OllamaProviderTests(unittest.TestCase):
                         {
                             "function": {
                                 "name": "copy_results",
-                                "arguments": {"destination": "desktop", "confidence": 0.85},
+                                "arguments": {
+                                    "destination": "desktop",
+                                    "confidence": 0.85,
+                                },
                             }
                         },
                     ]
@@ -399,7 +504,12 @@ class OllamaProviderTests(unittest.TestCase):
         )
         with patch("ai_native_intents.ollama._open_loopback", return_value=response):
             from dataclasses import replace
-            result = OllamaModelProvider().compile(replace(model_request(), user_text="Найди PDF и скопируй их на рабочий стол"))
+
+            result = OllamaModelProvider().compile(
+                replace(
+                    model_request(), user_text="Найди PDF и скопируй их на рабочий стол"
+                )
+            )
 
         search, copy = result["operations"]
         self.assertEqual(copy["arguments"]["results_from"], search["id"])
@@ -416,7 +526,9 @@ class OllamaProviderTests(unittest.TestCase):
 
     def test_contains_timeout_and_malformed_output(self):
         provider = OllamaModelProvider()
-        with patch("ai_native_intents.ollama._open_loopback", side_effect=socket.timeout()):
+        with patch(
+            "ai_native_intents.ollama._open_loopback", side_effect=socket.timeout()
+        ):
             with self.assertRaises(OllamaUnavailableError):
                 provider.compile(model_request())
         with patch(

@@ -19,6 +19,11 @@ from ai_native_workspace import (
 )
 from ai_native_workspace.input_policy import safe_chat_reply
 from test_workspace_runtime import SplitModel, Compiler, Executor, completed_result
+from ai_native_orchestrator import (
+    ApprovalRequest,
+    OrchestrationResult,
+    OrchestrationState,
+)
 
 
 @pytest.fixture
@@ -329,8 +334,155 @@ def test_destination_followup_is_not_approval_and_does_not_replay_on_new_topic(
             store, runtime.submit(reply, transport_context=TransportContext.internal())
         )
         assert not executor.called.is_set()
-        assert model.route_calls == int(resumes)
+        assert model.route_calls == 0
         if resumes:
-            assert model.requests[-1].user_text == original.content + " " + reply
+            assert store.list_messages()[-1].kind is MessageKind.CLARIFICATION
+    finally:
+        runtime.close()
+
+
+@pytest.mark.parametrize(
+    "reply, expected_role",
+    [
+        ("Quickly: On my Desktop", "desktop"),
+        ("Please put it in Documents", "documents"),
+        ("Давай на рабочем столе", "desktop"),
+        ("Лучше в загрузках, пожалуйста", "downloads"),
+    ],
+)
+def test_saved_copy_draft_resumes_without_reclassifying_or_calling_model(
+    store, reply, expected_role
+):
+    source = "Copy those results to a folder called Private"
+    draft = {
+        "schema_version": 1,
+        "language": "en",
+        "summary": source,
+        "confidence": 0.9,
+        "operations": [
+            {
+                "id": "op_1_copy_results",
+                "kind": "copy_results",
+                "arguments": {
+                    "results_from": "context.active_results",
+                    "directory_name": "Private",
+                },
+                "depends_on": [],
+                "evidence": [source],
+            }
+        ],
+    }
+    model = SplitModel(
+        ModelTurn(
+            ModelTurnKind.CLARIFICATION,
+            "Where should the folder go?",
+            clarification_key="copy_destination",
+            pending_intent_payload=draft,
+        ),
+        {
+            "kind": "action",
+            "language": "en",
+            "confidence": 1,
+            "conversation_text": None,
+            "action_text": source,
+        },
+    )
+
+    class CapturingCompiler(Compiler):
+        def compile_payload(self, payload, *, text, context):
+            self.payload = payload
+            self.text = text
+            return super().compile_payload(payload, text=text, context=context)
+
+    approval = ApprovalRequest(
+        "approval-1",
+        "plan-1",
+        "step-copy",
+        "copy",
+        expected_role,
+        3,
+        30,
+        ("one.pdf",),
+        300,
+    )
+    pending_result = OrchestrationResult(
+        "task-1",
+        "plan-1",
+        OrchestrationState.AWAITING_APPROVAL,
+        (),
+        approval_request=approval,
+    )
+    compiler = CapturingCompiler(
+        SimpleNamespace(state=CompilationState.READY, plan=object())
+    )
+    executor = Executor(pending_result)
+    runtime = WorkspaceRuntime(
+        store,
+        model,
+        compiler,
+        executor,
+        lambda: TaskContext(active_collection_id="collection-1", locale="en"),
+        turn_router=TurnRouter(model),
+        capability_router=router(),
+    )
+    try:
+        first = wait(
+            store, runtime.submit(source, transport_context=TransportContext.internal())
+        )
+        assert first.stage.value == "completed"
+        second = wait(
+            store, runtime.submit(reply, transport_context=TransportContext.internal())
+        )
+        assert second.stage.value == "awaiting_approval"
+        assert model.classify_calls == model.route_calls == 1
+        assert (
+            compiler.payload["operations"][0]["arguments"]["destination"]
+            == expected_role
+        )
+        assert compiler.text == source + " " + reply
+        assert executor.called.is_set()
+    finally:
+        runtime.close()
+
+
+@pytest.mark.parametrize(
+    "reply",
+    ["not Desktop", "не на рабочем столе", "Desktop or Downloads"],
+)
+def test_ambiguous_or_negated_destination_never_resumes_saved_copy(store, reply):
+    original = store.append_message(
+        MessageRole.USER, MessageKind.CONVERSATION, "Copy results to Private"
+    )
+    store.save_clarification(
+        "core",
+        original.message_id,
+        {"text": original.content, "collection": None, "intent_payload": {}},
+    )
+    model = SplitModel(
+        ModelTurn(ModelTurnKind.CONVERSATION, "Please clarify."),
+        {
+            "kind": "conversation",
+            "language": "en",
+            "confidence": 1,
+            "conversation_text": reply,
+            "action_text": None,
+        },
+        "Please clarify.",
+    )
+    executor = Executor(None)
+    runtime = WorkspaceRuntime(
+        store,
+        model,
+        Compiler(None),
+        executor,
+        lambda: TaskContext(locale="en"),
+        turn_router=TurnRouter(model),
+        capability_router=router(),
+    )
+    try:
+        wait(
+            store, runtime.submit(reply, transport_context=TransportContext.internal())
+        )
+        assert not executor.called.is_set()
     finally:
         runtime.close()

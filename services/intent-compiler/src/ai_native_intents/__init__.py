@@ -29,6 +29,7 @@ from .ollama import (
     OllamaUnavailableError,
 )
 from .validation import IntentValidationError, IntentValidator
+from .destinations import destination_role
 
 __all__ = [
     "CallableIntentProvider",
@@ -57,4 +58,5 @@ __all__ = [
     "TaskContext",
     "TaskContextStore",
     "UserIntent",
+    "destination_role",
 ]

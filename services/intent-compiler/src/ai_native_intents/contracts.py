@@ -74,6 +74,7 @@ class ModelTurn:
     intent_payload: dict[str, object] | None = None
     unsupported_actions: tuple[str, ...] = ()
     clarification_key: str | None = None
+    pending_intent_payload: dict[str, object] | None = None
 
 
 @dataclass(frozen=True)

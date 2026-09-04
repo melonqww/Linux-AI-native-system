@@ -22,7 +22,7 @@
       {"kind": "file_copy_before_approval", "target": null, "minimum": 0, "maximum": null}
     ]
   },
-  "max_turns": 4,
+  "max_turns": 5,
   "initial_state": "ask",
   "states": [
     {
@@ -42,6 +42,14 @@
     {
       "id": "request-copy",
       "action": {"kind": "follow_up", "text": "Теперь скопируй найденные файлы в папку Математика"},
+      "transitions": [
+        {"when": {"statuses": ["clarification"], "approval_present": false, "message_contains": [], "result_keys": []}, "target": "destination"},
+        {"when": {"statuses": ["awaiting_approval"], "approval_present": true, "message_contains": [], "result_keys": []}, "target": "approve"}
+      ]
+    },
+    {
+      "id": "destination",
+      "action": {"kind": "follow_up", "text": "На рабочем столе"},
       "transitions": [
         {"when": {"statuses": ["awaiting_approval"], "approval_present": true, "message_contains": [], "result_keys": []}, "target": "approve"}
       ]

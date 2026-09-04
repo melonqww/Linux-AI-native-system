@@ -57,9 +57,24 @@ def parser() -> argparse.ArgumentParser:
     campaign.add_argument("--seed", type=int, default=0)
     campaign.add_argument("--model", default=DEFAULT_MODEL)
     campaign.add_argument("--base-url", default=DEFAULT_URL)
-    foundation = sub.add_parser("foundation", help="prepare/start/inspect a durable foundation campaign")
+    campaign.add_argument(
+        "--journey",
+        action="append",
+        default=[],
+        help="run only this journey id; may be repeated",
+    )
+    campaign.add_argument(
+        "--skip-scenarios",
+        action="store_true",
+        help="skip contract scenarios and run selected journeys only",
+    )
+    foundation = sub.add_parser(
+        "foundation", help="prepare/start/inspect a durable foundation campaign"
+    )
     foundation.add_argument("action", choices=("prepare", "start", "run", "status"))
-    foundation.add_argument("--run", help="prepared run directory; defaults to reports/latest.json")
+    foundation.add_argument(
+        "--run", help="prepared run directory; defaults to reports/latest.json"
+    )
     foundation.add_argument("--seeds", type=int, nargs="+", default=[7, 19])
     foundation.add_argument("--budget-seconds", type=int, default=14400)
     worker = sub.add_parser("foundation-worker", help=argparse.SUPPRESS)
@@ -81,22 +96,33 @@ def main(argv: list[str] | None = None) -> int:
     if arguments.command == "foundation-worker":
         from .foundation import resolve_run
         from .foundation_worker import run_case
-        return run_case(LAB_ROOT, PROJECT_ROOT, resolve_run(LAB_ROOT, arguments.run), arguments.case)
+
+        return run_case(
+            LAB_ROOT, PROJECT_ROOT, resolve_run(LAB_ROOT, arguments.run), arguments.case
+        )
     return _report(path_only=arguments.path)
 
 
 def _foundation(arguments) -> int:
     import json
     from .foundation import prepare, resolve_run, start_background, status, supervise
+
     if arguments.action == "prepare":
-        run = prepare(LAB_ROOT, PROJECT_ROOT, seeds=tuple(arguments.seeds), budget_seconds=arguments.budget_seconds)
+        run = prepare(
+            LAB_ROOT,
+            PROJECT_ROOT,
+            seeds=tuple(arguments.seeds),
+            budget_seconds=arguments.budget_seconds,
+        )
         print(f"PREPARED (not started): {run}")
         print(f"REPORT: {run / 'summary.md'}")
         return 0
     run = resolve_run(LAB_ROOT, arguments.run)
     if arguments.action == "start":
         pid = start_background(LAB_ROOT, run)
-        print(f"DISPATCHED supervisor PID {pid}; use foundation status to verify startup.")
+        print(
+            f"DISPATCHED supervisor PID {pid}; use foundation status to verify startup."
+        )
         print(f"REPORT: {run / 'summary.md'}")
         return 0
     if arguments.action == "status":
@@ -128,6 +154,8 @@ def _campaign(arguments) -> int:
         persona_set=arguments.persona_set,
         max_journey_cases=arguments.max_journey_cases,
         seed=arguments.seed,
+        journey_ids=tuple(arguments.journey),
+        include_scenarios=not arguments.skip_scenarios,
     )
     passed = sum(item.passed for item in attempts)
     print(f"CAMPAIGN RESULT: {passed}/{len(attempts)} attempts passed")

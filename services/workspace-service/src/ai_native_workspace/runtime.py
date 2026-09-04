@@ -17,6 +17,7 @@ from ai_native_intents import (
     ModelTurn,
     ModelTurnKind,
     TaskContext,
+    destination_role,
 )
 from ai_native_intents.schema import INTENT_OUTPUT_SCHEMA, MODEL_INSTRUCTIONS
 from ai_native_orchestrator import (
@@ -190,6 +191,7 @@ class WorkspaceRuntime:
         locale = self.context().locale
         try:
             self.store.transition(run_id, WorkspaceStage.UNDERSTANDING)
+            resumed_payload = None
             pending = self.store.take_clarification(
                 transport_context.principal, user_message_id
             )
@@ -209,12 +211,19 @@ class WorkspaceRuntime:
                         else "No operation was performed.",
                     )
                     return
-                if re.fullmatch(
-                    r"\s*(?:(?:on|in|to|my|the|на|в|папку)\s+)*(?:desktop|documents|downloads|рабоч(?:ий|ем)\s+стол(?:е)?|документы|загрузки)(?:[,.]?\s*(?:please|пожалуйста))?[.!]?\s*",
-                    text,
-                    re.I,
-                ):
+                role = destination_role(text, clarification=True)
+                if role is not None:
                     text = pending["text"] + " " + text
+                    resumed_payload = self._resume_copy_intent(
+                        pending.get("intent_payload"), role
+                    )
+                    if resumed_payload is None:
+                        self._complete_reply(
+                            run_id,
+                            self._clarification(locale),
+                            MessageKind.CLARIFICATION,
+                        )
+                        return
             evidence_source = getattr(
                 self.capability_router, "requested_operations", None
             )
@@ -224,6 +233,16 @@ class WorkspaceRuntime:
             if input_unavailable:
                 self._complete_reply(
                     run_id, input_notice(locale), MessageKind.INPUT_UNAVAILABLE
+                )
+                return
+            if resumed_payload is not None:
+                self._execute_intent(
+                    run_id,
+                    resumed_payload,
+                    text=text,
+                    locale=locale,
+                    transport_context=transport_context,
+                    requested=requested,
                 )
                 return
             readiness = self._model_readiness()
@@ -361,6 +380,7 @@ class WorkspaceRuntime:
                         {
                             "text": text,
                             "collection": self.context().active_collection_id,
+                            "intent_payload": turn.pending_intent_payload,
                         },
                     )
                 self._complete_reply(
@@ -402,91 +422,131 @@ class WorkspaceRuntime:
                 return
             if turn.kind is not ModelTurnKind.ACTION or turn.intent_payload is None:
                 raise ValueError("model route is invalid")
-            if requested is not None:
-                proposed = {
-                    item.get("kind")
-                    for item in turn.intent_payload.get("operations", [])
-                }
-                if not proposed or not proposed.issubset(set(requested)):
-                    self._complete_reply(
-                        run_id, self._clarification(locale), MessageKind.CLARIFICATION
-                    )
-                    return
-
-            self.store.transition(run_id, WorkspaceStage.PLANNING)
-            compilation = self.compiler.compile_payload(
-                turn.intent_payload,
-                text=model_text,
-                context=self.context(),
-            )
             if turn.response_text and requested is None:
                 self.store.append_message(
                     MessageRole.ASSISTANT,
                     MessageKind.CONVERSATION,
                     turn.response_text,
                 )
-            if compilation.state is CompilationState.UNAVAILABLE:
-                self.store.transition(run_id, WorkspaceStage.SUMMARIZING)
-                response = self.store.append_message(
-                    MessageRole.ASSISTANT,
-                    MessageKind.CLARIFICATION,
-                    self._unsupported_action(locale),
-                )
-                self.store.complete(run_id, response.message_id)
-                return
-            if (
-                compilation.state is not CompilationState.READY
-                or compilation.plan is None
-            ):
-                question = compilation.clarification_question or self._clarification(
-                    locale
-                )
-                self.store.transition(run_id, WorkspaceStage.SUMMARIZING)
-                response = self.store.append_message(
-                    MessageRole.ASSISTANT, MessageKind.CLARIFICATION, question
-                )
-                self.store.complete(run_id, response.message_id)
-                return
-
-            self.store.append_message(
-                MessageRole.SYSTEM,
-                MessageKind.NOTICE,
-                "План готов. Начинаю выполнение."
-                if locale.startswith("ru")
-                else "The plan is ready. Starting execution.",
-            )
-            self.store.transition(run_id, WorkspaceStage.EXECUTING)
-            result = self.executor.execute(
-                compilation.plan, transport_context=transport_context
-            )
-            if result.state is OrchestrationState.AWAITING_APPROVAL:
-                approval = result.approval_request
-                if approval is None:
-                    raise RuntimeError("approval result has no request")
-                self.store.awaiting_approval(
-                    run_id,
-                    task_id=result.run_id,
-                    approval_request_id=approval.approval_request_id,
-                )
-                self.store.append_message(
-                    MessageRole.ASSISTANT,
-                    MessageKind.NOTICE,
-                    "Для продолжения требуется подтверждение."
-                    if locale.startswith("ru")
-                    else "Confirmation is required to continue.",
-                    task_id=result.run_id,
-                )
-                return
-            self._finish_result(
+            self._execute_intent(
                 run_id,
-                result,
-                locale,
-                compose_conversation=(
-                    self.turn_router is None and self.capability_router is None
-                ),
+                turn.intent_payload,
+                text=model_text,
+                locale=locale,
+                transport_context=transport_context,
+                requested=requested,
             )
         except Exception:
             self._finish_failure(run_id, locale)
+
+    def _execute_intent(
+        self,
+        run_id: str,
+        payload: dict[str, object],
+        *,
+        text: str,
+        locale: str,
+        transport_context: TransportContext,
+        requested: tuple[str, ...] | None,
+    ) -> None:
+        if requested is not None:
+            operations = payload.get("operations")
+            if not isinstance(operations, list) or any(
+                not isinstance(item, Mapping) for item in operations
+            ):
+                self._complete_reply(
+                    run_id, self._clarification(locale), MessageKind.CLARIFICATION
+                )
+                return
+            proposed = {item.get("kind") for item in operations}
+            if not proposed or not proposed.issubset(set(requested)):
+                self._complete_reply(
+                    run_id, self._clarification(locale), MessageKind.CLARIFICATION
+                )
+                return
+        self.store.transition(run_id, WorkspaceStage.PLANNING)
+        compilation = self.compiler.compile_payload(
+            payload,
+            text=text,
+            context=self.context(),
+        )
+        if compilation.state is CompilationState.UNAVAILABLE:
+            self.store.transition(run_id, WorkspaceStage.SUMMARIZING)
+            response = self.store.append_message(
+                MessageRole.ASSISTANT,
+                MessageKind.CLARIFICATION,
+                self._unsupported_action(locale),
+            )
+            self.store.complete(run_id, response.message_id)
+            return
+        if compilation.state is not CompilationState.READY or compilation.plan is None:
+            question = compilation.clarification_question or self._clarification(locale)
+            self.store.transition(run_id, WorkspaceStage.SUMMARIZING)
+            response = self.store.append_message(
+                MessageRole.ASSISTANT, MessageKind.CLARIFICATION, question
+            )
+            self.store.complete(run_id, response.message_id)
+            return
+
+        self.store.append_message(
+            MessageRole.SYSTEM,
+            MessageKind.NOTICE,
+            "План готов. Начинаю выполнение."
+            if locale.startswith("ru")
+            else "The plan is ready. Starting execution.",
+        )
+        self.store.transition(run_id, WorkspaceStage.EXECUTING)
+        result = self.executor.execute(
+            compilation.plan, transport_context=transport_context
+        )
+        if result.state is OrchestrationState.AWAITING_APPROVAL:
+            approval = result.approval_request
+            if approval is None:
+                raise RuntimeError("approval result has no request")
+            self.store.awaiting_approval(
+                run_id,
+                task_id=result.run_id,
+                approval_request_id=approval.approval_request_id,
+            )
+            self.store.append_message(
+                MessageRole.ASSISTANT,
+                MessageKind.NOTICE,
+                "Для продолжения требуется подтверждение."
+                if locale.startswith("ru")
+                else "Confirmation is required to continue.",
+                task_id=result.run_id,
+            )
+            return
+        self._finish_result(
+            run_id,
+            result,
+            locale,
+            compose_conversation=(
+                self.turn_router is None and self.capability_router is None
+            ),
+        )
+
+    @staticmethod
+    def _resume_copy_intent(payload: object, role: str) -> dict[str, object] | None:
+        if not isinstance(payload, dict):
+            return None
+        resumed = deepcopy(payload)
+        operations = resumed.get("operations")
+        if not isinstance(operations, list) or not 1 <= len(operations) <= 12:
+            return None
+        copies = []
+        for operation in operations:
+            if not isinstance(operation, dict):
+                return None
+            if operation.get("kind") == "copy_results":
+                arguments = operation.get("arguments")
+                if not isinstance(arguments, dict) or "destination" in arguments:
+                    return None
+                copies.append(arguments)
+        if len(copies) != 1:
+            return None
+        copies[0]["destination"] = role
+        return resumed
 
     def _complete_reply(
         self, run_id: str, text: str, kind: MessageKind = MessageKind.CONVERSATION

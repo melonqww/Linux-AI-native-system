@@ -53,6 +53,12 @@ backend сообщает об отсутствующем модуле и не в
 получает класс `R1` и всегда требует подтверждения. Результат компиляции имеет
 одно из состояний: `ready`, `needs_clarification`, `unavailable`.
 
+Если для `copy_results` не указана системная роль назначения, adapter возвращает
+`clarification` и неисполняемый intent без `destination`. Имя дочерней папки и
+ссылка на результаты при этом сохраняются. Workspace может подставить только
+явно выбранную роль Desktop/Documents/Downloads и повторно отправить intent в
+обычные validation/planning/permission-границы без второго вызова модели.
+
 Runtime endpoint: `POST /v1/intent/compile` с объектом `{"text": "..."}`.
 Контекст продолжения диалога endpoint не принимает: его предоставляет runtime
 из доверенного состояния текущей задачи. При обычном `--serve-panel` adapter

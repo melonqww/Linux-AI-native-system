@@ -3,6 +3,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
 
+import pytest
 import ai_scenario_lab.campaign as campaign_module
 from ai_scenario_lab.adaptive_journeys import load_journey
 from ai_scenario_lab.campaign import (
@@ -10,6 +11,7 @@ from ai_scenario_lab.campaign import (
     _journey_cases,
     _journey_evidence,
     _json_value,
+    _selected_journeys,
 )
 from ai_scenario_lab.cli import parser
 from ai_scenario_lab.personas import persona_matrix
@@ -45,6 +47,39 @@ def test_campaign_cli_has_bounded_safe_defaults():
     assert arguments.persona_set == "standard"
     assert arguments.max_journey_cases == 24
     assert arguments.seed == 0
+    assert arguments.journey == []
+    assert arguments.skip_scenarios is False
+
+
+def test_campaign_cli_can_select_only_multistep_continuation_journeys():
+    arguments = parser().parse_args(
+        [
+            "campaign",
+            "regression",
+            "--skip-scenarios",
+            "--journey",
+            "ru-correct-and-approve",
+            "--journey",
+            "en-deny-and-follow-up",
+            "--persona-set",
+            "all",
+        ]
+    )
+    assert arguments.skip_scenarios is True
+    assert arguments.journey == [
+        "ru-correct-and-approve",
+        "en-deny-and-follow-up",
+    ]
+
+
+def test_targeted_campaign_filters_journeys_and_rejects_unknown_ids():
+    journeys = (
+        SimpleNamespace(journey_id="first"),
+        SimpleNamespace(journey_id="second"),
+    )
+    assert _selected_journeys(journeys, ("second",)) == (journeys[1],)
+    with pytest.raises(ValueError, match="unknown journey ids: missing"):
+        _selected_journeys(journeys, ("missing",))
 
 
 def test_trace_serializer_handles_immutable_trusted_effect_attributes():
@@ -62,11 +97,7 @@ def test_unmet_journey_goal_without_capability_is_a_router_failure():
         error=None,
         capabilities=(),
         evaluation=SimpleNamespace(
-            checks=(
-                SimpleNamespace(
-                    name="required_effect:file_copy:*", passed=False
-                ),
-            )
+            checks=(SimpleNamespace(name="required_effect:file_copy:*", passed=False),)
         ),
     )
 

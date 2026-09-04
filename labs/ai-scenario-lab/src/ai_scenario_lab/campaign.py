@@ -45,6 +45,8 @@ class CampaignRunner:
         persona_set: str,
         max_journey_cases: int,
         seed: int,
+        journey_ids: tuple[str, ...] = (),
+        include_scenarios: bool = True,
     ) -> tuple[Path, tuple[CampaignAttempt, ...]]:
         if not 1 <= repeat <= 20:
             raise ValueError("repeat must be between 1 and 20")
@@ -54,7 +56,11 @@ class CampaignRunner:
         trace_root = self.lab_root / "reports" / "campaign-traces" / stamp
         trace_root.mkdir(parents=True, exist_ok=False)
         attempts: list[CampaignAttempt] = []
-        scenarios = discover_scenarios(self.lab_root / "scenarios", suite=suite)
+        scenarios = (
+            discover_scenarios(self.lab_root / "scenarios", suite=suite)
+            if include_scenarios
+            else ()
+        )
         scenario_runner = ScenarioRunner(
             project_root=self.project_root,
             lab_root=self.lab_root,
@@ -94,6 +100,7 @@ class CampaignRunner:
             load_journey(path)
             for path in sorted((self.lab_root / "journeys").glob("*.json"))
         )
+        journeys = _selected_journeys(journeys, journey_ids)
         cases = _journey_cases(
             journeys,
             persona_set=persona_set,
@@ -185,6 +192,19 @@ def _journey_cases(
     )[:max_cases]
 
 
+def _selected_journeys(journeys, journey_ids: tuple[str, ...]):
+    if not journey_ids:
+        return tuple(journeys)
+    requested_ids = set(journey_ids)
+    selected = tuple(
+        journey for journey in journeys if journey.journey_id in requested_ids
+    )
+    missing = requested_ids - {journey.journey_id for journey in selected}
+    if missing:
+        raise ValueError("unknown journey ids: " + ", ".join(sorted(missing)))
+    return selected
+
+
 def _language_compatible(source: str, persona: PersonaProfile) -> bool:
     # Mutation changes surface style, never translates the source utterance.
     # Keeping the languages equal prevents a Russian sentence from being
@@ -231,7 +251,11 @@ def _scenario_evidence(outcome) -> dict[str, object]:
         return {"containment_passed": False, "component": "containment"}
     for turn in outcome.turns:
         for check in turn.checks:
-            if check.name == "no_operations" and not check.passed and check.expected is True:
+            if (
+                check.name == "no_operations"
+                and not check.passed
+                and check.expected is True
+            ):
                 return {"code": "unrequested_operation", "component": "router"}
     if any(event.get("status") == "error" for event in outcome.model_events):
         return {"code": "model_error", "component": "model"}

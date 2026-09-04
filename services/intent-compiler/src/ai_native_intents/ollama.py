@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import socket
+from copy import deepcopy
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Final
@@ -346,12 +347,21 @@ class OllamaModelProvider:
                     has_last=bool(request.context.get("has_last_destination")),
                 )
                 if role is None:
+                    pending_calls = deepcopy(supported_calls)
+                    for pending_call in pending_calls:
+                        if pending_call["function"]["name"] == "copy_results":
+                            pending_call["function"]["arguments"].pop(
+                                "destination", None
+                            )
                     return ModelTurn(
                         ModelTurnKind.CLARIFICATION,
                         response_text="Где создать папку: на рабочем столе, в документах или загрузках?"
                         if request.locale.startswith("ru")
                         else "Where should the folder go: Desktop, Documents, or Downloads?",
                         clarification_key="copy_destination",
+                        pending_intent_payload=dict(
+                            self._intent_payload(pending_calls, request)
+                        ),
                     )
                 call["function"]["arguments"]["destination"] = role
         return ModelTurn(

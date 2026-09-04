@@ -58,6 +58,21 @@ python run.py run full --repeat 3 --min-pass-rate 0.9
 python run.py campaign full --repeat 3 --persona-set all --max-journey-cases 40 --seed 7
 ```
 
+После изменений продолжения copy-операции можно проверить только две связанные
+многошаговые цепочки, не запуская весь набор:
+
+```powershell
+python run.py campaign regression --skip-scenarios `
+  --journey ru-correct-and-approve `
+  --journey en-deny-and-follow-up `
+  --persona-set all --max-journey-cases 14 --repeat 2 --seed 23
+```
+
+Это отдельный 28-case прогон с новым отчётом: семь типов поведения на каждом
+языке и два повтора. Он проверяет ответ о destination, обязательный R1 approval,
+grant/deny и отсутствие записи до подтверждения. Полный foundation-профиль эта
+команда не заменяет.
+
 Для автономной проверки фундамента без ожидания со стороны AI-агента:
 
 ```powershell

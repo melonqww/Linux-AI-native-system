@@ -101,6 +101,9 @@ can send a separate text-only task; no visual facts are inferred from metadata.
 
 `clarification` remains a question, not approval. A destination reply can resume
 the immediately preceding saved request for the same authenticated principal,
-within 10 minutes and with unchanged active collection. It creates a new plan;
-R1 still requires its ordinary approval. Topic changes and cancellations do not
-execute pending work. Legacy text-only clients need no payload change.
+within 10 minutes and with unchanged active collection. The saved value is a
+non-executable intent draft with its destination absent. One explicit,
+non-negated Desktop/Documents/Downloads role fills that field; the intent then
+passes validation, planning and R1 approval without another model call. Topic
+changes, ambiguous destinations and cancellations do not execute pending work.
+Legacy text-only clients need no payload change.
