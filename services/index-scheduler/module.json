@@ -1,14 +1,29 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "module_id": "storage.watch",
   "display_name": "Storage Watch and Index Scheduler",
   "description": "Coalesces filesystem and mount events and incrementally refreshes allowed indexes.",
-  "module_version": "0.1.0",
+  "module_version": "0.2.0",
   "core_api": "1",
   "capabilities": [
-    "storage.watch.events",
-    "storage.index.schedule",
-    "storage.index.status"
+    {
+      "id": "storage.watch.events",
+      "description": "Observe bounded filesystem and mount changes on enrolled volumes.",
+      "input_schema": {"type": "object", "properties": {}, "required": [], "additionalProperties": false},
+      "requested_permissions": ["filesystem.watch", "filesystem.read-metadata"]
+    },
+    {
+      "id": "storage.index.schedule",
+      "description": "Schedule an incremental metadata and content index refresh.",
+      "input_schema": {"type": "object", "properties": {"volume_id": {"type": "string"}, "path": {"type": "string"}}, "required": [], "additionalProperties": false},
+      "requested_permissions": ["filesystem.read-metadata", "filesystem.read-content"]
+    },
+    {
+      "id": "storage.index.status",
+      "description": "Read current background crawl, queue and index coverage state.",
+      "input_schema": {"type": "object", "properties": {}, "required": [], "additionalProperties": false},
+      "requested_permissions": []
+    }
   ],
   "dependencies": [
     "storage.catalog",

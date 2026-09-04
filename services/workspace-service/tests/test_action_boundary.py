@@ -394,9 +394,12 @@ def test_saved_copy_draft_resumes_without_reclassifying_or_calling_model(
             self.text = text
             return super().compile_payload(payload, text=text, context=context)
 
+    approval_id = str(uuid4())
+    plan_id = str(uuid4())
+    task_id = str(uuid4())
     approval = ApprovalRequest(
-        "approval-1",
-        "plan-1",
+        approval_id,
+        plan_id,
         "step-copy",
         "copy",
         expected_role,
@@ -406,8 +409,8 @@ def test_saved_copy_draft_resumes_without_reclassifying_or_calling_model(
         300,
     )
     pending_result = OrchestrationResult(
-        "task-1",
-        "plan-1",
+        task_id,
+        plan_id,
         OrchestrationState.AWAITING_APPROVAL,
         (),
         approval_request=approval,

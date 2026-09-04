@@ -6,7 +6,12 @@ import json
 import re
 from pathlib import Path
 
-from .contracts import IntentRouteDescriptor, ModuleEntrypoint, ModuleManifest
+from .contracts import (
+    CapabilityContract,
+    IntentRouteDescriptor,
+    ModuleEntrypoint,
+    ModuleManifest,
+)
 
 
 MANIFEST_FILENAME = "module.json"
@@ -30,12 +35,15 @@ _EXPECTED_FIELDS = frozenset(
         "resource_class",
         "default_enabled",
         "entrypoint",
-        "intent_routes",
     }
 )
 _ENTRYPOINT_FIELDS = frozenset({"kind", "module", "python_path"})
-_INTENT_ROUTE_FIELDS = frozenset(
-    {"capability_id", "operation", "description", "examples"}
+_CAPABILITY_FIELDS = frozenset(
+    {"id", "description", "input_schema", "requested_permissions", "user_intent"}
+)
+_USER_INTENT_FIELDS = frozenset({"operation", "description", "examples"})
+_INPUT_SCHEMA_FIELDS = frozenset(
+    {"type", "properties", "required", "additionalProperties"}
 )
 
 
@@ -69,18 +77,16 @@ def load_manifest(path: Path) -> ModuleManifest:
 def validate_manifest(payload: object) -> ModuleManifest:
     if not isinstance(payload, dict):
         raise ManifestValidationError("manifest must be a JSON object")
-    required_fields = _EXPECTED_FIELDS - {"intent_routes"}
-    if not required_fields <= set(payload) or set(payload) - _EXPECTED_FIELDS:
-        raise ManifestValidationError("manifest fields do not match schema version 1")
-    if payload["schema_version"] != 1:
-        raise ManifestValidationError("schema_version must be 1")
+    if set(payload) != _EXPECTED_FIELDS:
+        raise ManifestValidationError("manifest fields do not match schema version 2")
+    if payload["schema_version"] != 2:
+        raise ManifestValidationError("schema_version must be 2")
 
     module_id = _identifier(payload["module_id"], "module_id")
     display_name = _text(payload["display_name"], "display_name", 100)
     description = _text(payload["description"], "description", 500)
     module_version = _pattern(payload["module_version"], "module_version", _SEMVER)
     core_api = _pattern(payload["core_api"], "core_api", re.compile(r"^[1-9][0-9]*$"))
-    capabilities = _identifier_list(payload["capabilities"], "capabilities", require_items=True)
     dependencies = _identifier_list(payload["dependencies"], "dependencies")
     optional_dependencies = _identifier_list(
         payload["optional_dependencies"], "optional_dependencies"
@@ -88,6 +94,24 @@ def validate_manifest(payload: object) -> ModuleManifest:
     requested_permissions = _identifier_list(
         payload["requested_permissions"], "requested_permissions"
     )
+    capabilities_payload = payload["capabilities"]
+    if not isinstance(capabilities_payload, list) or not capabilities_payload:
+        raise ManifestValidationError("capabilities must be a non-empty JSON array")
+    if len(capabilities_payload) > 128:
+        raise ManifestValidationError("capabilities must contain at most 128 items")
+    capabilities: list[CapabilityContract] = []
+    capability_ids: set[str] = set()
+    route_operations: set[str] = set()
+    for ordinal, capability in enumerate(capabilities_payload):
+        capabilities.append(
+            _capability_contract(
+                capability,
+                ordinal=ordinal,
+                module_permissions=requested_permissions,
+                capability_ids=capability_ids,
+                route_operations=route_operations,
+            )
+        )
     if module_id in dependencies or module_id in optional_dependencies:
         raise ManifestValidationError("a module cannot depend on itself")
     if set(dependencies) & set(optional_dependencies):
@@ -111,40 +135,14 @@ def validate_manifest(payload: object) -> ModuleManifest:
         raise ManifestValidationError("entrypoint.kind is invalid")
     python_module = _pattern(entrypoint_payload["module"], "entrypoint.module", _PYTHON_MODULE)
     python_path = _relative_path(entrypoint_payload["python_path"])
-    routes_payload = payload.get("intent_routes", [])
-    if not isinstance(routes_payload, list) or len(routes_payload) > 32:
-        raise ManifestValidationError("intent_routes must be a bounded JSON array")
-    intent_routes: list[IntentRouteDescriptor] = []
-    route_operations: set[str] = set()
-    for ordinal, route in enumerate(routes_payload):
-        if not isinstance(route, dict) or set(route) != _INTENT_ROUTE_FIELDS:
-            raise ManifestValidationError(f"intent route {ordinal} fields are invalid")
-        capability_id = _identifier(route["capability_id"], "intent route capability_id")
-        if capability_id not in capabilities:
-            raise ManifestValidationError("intent route capability is not provided by module")
-        operation = _pattern(
-            route["operation"], "intent route operation", re.compile(r"^[a-z][a-z0-9_]{0,63}$")
-        )
-        if operation in route_operations:
-            raise ManifestValidationError("intent route operations must be unique per module")
-        route_operations.add(operation)
-        route_description = _text(route["description"], "intent route description", 500)
-        examples_value = route["examples"]
-        if not isinstance(examples_value, list) or not 1 <= len(examples_value) <= 32:
-            raise ManifestValidationError("intent route examples must contain from 1 to 32 items")
-        examples = tuple(_text(value, "intent route example", 300) for value in examples_value)
-        intent_routes.append(
-            IntentRouteDescriptor(capability_id, operation, route_description, examples)
-        )
-
     return ModuleManifest(
-        schema_version=1,
+        schema_version=2,
         module_id=module_id,
         display_name=display_name,
         description=description,
         module_version=module_version,
         core_api=core_api,
-        capabilities=capabilities,
+        capabilities=tuple(capabilities),
         dependencies=dependencies,
         optional_dependencies=optional_dependencies,
         requested_permissions=requested_permissions,
@@ -156,7 +154,6 @@ def validate_manifest(payload: object) -> ModuleManifest:
             module=python_module,
             python_path=python_path,
         ),
-        intent_routes=tuple(intent_routes),
     )
 
 
@@ -168,7 +165,26 @@ def manifest_to_dict(manifest: ModuleManifest) -> dict[str, object]:
         "description": manifest.description,
         "module_version": manifest.module_version,
         "core_api": manifest.core_api,
-        "capabilities": list(manifest.capabilities),
+        "capabilities": [
+            {
+                "id": capability.capability_id,
+                "description": capability.description,
+                "input_schema": capability.input_schema,
+                "requested_permissions": list(capability.requested_permissions),
+                **(
+                    {
+                        "user_intent": {
+                            "operation": capability.user_intent.operation,
+                            "description": capability.user_intent.description,
+                            "examples": list(capability.user_intent.examples),
+                        }
+                    }
+                    if capability.user_intent is not None
+                    else {}
+                ),
+            }
+            for capability in manifest.capabilities
+        ],
         "dependencies": list(manifest.dependencies),
         "optional_dependencies": list(manifest.optional_dependencies),
         "requested_permissions": list(manifest.requested_permissions),
@@ -180,16 +196,103 @@ def manifest_to_dict(manifest: ModuleManifest) -> dict[str, object]:
             "module": manifest.entrypoint.module,
             "python_path": manifest.entrypoint.python_path,
         },
-        "intent_routes": [
-            {
-                "capability_id": route.capability_id,
-                "operation": route.operation,
-                "description": route.description,
-                "examples": list(route.examples),
-            }
-            for route in manifest.intent_routes
-        ],
     }
+
+
+def _capability_contract(
+    value: object,
+    *,
+    ordinal: int,
+    module_permissions: tuple[str, ...],
+    capability_ids: set[str],
+    route_operations: set[str],
+) -> CapabilityContract:
+    if not isinstance(value, dict):
+        raise ManifestValidationError(f"capability {ordinal} must be an object")
+    if not set(value) <= _CAPABILITY_FIELDS or not (
+        _CAPABILITY_FIELDS - {"user_intent"}
+    ) <= set(value):
+        raise ManifestValidationError(f"capability {ordinal} fields are invalid")
+    capability_id = _identifier(value["id"], f"capability {ordinal} id")
+    if capability_id in capability_ids:
+        raise ManifestValidationError("capability IDs must be unique per module")
+    capability_ids.add(capability_id)
+    description = _text(value["description"], "capability description", 500)
+    permissions = _identifier_list(
+        value["requested_permissions"], "capability requested_permissions"
+    )
+    undeclared = set(permissions) - set(module_permissions)
+    if undeclared:
+        raise ManifestValidationError(
+            "capability requests permissions absent from module requested_permissions"
+        )
+    input_schema = _input_schema(value["input_schema"])
+    user_intent_payload = value.get("user_intent")
+    user_intent = None
+    if user_intent_payload is not None:
+        if not isinstance(user_intent_payload, dict) or set(user_intent_payload) != _USER_INTENT_FIELDS:
+            raise ManifestValidationError("user_intent fields are invalid")
+        operation = _pattern(
+            user_intent_payload["operation"],
+            "user_intent operation",
+            re.compile(r"^[a-z][a-z0-9_]{0,63}$"),
+        )
+        if operation in route_operations:
+            raise ManifestValidationError("user_intent operations must be unique per module")
+        route_operations.add(operation)
+        examples_value = user_intent_payload["examples"]
+        if not isinstance(examples_value, list) or not 1 <= len(examples_value) <= 32:
+            raise ManifestValidationError("user_intent examples must contain from 1 to 32 items")
+        user_intent = IntentRouteDescriptor(
+            capability_id=capability_id,
+            operation=operation,
+            description=_text(
+                user_intent_payload["description"], "user_intent description", 500
+            ),
+            examples=tuple(
+                _text(item, "user_intent example", 300) for item in examples_value
+            ),
+        )
+    return CapabilityContract(
+        capability_id=capability_id,
+        description=description,
+        input_schema=input_schema,
+        requested_permissions=permissions,
+        user_intent=user_intent,
+    )
+
+
+def _input_schema(value: object) -> dict[str, object]:
+    if not isinstance(value, dict) or set(value) != _INPUT_SCHEMA_FIELDS:
+        raise ManifestValidationError("input_schema fields are invalid")
+    if value.get("type") != "object" or value.get("additionalProperties") is not False:
+        raise ManifestValidationError("input_schema must be a closed object schema")
+    properties = value.get("properties")
+    required = value.get("required")
+    if not isinstance(properties, dict) or len(properties) > 64:
+        raise ManifestValidationError("input_schema properties must be a bounded object")
+    if any(
+        not isinstance(name, str)
+        or not re.fullmatch(r"^[a-z][a-z0-9_]{0,63}$", name)
+        or not isinstance(schema, dict)
+        or not schema
+        for name, schema in properties.items()
+    ):
+        raise ManifestValidationError("input_schema contains an invalid property")
+    if (
+        not isinstance(required, list)
+        or any(not isinstance(item, str) for item in required)
+        or len(required) != len(set(required))
+        or not set(required) <= set(properties)
+    ):
+        raise ManifestValidationError("input_schema required fields are invalid")
+    try:
+        encoded = json.dumps(value, ensure_ascii=False, sort_keys=True)
+    except (TypeError, ValueError) as error:
+        raise ManifestValidationError("input_schema must contain JSON values") from error
+    if len(encoded.encode("utf-8")) > 16 * 1024:
+        raise ManifestValidationError("input_schema is larger than 16 KiB")
+    return json.loads(encoded)
 
 
 def _identifier(value: object, label: str) -> str:

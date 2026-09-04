@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from .contracts import (
+    CapabilityContract,
     CapabilityProvider,
     IntentRouteDescriptor,
     ModuleManifest,
@@ -238,6 +239,15 @@ class CapabilityRegistry:
             for route in module.manifest.intent_routes
         )
 
+    def capability_contracts(self) -> tuple[CapabilityContract, ...]:
+        """Publish complete contracts only from modules that are currently enabled."""
+        return tuple(
+            capability
+            for module in self.list_modules()
+            if module.state is ModuleState.ENABLED
+            for capability in module.manifest.capabilities
+        )
+
     def providers(
         self,
         capability_id: str,
@@ -319,7 +329,10 @@ class CapabilityRegistry:
             )
             connection.executemany(
                 "INSERT INTO module_capabilities(module_id, capability_id) VALUES (?, ?)",
-                [(manifest.module_id, capability) for capability in manifest.capabilities],
+                [
+                    (manifest.module_id, capability_id)
+                    for capability_id in manifest.capability_ids
+                ],
             )
         return existing is not None
 

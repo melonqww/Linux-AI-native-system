@@ -14,6 +14,7 @@ python -m ai_native_capabilities validate services/storage-catalog/module.json
 python -m ai_native_capabilities sync services
 python -m ai_native_capabilities list
 python -m ai_native_capabilities capabilities
+python -m ai_native_capabilities contracts
 python -m ai_native_capabilities providers documents.text.search
 
 python -m ai_native_capabilities disable documents.index
@@ -30,7 +31,10 @@ python -m ai_native_capabilities clear-quarantine documents.index
 - `entrypoint.python_path` не выходит из каталога модуля;
 - несовместимый `core_api`, отсутствующая зависимость и цикл дают объяснимое
   состояние `unavailable`;
-- выключенный или quarantined модуль не публикует capabilities;
+- выключенный или quarantined модуль не публикует capability ID, полный
+  контракт или пользовательский intent;
+- каждая capability имеет описание, закрытую входную схему и собственное
+  подмножество запрашиваемых прав;
 - отключение зависимости автоматически скрывает capabilities зависимого модуля;
 - повторный sync не сбрасывает пользовательский выбор enable/disable;
 - manifest объявляет запрашиваемые права, но не выдаёт их модулю.

@@ -56,7 +56,9 @@ python -m unittest discover -s services/agent-runtime/tests -v
 ## Capability Registry
 
 `services/capability-registry` проверяет manifests модулей, вычисляет состояния
-и зависимости и публикует доступные capabilities. Формальная manifest schema
+и зависимости и публикует доступные capability-контракты. Manifest v2 объединяет
+ID, описание, закрытую схему входа, запрашиваемые права и необязательный
+пользовательский intent. Формальная manifest schema
 находится в `packages/module-sdk`. Зарегистрированы `storage.catalog`,
 `documents.index`, `documents.pdf`, `desktop.applications` и
 `browser.navigation` и `system.monitor`; команды описаны в
@@ -248,6 +250,7 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [Решение о единой системной рабочей области](Architecture/decisions/ADR-009-system-workspace-runtime.md)
 - [Решение о модульном Workspace Turn Pipeline v2](Architecture/decisions/ADR-014-modular-workspace-turn-pipeline.md)
 - [Решение об advisory capability routing](Architecture/decisions/ADR-019-advisory-capability-routing.md)
+- [Решение о самоописываемых capability-контрактах](Architecture/decisions/ADR-022-self-describing-capability-contracts.md)
 - [Решение о долговечном модуле установки приложений](Architecture/decisions/ADR-015-durable-software-manager.md)
 - [Решение об изолированной лаборатории AI-сценариев](Architecture/decisions/ADR-017-isolated-ai-scenario-lab.md)
 - [Решение о goal-driven User Journey Lab](Architecture/decisions/ADR-018-goal-driven-user-journey-lab.md)

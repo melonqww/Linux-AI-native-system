@@ -38,6 +38,7 @@ def build_parser() -> argparse.ArgumentParser:
     show = commands.add_parser("show")
     show.add_argument("module_id")
     commands.add_parser("capabilities")
+    commands.add_parser("contracts")
     providers = commands.add_parser("providers")
     providers.add_argument("capability_id")
     providers.add_argument("--all", action="store_true")
@@ -69,6 +70,8 @@ def main() -> int:
             result = asdict(registry.get_module(args.module_id))
         elif args.command == "capabilities":
             result = registry.available_capabilities()
+        elif args.command == "contracts":
+            result = [asdict(contract) for contract in registry.capability_contracts()]
         elif args.command == "providers":
             result = [
                 asdict(provider)

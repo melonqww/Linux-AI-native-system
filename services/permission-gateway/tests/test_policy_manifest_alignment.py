@@ -30,9 +30,25 @@ class PolicyManifestAlignmentTests(unittest.TestCase):
             required = gateway.required_scopes(policy.capability_id)
             for provider in self.registry.providers(policy.capability_id):
                 manifest = self.registry.get_module(provider.module_id).manifest
+                contract = next(
+                    item
+                    for item in manifest.capabilities
+                    if item.capability_id == policy.capability_id
+                )
                 self.assertTrue(
-                    required.issubset(manifest.requested_permissions),
-                    f"{provider.module_id} misses {sorted(required - set(manifest.requested_permissions))}",
+                    required.issubset(contract.requested_permissions),
+                    f"{provider.module_id} capability misses "
+                    f"{sorted(required - set(contract.requested_permissions))}",
+                )
+                self.assertEqual(
+                    set(contract.input_schema["properties"]),
+                    set(policy.allowed_arguments),
+                    f"{provider.module_id} argument contract drift",
+                )
+                self.assertTrue(
+                    set(policy.required_arguments)
+                    <= set(contract.input_schema["required"]),
+                    f"{provider.module_id} required argument contract drift",
                 )
                 checked += 1
         self.assertGreater(checked, 0)

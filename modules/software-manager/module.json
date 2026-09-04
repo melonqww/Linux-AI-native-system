@@ -1,20 +1,65 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "module_id": "software.manager",
   "display_name": "Software Manager",
   "description": "Provides a durable Snap application catalog, installation task state and backup metadata.",
-  "module_version": "0.3.0",
+  "module_version": "0.4.0",
   "core_api": "1",
   "capabilities": [
-    "software.catalog.read",
-    "software.tasks.read",
-    "software.backups.read",
-    "software.install.prepare",
-    "software.install.commit",
-    "software.remove.prepare",
-    "software.remove.commit",
-    "software.tasks.control",
-    "software.backups.restore"
+    {
+      "id": "software.catalog.read",
+      "description": "Read the locally available Snap application catalog and installation state.",
+      "input_schema": {"type": "object", "properties": {}, "required": [], "additionalProperties": false},
+      "requested_permissions": ["system.read-software"]
+    },
+    {
+      "id": "software.tasks.read",
+      "description": "Read bounded public progress for software management tasks.",
+      "input_schema": {"type": "object", "properties": {}, "required": [], "additionalProperties": false},
+      "requested_permissions": ["system.read-software"]
+    },
+    {
+      "id": "software.backups.read",
+      "description": "Read available software backup metadata without restoring it.",
+      "input_schema": {"type": "object", "properties": {}, "required": [], "additionalProperties": false},
+      "requested_permissions": ["system.read-software"]
+    },
+    {
+      "id": "software.install.prepare",
+      "description": "Prepare an application installation task and return its confirmation state.",
+      "input_schema": {"type": "object", "properties": {"application_id": {"type": "string"}, "locale": {"type": "string"}, "install_location": {"type": "string"}, "selected_options": {"type": "array", "items": {"type": "string"}}}, "required": ["application_id", "locale", "install_location", "selected_options"], "additionalProperties": false},
+      "requested_permissions": ["software.manage"]
+    },
+    {
+      "id": "software.install.commit",
+      "description": "Commit a confirmed application installation task.",
+      "input_schema": {"type": "object", "properties": {"task_id": {"type": "string"}}, "required": ["task_id"], "additionalProperties": false},
+      "requested_permissions": ["software.manage"]
+    },
+    {
+      "id": "software.remove.prepare",
+      "description": "Prepare application removal and an optional recoverable backup.",
+      "input_schema": {"type": "object", "properties": {"application_id": {"type": "string"}, "create_backup": {"type": "boolean"}}, "required": ["application_id", "create_backup"], "additionalProperties": false},
+      "requested_permissions": ["software.manage"]
+    },
+    {
+      "id": "software.remove.commit",
+      "description": "Commit a confirmed application removal task.",
+      "input_schema": {"type": "object", "properties": {"task_id": {"type": "string"}, "final_confirmation": {"type": "boolean"}}, "required": ["task_id", "final_confirmation"], "additionalProperties": false},
+      "requested_permissions": ["software.manage"]
+    },
+    {
+      "id": "software.tasks.control",
+      "description": "Pause, resume or cancel an existing software management task.",
+      "input_schema": {"type": "object", "properties": {"task_id": {"type": "string"}, "action": {"type": "string", "enum": ["pause", "resume", "cancel"]}}, "required": ["task_id", "action"], "additionalProperties": false},
+      "requested_permissions": ["software.manage"]
+    },
+    {
+      "id": "software.backup.restore",
+      "description": "Restore a selected software backup after explicit confirmation.",
+      "input_schema": {"type": "object", "properties": {"backup_id": {"type": "string"}}, "required": ["backup_id"], "additionalProperties": false},
+      "requested_permissions": ["software.manage"]
+    }
   ],
   "dependencies": [],
   "optional_dependencies": [],

@@ -1,18 +1,58 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "module_id": "storage.catalog",
   "display_name": "Storage Catalog",
   "description": "Discovers volumes, catalogs file metadata and manages virtual collections.",
-  "module_version": "0.1.0",
+  "module_version": "0.2.0",
   "core_api": "1",
   "capabilities": [
-    "storage.volumes.discover",
-    "storage.volumes.permissions",
-    "storage.catalog.scan",
-    "storage.catalog.search",
-    "storage.collections.manage",
-    "storage.materialize.plan-copy",
-    "storage.materialize.execute-copy"
+    {
+      "id": "storage.volumes.discover",
+      "description": "Discover local volumes and their stable identities without reading file content.",
+      "input_schema": {"type": "object", "properties": {"refresh": {"type": "boolean"}, "available_only": {"type": "boolean"}}, "required": [], "additionalProperties": false},
+      "requested_permissions": ["storage.enumerate"]
+    },
+    {
+      "id": "storage.volumes.permissions",
+      "description": "Read or update the user-granted metadata and content access level for a volume.",
+      "input_schema": {"type": "object", "properties": {"volume_id": {"type": "string"}, "permission": {"type": "string"}}, "required": ["volume_id"], "additionalProperties": false},
+      "requested_permissions": ["storage.enumerate", "filesystem.read-metadata", "filesystem.read-content"]
+    },
+    {
+      "id": "storage.catalog.scan",
+      "description": "Scan allowed volume metadata into the bounded local storage catalog.",
+      "input_schema": {"type": "object", "properties": {"volume_ids": {"type": "array", "items": {"type": "string"}}}, "required": [], "additionalProperties": false},
+      "requested_permissions": ["filesystem.read-metadata"]
+    },
+    {
+      "id": "storage.catalog.search",
+      "description": "Search cataloged file metadata using bounded filters and result limits.",
+      "input_schema": {"type": "object", "properties": {"name_contains": {"type": "array", "items": {"type": "string"}}, "extensions": {"type": "array", "items": {"type": "string"}}, "roles": {"type": "array", "items": {"type": "string"}}, "volume_ids": {"type": "array", "items": {"type": "string"}}, "limit": {"type": "integer"}}, "required": [], "additionalProperties": false},
+      "requested_permissions": ["filesystem.read-metadata"]
+    },
+    {
+      "id": "storage.collections.manage",
+      "description": "Create and read virtual collections that reference catalog search results without copying files.",
+      "input_schema": {"type": "object", "properties": {"results_from": {"type": "string"}, "title": {"type": "string"}}, "required": ["results_from"], "additionalProperties": false},
+      "requested_permissions": ["filesystem.read-metadata"]
+    },
+    {
+      "id": "storage.materialize.plan-copy",
+      "description": "Prepare a bounded copy of previously found files to a named user destination.",
+      "input_schema": {"type": "object", "properties": {"results_from": {"type": "string"}, "destination": {"type": "string", "enum": ["desktop", "documents", "downloads", "context.last_destination"]}, "directory_name": {"type": "string"}}, "required": ["results_from", "destination"], "additionalProperties": false},
+      "requested_permissions": ["filesystem.read-metadata", "filesystem.read-content", "filesystem.write-content"],
+      "user_intent": {
+        "operation": "copy_results",
+        "description": "Create a destination folder and copy previously found file results into it.",
+        "examples": ["создай папку и скопируй туда найденные файлы", "скопируй результаты на рабочий стол", "сохрани найденные документы в папку", "copy the found files to my desktop"]
+      }
+    },
+    {
+      "id": "storage.materialize.execute-copy",
+      "description": "Commit a previously prepared and approved bounded file copy plan.",
+      "input_schema": {"type": "object", "properties": {"plan_id": {"type": "string"}}, "required": ["plan_id"], "additionalProperties": false},
+      "requested_permissions": ["filesystem.read-content", "filesystem.write-content"]
+    }
   ],
   "dependencies": [],
   "optional_dependencies": [],
@@ -29,18 +69,5 @@
     "kind": "python-service",
     "module": "ai_native_storage",
     "python_path": "src"
-  },
-  "intent_routes": [
-    {
-      "capability_id": "storage.materialize.plan-copy",
-      "operation": "copy_results",
-      "description": "Create a destination folder and copy previously found file results into it.",
-      "examples": [
-        "создай папку и скопируй туда найденные файлы",
-        "скопируй результаты на рабочий стол",
-        "сохрани найденные документы в папку",
-        "copy the found files to my desktop"
-      ]
-    }
-  ]
+  }
 }

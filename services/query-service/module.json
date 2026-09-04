@@ -1,38 +1,28 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "module_id": "documents.query",
   "display_name": "Document Query Service",
   "description": "Searches allowed local files by metadata and indexed content.",
-  "module_version": "0.1.0",
+  "module_version": "0.2.0",
   "core_api": "1",
-  "capabilities": ["documents.query.search"],
+  "capabilities": [
+    {
+      "id": "documents.query.search",
+      "description": "Search allowed local files by metadata, indexed content, language, type or volume.",
+      "input_schema": {"type": "object", "properties": {"mode": {"type": "string", "enum": ["metadata", "content", "hybrid"]}, "text": {"type": "string"}, "name_terms": {"type": "array", "items": {"type": "string"}}, "extensions": {"type": "array", "items": {"type": "string"}}, "volume_ids": {"type": "array", "items": {"type": "string"}}, "languages": {"type": "array", "items": {"type": "string"}}}, "required": ["mode"], "additionalProperties": false},
+      "requested_permissions": ["filesystem.read-metadata", "filesystem.read-content"],
+      "user_intent": {
+        "operation": "search_documents",
+        "description": "Find local files, PDF documents, text documents, or document content on allowed computer disks.",
+        "examples": ["найди все PDF файлы на компьютере", "покажи мои текстовые документы", "нужны только PDF по математике", "отфильтруй найденные документы", "filter the found documents", "show my PDF files", "отыщи мои документы", "найди документы по математике", "найди текстовый документ в котором встречается нужная фраза", "отыщи файл на диске", "find my local PDF files", "find a text document containing a phrase", "search documents on this computer"]
+      }
+    }
+  ],
   "dependencies": ["storage.catalog", "documents.index"],
   "optional_dependencies": ["documents.pdf"],
   "requested_permissions": ["filesystem.read-metadata", "filesystem.read-content"],
   "lifecycle": "on-demand",
   "resource_class": "light",
   "default_enabled": true,
-  "entrypoint": {"kind": "python-package", "module": "ai_native_query", "python_path": "src"},
-  "intent_routes": [
-    {
-      "capability_id": "documents.query.search",
-      "operation": "search_documents",
-      "description": "Find local files, PDF documents, text documents, or document content on allowed computer disks.",
-      "examples": [
-        "найди все PDF файлы на компьютере",
-        "покажи мои текстовые документы",
-        "нужны только PDF по математике",
-        "отфильтруй найденные документы",
-        "filter the found documents",
-        "show my PDF files",
-        "отыщи мои документы",
-        "найди документы по математике",
-        "найди текстовый документ в котором встречается нужная фраза",
-        "отыщи файл на диске",
-        "find my local PDF files",
-        "find a text document containing a phrase",
-        "search documents on this computer"
-      ]
-    }
-  ]
+  "entrypoint": {"kind": "python-package", "module": "ai_native_query", "python_path": "src"}
 }

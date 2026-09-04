@@ -1,29 +1,28 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "module_id": "desktop.applications",
   "display_name": "Desktop Applications",
   "description": "Finds installed desktop applications and their launch metadata.",
-  "module_version": "0.1.0",
+  "module_version": "0.2.0",
   "core_api": "1",
-  "capabilities": ["desktop.applications.find"],
+  "capabilities": [
+    {
+      "id": "desktop.applications.find",
+      "description": "Find an installed desktop application and return trusted launcher metadata.",
+      "input_schema": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"], "additionalProperties": false},
+      "requested_permissions": ["applications.read-metadata"],
+      "user_intent": {
+        "operation": "find_application",
+        "description": "Find the installation or launcher of a desktop application on this computer.",
+        "examples": ["найди приложение Discord", "где установлен Firefox", "покажи расположение программы", "find the installed application"]
+      }
+    }
+  ],
   "dependencies": [],
   "optional_dependencies": [],
   "requested_permissions": ["applications.read-metadata"],
   "lifecycle": "on-demand",
   "resource_class": "tiny",
   "default_enabled": true,
-  "entrypoint": {"kind": "python-service", "module": "ai_native_applications", "python_path": "src"},
-  "intent_routes": [
-    {
-      "capability_id": "desktop.applications.find",
-      "operation": "find_application",
-      "description": "Find the installation or launcher of a desktop application on this computer.",
-      "examples": [
-        "найди приложение Discord",
-        "где установлен Firefox",
-        "покажи расположение программы",
-        "find the installed application"
-      ]
-    }
-  ]
+  "entrypoint": {"kind": "python-service", "module": "ai_native_applications", "python_path": "src"}
 }

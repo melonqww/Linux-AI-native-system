@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "profile": "base-local-ai",
+  "limits": {
+    "installed_ai_assets_bytes": 5368709120,
+    "model_context_tokens": 10240,
+    "reserved_output_tokens": 2048,
+    "idle_core_rss_bytes": 314572800,
+    "semantic_selector_rss_bytes": 734003200,
+    "active_ai_system_rss_bytes": 4294967296
+  }
+}

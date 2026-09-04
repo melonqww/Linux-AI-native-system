@@ -1,9 +1,22 @@
 # Module SDK
 
-Формальный контракт capability-модулей AI-native Linux. Первая версия содержит
-JSON Schema `schema/module-manifest.schema.json`. Runtime Registry выполняет ту
-же строгую проверку стандартной библиотекой Python, поэтому для запуска core не
-нужна внешняя зависимость `jsonschema`.
+Формальный контракт capability-модулей AI-native Linux. Manifest v2 содержит
+не плоский список имён, а самодостаточные capability-контракты: стабильный ID,
+семантическое описание, закрытую JSON Schema входа, запрашиваемые права и
+необязательный `user_intent`. Последний связывает пользовательское намерение с
+capability, но не разрешает её выполнение.
+
+JSON Schema находится в `schema/module-manifest.schema.json`. Runtime Registry
+выполняет эквивалентную строгую проверку стандартной библиотекой Python, поэтому
+для запуска core не нужна внешняя зависимость `jsonschema`.
 
 Manifest располагается рядом с модулем под именем `module.json`. Относительный
 `entrypoint.python_path` разрешается только внутри каталога модуля.
+
+`requested_permissions` внутри capability обязан быть подмножеством прав всего
+модуля. Manifest не задаёт доверенный risk, approval или transport: ими по-прежнему
+владеет Permission Gateway. Закрытая `input_schema` не заменяет его проверку.
+
+Фиксированные ограничения базовой системы записаны в
+`system-resource-budget.json`. Установка дополнительного необязательного модуля
+может иметь собственный бюджет, но не меняет предел обязательного AI-профиля.

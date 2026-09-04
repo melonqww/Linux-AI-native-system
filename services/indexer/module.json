@@ -1,14 +1,29 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "module_id": "documents.index",
   "display_name": "Document Text Index",
   "description": "Indexes allowed text sources and provides local full-text retrieval.",
-  "module_version": "0.1.0",
+  "module_version": "0.2.0",
   "core_api": "1",
   "capabilities": [
-    "documents.text.index",
-    "documents.text.search",
-    "documents.index.status"
+    {
+      "id": "documents.text.index",
+      "description": "Index trusted extracted text for an allowed catalog item.",
+      "input_schema": {"type": "object", "properties": {"volume_id": {"type": "string"}, "path": {"type": "string"}, "text": {"type": "string"}, "language": {"type": "string"}}, "required": ["volume_id", "path", "text"], "additionalProperties": false},
+      "requested_permissions": ["filesystem.read-content"]
+    },
+    {
+      "id": "documents.text.search",
+      "description": "Search text already present in the local document index.",
+      "input_schema": {"type": "object", "properties": {"text": {"type": "string"}, "volume_ids": {"type": "array", "items": {"type": "string"}}, "languages": {"type": "array", "items": {"type": "string"}}, "limit": {"type": "integer"}}, "required": ["text"], "additionalProperties": false},
+      "requested_permissions": ["filesystem.read-content"]
+    },
+    {
+      "id": "documents.index.status",
+      "description": "Read bounded coverage and freshness information for the document index.",
+      "input_schema": {"type": "object", "properties": {}, "required": [], "additionalProperties": false},
+      "requested_permissions": []
+    }
   ],
   "dependencies": [
     "storage.catalog"

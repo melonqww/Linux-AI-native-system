@@ -7,7 +7,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from ai_native_capabilities import CapabilityRegistry, ManifestValidationError, ModuleState
-from ai_native_capabilities.manifest import load_manifest
+from ai_native_capabilities.manifest import load_manifest, manifest_to_dict, validate_manifest
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -20,13 +20,30 @@ def manifest_payload(
     default_enabled: bool = True,
 ) -> dict[str, object]:
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "module_id": module_id,
         "display_name": module_id,
         "description": f"Test module {module_id}",
         "module_version": "1.0.0",
         "core_api": "1",
-        "capabilities": [f"{module_id}.run"],
+        "capabilities": [
+            {
+                "id": f"{module_id}.run",
+                "description": f"Run {module_id}.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": [],
+                    "additionalProperties": False,
+                },
+                "requested_permissions": [],
+                "user_intent": {
+                    "operation": "run_test",
+                    "description": f"Run {module_id} for the user.",
+                    "examples": [f"run {module_id}"],
+                },
+            }
+        ],
         "dependencies": dependencies or [],
         "optional_dependencies": [],
         "requested_permissions": [],
@@ -80,6 +97,49 @@ class ManifestValidationTests(RegistryTestCase):
         with self.assertRaises(ManifestValidationError):
             load_manifest(path)
 
+    def test_rejects_legacy_flat_capability_list(self) -> None:
+        payload = manifest_payload("test.module")
+        payload["schema_version"] = 1
+        payload["capabilities"] = ["test.module.run"]
+        path = self.write_manifest(payload)
+
+        with self.assertRaisesRegex(ManifestValidationError, "schema_version must be 2"):
+            load_manifest(path)
+
+    def test_rejects_open_input_schema(self) -> None:
+        payload = manifest_payload("test.module")
+        capabilities = payload["capabilities"]
+        assert isinstance(capabilities, list)
+        capability = capabilities[0]
+        assert isinstance(capability, dict)
+        schema = capability["input_schema"]
+        assert isinstance(schema, dict)
+        schema["additionalProperties"] = True
+        path = self.write_manifest(payload)
+
+        with self.assertRaisesRegex(ManifestValidationError, "closed object schema"):
+            load_manifest(path)
+
+    def test_rejects_capability_permission_not_declared_by_module(self) -> None:
+        payload = manifest_payload("test.module")
+        capabilities = payload["capabilities"]
+        assert isinstance(capabilities, list)
+        capability = capabilities[0]
+        assert isinstance(capability, dict)
+        capability["requested_permissions"] = ["filesystem.write-content"]
+        path = self.write_manifest(payload)
+
+        with self.assertRaisesRegex(ManifestValidationError, "absent from module"):
+            load_manifest(path)
+
+    def test_manifest_contract_round_trips_without_losing_intent(self) -> None:
+        manifest = validate_manifest(manifest_payload("test.module"))
+        restored = validate_manifest(manifest_to_dict(manifest))
+
+        self.assertEqual(restored, manifest)
+        self.assertEqual(restored.capability_ids, ("test.module.run",))
+        self.assertEqual(restored.intent_routes[0].operation, "run_test")
+
     def test_project_first_party_manifests_are_valid(self) -> None:
         storage = load_manifest(PROJECT_ROOT / "services" / "storage-catalog" / "module.json")
         index = load_manifest(PROJECT_ROOT / "services" / "indexer" / "module.json")
@@ -89,6 +149,17 @@ class ManifestValidationTests(RegistryTestCase):
 
 
 class CapabilityRegistryTests(RegistryTestCase):
+    def test_new_module_publishes_contract_and_intent_without_core_mapping(self) -> None:
+        path = self.write_manifest(manifest_payload("thirdparty.notes"))
+
+        report = self.registry.sync([path])
+
+        self.assertEqual(report.issues, ())
+        contract = self.registry.capability_contracts()[0]
+        self.assertEqual(contract.capability_id, "thirdparty.notes.run")
+        self.assertEqual(contract.user_intent.operation, "run_test")
+        self.assertEqual(self.registry.intent_routes()[0], contract.user_intent)
+
     def test_registers_first_party_modules_and_publishes_capabilities(self) -> None:
         report = self.registry.sync([PROJECT_ROOT / "services"])
 
@@ -165,6 +236,22 @@ class CapabilityRegistryTests(RegistryTestCase):
         self.assertNotIn(
             "search_documents",
             {route.operation for route in self.registry.intent_routes()},
+        )
+
+    def test_enabled_modules_publish_complete_capability_contracts(self) -> None:
+        self.registry.sync([PROJECT_ROOT / "services", PROJECT_ROOT / "modules"])
+
+        contracts = self.registry.capability_contracts()
+        by_id = {contract.capability_id: contract for contract in contracts}
+        search = by_id["documents.query.search"]
+        self.assertEqual(search.input_schema["type"], "object")
+        self.assertFalse(search.input_schema["additionalProperties"])
+        self.assertEqual(search.user_intent.operation, "search_documents")
+
+        self.registry.set_enabled("documents.query", False)
+        self.assertNotIn(
+            "documents.query.search",
+            {item.capability_id for item in self.registry.capability_contracts()},
         )
 
     def test_disabling_dependency_makes_dependent_module_unavailable(self) -> None:

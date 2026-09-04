@@ -1,12 +1,17 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "module_id": "documents.pdf",
   "display_name": "PDF Documents",
   "description": "Safely extracts page-aware text from PDF documents for local indexing.",
-  "module_version": "0.1.0",
+  "module_version": "0.2.0",
   "core_api": "1",
   "capabilities": [
-    "documents.pdf.extract"
+    {
+      "id": "documents.pdf.extract",
+      "description": "Extract bounded, page-aware text from an allowed PDF for local indexing.",
+      "input_schema": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"], "additionalProperties": false},
+      "requested_permissions": ["filesystem.read-content"]
+    }
   ],
   "dependencies": [
     "storage.catalog",

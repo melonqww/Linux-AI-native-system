@@ -1,11 +1,18 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "module_id": "system.monitor",
   "display_name": "System Monitor",
   "description": "Reads bounded Linux hardware, block-volume and sortable process metrics for the native panel.",
-  "module_version": "0.2.0",
+  "module_version": "0.3.0",
   "core_api": "1",
-  "capabilities": ["system.monitor.snapshot"],
+  "capabilities": [
+    {
+      "id": "system.monitor.snapshot",
+      "description": "Read a bounded snapshot of CPU, memory, batteries, disks and sortable processes.",
+      "input_schema": {"type": "object", "properties": {"process_limit": {"type": "integer", "minimum": 1, "maximum": 200}, "process_sort": {"type": "string", "enum": ["cpu", "memory"]}, "process_order": {"type": "string", "enum": ["asc", "desc"]}}, "required": [], "additionalProperties": false},
+      "requested_permissions": ["system.read-metrics", "system.read-processes"]
+    }
+  ],
   "dependencies": [],
   "optional_dependencies": [],
   "requested_permissions": ["system.read-metrics", "system.read-processes"],

@@ -1,39 +1,45 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "module_id": "browser.navigation",
   "display_name": "Browser Navigation",
   "description": "Validates and opens HTTP or HTTPS URLs in the default browser.",
-  "module_version": "0.1.0",
+  "module_version": "0.2.0",
   "core_api": "1",
-  "capabilities": ["browser.url.plan", "browser.search.plan", "browser.url.open"],
+  "capabilities": [
+    {
+      "id": "browser.url.plan",
+      "description": "Validate an explicit HTTP or HTTPS URL and prepare it for opening.",
+      "input_schema": {"type": "object", "properties": {"url": {"type": "string"}}, "required": ["url"], "additionalProperties": false},
+      "requested_permissions": ["browser.open-url"],
+      "user_intent": {
+        "operation": "plan_open_url",
+        "description": "Open an explicit HTTP or HTTPS website address from the user.",
+        "examples": ["открой этот сайт по ссылке", "перейди на https адрес", "open this website URL"]
+      }
+    },
+    {
+      "id": "browser.search.plan",
+      "description": "Prepare a public web search without navigating before execution.",
+      "input_schema": {"type": "object", "properties": {"query": {"type": "string"}, "engine": {"type": "string", "enum": ["duckduckgo", "google"]}}, "required": ["query"], "additionalProperties": false},
+      "requested_permissions": ["browser.open-url"],
+      "user_intent": {
+        "operation": "plan_web_search",
+        "description": "Search the public internet or web for a site or information explicitly requested by the user.",
+        "examples": ["найди в интернете официальный сайт", "поищи это в сети", "выполни поиск в интернете", "search the web for this"]
+      }
+    },
+    {
+      "id": "browser.url.open",
+      "description": "Open a previously validated HTTP or HTTPS URL in the default browser.",
+      "input_schema": {"type": "object", "properties": {"url": {"type": "string"}}, "required": ["url"], "additionalProperties": false},
+      "requested_permissions": ["browser.open-url"]
+    }
+  ],
   "dependencies": [],
   "optional_dependencies": ["desktop.applications"],
   "requested_permissions": ["browser.open-url"],
   "lifecycle": "on-demand",
   "resource_class": "tiny",
   "default_enabled": true,
-  "entrypoint": {"kind": "python-service", "module": "ai_native_browser", "python_path": "src"},
-  "intent_routes": [
-    {
-      "capability_id": "browser.search.plan",
-      "operation": "plan_web_search",
-      "description": "Search the public internet or web for a site or information explicitly requested by the user.",
-      "examples": [
-        "найди в интернете официальный сайт",
-        "поищи это в сети",
-        "выполни поиск в интернете",
-        "search the web for this"
-      ]
-    },
-    {
-      "capability_id": "browser.url.plan",
-      "operation": "plan_open_url",
-      "description": "Open an explicit HTTP or HTTPS website address from the user.",
-      "examples": [
-        "открой этот сайт по ссылке",
-        "перейди на https адрес",
-        "open this website URL"
-      ]
-    }
-  ]
+  "entrypoint": {"kind": "python-service", "module": "ai_native_browser", "python_path": "src"}
 }

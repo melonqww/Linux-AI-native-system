@@ -1,11 +1,36 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "module_id": "model.ollama",
   "display_name": "Ollama Model Manager",
   "description": "Manages consent, installation state and background downloads for local Ollama models.",
-  "module_version": "0.3.0",
+  "module_version": "0.4.0",
   "core_api": "1",
-  "capabilities": ["model.local.ensure", "model.local.status", "model.catalog.read", "model.catalog.respond"],
+  "capabilities": [
+    {
+      "id": "model.local.ensure",
+      "description": "Ensure that an approved local model is available through Ollama.",
+      "input_schema": {"type": "object", "properties": {}, "required": [], "additionalProperties": false},
+      "requested_permissions": ["model.download-network"]
+    },
+    {
+      "id": "model.local.status",
+      "description": "Read the aggregate lifecycle state of configured local models.",
+      "input_schema": {"type": "object", "properties": {}, "required": [], "additionalProperties": false},
+      "requested_permissions": []
+    },
+    {
+      "id": "model.catalog.read",
+      "description": "Read configured local model identities, consent and download progress.",
+      "input_schema": {"type": "object", "properties": {}, "required": [], "additionalProperties": false},
+      "requested_permissions": []
+    },
+    {
+      "id": "model.catalog.respond",
+      "description": "Apply the user's download or dismissal decision for a configured model.",
+      "input_schema": {"type": "object", "properties": {"model_id": {"type": "string"}, "decision": {"type": "string", "enum": ["accept", "decline", "dismiss"]}}, "required": ["model_id", "decision"], "additionalProperties": false},
+      "requested_permissions": ["model.download-network"]
+    }
+  ],
   "dependencies": ["provider.ollama"],
   "optional_dependencies": [],
   "requested_permissions": ["model.download-network"],

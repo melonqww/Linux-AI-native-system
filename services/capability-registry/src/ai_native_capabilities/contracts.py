@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Any
 
 
 class ModuleState(StrEnum):
@@ -30,6 +31,17 @@ class IntentRouteDescriptor:
 
 
 @dataclass(frozen=True)
+class CapabilityContract:
+    """Module-owned, non-authoritative description of one provided capability."""
+
+    capability_id: str
+    description: str
+    input_schema: dict[str, Any]
+    requested_permissions: tuple[str, ...]
+    user_intent: IntentRouteDescriptor | None = None
+
+
+@dataclass(frozen=True)
 class ModuleManifest:
     schema_version: int
     module_id: str
@@ -37,7 +49,7 @@ class ModuleManifest:
     description: str
     module_version: str
     core_api: str
-    capabilities: tuple[str, ...]
+    capabilities: tuple[CapabilityContract, ...]
     dependencies: tuple[str, ...]
     optional_dependencies: tuple[str, ...]
     requested_permissions: tuple[str, ...]
@@ -45,7 +57,18 @@ class ModuleManifest:
     resource_class: str
     default_enabled: bool
     entrypoint: ModuleEntrypoint
-    intent_routes: tuple[IntentRouteDescriptor, ...] = ()
+
+    @property
+    def capability_ids(self) -> tuple[str, ...]:
+        return tuple(item.capability_id for item in self.capabilities)
+
+    @property
+    def intent_routes(self) -> tuple[IntentRouteDescriptor, ...]:
+        return tuple(
+            item.user_intent
+            for item in self.capabilities
+            if item.user_intent is not None
+        )
 
 
 @dataclass(frozen=True)

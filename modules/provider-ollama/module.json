@@ -1,11 +1,24 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "module_id": "provider.ollama",
   "display_name": "Ollama Provider",
   "description": "Installs and manages a verified user-local Ollama runtime without root privileges.",
-  "module_version": "0.2.0",
+  "module_version": "0.3.0",
   "core_api": "1",
-  "capabilities": ["provider.ollama.status", "provider.ollama.respond"],
+  "capabilities": [
+    {
+      "id": "provider.ollama.status",
+      "description": "Read the installation, consent and health state of the user-local Ollama provider.",
+      "input_schema": {"type": "object", "properties": {}, "required": [], "additionalProperties": false},
+      "requested_permissions": ["provider.install-user-local", "provider.manage-process"]
+    },
+    {
+      "id": "provider.ollama.respond",
+      "description": "Apply the user's lifecycle decision for the local Ollama provider.",
+      "input_schema": {"type": "object", "properties": {"decision": {"type": "string", "enum": ["accept", "decline", "dismiss"]}}, "required": ["decision"], "additionalProperties": false},
+      "requested_permissions": ["provider.download-network", "provider.install-user-local", "provider.manage-process"]
+    }
+  ],
   "dependencies": [],
   "optional_dependencies": [],
   "requested_permissions": ["provider.download-network", "provider.install-user-local", "provider.manage-process"],
