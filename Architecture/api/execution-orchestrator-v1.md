@@ -21,8 +21,11 @@
 
 Успешный search-шаг возвращает результаты и `collection_id`. Этот snapshot
 становится `active_collection_id` доверенного контекста для следующего запроса.
-Фильтр `languages` пока является advisory: поиск выполняется, а ответ содержит
-warning `language_filter_not_yet_applied`.
+Неисполняемые фильтры не принимаются как advisory. В частности, пока Query
+Service не умеет надёжно определять язык документа, `languages` отсутствует в
+manifest, model schema и trusted policy. Старый или ошибочный план с этим полем
+получает `policy_arguments_not_allowed`, а не широкий поиск с ложным обещанием
+фильтрации.
 
 R1 search output различает `result_count` (сколько результатов приложено к
 ответу) и `total_matches` (сколько совпадений известно Query Service). Поле

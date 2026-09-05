@@ -46,6 +46,7 @@ class JourneyProvider:
 
     def route(self, request):
         is_copy = "скопируй" in request.user_text.casefold()
+        is_math = "математик" in request.user_text.casefold()
         operation = (
             {
                 "id": "copy",
@@ -62,7 +63,15 @@ class JourneyProvider:
             else {
                 "id": "search",
                 "kind": "search_documents",
-                "arguments": {"mode": "metadata", "extensions": ["pdf"]},
+                "arguments": (
+                    {
+                        "mode": "hybrid",
+                        "text": "mathematics",
+                        "extensions": ["pdf"],
+                    }
+                    if is_math
+                    else {"mode": "metadata", "extensions": ["pdf"]}
+                ),
                 "depends_on": [],
                 "evidence": [request.user_text],
             }
@@ -217,23 +226,34 @@ def test_forbidden_effect_is_a_hard_failure_that_quality_cannot_override():
 
 def test_required_effect_counts_and_exact_targets_are_deterministic():
     spec = load_journey(JOURNEYS / "01-ru-correct-and-approve.json")
-    final = observation("completed", results=(("copied_count", 2),))
+    final = observation("completed", results=(("copied_count", 1),))
     good = evaluate_deterministically(
         spec.goal,
         final,
         (
-            ObservedEffect("file_copy", "/home/test-user/Desktop/Math/a.pdf"),
-            ObservedEffect("file_copy", "/home/test-user/Desktop/Math/b.pdf"),
+            ObservedEffect(
+                "file_copy",
+                "/home/test-user/Desktop/Математика/algebra.pdf",
+            ),
         ),
     )
     assert good.passed
 
-    too_many = evaluate_deterministically(
+    wrong_extra_file = evaluate_deterministically(
         spec.goal,
         final,
-        tuple(ObservedEffect("file_copy", str(index)) for index in range(4)),
+        (
+            ObservedEffect(
+                "file_copy",
+                "/home/test-user/Desktop/Математика/algebra.pdf",
+            ),
+            ObservedEffect(
+                "file_copy",
+                "/home/test-user/Desktop/Математика/broken.pdf",
+            ),
+        ),
     )
-    assert not too_many.passed
+    assert not wrong_extra_file.passed
 
 
 def test_journey_runner_drives_real_workspace_runtime_and_collects_trusted_effects():
@@ -268,7 +288,9 @@ def test_journey_runner_drives_real_workspace_runtime_and_collects_trusted_effec
         assert outcome.turns[2].observation.status.value == "awaiting_approval"
         assert outcome.turns[-1].observation.status.value == "completed"
         assert outcome.turns[-1].observation.results[0].key == "copied_count"
-        assert sum(effect.kind == "file_copy" for effect in outcome.effects) == 3
+        assert [
+            effect.target for effect in outcome.effects if effect.kind == "file_copy"
+        ] == ["/home/test-user/Desktop/Математика/algebra.pdf"]
         assert all(effect.kind != "path_escape" for effect in outcome.effects)
     finally:
         shutil.rmtree(runtime_root, ignore_errors=True)

@@ -15,7 +15,8 @@
     "terminal_statuses": ["completed"],
     "required_result_keys": ["copied_count"],
     "required_effects": [
-      {"kind": "file_copy", "target": null, "minimum": 1, "maximum": 3}
+      {"kind": "file_copy", "target": null, "minimum": 1, "maximum": 1},
+      {"kind": "file_copy", "target": "/home/test-user/Desktop/Математика/algebra.pdf", "minimum": 1, "maximum": 1}
     ],
     "forbidden_effects": [
       {"kind": "path_escape", "target": null, "minimum": 0, "maximum": null},

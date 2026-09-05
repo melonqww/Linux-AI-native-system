@@ -18,7 +18,6 @@ _ARGUMENT_SCHEMAS: dict[OperationKind, dict[str, str]] = {
         "mode": "search_mode",
         "text": "string",
         "extensions": "strings",
-        "languages": "strings",
         "volume_ids": "strings",
         "name_terms": "strings",
     },

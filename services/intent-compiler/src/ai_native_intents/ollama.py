@@ -31,7 +31,8 @@ _UNSUPPORTED_ACTION_TOOL: Final = "request_system_action"
 _TOOL_DESCRIPTIONS: Final = {
     "search_documents": (
         "Search local files. mode=metadata lists files by type/name without reading their "
-        "contents; mode=content searches contents; mode=hybrid combines content with filters."
+        "contents; mode=content searches contents; mode=hybrid combines a subject or content "
+        "constraint with type/name filters. Never drop a requested subject constraint."
     ),
     "find_application": "Find an installed desktop application by name.",
     "plan_web_search": (
@@ -51,14 +52,12 @@ _TOOL_ARGUMENTS: Final = {
         "mode": {"enum": ["metadata", "content", "hybrid"]},
         "text": {
             "type": "string",
-            "description": "Text that must occur inside indexed document content.",
+            "description": (
+                "The meaningful subject or phrase that must occur inside indexed document "
+                "content. Preserve it whenever the user asks for files about a subject."
+            ),
         },
         "extensions": {"type": "array", "items": {"type": "string"}},
-        "languages": {
-            "type": "array",
-            "items": {"type": "string"},
-            "description": "Document languages explicitly requested by the user.",
-        },
         "name_terms": {
             "type": "array",
             "items": {"type": "string"},
@@ -103,9 +102,17 @@ filters, file types, search text, paths, or operations from conversation history
 File, PDF and document searches default to local storage.
 For all files of a type, call search_documents with mode=metadata, the extension, and no
 text. Use mode=content for content-only meaning, and mode=hybrid for content plus filters.
+Never reduce "files about/on SUBJECT", "documents по/о ТЕМЕ", or an equivalent semantic
+restriction to a type-only metadata search: keep the subject in text. For example, a request
+for "PDF по математике" needs mode=hybrid, extensions=["pdf"], and a concise mathematics
+content term; a request for all PDFs with no subject remains mode=metadata. A correction such
+as "Нет, нужны только ..." replaces the earlier search filters and must preserve every
+restriction stated in the current correction.
 "Contains", "mentions", "в котором встречается" and equivalent wording always searches
 inside content: put the requested phrase in text, never in name_terms. Use name_terms only
-when the user explicitly refers to a file name. Add languages only when explicitly requested.
+when the user explicitly refers to a file name. No document-language filter is available;
+never invent or silently drop one. If it is essential, do not call search and briefly explain
+that this exact filter is unavailable.
 Use web search only when the user explicitly requests internet, web or a site. Never invent
 URLs, paths, files, IDs or completed results. An explicit HTTP(S) URL in the request must use
 plan_open_url, never plan_web_search. When the user refers to a prior destination as "there"

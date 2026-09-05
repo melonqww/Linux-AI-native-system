@@ -11,7 +11,6 @@ _ARGUMENTS: dict[str, dict[str, object]] = {
         "mode": {"enum": ["metadata", "content", "hybrid"]},
         "text": _STRING,
         "extensions": _STRINGS,
-        "languages": _STRINGS,
         "volume_ids": _STRINGS,
         "name_terms": _STRINGS,
     },
@@ -104,6 +103,10 @@ Include only arguments that the message actually requires; omit irrelevant optio
 For search_documents, mode is required. Use metadata for all files of a type or files by
 name and omit text. Use content when only document contents matter. Use hybrid when the
 request combines content meaning with extension or name filters.
+Do not discard a subject restriction: "files about/on SUBJECT", "documents по/о ТЕМЕ",
+and equivalent wording require text. A correction replaces the earlier filters and must
+preserve every restriction stated in the current message. Never infer a document language
+from the language of the user's message.
 For multiple operations, give later operations dependencies and reference earlier IDs. If a
 request searches and then uses those results, results_from MUST be the earlier operation ID,
 not context.active_results. Use context.active_results only for results from a prior turn and

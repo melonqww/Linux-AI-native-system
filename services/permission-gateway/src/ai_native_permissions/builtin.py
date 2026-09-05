@@ -30,7 +30,6 @@ def builtin_policies() -> tuple[CapabilityPolicy, ...]:
                     "name_terms",
                     "extensions",
                     "volume_ids",
-                    "languages",
                 }
             ),
             required_arguments=frozenset(),

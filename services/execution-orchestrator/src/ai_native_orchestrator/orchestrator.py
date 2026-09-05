@@ -553,7 +553,7 @@ class ExecutionOrchestrator:
         plan_id: str,
         deadline_monotonic: float | None,
     ) -> SearchOutput:
-        allowed = {"mode", "text", "name_terms", "extensions", "volume_ids", "languages"}
+        allowed = {"mode", "text", "name_terms", "extensions", "volume_ids"}
         unknown = set(arguments) - allowed
         if unknown:
             raise ValueError(f"unsupported search arguments: {sorted(unknown)}")
@@ -562,7 +562,6 @@ class ExecutionOrchestrator:
         name_terms = self._strings(arguments, "name_terms")
         extensions = self._strings(arguments, "extensions")
         volume_ids = self._strings(arguments, "volume_ids")
-        languages = self._strings(arguments, "languages")
         if not mode:
             mode = "hybrid" if text and (name_terms or extensions) else "content" if text else "metadata"
         if mode not in {"metadata", "content", "hybrid"}:
@@ -594,7 +593,7 @@ class ExecutionOrchestrator:
         collection_id = self._query_service.save_snapshot(
             f"Search {plan_id[:8]}", results
         )
-        warnings = list(("language_filter_not_yet_applied",) if languages else ())
+        warnings: list[str] = []
         coverage = page.coverage if page is not None else None
         if coverage is None:
             coverage_method = getattr(self._query_service, "coverage", None)

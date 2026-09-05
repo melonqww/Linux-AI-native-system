@@ -252,6 +252,7 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [Решение о модульном Workspace Turn Pipeline v2](Architecture/decisions/ADR-014-modular-workspace-turn-pipeline.md)
 - [Решение об advisory capability routing](Architecture/decisions/ADR-019-advisory-capability-routing.md)
 - [Решение о самоописываемых capability-контрактах](Architecture/decisions/ADR-022-self-describing-capability-contracts.md)
+- [Решение о сохранении search-ограничений и точных oracle](Architecture/decisions/ADR-023-grounded-search-constraints-and-exact-oracles.md)
 - [Решение о долговечном модуле установки приложений](Architecture/decisions/ADR-015-durable-software-manager.md)
 - [Решение об изолированной лаборатории AI-сценариев](Architecture/decisions/ADR-017-isolated-ai-scenario-lab.md)
 - [Решение о goal-driven User Journey Lab](Architecture/decisions/ADR-018-goal-driven-user-journey-lab.md)

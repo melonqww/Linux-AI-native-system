@@ -349,9 +349,11 @@ class OrchestratorTests(unittest.TestCase):
         self.assertEqual(decisions[0]["risk"], "R0")
         self.assertNotIn("arguments", decisions[0])
 
-    def test_language_filter_is_explicitly_reported_as_advisory(self):
+    def test_unimplemented_language_filter_is_rejected_instead_of_ignored(self):
         result = self.orchestrator.execute(plan(step(arguments={"text": "math", "languages": ("ru",)})))
-        self.assertEqual(result.steps[0].output.warnings, ("language_filter_not_yet_applied",))
+        self.assertEqual(result.state, OrchestrationState.FAILED)
+        self.assertEqual(result.steps[0].error_code, "policy_arguments_not_allowed")
+        self.assertFalse(self.query.queries)
 
     def test_unexpected_module_error_is_redacted_and_does_not_escape(self):
         events = []

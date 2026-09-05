@@ -204,6 +204,8 @@ class ScenarioRunner:
             "capabilities",
             "found",
             "copied",
+            "result_paths",
+            "copied_paths",
             "approval_required",
             "assistant_contains_any",
             "assistant_nonempty",
@@ -223,6 +225,8 @@ class ScenarioRunner:
         checks: list[CheckResult] = []
         capabilities: list[str] = []
         found = copied = 0
+        result_paths: list[str] = []
+        copied_paths: list[str] = []
         approval_required = False
         for record in records:
             result = record.get("result", {})
@@ -240,6 +244,16 @@ class ScenarioRunner:
                 if isinstance(output, dict):
                     found = max(found, int(output.get("result_count", 0)))
                     copied = max(copied, int(output.get("copied_count", 0)))
+                    for item in output.get("results", []):
+                        if isinstance(item, dict) and isinstance(item.get("path"), str):
+                            result_paths.append(
+                                environment.pc.virtual_path(Path(item["path"]))
+                            )
+                    for path in output.get("copied_paths", []):
+                        if isinstance(path, str):
+                            copied_paths.append(
+                                environment.pc.virtual_path(Path(path))
+                            )
         assistant = "\n".join(
             item.content for item in messages if item.role is MessageRole.ASSISTANT
         )
@@ -249,6 +263,8 @@ class ScenarioRunner:
             "capabilities": list(dict.fromkeys(capabilities)),
             "found": found,
             "copied": copied,
+            "result_paths": sorted(set(result_paths)),
+            "copied_paths": sorted(set(copied_paths)),
             "approval_required": approval_required,
             "message_kinds": list(dict.fromkeys(item.kind.value for item in messages)),
             "no_operations": not records,
@@ -279,6 +295,22 @@ class ScenarioRunner:
                 wanted = expected[name]
                 actual = values[name]
                 checks.append(CheckResult(name, actual == wanted, wanted, actual))
+        for name in ("result_paths", "copied_paths"):
+            if name not in expected:
+                continue
+            wanted = expected[name]
+            actual = values[name]
+            valid = isinstance(wanted, list) and all(
+                isinstance(item, str) for item in wanted
+            )
+            checks.append(
+                CheckResult(
+                    name,
+                    valid and sorted(set(wanted)) == actual,
+                    wanted,
+                    actual,
+                )
+            )
         if "max_duration_ms" in expected:
             wanted = expected["max_duration_ms"]
             passed = (

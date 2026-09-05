@@ -366,6 +366,13 @@ class OllamaProviderTests(unittest.TestCase):
         self.assertFalse(body["think"])
         self.assertNotIn("format", body)
         self.assertEqual(len(body["tools"]), 7)
+        search_tool = next(
+            item["function"]
+            for item in body["tools"]
+            if item["function"]["name"] == "search_documents"
+        )
+        self.assertNotIn("languages", search_tool["parameters"]["properties"])
+        self.assertIn("Never drop", search_tool["description"])
         self.assertEqual(body["options"]["num_ctx"], 4096)
         self.assertEqual(body["options"]["temperature"], 0.7)
         self.assertEqual(body["options"]["top_p"], 0.8)

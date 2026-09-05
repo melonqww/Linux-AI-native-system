@@ -11,6 +11,11 @@
         "stage": "completed",
         "capabilities": ["documents.query.search"],
         "found": 3,
+        "result_paths": [
+          "/home/test-user/Documents/algebra.pdf",
+          "/home/test-user/Documents/broken.pdf",
+          "/mnt/archive/geometry.pdf"
+        ],
         "approval_required": false,
         "message_kinds": ["conversation", "notice", "task_result"],
         "assistant_excludes": ["private.pdf", "tool_call", "<bool>"]

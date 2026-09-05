@@ -122,6 +122,11 @@ def test_runner_executes_real_search_and_approved_copy_inside_virtual_pc():
                     "stage": "completed",
                     "capabilities": ["documents.query.search"],
                     "found": 3,
+                    "result_paths": [
+                        "/home/test-user/Documents/algebra.pdf",
+                        "/home/test-user/Documents/broken.pdf",
+                        "/mnt/archive/geometry.pdf",
+                    ],
                 },
             ),
             ScenarioTurn(
@@ -131,6 +136,11 @@ def test_runner_executes_real_search_and_approved_copy_inside_virtual_pc():
                     "stage": "completed",
                     "capabilities": ["storage.materialize.plan-copy"],
                     "copied": 3,
+                    "copied_paths": [
+                        "/home/test-user/Desktop/Проверка/algebra.pdf",
+                        "/home/test-user/Desktop/Проверка/broken.pdf",
+                        "/home/test-user/Desktop/Проверка/geometry.pdf",
+                    ],
                     "approval_required": True,
                     "paths_exist": [
                         "/home/test-user/Desktop/Проверка/algebra.pdf",
@@ -183,6 +193,46 @@ def test_runner_denial_cancels_without_creating_destination():
     try:
         outcome = runner().run(scenario, run_id=run_id)
         assert outcome.passed, outcome
+    finally:
+        cleanup(run_id)
+
+
+def test_runner_rejects_wrong_result_set_even_when_count_matches():
+    run_id = f"unit-{uuid4()}"
+    scenario = Scenario(
+        "wrong-result-set",
+        "wrong result set",
+        "ru",
+        ("unit",),
+        "base-desktop.json",
+        (
+            ScenarioTurn(
+                "Найди все PDF-файлы",
+                expect={
+                    "stage": "completed",
+                    "found": 3,
+                    "result_paths": [
+                        "/home/test-user/Documents/algebra.pdf",
+                        "/home/test-user/Documents/broken.pdf",
+                        "/mnt/archive/not-geometry.pdf",
+                    ],
+                },
+            ),
+        ),
+        LAB_ROOT / "tests" / "generated",
+    )
+    try:
+        outcome = runner().run(scenario, run_id=run_id)
+        assert not outcome.passed
+        check = next(
+            item for item in outcome.turns[0].checks if item.name == "result_paths"
+        )
+        assert not check.passed
+        assert check.actual == [
+            "/home/test-user/Documents/algebra.pdf",
+            "/home/test-user/Documents/broken.pdf",
+            "/mnt/archive/geometry.pdf",
+        ]
     finally:
         cleanup(run_id)
 

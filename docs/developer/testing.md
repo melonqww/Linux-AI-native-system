@@ -19,6 +19,8 @@ unit/integration тесты лаборатории; они не обращают
 - manifests, уникальность module ID, зависимости и безопасные entrypoint paths;
 - получение лабораторией user-intent маршрутов через тот же production
   Capability Registry, включая исчезновение маршрута отключённого модуля;
+- точный состав найденных и скопированных файлов для search/correction journey,
+  а не только совпадение общего количества;
 - импорт и process lifecycle всех first-party modules;
 - отсутствие `os.system`, `os.popen` и `subprocess(..., shell=True)` в production-
   Python;

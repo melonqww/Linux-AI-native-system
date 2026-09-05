@@ -3,13 +3,13 @@
   "module_id": "documents.query",
   "display_name": "Document Query Service",
   "description": "Searches allowed local files by metadata and indexed content.",
-  "module_version": "0.2.0",
+  "module_version": "0.3.0",
   "core_api": "1",
   "capabilities": [
     {
       "id": "documents.query.search",
-      "description": "Search allowed local files by metadata, indexed content, language, type or volume.",
-      "input_schema": {"type": "object", "properties": {"mode": {"type": "string", "enum": ["metadata", "content", "hybrid"]}, "text": {"type": "string"}, "name_terms": {"type": "array", "items": {"type": "string"}}, "extensions": {"type": "array", "items": {"type": "string"}}, "volume_ids": {"type": "array", "items": {"type": "string"}}, "languages": {"type": "array", "items": {"type": "string"}}}, "required": ["mode"], "additionalProperties": false},
+      "description": "Search allowed local files by metadata, indexed content, type or volume.",
+      "input_schema": {"type": "object", "properties": {"mode": {"type": "string", "enum": ["metadata", "content", "hybrid"]}, "text": {"type": "string"}, "name_terms": {"type": "array", "items": {"type": "string"}}, "extensions": {"type": "array", "items": {"type": "string"}}, "volume_ids": {"type": "array", "items": {"type": "string"}}}, "required": ["mode"], "additionalProperties": false},
       "requested_permissions": ["filesystem.read-metadata", "filesystem.read-content"],
       "user_intent": {
         "operation": "search_documents",

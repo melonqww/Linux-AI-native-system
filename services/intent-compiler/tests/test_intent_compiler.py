@@ -235,6 +235,31 @@ class IntentCompilerTests(unittest.TestCase):
         self.assertEqual(result.state, CompilationState.NEEDS_CLARIFICATION)
         self.assertIsNone(result.intent)
 
+    def test_unimplemented_language_filter_cannot_be_silently_planned(self):
+        text = "Найди PDF по математике"
+        response = payload(
+            text,
+            [
+                operation(
+                    "search",
+                    "search_documents",
+                    {
+                        "mode": "hybrid",
+                        "text": "математика",
+                        "extensions": ["pdf"],
+                        "languages": ["ru"],
+                    },
+                    text,
+                )
+            ],
+        )
+
+        result = self.compiler(response).compile_and_plan(text)
+
+        self.assertEqual(result.state, CompilationState.NEEDS_CLARIFICATION)
+        self.assertIsNone(result.plan)
+        self.assertEqual(result.diagnostics, ("intent_rejected",))
+
     def test_provider_failure_is_contained(self):
         def unavailable(_request):
             raise OSError("model runtime stopped")
