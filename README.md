@@ -180,7 +180,8 @@ Loopback HTTP включается явно флагом `--transport http` и �
 
 ## Автоматические проверки
 
-`python -m pytest -q` проверяет все сервисы, модули, структуру и safety-инварианты.
+`python -m pytest -q` проверяет все сервисы, модули, структуру, safety-инварианты
+и быстрый integration-набор AI Scenario Lab без запуска Ollama.
 GitHub Actions повторяет набор на Windows и Ubuntu 24.04, где дополнительно
 выполняется настоящий inotify integration test. Подробности находятся в
 [`docs/developer/testing.md`](docs/developer/testing.md).

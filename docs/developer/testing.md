@@ -3,17 +3,22 @@
 Основной набор запускается одинаково на Windows и Ubuntu:
 
 ```powershell
-python -m pip install pytest pypdf
+python -m pip install pytest pypdf zstandard
 python -m pytest -q
-python -m compileall -q services modules apps tests
+python -m compileall -q services modules apps tests labs/ai-scenario-lab/src
 node --check apps/desktop-panel/gnome-extension/extension.js
 ```
 
-Корневой `conftest.py` автоматически подключает `src` всех monorepo-пакетов.
+Корневой `conftest.py` автоматически подключает `src` всех monorepo-пакетов и
+AI Scenario Lab. Корневой `python -m pytest -q` обязательно собирает быстрые
+unit/integration тесты лаборатории; они не обращаются к Ollama и не скачивают
+модель. Live model campaigns остаются отдельными явными прогонами.
 
 ## Что проверяется
 
 - manifests, уникальность module ID, зависимости и безопасные entrypoint paths;
+- получение лабораторией user-intent маршрутов через тот же production
+  Capability Registry, включая исчезновение маршрута отключённого модуля;
 - импорт и process lifecycle всех first-party modules;
 - отсутствие `os.system`, `os.popen` и `subprocess(..., shell=True)` в production-
   Python;
@@ -31,7 +36,8 @@ node --check apps/desktop-panel/gnome-extension/extension.js
 - чистый декодер inotify на каждой ОС;
 - настоящий inotify event на Ubuntu runner.
 
-Workflow `.github/workflows/ci.yml` запускает эти проверки на `windows-latest` и
+Workflow `.github/workflows/ci.yml` запускает весь корневой набор, включая быстрые
+тесты лаборатории, на `windows-latest` и
 `ubuntu-24.04` после push и в pull request. Linux-only тест локально на Windows
 показывается как `skipped`; успешный Ubuntu job является обязательной фактической
 проверкой адаптера.

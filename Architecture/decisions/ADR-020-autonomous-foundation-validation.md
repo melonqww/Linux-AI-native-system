@@ -74,3 +74,20 @@ rename JSON для Windows sharing/access conflicts (WinError 5/32/33, до 20
 попыток с паузой 50 мс). Чтение progress не должно ронять supervisor.
 Старый целый JSON сохраняется до успешного rename; постоянная ошибка остаётся
 ошибкой, не превращается в pass. Это повтор записи отчёта, не повтор сценария.
+
+## Уточнение обязательного быстрого контура (2026-09-05)
+
+Быстрые unit/integration тесты лаборатории входят в корневой pytest discovery и
+оба CI job. Они не требуют Ollama, поэтому поломка сборки production pipeline в
+виртуальном ПК блокирует обычный merge-check, а не обнаруживается только перед
+длительной foundation campaign. Foundation supervisor сохраняет отдельные JUnit
+артефакты `contracts` и `lab-tests`, чтобы длительный отчёт явно показывал обе
+предпосылки; это намеренное повторное подтверждение, а не второй набор правил.
+
+Лаборатория не читает module manifests напрямую. Для каждого виртуального
+запуска она создаёт изолированную database production `CapabilityRegistry`,
+синхронизирует first-party services/modules и строит router descriptors только
+из `intent_routes()` включённых модулей. Ошибка manifest sync или отсутствие
+исполняемой capability в Registry закрывает запуск с ошибкой. Тем самым Manifest
+v2 и состояние Registry остаются единственным источником capability-метаданных,
+а лабораторная database не влияет на пользовательские настройки модулей.

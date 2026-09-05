@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import json
 from collections.abc import Callable, Mapping
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
 from time import perf_counter
 
+from ai_native_capabilities import CapabilityRegistry
 from ai_native_intents import IntentCompiler, OllamaModelProvider, TaskContextStore
 from ai_native_ledger import TaskLedger
 from ai_native_orchestrator import DestinationResolver, ExecutionOrchestrator
@@ -213,6 +213,17 @@ class LabEnvironment:
         self.pc.provision(fixture_path)
         self.faults = FaultController(faults)
         self.audit_events: list[dict[str, object]] = []
+        self.capability_registry = CapabilityRegistry(
+            self.run_root / "capability-registry.sqlite3"
+        )
+        registry_report = self.capability_registry.sync(
+            [self.project_root / "services", self.project_root / "modules"]
+        )
+        if registry_report.issues:
+            details = "; ".join(
+                f"{issue.path}: {issue.error}" for issue in registry_report.issues
+            )
+            raise RuntimeError(f"production capability registry sync failed: {details}")
         self._prepare_storage()
         self.query = QueryService(
             storage_database=self.storage_db,
@@ -238,6 +249,14 @@ class LabEnvironment:
             "documents.query.search",
             "storage.materialize.plan-copy",
         )
+        missing_capabilities = set(capabilities).difference(
+            self.capability_registry.available_capabilities()
+        )
+        if missing_capabilities:
+            missing = ", ".join(sorted(missing_capabilities))
+            raise RuntimeError(
+                f"lab executor capabilities are unavailable in production registry: {missing}"
+            )
         orchestrator = ExecutionOrchestrator(
             self.query,
             self.context,
@@ -270,7 +289,10 @@ class LabEnvironment:
             self.context.snapshot,
             turn_router=TurnRouter(self.model),
             capability_router=CapabilityCandidateRouter(
-                self._descriptors(self.executor.available_capabilities())
+                _registry_descriptors(
+                    self.capability_registry,
+                    self.executor.available_capabilities(),
+                )
             ),
             workers=1,
             max_pending=4,
@@ -320,34 +342,6 @@ class LabEnvironment:
         else:
             raise RuntimeError("virtual computer index did not finish")
 
-    def _descriptors(
-        self, available: tuple[str, ...]
-    ) -> tuple[CapabilityDescriptor, ...]:
-        result: list[CapabilityDescriptor] = []
-        allowed = set(available)
-        for manifest in sorted(
-            (
-                *self.project_root.glob("services/*/module.json"),
-                *self.project_root.glob("modules/*/module.json"),
-            )
-        ):
-            payload = json.loads(manifest.read_text(encoding="utf-8"))
-            for route in payload.get("intent_routes", []):
-                if route.get("capability_id") not in allowed:
-                    continue
-                result.append(
-                    CapabilityDescriptor(
-                        route["capability_id"],
-                        route["operation"],
-                        route["description"],
-                        tuple(route["examples"]),
-                    )
-                )
-        if not result:
-            raise RuntimeError("no production intent routes were loaded")
-        return tuple(result)
-
-
 def _json_value(value: object) -> object:
     if is_dataclass(value) and not isinstance(value, type):
         return _json_value(asdict(value))
@@ -362,6 +356,27 @@ def _json_value(value: object) -> object:
     if value is None or isinstance(value, (str, int, float, bool)):
         return value
     return repr(value)
+
+
+def _registry_descriptors(
+    registry: CapabilityRegistry,
+    available: tuple[str, ...],
+) -> tuple[CapabilityDescriptor, ...]:
+    """Adapt enabled Registry routes to the production turn-router contract."""
+    allowed = set(available)
+    result = tuple(
+        CapabilityDescriptor(
+            route.capability_id,
+            route.operation,
+            route.description,
+            route.examples,
+        )
+        for route in registry.intent_routes()
+        if route.capability_id in allowed
+    )
+    if not result:
+        raise RuntimeError("no enabled production intent routes were loaded")
+    return result
 
 
 def _counter(payload: Mapping[str, object], name: str) -> int | None:

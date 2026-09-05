@@ -24,10 +24,10 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install --yes gjs
       - name: Install test dependencies
-        run: python -m pip install --disable-pip-version-check pytest pypdf
+        run: python -m pip install --disable-pip-version-check pytest pypdf zstandard
       - name: Run repository tests
         run: python -m pytest -q
       - name: Compile Python sources
-        run: python -m compileall -q services modules apps
+        run: python -m compileall -q services modules apps labs/ai-scenario-lab/src
       - name: Validate GNOME extension JavaScript syntax
         run: node --check apps/desktop-panel/gnome-extension/extension.js
