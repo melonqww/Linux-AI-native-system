@@ -8,7 +8,12 @@ from pathlib import Path
 from time import perf_counter
 
 from ai_native_capabilities import CapabilityRegistry
-from ai_native_intents import IntentCompiler, OllamaModelProvider, TaskContextStore
+from ai_native_intents import (
+    IntentCompiler,
+    OllamaModelProvider,
+    TaskContextStore,
+    build_operation_definitions,
+)
 from ai_native_ledger import TaskLedger
 from ai_native_orchestrator import DestinationResolver, ExecutionOrchestrator
 from ai_native_permissions import TransportContext
@@ -132,7 +137,9 @@ class TracingModel:
 
 
 class RecordingExecutor:
-    def __init__(self, executor: ExecutionOrchestrator, faults: FaultController) -> None:
+    def __init__(
+        self, executor: ExecutionOrchestrator, faults: FaultController
+    ) -> None:
         self.executor = executor
         self.faults = faults
         self.records: list[dict[str, object]] = []
@@ -278,7 +285,11 @@ class LabEnvironment:
         self.model = TracingModel(raw_provider, self.faults)
         self.compiler = IntentCompiler(
             self.model,
-            capability_source=self.executor.available_capabilities,
+            operation_source=lambda: _operation_definitions(
+                self.capability_registry,
+                self.executor.available_capabilities(),
+                orchestrator.permission_gateway.policy,
+            ),
         )
         self.store = WorkspaceStore(self.run_root / "workspace.sqlite3")
         self.runtime = WorkspaceRuntime(
@@ -292,6 +303,7 @@ class LabEnvironment:
                 _registry_descriptors(
                     self.capability_registry,
                     self.executor.available_capabilities(),
+                    orchestrator.permission_gateway.policy,
                 )
             ),
             workers=1,
@@ -342,6 +354,7 @@ class LabEnvironment:
         else:
             raise RuntimeError("virtual computer index did not finish")
 
+
 def _json_value(value: object) -> object:
     if is_dataclass(value) and not isinstance(value, type):
         return _json_value(asdict(value))
@@ -361,22 +374,30 @@ def _json_value(value: object) -> object:
 def _registry_descriptors(
     registry: CapabilityRegistry,
     available: tuple[str, ...],
+    policy_source,
 ) -> tuple[CapabilityDescriptor, ...]:
     """Adapt enabled Registry routes to the production turn-router contract."""
-    allowed = set(available)
     result = tuple(
         CapabilityDescriptor(
-            route.capability_id,
-            route.operation,
-            route.description,
-            route.examples,
+            definition.capability_id,
+            definition.operation,
+            definition.description,
+            definition.examples,
         )
-        for route in registry.intent_routes()
-        if route.capability_id in allowed
+        for definition in _operation_definitions(registry, available, policy_source)
     )
     if not result:
         raise RuntimeError("no enabled production intent routes were loaded")
     return result
+
+
+def _operation_definitions(registry, available, policy_source):
+    """Build the same trusted operation catalog used by the production runtime."""
+    return build_operation_definitions(
+        registry.capability_contracts(),
+        available_capabilities=available,
+        policy_source=policy_source,
+    )
 
 
 def _counter(payload: Mapping[str, object], name: str) -> int | None:

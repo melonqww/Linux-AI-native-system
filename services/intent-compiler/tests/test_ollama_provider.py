@@ -11,6 +11,8 @@ from ai_native_intents import (
     OllamaModelProvider,
     OllamaProviderError,
     OllamaUnavailableError,
+    OperationDefinition,
+    RiskClass,
 )
 from ai_native_turns import TurnHistoryMessage, TurnRequest
 
@@ -30,6 +32,77 @@ class FakeResponse:
         return self.body.read(size)
 
 
+def operation_definitions():
+    specs = {
+        "search_documents": (
+            "documents.query.search",
+            {
+                "mode": {"type": "string", "enum": ["metadata", "content", "hybrid"]},
+                "text": {
+                    "type": "string",
+                    "description": "The subject inside indexed document content.",
+                },
+                "extensions": {"type": "array", "items": {"type": "string"}},
+                "name_terms": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Terms in the file name, never content.",
+                },
+            },
+            ["mode"],
+        ),
+        "find_application": (
+            "desktop.applications.find",
+            {"query": {"type": "string"}},
+            ["query"],
+        ),
+        "plan_web_search": (
+            "browser.search.plan",
+            {
+                "query": {"type": "string"},
+                "engine": {"type": "string", "enum": ["duckduckgo", "google"]},
+            },
+            ["query"],
+        ),
+        "plan_open_url": ("browser.url.plan", {"url": {"type": "string"}}, ["url"]),
+        "copy_results": (
+            "storage.materialize.plan-copy",
+            {
+                "results_from": {"type": "string"},
+                "destination": {
+                    "type": "string",
+                    "enum": [
+                        "desktop",
+                        "documents",
+                        "downloads",
+                        "context.last_destination",
+                    ],
+                },
+                "directory_name": {"type": "string"},
+            },
+            ["results_from", "destination"],
+        ),
+    }
+    return tuple(
+        OperationDefinition(
+            operation,
+            capability,
+            f"Description owned by {capability}",
+            {
+                "type": "object",
+                "properties": properties,
+                "required": required,
+                "additionalProperties": False,
+            },
+            risk=RiskClass.REVERSIBLE_WRITE
+            if operation == "copy_results"
+            else RiskClass.READ_ONLY,
+            approval_required=operation == "copy_results",
+        )
+        for operation, (capability, properties, required) in specs.items()
+    )
+
+
 def model_request(user_text="Найди PDF по математике"):
     return ModelRequest(
         user_text=user_text,
@@ -41,6 +114,7 @@ def model_request(user_text="Найди PDF по математике"):
         },
         output_schema={"type": "object", "additionalProperties": False},
         instructions="Return a validated intent object.",
+        operation_definitions=operation_definitions(),
     )
 
 
@@ -173,6 +247,7 @@ class OllamaProviderTests(unittest.TestCase):
             request.output_schema,
             request.instructions,
             allowed_operations=("search_documents",),
+            operation_definitions=request.operation_definitions,
         )
         with patch("ai_native_intents.ollama._open_loopback", side_effect=open_request):
             turn = OllamaModelProvider().route(request)
@@ -213,6 +288,7 @@ class OllamaProviderTests(unittest.TestCase):
             request.output_schema,
             request.instructions,
             allowed_operations=("search_documents",),
+            operation_definitions=request.operation_definitions,
         )
         with patch("ai_native_intents.ollama._open_loopback", return_value=response):
             with self.assertRaises(OllamaProviderError):
@@ -246,6 +322,7 @@ class OllamaProviderTests(unittest.TestCase):
             request.output_schema,
             request.instructions,
             allowed_operations=("copy_results",),
+            operation_definitions=request.operation_definitions,
         )
         with patch("ai_native_intents.ollama._open_loopback", return_value=response):
             turn = OllamaModelProvider().route(request)
@@ -365,14 +442,17 @@ class OllamaProviderTests(unittest.TestCase):
         self.assertFalse(body["stream"])
         self.assertFalse(body["think"])
         self.assertNotIn("format", body)
-        self.assertEqual(len(body["tools"]), 7)
+        self.assertEqual(len(body["tools"]), len(operation_definitions()) + 1)
         search_tool = next(
             item["function"]
             for item in body["tools"]
             if item["function"]["name"] == "search_documents"
         )
         self.assertNotIn("languages", search_tool["parameters"]["properties"])
-        self.assertIn("Never drop", search_tool["description"])
+        self.assertEqual(
+            search_tool["description"],
+            "Description owned by documents.query.search",
+        )
         self.assertEqual(body["options"]["num_ctx"], 4096)
         self.assertEqual(body["options"]["temperature"], 0.7)
         self.assertEqual(body["options"]["top_p"], 0.8)
@@ -419,6 +499,7 @@ class OllamaProviderTests(unittest.TestCase):
                 ModelHistoryMessage("user", "Мы говорили о PDF по математике"),
                 ModelHistoryMessage("assistant", "Да, помню тему разговора."),
             ),
+            operation_definitions=request.operation_definitions,
         )
         with patch("ai_native_intents.ollama._open_loopback", side_effect=open_request):
             turn = OllamaModelProvider().route(request)

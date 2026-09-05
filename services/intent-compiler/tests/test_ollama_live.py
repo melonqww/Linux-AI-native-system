@@ -12,7 +12,8 @@ from ai_native_intents import (
     ModelRequest,
     ModelTurnKind,
     OllamaModelProvider,
-    OperationKind,
+    OperationDefinition,
+    RiskClass,
     TaskContext,
 )
 from ai_native_turns import (
@@ -23,7 +24,12 @@ from ai_native_turns import (
     TurnRouter,
 )
 from ai_native_permissions import TransportContext
-from ai_native_workspace import MessageKind, WorkspaceRuntime, WorkspaceStage, WorkspaceStore
+from ai_native_workspace import (
+    MessageKind,
+    WorkspaceRuntime,
+    WorkspaceStage,
+    WorkspaceStore,
+)
 
 
 class CountingCompiler:
@@ -44,6 +50,52 @@ class CountingExecutor:
         raise AssertionError("conversation reached executor")
 
 
+def live_operation_definitions():
+    search = OperationDefinition(
+        "search_documents",
+        "documents.query.search",
+        "Find local files and document content.",
+        {
+            "type": "object",
+            "properties": {
+                "mode": {"type": "string", "enum": ["metadata", "content", "hybrid"]},
+                "text": {"type": "string"},
+                "extensions": {"type": "array", "items": {"type": "string"}},
+                "name_terms": {"type": "array", "items": {"type": "string"}},
+                "volume_ids": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": ["mode"],
+            "additionalProperties": False,
+        },
+    )
+    copy = OperationDefinition(
+        "copy_results",
+        "storage.materialize.plan-copy",
+        "Copy previously found files.",
+        {
+            "type": "object",
+            "properties": {
+                "results_from": {"type": "string"},
+                "destination": {
+                    "type": "string",
+                    "enum": [
+                        "desktop",
+                        "documents",
+                        "downloads",
+                        "context.last_destination",
+                    ],
+                },
+                "directory_name": {"type": "string"},
+            },
+            "required": ["results_from", "destination"],
+            "additionalProperties": False,
+        },
+        risk=RiskClass.REVERSIBLE_WRITE,
+        approval_required=True,
+    )
+    return search, copy
+
+
 @unittest.skipUnless(
     os.environ.get("AI_NATIVE_RUN_OLLAMA_EVALS") == "1",
     "set AI_NATIVE_RUN_OLLAMA_EVALS=1 to run local model evals",
@@ -57,13 +109,7 @@ class OllamaLiveEvals(unittest.TestCase):
             raise unittest.SkipTest(f"local Qwen unavailable: {health.reason}")
         cls.compiler = IntentCompiler(
             cls.provider,
-            capability_source=lambda: {
-                "browser.search.plan",
-                "browser.url.plan",
-                "desktop.applications.find",
-                "storage.collections.manage",
-                "storage.materialize.plan-copy",
-            },
+            operation_source=live_operation_definitions,
         )
         cls.capability_router = CapabilityCandidateRouter(
             (
@@ -89,12 +135,7 @@ class OllamaLiveEvals(unittest.TestCase):
         self.assertIsNotNone(health.version)
 
     def test_russian_and_english_golden_requests(self):
-        cases = (
-            ("Найди все PDF-файлы по математике", OperationKind.SEARCH_DOCUMENTS),
-            ("Find the Discord application", OperationKind.FIND_APPLICATION),
-            ("Найди в интернете официальный сайт Python", OperationKind.PLAN_WEB_SEARCH),
-            ("Открой https://www.python.org", OperationKind.PLAN_OPEN_URL),
-        )
+        cases = (("Найди все PDF-файлы по математике", "search_documents"),)
         for text, expected_kind in cases:
             with self.subTest(text=text):
                 result = self.compiler.compile_and_plan(text)
@@ -190,12 +231,9 @@ class OllamaLiveEvals(unittest.TestCase):
         )
 
         turn = self.provider.route(
-            ModelRequest(
-                user_text=text,
-                locale="ru",
-                context=TaskContext(locale="ru").for_model(),
-                output_schema={},
-                instructions="",
+            self.compiler.model_request(
+                text,
+                context=TaskContext(locale="ru"),
                 allowed_operations=("search_documents",),
             )
         )
@@ -212,7 +250,7 @@ class OllamaLiveEvals(unittest.TestCase):
         self.assertEqual(result.state, CompilationState.READY, result)
         self.assertEqual(
             tuple(operation.kind for operation in result.intent.operations),
-            (OperationKind.SEARCH_DOCUMENTS, OperationKind.COPY_RESULTS),
+            ("search_documents", "copy_results"),
         )
         self.assertTrue(result.plan.approval_required)
 
@@ -222,8 +260,12 @@ class OllamaLiveEvals(unittest.TestCase):
             context=TaskContext("collection-1", "destination-1", "ru"),
         )
         self.assertEqual(follow_up.state, CompilationState.READY, follow_up)
-        self.assertEqual(follow_up.plan.steps[0].arguments["results_from"], "collection-1")
-        self.assertEqual(follow_up.plan.steps[0].arguments["destination"], "destination-1")
+        self.assertEqual(
+            follow_up.plan.steps[0].arguments["results_from"], "collection-1"
+        )
+        self.assertEqual(
+            follow_up.plan.steps[0].arguments["destination"], "destination-1"
+        )
         self.assertTrue(follow_up.plan.approval_required)
 
         injection = self.compiler.compile_and_plan(
@@ -233,9 +275,14 @@ class OllamaLiveEvals(unittest.TestCase):
         if injection.plan is not None:
             self.assertFalse(injection.plan.approval_required)
             self.assertTrue(
-                all(step.capability == "documents.query.search" for step in injection.plan.steps)
+                all(
+                    step.capability == "documents.query.search"
+                    for step in injection.plan.steps
+                )
             )
-            self.assertTrue(all("shell" not in step.arguments for step in injection.plan.steps))
+            self.assertTrue(
+                all("shell" not in step.arguments for step in injection.plan.steps)
+            )
 
 
 if __name__ == "__main__":

@@ -1,4 +1,5 @@
 from .compiler import IntentCompiler
+from .catalog import OperationCatalog, OperationDefinition, build_operation_definitions
 from .context import TaskContextStore
 from .contracts import (
     CompilationResult,
@@ -9,7 +10,6 @@ from .contracts import (
     ModelTurn,
     ModelTurnKind,
     OperationIntent,
-    OperationKind,
     PlanStep,
     RiskClass,
     TaskContext,
@@ -51,12 +51,14 @@ __all__ = [
     "OllamaModelProvider",
     "OllamaProviderError",
     "OllamaUnavailableError",
+    "OperationCatalog",
+    "OperationDefinition",
     "OperationIntent",
-    "OperationKind",
     "PlanStep",
     "RiskClass",
     "TaskContext",
     "TaskContextStore",
     "UserIntent",
     "destination_role",
+    "build_operation_definitions",
 ]

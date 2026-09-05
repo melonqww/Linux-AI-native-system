@@ -16,11 +16,18 @@ Endpoint строит preview и ничего не исполняет.
 
 - `ready` — все capability доступны, план можно передать policy layer;
 - `needs_clarification` — не хватает смысла/контекста или model output отклонён;
-- `unavailable` — намерение понятно, но нужный модуль сейчас недоступен.
+- `unavailable` — зарезервированное состояние для capability, исчезнувшей после
+  построения плана; штатно неисполняемые операции заранее исключаются из model
+  schema и semantic functions.
 
 Каждый шаг плана содержит `capability`, `arguments`, `depends_on`, `risk` и
 `approval_required`. Значение `ready` не является разрешением на выполнение:
 изменяющие шаги всё равно проходят Permission Gateway.
+
+Набор операций не является частью статической API-схемы. Runtime строит его из
+включённых контрактов Capability Registry, реально зарегистрированных execution
+handlers и доверенных Permission Gateway policies. Поэтому отсутствующий или
+отключённый модуль не может быть предложен моделью как исполнимая команда.
 
 По умолчанию runtime использует локальный Ollama adapter с `qwen3.5:2b`. Если
 Ollama или модель временно недоступны, ответ имеет `needs_clarification` и

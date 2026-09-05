@@ -7,30 +7,12 @@ from collections.abc import Mapping
 from urllib.parse import urlparse
 from uuid import uuid4
 
-from .contracts import IntentValue, OperationIntent, OperationKind, UserIntent
-
+from .catalog import OperationCatalog, OperationDefinition
+from .contracts import IntentValue, OperationIntent, UserIntent
 
 _IDENTIFIER = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 _TOP_LEVEL_KEYS = {"schema_version", "language", "summary", "confidence", "operations"}
 _OPERATION_KEYS = {"id", "kind", "arguments", "depends_on", "evidence"}
-_ARGUMENT_SCHEMAS: dict[OperationKind, dict[str, str]] = {
-    OperationKind.SEARCH_DOCUMENTS: {
-        "mode": "search_mode",
-        "text": "string",
-        "extensions": "strings",
-        "volume_ids": "strings",
-        "name_terms": "strings",
-    },
-    OperationKind.FIND_APPLICATION: {"query": "string"},
-    OperationKind.PLAN_WEB_SEARCH: {"query": "string", "engine": "string"},
-    OperationKind.PLAN_OPEN_URL: {"url": "url"},
-    OperationKind.SAVE_RESULTS: {"results_from": "reference", "title": "string"},
-    OperationKind.COPY_RESULTS: {
-        "results_from": "reference",
-        "destination": "destination",
-        "directory_name": "string",
-    },
-}
 
 
 class IntentValidationError(ValueError):
@@ -38,7 +20,14 @@ class IntentValidationError(ValueError):
 
 
 class IntentValidator:
-    def parse(self, payload: Mapping[str, object], *, user_text: str) -> UserIntent:
+    def parse(
+        self,
+        payload: Mapping[str, object],
+        *,
+        user_text: str,
+        operation_definitions: tuple[OperationDefinition, ...],
+    ) -> UserIntent:
+        catalog = OperationCatalog(operation_definitions)
         self._exact_keys(payload, _TOP_LEVEL_KEYS, "intent")
         if payload.get("schema_version") != 1:
             raise IntentValidationError("unsupported intent schema_version")
@@ -54,9 +43,8 @@ class IntentValidator:
         raw_operations = payload.get("operations")
         if not isinstance(raw_operations, list) or not 1 <= len(raw_operations) <= 12:
             raise IntentValidationError("operations must contain from 1 to 12 items")
-
         operations = tuple(
-            self._operation(item, user_text=user_text, ordinal=ordinal)
+            self._operation(item, user_text=user_text, ordinal=ordinal, catalog=catalog)
             for ordinal, item in enumerate(raw_operations)
         )
         self._validate_graph(operations)
@@ -72,11 +60,7 @@ class IntentValidator:
         )
 
     def _operation(
-        self,
-        value: object,
-        *,
-        user_text: str,
-        ordinal: int,
+        self, value: object, *, user_text: str, ordinal: int, catalog: OperationCatalog
     ) -> OperationIntent:
         if not isinstance(value, Mapping):
             raise IntentValidationError(f"operation {ordinal} must be an object")
@@ -84,19 +68,38 @@ class IntentValidator:
         operation_id = self._string(value.get("id"), "operation id", maximum=64)
         if not _IDENTIFIER.fullmatch(operation_id):
             raise IntentValidationError(f"invalid operation id: {operation_id}")
+        kind = self._string(value.get("kind"), "operation kind", maximum=64)
         try:
-            kind = OperationKind(self._string(value.get("kind"), "operation kind", maximum=64))
+            definition = catalog.operation(kind)
         except ValueError as error:
             raise IntentValidationError("unsupported operation kind") from error
-        arguments = self._arguments(kind, value.get("arguments"))
-        if kind is OperationKind.PLAN_OPEN_URL:
-            url = arguments.get("url")
-            if not isinstance(url, str) or url.casefold() not in user_text.casefold():
-                raise IntentValidationError("URL must occur verbatim in the user message")
-        depends_on = self._string_list(value.get("depends_on"), "depends_on", maximum=12)
+        raw_arguments = value.get("arguments")
+        if not isinstance(raw_arguments, Mapping):
+            raise IntentValidationError(f"arguments for {kind} must be an object")
+        normalized = dict(raw_arguments)
+        if kind == "search_documents" and "mode" not in normalized:
+            text = normalized.get("text")
+            normalized["mode"] = (
+                "hybrid"
+                if isinstance(text, str)
+                and any(normalized.get(key) for key in ("extensions", "name_terms"))
+                else "content"
+                if isinstance(text, str)
+                else "metadata"
+            )
+        try:
+            arguments = definition.validate_arguments(normalized)
+        except (TypeError, ValueError) as error:
+            raise IntentValidationError(str(error)) from error
+        self._validate_special_semantics(kind, arguments, user_text)
+        depends_on = self._string_list(
+            value.get("depends_on"), "depends_on", maximum=12
+        )
         evidence = self._string_list(value.get("evidence"), "evidence", maximum=12)
         if not evidence:
-            raise IntentValidationError(f"operation {operation_id} has no grounding evidence")
+            raise IntentValidationError(
+                f"operation {operation_id} has no grounding evidence"
+            )
         normalized_text = user_text.casefold()
         for quote in evidence:
             if quote.casefold() not in normalized_text:
@@ -105,85 +108,51 @@ class IntentValidator:
                 )
         return OperationIntent(operation_id, kind, arguments, depends_on, evidence)
 
-    def _arguments(self, kind: OperationKind, value: object) -> dict[str, IntentValue]:
-        if not isinstance(value, Mapping):
-            raise IntentValidationError(f"arguments for {kind.value} must be an object")
-        schema = _ARGUMENT_SCHEMAS[kind]
-        unknown = set(value) - set(schema)
-        if unknown:
-            raise IntentValidationError(
-                f"unsupported arguments for {kind.value}: {sorted(unknown)}"
-            )
-        result: dict[str, IntentValue] = {}
-        for key, raw in value.items():
-            argument_type = schema[key]
-            if argument_type in {"string", "reference"}:
-                item = self._string(raw, key, maximum=2_000)
-                if key == "engine" and item not in {"duckduckgo", "google"}:
-                    raise IntentValidationError("unsupported search engine")
-                result[key] = item
-            elif argument_type == "strings":
-                items = self._string_list(raw, key, maximum=100)
-                if key == "extensions":
-                    if any(not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9+_-]{0,15}", item) for item in items):
-                        raise IntentValidationError("extensions must be simple suffixes without dots")
-                    items = tuple(item.casefold() for item in items)
-                result[key] = items
-            elif argument_type == "destination":
-                role = self._string(raw, key, maximum=32)
-                if role not in {
-                    "desktop",
-                    "documents",
-                    "downloads",
-                    "context.last_destination",
-                }:
-                    raise IntentValidationError("unsupported destination")
-                result[key] = role
-            elif argument_type == "search_mode":
-                mode = self._string(raw, key, maximum=16)
-                if mode not in {"metadata", "content", "hybrid"}:
-                    raise IntentValidationError("unsupported document search mode")
-                result[key] = mode
-            elif argument_type == "url":
-                url = self._string(raw, key, maximum=2_000)
-                parsed = urlparse(url)
-                if (
-                    parsed.scheme not in {"http", "https"}
-                    or not parsed.hostname
-                    or parsed.username
-                    or parsed.password
-                ):
-                    raise IntentValidationError("only credential-free HTTP(S) URLs are allowed")
-                result[key] = parsed.geturl()
-        destination_name = result.get("directory_name")
+    @staticmethod
+    def _validate_special_semantics(
+        kind: str, arguments: dict[str, IntentValue], user_text: str
+    ) -> None:
+        url = arguments.get("url")
+        if isinstance(url, str):
+            parsed = urlparse(url)
+            if (
+                parsed.scheme not in {"http", "https"}
+                or not parsed.hostname
+                or parsed.username
+                or parsed.password
+                or url.casefold() not in user_text.casefold()
+            ):
+                raise IntentValidationError(
+                    "URL must be a credential-free HTTP(S) URL present in the message"
+                )
+        destination_name = arguments.get("directory_name")
         if isinstance(destination_name, str) and (
             destination_name in {".", ".."}
             or "/" in destination_name
             or "\\" in destination_name
         ):
-            raise IntentValidationError("destination_name must be one directory name")
-        if kind is OperationKind.SEARCH_DOCUMENTS:
-            mode = result.get("mode")
-            text = result.get("text")
-            if not isinstance(mode, str):
-                mode = (
-                    "hybrid"
-                    if isinstance(text, str) and any(result.get(key) for key in ("extensions", "name_terms"))
-                    else "content"
-                    if isinstance(text, str)
-                    else "metadata"
+            raise IntentValidationError("directory_name must be one directory name")
+        extensions = arguments.get("extensions")
+        if isinstance(extensions, tuple):
+            if any(
+                not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9+_-]{0,15}", item)
+                for item in extensions
+            ):
+                raise IntentValidationError(
+                    "extensions must be simple suffixes without dots"
                 )
-                result["mode"] = mode
+            arguments["extensions"] = tuple(item.casefold() for item in extensions)
+        if kind == "search_documents":
+            mode = arguments.get("mode")
+            text = arguments.get("text")
             if mode == "metadata" and text is not None:
                 raise IntentValidationError("metadata search cannot contain text")
             if mode in {"content", "hybrid"} and not isinstance(text, str):
                 raise IntentValidationError("content search requires text")
-        return result
 
     @staticmethod
     def _validate_graph(operations: tuple[OperationIntent, ...]) -> None:
         seen: set[str] = set()
-        output_kinds: dict[str, OperationKind] = {}
         all_ids = [operation.operation_id for operation in operations]
         if len(set(all_ids)) != len(all_ids):
             raise IntentValidationError("operation ids must be unique")
@@ -196,22 +165,20 @@ class IntentValidator:
             reference = operation.arguments.get("results_from")
             if isinstance(reference, str) and reference != "context.active_results":
                 if reference.startswith("context."):
-                    raise IntentValidationError("results_from uses the wrong context reference")
+                    raise IntentValidationError(
+                        "results_from uses the wrong context reference"
+                    )
                 if reference not in seen:
                     raise IntentValidationError(
                         "results_from must reference trusted context or an earlier operation"
                     )
-                if output_kinds[reference] not in {
-                    OperationKind.SEARCH_DOCUMENTS,
-                    OperationKind.SAVE_RESULTS,
-                }:
-                    raise IntentValidationError("results_from must reference a result-producing operation")
             seen.add(operation.operation_id)
-            output_kinds[operation.operation_id] = operation.kind
 
     @staticmethod
     def _evidence_coverage(operations: tuple[OperationIntent, ...]) -> float:
-        return sum(bool(operation.evidence) for operation in operations) / len(operations)
+        return sum(bool(operation.evidence) for operation in operations) / len(
+            operations
+        )
 
     @staticmethod
     def _exact_keys(value: Mapping[str, object], allowed: set[str], label: str) -> None:
@@ -220,19 +187,29 @@ class IntentValidator:
         if missing:
             raise IntentValidationError(f"{label} misses fields: {sorted(missing)}")
         if unknown:
-            raise IntentValidationError(f"{label} has unknown fields: {sorted(unknown)}")
+            raise IntentValidationError(
+                f"{label} has unknown fields: {sorted(unknown)}"
+            )
 
     @staticmethod
     def _string(value: object, label: str, *, maximum: int) -> str:
         if not isinstance(value, str):
             raise IntentValidationError(f"{label} must be a string")
         value = value.strip()
-        if not value or len(value) > maximum or any(ord(character) < 32 for character in value):
-            raise IntentValidationError(f"{label} has invalid length or control characters")
+        if (
+            not value
+            or len(value) > maximum
+            or any(ord(character) < 32 for character in value)
+        ):
+            raise IntentValidationError(
+                f"{label} has invalid length or control characters"
+            )
         return value
 
     @classmethod
-    def _string_list(cls, value: object, label: str, *, maximum: int) -> tuple[str, ...]:
+    def _string_list(
+        cls, value: object, label: str, *, maximum: int
+    ) -> tuple[str, ...]:
         if not isinstance(value, list) or len(value) > maximum:
             raise IntentValidationError(f"{label} must be a bounded string array")
         return tuple(cls._string(item, label, maximum=300) for item in value)

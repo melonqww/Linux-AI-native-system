@@ -8,23 +8,26 @@ import sqlite3
 from pathlib import Path
 from threading import RLock
 
-from .contracts import OperationIntent, OperationKind, TaskContext, UserIntent
+from .contracts import OperationIntent, TaskContext, UserIntent
 
 
 class ContextResolver:
-    def resolve(self, intent: UserIntent, context: TaskContext) -> tuple[UserIntent, tuple[str, ...]]:
+    def resolve(
+        self, intent: UserIntent, context: TaskContext
+    ) -> tuple[UserIntent, tuple[str, ...]]:
         missing: list[str] = []
         resolved_operations: list[OperationIntent] = []
-        kinds = {operation.operation_id: operation.kind for operation in intent.operations}
+        kinds = {
+            operation.operation_id: operation.kind for operation in intent.operations
+        }
         for operation in intent.operations:
             arguments = dict(operation.arguments)
-            if operation.kind in {OperationKind.SAVE_RESULTS, OperationKind.COPY_RESULTS}:
+            if operation.kind in {"save_results", "copy_results"}:
                 if "results_from" not in arguments:
                     producers = [
                         dependency
                         for dependency in operation.depends_on
-                        if kinds.get(dependency)
-                        in {OperationKind.SEARCH_DOCUMENTS, OperationKind.SAVE_RESULTS}
+                        if kinds.get(dependency) in {"search_documents", "save_results"}
                     ]
                     if len(producers) == 1:
                         arguments["results_from"] = producers[0]
@@ -46,7 +49,9 @@ class ContextResolver:
                     else:
                         arguments[key] = context.last_destination
             resolved_operations.append(replace(operation, arguments=arguments))
-        return replace(intent, operations=tuple(resolved_operations)), tuple(dict.fromkeys(missing))
+        return replace(intent, operations=tuple(resolved_operations)), tuple(
+            dict.fromkeys(missing)
+        )
 
 
 class TaskContextStore:
@@ -67,7 +72,9 @@ class TaskContextStore:
         with self._lock:
             self._context = replace(
                 self._context,
-                active_collection_id=self._trusted_value(collection_id, "collection_id"),
+                active_collection_id=self._trusted_value(
+                    collection_id, "collection_id"
+                ),
             )
             self._persist()
             return self._context
@@ -146,6 +153,10 @@ class TaskContextStore:
         if not isinstance(value, str):
             raise TypeError(f"{label} must be a string or None")
         value = value.strip()
-        if not value or len(value) > 4_096 or any(ord(character) < 32 for character in value):
+        if (
+            not value
+            or len(value) > 4_096
+            or any(ord(character) < 32 for character in value)
+        ):
             raise ValueError(f"{label} is invalid")
         return value

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .contracts import OperationKind, TaskContext, UserIntent
+from .contracts import TaskContext, UserIntent
 
 
 class ClarificationPolicy:
@@ -34,22 +34,46 @@ class ClarificationPolicy:
             )
         for operation in intent.operations:
             arguments = operation.arguments
-            if operation.kind is OperationKind.SEARCH_DOCUMENTS and not any(
+            if operation.kind == "search_documents" and not any(
                 arguments.get(key) for key in ("text", "extensions", "name_terms")
             ):
                 return "Что именно нужно найти?" if russian else "What should be found?"
-            if operation.kind is OperationKind.FIND_APPLICATION and not arguments.get("query"):
-                return "Какое приложение найти?" if russian else "Which application should be found?"
-            if operation.kind is OperationKind.PLAN_WEB_SEARCH and not arguments.get("query"):
-                return "Что искать в интернете?" if russian else "What should be searched on the web?"
-            if operation.kind is OperationKind.SAVE_RESULTS:
+            if operation.kind == "find_application" and not arguments.get("query"):
+                return (
+                    "Какое приложение найти?"
+                    if russian
+                    else "Which application should be found?"
+                )
+            if operation.kind == "plan_web_search" and not arguments.get("query"):
+                return (
+                    "Что искать в интернете?"
+                    if russian
+                    else "What should be searched on the web?"
+                )
+            if operation.kind == "save_results":
                 if not arguments.get("results_from"):
-                    return "Какие результаты сохранить?" if russian else "Which results should be saved?"
+                    return (
+                        "Какие результаты сохранить?"
+                        if russian
+                        else "Which results should be saved?"
+                    )
                 if not arguments.get("title"):
-                    return "Как назвать коллекцию?" if russian else "What should the collection be named?"
-            if operation.kind is OperationKind.COPY_RESULTS:
+                    return (
+                        "Как назвать коллекцию?"
+                        if russian
+                        else "What should the collection be named?"
+                    )
+            if operation.kind == "copy_results":
                 if not arguments.get("results_from"):
-                    return "Какие результаты скопировать?" if russian else "Which results should be copied?"
+                    return (
+                        "Какие результаты скопировать?"
+                        if russian
+                        else "Which results should be copied?"
+                    )
                 if not arguments.get("destination"):
-                    return "Куда скопировать результаты?" if russian else "Where should results be copied?"
+                    return (
+                        "Куда скопировать результаты?"
+                        if russian
+                        else "Where should results be copied?"
+                    )
         return None

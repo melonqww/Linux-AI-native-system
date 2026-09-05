@@ -24,23 +24,41 @@ def demo_payload() -> dict[str, object]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="AI-native Linux portfolio MVP")
-    parser.add_argument("--demo", action="store_true", help="validate the fixed read-only demo request")
-    parser.add_argument("--serve-panel", action="store_true", help="serve the panel runtime API")
+    parser.add_argument(
+        "--demo", action="store_true", help="validate the fixed read-only demo request"
+    )
+    parser.add_argument(
+        "--serve-panel", action="store_true", help="serve the panel runtime API"
+    )
     parser.add_argument(
         "--transport",
         choices=("auto", "unix", "http"),
         default="auto",
         help="auto uses authenticated Unix IPC on Linux and loopback HTTP elsewhere",
     )
-    parser.add_argument("--socket-path", type=Path, help="override the Linux Unix socket path")
+    parser.add_argument(
+        "--socket-path", type=Path, help="override the Linux Unix socket path"
+    )
     parser.add_argument("--host", default="127.0.0.1", choices=("127.0.0.1",))
     parser.add_argument("--port", type=int, default=8765)
-    parser.add_argument("--storage-database", type=Path, default=Path("data/storage-catalog.sqlite3"))
-    parser.add_argument("--index-database", type=Path, default=Path("data/document-index.sqlite3"))
-    parser.add_argument("--registry-database", type=Path, default=Path("data/capabilities.sqlite3"))
-    parser.add_argument("--task-ledger-database", type=Path, default=Path("data/task-ledger.sqlite3"))
-    parser.add_argument("--memory-database", type=Path, default=Path("data/task-memory.sqlite3"))
-    parser.add_argument("--workspace-database", type=Path, default=Path("data/workspace.sqlite3"))
+    parser.add_argument(
+        "--storage-database", type=Path, default=Path("data/storage-catalog.sqlite3")
+    )
+    parser.add_argument(
+        "--index-database", type=Path, default=Path("data/document-index.sqlite3")
+    )
+    parser.add_argument(
+        "--registry-database", type=Path, default=Path("data/capabilities.sqlite3")
+    )
+    parser.add_argument(
+        "--task-ledger-database", type=Path, default=Path("data/task-ledger.sqlite3")
+    )
+    parser.add_argument(
+        "--memory-database", type=Path, default=Path("data/task-memory.sqlite3")
+    )
+    parser.add_argument(
+        "--workspace-database", type=Path, default=Path("data/workspace.sqlite3")
+    )
     parser.add_argument("--intent-model", default="qwen3.5:2b")
     parser.add_argument("--ollama-url", default="http://127.0.0.1:11434")
     parser.add_argument("--intent-timeout", type=float, default=45.0)
@@ -87,7 +105,9 @@ def main() -> int:
             manager.start_for_capability("storage.watch.events")
             system_monitor_status = None
             try:
-                monitor_module_id = manager.start_for_capability("system.monitor.snapshot")
+                monitor_module_id = manager.start_for_capability(
+                    "system.monitor.snapshot"
+                )
             except ModuleProcessError:
                 print("System monitor: unavailable")
             else:
@@ -181,6 +201,7 @@ def main() -> int:
                     IntentCompiler,
                     OllamaModelProvider,
                     TaskContextStore,
+                    build_operation_definitions,
                 )
 
                 provider = OllamaModelProvider(
@@ -190,12 +211,12 @@ def main() -> int:
                     context_tokens=args.intent_context_tokens,
                 )
                 model_health = provider.health()
-                state = "ready" if model_health.available else f"unavailable ({model_health.reason})"
-                print(f"Intent model {args.intent_model}: {state}")
-                intent_pipeline = IntentCompiler(
-                    provider,
-                    capability_source=registry.available_capabilities,
+                state = (
+                    "ready"
+                    if model_health.available
+                    else f"unavailable ({model_health.reason})"
                 )
+                print(f"Intent model {args.intent_model}: {state}")
                 context_store = TaskContextStore(
                     locale=args.locale,
                     database=args.memory_database,
@@ -224,6 +245,18 @@ def main() -> int:
                     ),
                     task_ledger=task_ledger,
                 )
+
+                def operation_source():
+                    return build_operation_definitions(
+                        registry.capability_contracts(),
+                        available_capabilities=plan_executor.available_capabilities(),
+                        policy_source=plan_executor.permission_gateway.policy,
+                    )
+
+                intent_pipeline = IntentCompiler(
+                    provider,
+                    operation_source=operation_source,
+                )
                 from ai_native_workspace import WorkspaceRuntime
                 from ai_native_turns import (
                     CapabilityCandidateRouter,
@@ -231,16 +264,15 @@ def main() -> int:
                     TurnRouter,
                 )
 
-                executable_capabilities = set(plan_executor.available_capabilities())
+                operation_definitions = operation_source()
                 capability_router = CapabilityCandidateRouter(
                     CapabilityDescriptor(
-                        route.capability_id,
-                        route.operation,
-                        route.description,
-                        route.examples,
+                        definition.capability_id,
+                        definition.operation,
+                        definition.description,
+                        definition.examples,
                     )
-                    for route in registry.intent_routes()
-                    if route.capability_id in executable_capabilities
+                    for definition in operation_definitions
                 )
 
                 workspace_controller = WorkspaceRuntime(
@@ -292,8 +324,10 @@ def main() -> int:
                 software_restore=software_restore,
             )
             transport = (
-                "unix" if args.transport == "auto" and sys.platform.startswith("linux")
-                else "http" if args.transport == "auto"
+                "unix"
+                if args.transport == "auto" and sys.platform.startswith("linux")
+                else "http"
+                if args.transport == "auto"
                 else args.transport
             )
             if transport == "unix":
@@ -305,7 +339,9 @@ def main() -> int:
                 from .bridge import create_server
 
                 server = create_server(application, host=args.host, port=args.port)
-                print(f"Panel runtime (development fallback): http://{args.host}:{server.server_port}")
+                print(
+                    f"Panel runtime (development fallback): http://{args.host}:{server.server_port}"
+                )
             if software_module_id is not None:
                 manager.invoke(software_module_id, "activate", timeout=15)
             # Recovery is deliberately delayed until this process has acquired
@@ -342,7 +378,9 @@ def main() -> int:
         parser.error("choose --demo or --serve-panel")
 
     proposal, decision = PolicyEngine().evaluate(demo_payload())
-    event = create_audit_event(intent=proposal.intent, decision=decision, result="validated_no_execution")
+    event = create_audit_event(
+        intent=proposal.intent, decision=decision, result="validated_no_execution"
+    )
     JsonlAuditLog(args.audit_file).append(event)
 
     print("AI-native Linux — policy demo")

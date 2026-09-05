@@ -2,20 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import TypeAlias
+from typing import TYPE_CHECKING, TypeAlias
+
+if TYPE_CHECKING:
+    from .catalog import OperationDefinition
 
 
 JsonScalar: TypeAlias = str | int | float | bool | None
 IntentValue: TypeAlias = JsonScalar | tuple[str, ...]
-
-
-class OperationKind(StrEnum):
-    SEARCH_DOCUMENTS = "search_documents"
-    FIND_APPLICATION = "find_application"
-    PLAN_WEB_SEARCH = "plan_web_search"
-    PLAN_OPEN_URL = "plan_open_url"
-    SAVE_RESULTS = "save_results"
-    COPY_RESULTS = "copy_results"
 
 
 class CompilationState(StrEnum):
@@ -34,6 +28,8 @@ class ModelTurnKind(StrEnum):
 class RiskClass(StrEnum):
     READ_ONLY = "R0"
     REVERSIBLE_WRITE = "R1"
+    IMPORTANT_WRITE = "R2"
+    PRIVILEGED = "R3"
 
 
 @dataclass(frozen=True)
@@ -65,6 +61,7 @@ class ModelRequest:
     instructions: str
     history: tuple[ModelHistoryMessage, ...] = ()
     allowed_operations: tuple[str, ...] | None = None
+    operation_definitions: tuple[OperationDefinition, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -80,7 +77,7 @@ class ModelTurn:
 @dataclass(frozen=True)
 class OperationIntent:
     operation_id: str
-    kind: OperationKind
+    kind: str
     arguments: dict[str, IntentValue]
     depends_on: tuple[str, ...] = ()
     evidence: tuple[str, ...] = ()

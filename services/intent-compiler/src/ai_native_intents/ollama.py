@@ -15,6 +15,7 @@ from urllib.request import ProxyHandler, Request, build_opener
 
 from ai_native_turns import TurnRequest
 
+from .catalog import OperationCatalog, OperationDefinition
 from .contracts import ModelRequest, ModelTurn, ModelTurnKind
 from .destinations import destination_role
 from .provider import (
@@ -26,68 +27,11 @@ from .provider import (
 
 _MAX_RESPONSE_BYTES: Final = 256 * 1024
 _LOOPBACK_HOSTS: Final = frozenset({"127.0.0.1", "::1", "localhost"})
-_RESULT_OPERATIONS: Final = frozenset({"search_documents", "save_results"})
 _UNSUPPORTED_ACTION_TOOL: Final = "request_system_action"
-_TOOL_DESCRIPTIONS: Final = {
-    "search_documents": (
-        "Search local files. mode=metadata lists files by type/name without reading their "
-        "contents; mode=content searches contents; mode=hybrid combines a subject or content "
-        "constraint with type/name filters. Never drop a requested subject constraint."
-    ),
-    "find_application": "Find an installed desktop application by name.",
-    "plan_web_search": (
-        "Search the public internet only when the user explicitly requests internet, web, "
-        "or a site and gives no exact URL."
-    ),
-    "plan_open_url": "Open an explicit credential-free HTTP(S) URL from the user message.",
-    "save_results": "Save current or prior search results as a virtual collection.",
-    "copy_results": "Copy current or prior search results to a user destination.",
-    _UNSUPPORTED_ACTION_TOOL: (
-        "Report an operating-system action requested by the user only when none of the "
-        "other semantic functions can represent it. This never executes the action."
-    ),
-}
-_TOOL_ARGUMENTS: Final = {
-    "search_documents": {
-        "mode": {"enum": ["metadata", "content", "hybrid"]},
-        "text": {
-            "type": "string",
-            "description": (
-                "The meaningful subject or phrase that must occur inside indexed document "
-                "content. Preserve it whenever the user asks for files about a subject."
-            ),
-        },
-        "extensions": {"type": "array", "items": {"type": "string"}},
-        "name_terms": {
-            "type": "array",
-            "items": {"type": "string"},
-            "description": "Terms explicitly requested in the file name, never content.",
-        },
-    },
-    "find_application": {"query": {"type": "string"}},
-    "plan_web_search": {
-        "query": {"type": "string"},
-        "engine": {"enum": ["duckduckgo", "google"]},
-    },
-    "plan_open_url": {"url": {"type": "string"}},
-    "save_results": {"title": {"type": "string"}},
-    "copy_results": {
-        "destination": {
-            "enum": ["desktop", "documents", "downloads", "context.last_destination"]
-        },
-        "directory_name": {"type": "string"},
-    },
-    _UNSUPPORTED_ACTION_TOOL: {"goal": {"type": "string"}},
-}
-_REQUIRED_ARGUMENTS: Final = {
-    "search_documents": ["mode"],
-    "find_application": ["query"],
-    "plan_web_search": ["query"],
-    "plan_open_url": ["url"],
-    "save_results": ["title"],
-    "copy_results": ["destination"],
-    _UNSUPPORTED_ACTION_TOOL: ["goal"],
-}
+_UNSUPPORTED_ACTION_DESCRIPTION: Final = (
+    "Report an operating-system action requested by the user only when none of the "
+    "other semantic functions can represent it. This never executes the action."
+)
 _TOOL_INSTRUCTIONS: Final = """You are the language router for a local operating system.
 For ordinary conversation that requests no system action, do not call a function and answer
 briefly in the user's language. For a system action, call one or more semantic functions in
@@ -99,25 +43,9 @@ or "could you find" is a current request, but "умеешь ли ты искат
 asks about capability unless it also requests a concrete object now.
 Compile arguments from the current user message and trusted context flags only. Never reuse
 filters, file types, search text, paths, or operations from conversation history.
-File, PDF and document searches default to local storage.
-For all files of a type, call search_documents with mode=metadata, the extension, and no
-text. Use mode=content for content-only meaning, and mode=hybrid for content plus filters.
-Never reduce "files about/on SUBJECT", "documents по/о ТЕМЕ", or an equivalent semantic
-restriction to a type-only metadata search: keep the subject in text. For example, a request
-for "PDF по математике" needs mode=hybrid, extensions=["pdf"], and a concise mathematics
-content term; a request for all PDFs with no subject remains mode=metadata. A correction such
-as "Нет, нужны только ..." replaces the earlier search filters and must preserve every
-restriction stated in the current correction.
-"Contains", "mentions", "в котором встречается" and equivalent wording always searches
-inside content: put the requested phrase in text, never in name_terms. Use name_terms only
-when the user explicitly refers to a file name. No document-language filter is available;
-never invent or silently drop one. If it is essential, do not call search and briefly explain
-that this exact filter is unavailable.
-Use web search only when the user explicitly requests internet, web or a site. Never invent
-URLs, paths, files, IDs or completed results. An explicit HTTP(S) URL in the request must use
-plan_open_url, never plan_web_search. When the user refers to a prior destination as "there"
-or "туда" and has_last_destination is true, use context.last_destination instead of guessing
-a destination role. Omit directory_name unless the user explicitly gives a directory name.
+Use only the visible functions and follow each function and argument description exactly.
+Preserve every restriction in the current request. Never invent unsupported arguments, URLs,
+paths, files, IDs or completed results. A correction replaces earlier action arguments.
 Confidence must be lower when meaning is ambiguous.
 Always keep ordinary conversation separate from semantic function calls. Function calls are
 only proposals: the operating system validates capabilities, permissions and confirmation.
@@ -289,17 +217,9 @@ class OllamaModelProvider:
         return self._assistant_text(message.get("content"))
 
     def route(self, request: ModelRequest) -> ModelTurn:
-        allowed = (
-            None
-            if request.allowed_operations is None
-            else frozenset(request.allowed_operations)
-        )
-        if allowed is not None and (
-            not allowed or allowed - (set(_TOOL_ARGUMENTS) - {_UNSUPPORTED_ACTION_TOOL})
-        ):
-            raise ValueError(
-                "allowed_operations contains unsupported semantic functions"
-            )
+        catalog = OperationCatalog(request.operation_definitions)
+        definitions = catalog.select(request.allowed_operations)
+        allowed = frozenset(item.operation for item in definitions)
         payload = {
             "model": self.model,
             "messages": [
@@ -312,7 +232,10 @@ class OllamaModelProvider:
                     "content": self._user_prompt(request),
                 },
             ],
-            "tools": self._tools(allowed),
+            "tools": self._tools(
+                definitions,
+                include_unsupported=request.allowed_operations is None,
+            ),
             "stream": False,
             "think": False,
             "keep_alive": self.keep_alive,
@@ -340,7 +263,11 @@ class OllamaModelProvider:
             )
         if not isinstance(calls, list) or not 1 <= len(calls) <= 12:
             raise OllamaProviderError("Ollama returned invalid semantic tool calls")
-        supported_calls, unsupported_actions = self._partition_calls(calls, allowed)
+        supported_calls, unsupported_actions = self._partition_calls(
+            calls,
+            allowed,
+            allow_unsupported=request.allowed_operations is None,
+        )
         if not supported_calls:
             return ModelTurn(
                 ModelTurnKind.UNSUPPORTED_ACTION,
@@ -367,14 +294,16 @@ class OllamaModelProvider:
                         else "Where should the folder go: Desktop, Documents, or Downloads?",
                         clarification_key="copy_destination",
                         pending_intent_payload=dict(
-                            self._intent_payload(pending_calls, request)
+                            self._intent_payload(pending_calls, request, definitions)
                         ),
                     )
                 call["function"]["arguments"]["destination"] = role
         return ModelTurn(
             ModelTurnKind.ACTION,
             response_text=response_text,
-            intent_payload=dict(self._intent_payload(supported_calls, request)),
+            intent_payload=dict(
+                self._intent_payload(supported_calls, request, definitions)
+            ),
             unsupported_actions=unsupported_actions,
         )
 
@@ -646,7 +575,11 @@ class OllamaModelProvider:
         )
 
     @staticmethod
-    def _tools(allowed: frozenset[str] | None = None) -> list[dict[str, object]]:
+    def _tools(
+        definitions: tuple[OperationDefinition, ...],
+        *,
+        include_unsupported: bool,
+    ) -> list[dict[str, object]]:
         tools: list[dict[str, object]] = []
         confidence = {
             "type": "number",
@@ -654,20 +587,43 @@ class OllamaModelProvider:
             "maximum": 1,
             "description": "Confidence that this function matches the user goal.",
         }
-        for name, properties in _TOOL_ARGUMENTS.items():
-            if allowed is not None and name not in allowed:
-                continue
+        for definition in definitions:
+            schema = definition.input_schema
+            properties = dict(schema["properties"])
+            required = list(schema["required"])
+            # results_from is a server-owned graph reference, never a model argument.
+            properties.pop("results_from", None)
+            required = [item for item in required if item != "results_from"]
             tools.append(
                 {
                     "type": "function",
                     "function": {
-                        "name": name,
-                        "description": _TOOL_DESCRIPTIONS[name],
+                        "name": definition.operation,
+                        "description": definition.description,
                         "parameters": {
                             "type": "object",
                             "additionalProperties": False,
                             "properties": {**properties, "confidence": confidence},
-                            "required": [*_REQUIRED_ARGUMENTS[name], "confidence"],
+                            "required": [*required, "confidence"],
+                        },
+                    },
+                }
+            )
+        if include_unsupported:
+            tools.append(
+                {
+                    "type": "function",
+                    "function": {
+                        "name": _UNSUPPORTED_ACTION_TOOL,
+                        "description": _UNSUPPORTED_ACTION_DESCRIPTION,
+                        "parameters": {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "properties": {
+                                "goal": {"type": "string"},
+                                "confidence": confidence,
+                            },
+                            "required": ["goal", "confidence"],
                         },
                     },
                 }
@@ -677,7 +633,9 @@ class OllamaModelProvider:
     @staticmethod
     def _partition_calls(
         calls: list[object],
-        allowed: frozenset[str] | None = None,
+        allowed: frozenset[str],
+        *,
+        allow_unsupported: bool,
     ) -> tuple[list[object], tuple[str, ...]]:
         supported: list[object] = []
         unsupported: list[str] = []
@@ -689,7 +647,9 @@ class OllamaModelProvider:
                 raise OllamaProviderError("Ollama tool call has no function")
             name = function.get("name")
             arguments = function.get("arguments")
-            if allowed is not None and name not in allowed:
+            if name not in allowed and not (
+                allow_unsupported and name == _UNSUPPORTED_ACTION_TOOL
+            ):
                 raise OllamaProviderError(
                     "Ollama selected a capability outside candidate set"
                 )
@@ -721,11 +681,14 @@ class OllamaModelProvider:
 
     @staticmethod
     def _intent_payload(
-        calls: list[object], request: ModelRequest
+        calls: list[object],
+        request: ModelRequest,
+        definitions: tuple[OperationDefinition, ...],
     ) -> Mapping[str, object]:
         operations: list[dict[str, object]] = []
         confidences: list[float] = []
-        last_result_id: str | None = None
+        catalog = OperationCatalog(definitions)
+        last_operation_id: str | None = None
         for ordinal, call in enumerate(calls, start=1):
             if not isinstance(call, Mapping):
                 raise OllamaProviderError("Ollama tool call must be an object")
@@ -734,14 +697,16 @@ class OllamaModelProvider:
                 raise OllamaProviderError("Ollama tool call has no function")
             name = function.get("name")
             arguments = function.get("arguments")
-            if (
-                not isinstance(name, str)
-                or name not in _TOOL_ARGUMENTS
-                or name == _UNSUPPORTED_ACTION_TOOL
-            ):
+            if not isinstance(name, str) or name == _UNSUPPORTED_ACTION_TOOL:
                 raise OllamaProviderError(
                     "Ollama selected an unsupported semantic function"
                 )
+            try:
+                definition = catalog.operation(name)
+            except ValueError as error:
+                raise OllamaProviderError(
+                    "Ollama selected an unsupported semantic function"
+                ) from error
             if not isinstance(arguments, Mapping):
                 raise OllamaProviderError("Ollama semantic arguments must be an object")
             semantic_arguments = dict(arguments)
@@ -757,12 +722,12 @@ class OllamaModelProvider:
             confidences.append(float(confidence))
             operation_id = f"op_{ordinal}_{name}"
             dependencies: list[str] = []
-            if name in {"save_results", "copy_results"}:
-                if last_result_id is None:
+            if "results_from" in definition.input_schema["properties"]:
+                if last_operation_id is None:
                     semantic_arguments["results_from"] = "context.active_results"
                 else:
-                    semantic_arguments["results_from"] = last_result_id
-                    dependencies.append(last_result_id)
+                    semantic_arguments["results_from"] = last_operation_id
+                    dependencies.append(last_operation_id)
             operations.append(
                 {
                     "id": operation_id,
@@ -772,8 +737,7 @@ class OllamaModelProvider:
                     "evidence": [request.user_text],
                 }
             )
-            if name in _RESULT_OPERATIONS:
-                last_result_id = operation_id
+            last_operation_id = operation_id
         return {
             "schema_version": 1,
             "language": OllamaModelProvider._detected_language(

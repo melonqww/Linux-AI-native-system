@@ -2,31 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from uuid import uuid4
 
+from .catalog import OperationCatalog, OperationDefinition
 from .contracts import (
     CompilationState,
     ExecutionPlan,
-    OperationKind,
     PlanStep,
-    RiskClass,
     UserIntent,
 )
-
-
-_CAPABILITIES = {
-    OperationKind.SEARCH_DOCUMENTS: "documents.query.search",
-    OperationKind.FIND_APPLICATION: "desktop.applications.find",
-    OperationKind.PLAN_WEB_SEARCH: "browser.search.plan",
-    OperationKind.PLAN_OPEN_URL: "browser.url.plan",
-    OperationKind.SAVE_RESULTS: "storage.collections.manage",
-    OperationKind.COPY_RESULTS: "storage.materialize.plan-copy",
-}
-
-_RISKS = {
-    OperationKind.COPY_RESULTS: RiskClass.REVERSIBLE_WRITE,
-}
 
 
 class IntentPlanner:
@@ -36,18 +20,18 @@ class IntentPlanner:
         self,
         intent: UserIntent,
         *,
-        available_capabilities: Iterable[str],
+        operation_definitions: tuple[OperationDefinition, ...],
         clarification_question: str | None = None,
     ) -> ExecutionPlan:
-        available = set(available_capabilities)
+        catalog = OperationCatalog(operation_definitions)
         steps: list[PlanStep] = []
         required: list[str] = []
         operation_ids = {operation.operation_id for operation in intent.operations}
 
         for operation in intent.operations:
-            capability = _CAPABILITIES[operation.kind]
+            definition = catalog.operation(operation.kind)
+            capability = definition.capability_id
             required.append(capability)
-            risk = _RISKS.get(operation.kind, RiskClass.READ_ONLY)
             reference_dependencies = {
                 str(value)
                 for value in operation.arguments.values()
@@ -55,7 +39,9 @@ class IntentPlanner:
             }
             dependencies = tuple(
                 f"step_{dependency}"
-                for dependency in dict.fromkeys((*operation.depends_on, *reference_dependencies))
+                for dependency in dict.fromkeys(
+                    (*operation.depends_on, *reference_dependencies)
+                )
             )
             steps.append(
                 PlanStep(
@@ -64,17 +50,14 @@ class IntentPlanner:
                     capability=capability,
                     arguments=dict(operation.arguments),
                     depends_on=dependencies,
-                    risk=risk,
-                    approval_required=risk is RiskClass.REVERSIBLE_WRITE,
+                    risk=definition.risk,
+                    approval_required=definition.approval_required,
                 )
             )
 
         required_capabilities = tuple(dict.fromkeys(required))
-        missing = tuple(capability for capability in required_capabilities if capability not in available)
         if clarification_question is not None:
             state = CompilationState.NEEDS_CLARIFICATION
-        elif missing:
-            state = CompilationState.UNAVAILABLE
         else:
             state = CompilationState.READY
         return ExecutionPlan(
@@ -83,7 +66,7 @@ class IntentPlanner:
             state=state,
             steps=tuple(steps),
             required_capabilities=required_capabilities,
-            missing_capabilities=missing,
+            missing_capabilities=(),
             approval_required=any(step.approval_required for step in steps),
             clarification_question=clarification_question,
         )

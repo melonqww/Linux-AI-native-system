@@ -3,23 +3,25 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping
-from copy import deepcopy
-from typing import Final
 
+from .catalog import OperationCatalog, OperationDefinition
 from .clarification import ClarificationPolicy
 from .context import ContextResolver
-from .contracts import CompilationResult, CompilationState, ModelRequest, TaskContext
+from .contracts import (
+    CompilationResult,
+    CompilationState,
+    ModelHistoryMessage,
+    ModelRequest,
+    TaskContext,
+)
 from .planner import IntentPlanner
 from .provider import (
     IntentModelProvider,
     IntentProviderResponseError,
     IntentProviderUnavailableError,
 )
-from .schema import INTENT_OUTPUT_SCHEMA, MODEL_INSTRUCTIONS
+from .schema import MODEL_INSTRUCTIONS, intent_output_schema
 from .validation import IntentValidationError, IntentValidator
-
-
-_CORE_CAPABILITIES: Final = frozenset({"documents.query.search"})
 
 
 class IntentCompiler:
@@ -27,16 +29,18 @@ class IntentCompiler:
         self,
         provider: IntentModelProvider,
         *,
-        capability_source: Callable[[], Iterable[str]] | None = None,
+        operation_source: Callable[[], Iterable[OperationDefinition]],
     ) -> None:
         self.provider = provider
-        self.capability_source = capability_source or (lambda: ())
+        self.operation_source = operation_source
         self.validator = IntentValidator()
         self.context_resolver = ContextResolver()
         self.clarification_policy = ClarificationPolicy()
         self.planner = IntentPlanner()
 
-    def compile_and_plan(self, text: str, *, context: TaskContext | None = None) -> CompilationResult:
+    def compile_and_plan(
+        self, text: str, *, context: TaskContext | None = None
+    ) -> CompilationResult:
         context = context or TaskContext()
         try:
             normalized = self._user_text(text)
@@ -44,13 +48,7 @@ class IntentCompiler:
             return self._rejected(context)
         try:
             payload = self.provider.compile(
-                ModelRequest(
-                    user_text=normalized,
-                    locale=context.locale,
-                    context=context.for_model(),
-                    output_schema=deepcopy(INTENT_OUTPUT_SCHEMA),
-                    instructions=MODEL_INSTRUCTIONS,
-                )
+                self.model_request(normalized, context=context)
             )
         except IntentProviderResponseError:
             return self._rejected(context)
@@ -60,12 +58,37 @@ class IntentCompiler:
             return self._rejected(context, diagnostic="provider_unavailable")
         return self.compile_payload(payload, text=normalized, context=context)
 
+    def model_request(
+        self,
+        text: str,
+        *,
+        context: TaskContext | None = None,
+        history: tuple[ModelHistoryMessage, ...] = (),
+        allowed_operations: tuple[str, ...] | None = None,
+    ) -> ModelRequest:
+        context = context or TaskContext()
+        normalized = self._user_text(text)
+        definitions = OperationCatalog(self.operation_source()).select(
+            allowed_operations
+        )
+        return ModelRequest(
+            user_text=normalized,
+            locale=context.locale,
+            context=context.for_model(),
+            output_schema=intent_output_schema(definitions),
+            instructions=MODEL_INSTRUCTIONS,
+            history=history,
+            allowed_operations=allowed_operations,
+            operation_definitions=definitions,
+        )
+
     def compile_payload(
         self,
         payload: object,
         *,
         text: str,
         context: TaskContext | None = None,
+        allowed_operations: tuple[str, ...] | None = None,
     ) -> CompilationResult:
         """Validate and plan a model route without invoking the model again."""
         context = context or TaskContext()
@@ -76,21 +99,29 @@ class IntentCompiler:
         try:
             if not isinstance(payload, Mapping):
                 raise IntentValidationError("intent provider returned a non-object")
-            intent = self.validator.parse(payload, user_text=normalized)
+            definitions = OperationCatalog(self.operation_source()).select(
+                allowed_operations
+            )
+            intent = self.validator.parse(
+                payload,
+                user_text=normalized,
+                operation_definitions=definitions,
+            )
             intent, missing_context = self.context_resolver.resolve(intent, context)
             question = self.clarification_policy.question(
                 intent,
                 missing_context=missing_context,
                 context=context,
             )
-            available = set(self.capability_source()) | set(_CORE_CAPABILITIES)
             plan = self.planner.plan(
                 intent,
-                available_capabilities=available,
+                operation_definitions=definitions,
                 clarification_question=question,
             )
             diagnostics = (
-                ("missing_capabilities",) if plan.state is CompilationState.UNAVAILABLE else ()
+                ("missing_capabilities",)
+                if plan.state is CompilationState.UNAVAILABLE
+                else ()
             )
             return CompilationResult(plan.state, intent, plan, question, diagnostics)
         except (IntentValidationError, TypeError, ValueError, RuntimeError):

@@ -19,7 +19,6 @@ from ai_native_intents import (
     TaskContext,
     destination_role,
 )
-from ai_native_intents.schema import INTENT_OUTPUT_SCHEMA, MODEL_INSTRUCTIONS
 from ai_native_orchestrator import (
     CopyOutput,
     OrchestrationResult,
@@ -362,12 +361,9 @@ class WorkspaceRuntime:
             if requested:
                 allowed_operations = requested
             turn = self.model.route(
-                ModelRequest(
-                    user_text=model_text,
-                    locale=locale,
-                    context=self.context().for_model(),
-                    output_schema=deepcopy(INTENT_OUTPUT_SCHEMA),
-                    instructions=MODEL_INSTRUCTIONS,
+                self._intent_request(
+                    model_text,
+                    locale,
                     history=self._model_history(user_message_id),
                     allowed_operations=allowed_operations,
                 )
@@ -586,6 +582,32 @@ class WorkspaceRuntime:
                 continue
         return None
 
+    def _intent_request(
+        self,
+        text: str,
+        locale: str,
+        *,
+        history: tuple[ModelHistoryMessage, ...] = (),
+        allowed_operations: tuple[str, ...] | None = None,
+    ) -> ModelRequest:
+        factory = getattr(self.compiler, "model_request", None)
+        if callable(factory):
+            return factory(
+                text,
+                context=self.context(),
+                history=history,
+                allowed_operations=allowed_operations,
+            )
+        return ModelRequest(
+            user_text=text,
+            locale=locale,
+            context=self.context().for_model(),
+            output_schema={},
+            instructions="",
+            history=history,
+            allowed_operations=allowed_operations,
+        )
+
     def _respond_chat(
         self, text: str, locale: str, current_user_message_id: str
     ) -> str:
@@ -636,12 +658,9 @@ class WorkspaceRuntime:
                     compose = getattr(self.model, "compose_conversation", None)
                     if callable(compose):
                         natural = compose(
-                            ModelRequest(
-                                user_text=user_message.content,
-                                locale=locale,
-                                context=self.context().for_model(),
-                                output_schema=deepcopy(INTENT_OUTPUT_SCHEMA),
-                                instructions=MODEL_INSTRUCTIONS,
+                            self._intent_request(
+                                user_message.content,
+                                locale,
                                 history=self._model_history(user_message.message_id),
                             ),
                             system_result=system_result,

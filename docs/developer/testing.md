@@ -19,6 +19,8 @@ unit/integration тесты лаборатории; они не обращают
 - manifests, уникальность module ID, зависимости и безопасные entrypoint paths;
 - получение лабораторией user-intent маршрутов через тот же production
   Capability Registry, включая исчезновение маршрута отключённого модуля;
+- сквозной runtime-каталог: синтетическая новая операция без центральной таблицы,
+  отбор только capabilities с handler и конфликт schema/policy;
 - точный состав найденных и скопированных файлов для search/correction journey,
   а не только совпадение общего количества;
 - импорт и process lifecycle всех first-party modules;

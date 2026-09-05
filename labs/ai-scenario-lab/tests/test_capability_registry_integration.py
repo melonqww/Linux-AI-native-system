@@ -5,6 +5,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from ai_native_capabilities import CapabilityRegistry
+from ai_native_permissions import PermissionGateway, builtin_policies
 from ai_scenario_lab.environment import _registry_descriptors
 
 
@@ -24,7 +25,8 @@ def test_lab_routes_only_enabled_executor_capabilities_from_production_registry(
             "documents.query.search",
             "storage.materialize.plan-copy",
         )
-        descriptors = _registry_descriptors(registry, available)
+        policies = PermissionGateway(builtin_policies()).policy
+        descriptors = _registry_descriptors(registry, available, policies)
         assert {
             (descriptor.capability_id, descriptor.operation)
             for descriptor in descriptors
@@ -34,7 +36,7 @@ def test_lab_routes_only_enabled_executor_capabilities_from_production_registry(
         }
 
         registry.set_enabled("documents.query", False)
-        descriptors = _registry_descriptors(registry, available)
+        descriptors = _registry_descriptors(registry, available, policies)
         assert [descriptor.capability_id for descriptor in descriptors] == [
             "storage.materialize.plan-copy"
         ]

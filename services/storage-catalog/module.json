@@ -39,11 +39,11 @@
     {
       "id": "storage.materialize.plan-copy",
       "description": "Prepare a bounded copy of previously found files to a named user destination.",
-      "input_schema": {"type": "object", "properties": {"results_from": {"type": "string"}, "destination": {"type": "string", "enum": ["desktop", "documents", "downloads", "context.last_destination"]}, "directory_name": {"type": "string"}}, "required": ["results_from", "destination"], "additionalProperties": false},
+      "input_schema": {"type": "object", "properties": {"results_from": {"type": "string", "description": "Server-owned reference to results from an earlier operation or trusted task context"}, "destination": {"type": "string", "enum": ["desktop", "documents", "downloads", "context.last_destination"], "description": "User destination role explicitly stated in the request or trusted prior context"}, "directory_name": {"type": "string", "description": "One child directory name explicitly supplied by the user, never a path"}}, "required": ["results_from", "destination"], "additionalProperties": false},
       "requested_permissions": ["filesystem.read-metadata", "filesystem.read-content", "filesystem.write-content"],
       "user_intent": {
         "operation": "copy_results",
-        "description": "Create a destination folder and copy previously found file results into it.",
+        "description": "Copy previously found file results into a user destination. results_from is supplied by trusted prior results, destination must be an explicit Desktop/Documents/Downloads role or trusted last destination, and directory_name is one explicitly named child folder, never a path.",
         "examples": ["создай папку и скопируй туда найденные файлы", "скопируй результаты на рабочий стол", "сохрани найденные документы в папку", "copy the found files to my desktop"]
       }
     },
