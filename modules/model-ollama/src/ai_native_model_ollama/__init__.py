@@ -21,7 +21,15 @@ def worker_start() -> None:
             str(Path.home() / ".local/share/ai-native-linux/model-lifecycle.sqlite3"),
         )
     )
-    definitions = (
+    _catalog = OllamaModelCatalog(
+        _model_definitions(),
+        ModelDecisionStore(database),
+        base_url=os.environ.get("AI_NATIVE_OLLAMA_URL", "http://127.0.0.1:11434"),
+    )
+
+
+def _model_definitions() -> tuple[ModelDefinition, ...]:
+    return (
         ModelDefinition(
             "workspace.qwen",
             os.environ.get("AI_NATIVE_INTENT_MODEL", "qwen3.5:2b"),
@@ -38,11 +46,14 @@ def worker_start() -> None:
             False,
             2_000_000_000,
         ),
-    )
-    _catalog = OllamaModelCatalog(
-        definitions,
-        ModelDecisionStore(database),
-        base_url=os.environ.get("AI_NATIVE_OLLAMA_URL", "http://127.0.0.1:11434"),
+        ModelDefinition(
+            "semantic.selector",
+            os.environ.get("AI_NATIVE_SEMANTIC_MODEL", "qwen3-embedding:0.6b"),
+            "Qwen 3 Embedding 0.6B",
+            "semantic_selector",
+            False,
+            639_000_000,
+        ),
     )
 
 

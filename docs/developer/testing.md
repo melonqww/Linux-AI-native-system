@@ -57,6 +57,19 @@ python -m pytest -q services/intent-compiler/tests/test_ollama_live.py
 «их/туда» и containment prompt injection. Обычные mock-тесты Ollama API всегда
 остаются в CI.
 
+Отдельная opt-in проверка настоящего Semantic Selector требует заранее
+установленного `qwen3-embedding:0.6b` и не входит в обычный CI:
+
+```powershell
+$env:AI_NATIVE_RUN_OLLAMA_EVALS = "1"
+$env:AI_NATIVE_RUN_SEMANTIC_EVALS = "1"
+python -m pytest -q services/intent-compiler/tests/test_ollama_live.py `
+  -k semantic_selector
+```
+
+Контракт loopback adapter, ограничения размеров, hybrid fallback, cache и
+circuit breaker проверяются обычными детерминированными тестами без модели.
+
 Для проверки не отдельных model-вызовов, а полного пользовательского сценария
 используется самостоятельный `labs/ai-scenario-lab`:
 

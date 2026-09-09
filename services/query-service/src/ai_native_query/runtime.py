@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import asdict, is_dataclass
 from typing import Callable, Protocol
 from uuid import uuid4
@@ -427,10 +428,25 @@ class QueryRuntimeApplication:
                 "schema_version": 1,
                 "models": [
                     self._unavailable_model(
-                        "workspace.qwen", "qwen3.5:2b", "Qwen 3.5 2B", True
+                        "workspace.qwen",
+                        "qwen3.5:2b",
+                        "Qwen 3.5 2B",
+                        "workspace_base",
+                        True,
                     ),
                     self._unavailable_model(
-                        "assistant.llama", "llama3.2:3b", "Llama 3.2 3B", False
+                        "assistant.llama",
+                        "llama3.2:3b",
+                        "Llama 3.2 3B",
+                        "optional_assistant",
+                        False,
+                    ),
+                    self._unavailable_model(
+                        "semantic.selector",
+                        "qwen3-embedding:0.6b",
+                        "Qwen 3 Embedding 0.6B",
+                        "semantic_selector",
+                        False,
                     ),
                 ],
             }
@@ -442,10 +458,29 @@ class QueryRuntimeApplication:
         valid_models = [value for value in models if isinstance(value, dict)]
         known_ids = {value.get("model_id") for value in valid_models}
         required_models = (
-            ("workspace.qwen", "qwen3.5:2b", "Qwen 3.5 2B", True),
-            ("assistant.llama", "llama3.2:3b", "Llama 3.2 3B", False),
+            (
+                "workspace.qwen",
+                "qwen3.5:2b",
+                "Qwen 3.5 2B",
+                "workspace_base",
+                True,
+            ),
+            (
+                "assistant.llama",
+                "llama3.2:3b",
+                "Llama 3.2 3B",
+                "optional_assistant",
+                False,
+            ),
+            (
+                "semantic.selector",
+                "qwen3-embedding:0.6b",
+                "Qwen 3 Embedding 0.6B",
+                "semantic_selector",
+                False,
+            ),
         )
-        for model_id, provider_model, display_name, required in required_models:
+        for model_id, provider_model, display_name, role, required in required_models:
             if model_id in known_ids:
                 continue
             valid_models.append(
@@ -453,6 +488,7 @@ class QueryRuntimeApplication:
                     model_id,
                     provider_model,
                     display_name,
+                    role,
                     required,
                     reason="model_status_missing",
                 )
@@ -516,6 +552,7 @@ class QueryRuntimeApplication:
         model_id: str,
         provider_model: str,
         display_name: str,
+        role: str,
         required: bool,
         *,
         reason: str = "model_catalog_unavailable",
@@ -525,7 +562,7 @@ class QueryRuntimeApplication:
             "provider": "ollama",
             "provider_model": provider_model,
             "display_name": display_name,
-            "role": "workspace_base" if required else "optional_assistant",
+            "role": role,
             "required": required,
             "installed": False,
             "decision": "unset",
@@ -585,7 +622,13 @@ class QueryRuntimeApplication:
             raise ValueError("model_id and decision are required")
         model_id = self._string(payload, "model_id")
         decision = self._string(payload, "decision")
-        if model_id not in {"workspace.qwen", "assistant.llama"}:
+        if re.fullmatch(r"[a-z][a-z0-9]*(?:[._-][a-z0-9]+){1,7}", model_id) is None:
+            raise ValueError("unknown model_id")
+        catalog = self.model_catalog({})
+        models = catalog.get("models")
+        if not isinstance(models, list) or model_id not in {
+            item.get("model_id") for item in models if isinstance(item, dict)
+        }:
             raise ValueError("unknown model_id")
         if decision not in {"download", "later", "never"}:
             raise ValueError("unknown model decision")

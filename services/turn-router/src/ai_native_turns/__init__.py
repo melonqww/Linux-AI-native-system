@@ -1,4 +1,10 @@
 from .capability_router import CapabilityCandidateRouter
+from .embedding import (
+    EmbeddingProvider,
+    EmbeddingUnavailableError,
+    OllamaEmbeddingProvider,
+)
+from .semantic_selector import HybridCapabilityRouter, SemanticCapabilitySelector
 from .contracts import (
     CapabilityDescriptor,
     CapabilityMatch,
@@ -13,6 +19,11 @@ __all__ = [
     "CapabilityCandidateRouter",
     "CapabilityDescriptor",
     "CapabilityMatch",
+    "EmbeddingProvider",
+    "EmbeddingUnavailableError",
+    "HybridCapabilityRouter",
+    "OllamaEmbeddingProvider",
+    "SemanticCapabilitySelector",
     "TurnClassification",
     "TurnClassifier",
     "TurnHistoryMessage",

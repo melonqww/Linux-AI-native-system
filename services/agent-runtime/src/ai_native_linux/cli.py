@@ -60,6 +60,7 @@ def main() -> int:
         "--workspace-database", type=Path, default=Path("data/workspace.sqlite3")
     )
     parser.add_argument("--intent-model", default="qwen3.5:2b")
+    parser.add_argument("--semantic-model", default="qwen3-embedding:0.6b")
     parser.add_argument("--ollama-url", default="http://127.0.0.1:11434")
     parser.add_argument("--intent-timeout", type=float, default=45.0)
     parser.add_argument("--intent-context-tokens", type=int, default=8_192)
@@ -261,11 +262,14 @@ def main() -> int:
                 from ai_native_turns import (
                     CapabilityCandidateRouter,
                     CapabilityDescriptor,
+                    HybridCapabilityRouter,
+                    OllamaEmbeddingProvider,
+                    SemanticCapabilitySelector,
                     TurnRouter,
                 )
 
                 operation_definitions = operation_source()
-                capability_router = CapabilityCandidateRouter(
+                capability_descriptors = tuple(
                     CapabilityDescriptor(
                         definition.capability_id,
                         definition.operation,
@@ -273,6 +277,18 @@ def main() -> int:
                         definition.examples,
                     )
                     for definition in operation_definitions
+                )
+                lexical_router = CapabilityCandidateRouter(capability_descriptors)
+                semantic_selector = SemanticCapabilitySelector(
+                    capability_descriptors,
+                    OllamaEmbeddingProvider(
+                        model=args.semantic_model,
+                        base_url=args.ollama_url,
+                    ),
+                )
+                capability_router = HybridCapabilityRouter(
+                    lexical_router,
+                    semantic_selector,
                 )
 
                 workspace_controller = WorkspaceRuntime(

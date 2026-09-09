@@ -10,8 +10,11 @@ First-party модуль жизненного цикла локальных мо
 LLaMA загружаются через loopback Ollama API с bounded progress-состоянием только
 после решения `download`.
 
-Каталог содержит `workspace.qwen` (обязательная базовая модель) и
-`assistant.llama` (необязательная дополнительная модель). Решения `later` и
-`never` сохраняются в `model-lifecycle.sqlite3`; `later` действует 24 часа.
+Каталог содержит `workspace.qwen` (обязательная базовая модель),
+`assistant.llama` (необязательная дополнительная модель) и
+`semantic.selector` (необязательный `qwen3-embedding:0.6b` для multilingual
+поиска capability). Отсутствие semantic-модели не блокирует Workspace: Turn
+Router использует лексический fallback. Решения `later` и `never` сохраняются в
+`model-lifecycle.sqlite3`; `later` действует 24 часа.
 Публичный IPC-контракт описан в
 [`Architecture/api/model-catalog-v1.md`](../../Architecture/api/model-catalog-v1.md).

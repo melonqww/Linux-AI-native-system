@@ -26,7 +26,14 @@ from ai_native_storage import (
     VolumeRegistry,
 )
 from ai_native_storage.contracts import DiscoveredVolume
-from ai_native_turns import CapabilityCandidateRouter, CapabilityDescriptor, TurnRouter
+from ai_native_turns import (
+    CapabilityCandidateRouter,
+    CapabilityDescriptor,
+    HybridCapabilityRouter,
+    OllamaEmbeddingProvider,
+    SemanticCapabilitySelector,
+    TurnRouter,
+)
 from ai_native_workspace import WorkspaceRuntime, WorkspaceStore
 
 from .virtual_pc import VirtualComputer
@@ -292,6 +299,24 @@ class LabEnvironment:
             ),
         )
         self.store = WorkspaceStore(self.run_root / "workspace.sqlite3")
+        descriptors = _registry_descriptors(
+            self.capability_registry,
+            self.executor.available_capabilities(),
+            orchestrator.permission_gateway.policy,
+        )
+        lexical_router = CapabilityCandidateRouter(descriptors)
+        capability_router = lexical_router
+        if provider is None:
+            capability_router = HybridCapabilityRouter(
+                lexical_router,
+                SemanticCapabilitySelector(
+                    descriptors,
+                    OllamaEmbeddingProvider(
+                        model="qwen3-embedding:0.6b",
+                        base_url=base_url,
+                    ),
+                ),
+            )
         self.runtime = WorkspaceRuntime(
             self.store,
             self.model,
@@ -299,13 +324,7 @@ class LabEnvironment:
             self.executor,
             self.context.snapshot,
             turn_router=TurnRouter(self.model),
-            capability_router=CapabilityCandidateRouter(
-                _registry_descriptors(
-                    self.capability_registry,
-                    self.executor.available_capabilities(),
-                    orchestrator.permission_gateway.policy,
-                )
-            ),
+            capability_router=capability_router,
             workers=1,
             max_pending=4,
         )

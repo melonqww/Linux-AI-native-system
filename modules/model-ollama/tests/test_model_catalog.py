@@ -3,6 +3,7 @@ import sqlite3
 import unittest
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from unittest.mock import patch
 from uuid import uuid4
 
 from ai_native_model_ollama import (
@@ -11,6 +12,7 @@ from ai_native_model_ollama import (
     ModelStatus,
     OllamaModelCatalog,
 )
+from ai_native_model_ollama import _model_definitions
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -163,6 +165,19 @@ class ModelCatalogTests(unittest.TestCase):
             catalog.respond("unknown", "download")
         with self.assertRaises(ValueError):
             catalog.respond("workspace.qwen", "maybe")
+
+    def test_worker_catalog_declares_optional_semantic_model(self):
+        with patch.dict(
+            "os.environ",
+            {"AI_NATIVE_SEMANTIC_MODEL": "private/embedding:small"},
+        ):
+            definitions = {item.model_id: item for item in _model_definitions()}
+
+        semantic = definitions["semantic.selector"]
+        self.assertEqual(semantic.provider_model, "private/embedding:small")
+        self.assertEqual(semantic.role, "semantic_selector")
+        self.assertFalse(semantic.required)
+        self.assertLess(semantic.estimated_size_bytes, 1_000_000_000)
 
 
 if __name__ == "__main__":

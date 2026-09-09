@@ -43,7 +43,9 @@ credentials. Loopback HTTP возвращает `403 secure_transport_required`.
 Стабильные `model_id`:
 
 - `workspace.qwen` — обязательная базовая модель Workspace;
-- `assistant.llama` — необязательная Llama 3.2 3B.
+- `assistant.llama` — необязательная Llama 3.2 3B;
+- `semantic.selector` — необязательная multilingual embedding-модель для
+  выбора module-owned capabilities. Её отсутствие не блокирует Workspace.
 
 Frontend показывает окно только при `prompt_required: true`. Значения `state`:
 `consent_required`, `deferred`, `declined`, `starting`, `downloading`, `ready`,

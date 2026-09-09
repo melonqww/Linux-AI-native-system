@@ -119,7 +119,9 @@ def probe(socket_path: Path) -> dict[str, object]:
     model_ids = {
         model.get("model_id") for model in models if isinstance(model, dict)
     }
-    if not {"workspace.qwen", "assistant.llama"}.issubset(model_ids):
+    if not {"workspace.qwen", "assistant.llama", "semantic.selector"}.issubset(
+        model_ids
+    ):
         raise ProbeError("inference_models_missing")
     return {
         "health": "ok",

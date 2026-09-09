@@ -65,7 +65,7 @@ class LinuxRuntimeSimulationTests(unittest.TestCase):
             )
             self.assertEqual(
                 {model["model_id"] for model in inference.payload["models"]},
-                {"workspace.qwen", "assistant.llama"},
+                {"workspace.qwen", "assistant.llama", "semantic.selector"},
             )
             self.assertNotIn("Traceback", repr(inference.payload))
         finally:

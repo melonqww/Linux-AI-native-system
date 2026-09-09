@@ -61,6 +61,7 @@ done
 export PYTHONPATH="${runtime_pythonpath}${PYTHONPATH:+:${PYTHONPATH}}"
 
 intent_model="${AI_NATIVE_INTENT_MODEL:-qwen3.5:2b}"
+semantic_model="${AI_NATIVE_SEMANTIC_MODEL:-qwen3-embedding:0.6b}"
 ollama_url="${AI_NATIVE_OLLAMA_URL:-http://127.0.0.1:11434}"
 
 cd -- "${repository_root}"
@@ -79,4 +80,5 @@ exec "${runtime_python}" -m ai_native_linux.cli \
     --workspace-database "${runtime_data}/workspace.sqlite3" \
     --audit-file "${runtime_data}/audit-events.jsonl" \
     --intent-model "${intent_model}" \
+    --semantic-model "${semantic_model}" \
     --ollama-url "${ollama_url}"

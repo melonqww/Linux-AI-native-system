@@ -154,6 +154,7 @@ class SystemdDeploymentTests(unittest.TestCase):
                     "PATH": "/usr/bin:/bin",
                     "PYTHONPATH": "existing-package-path",
                     "AI_NATIVE_INTENT_MODEL": "test-model:2b",
+                    "AI_NATIVE_SEMANTIC_MODEL": "test-embedding:0.6b",
                 }
             )
             result = subprocess.run(
@@ -176,6 +177,8 @@ class SystemdDeploymentTests(unittest.TestCase):
         self.assertIn("ARG=unix", result.stdout)
         self.assertIn("ARG=--intent-model", result.stdout)
         self.assertIn("ARG=test-model:2b", result.stdout)
+        self.assertIn("ARG=--semantic-model", result.stdout)
+        self.assertIn("ARG=test-embedding:0.6b", result.stdout)
         self.assertIn(f"{fake_data}/ai-native-linux/storage-catalog.sqlite3", result.stdout)
         self.assertIn(f"{fake_data}/ai-native-linux/task-memory.sqlite3", result.stdout)
         self.assertIn(f"{fake_data}/ai-native-linux/workspace.sqlite3", result.stdout)

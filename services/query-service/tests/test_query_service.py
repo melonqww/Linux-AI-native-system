@@ -356,7 +356,13 @@ class QueryServiceTests(unittest.TestCase):
             QueryRuntimeApplication(self.service).check_system_updates({})
 
     def test_runtime_exposes_validated_model_lifecycle_contract(self) -> None:
-        catalog = {"schema_version": 1, "models": [{"model_id": "workspace.qwen"}]}
+        catalog = {
+            "schema_version": 1,
+            "models": [
+                {"model_id": "workspace.qwen"},
+                {"model_id": "semantic.selector"},
+            ],
+        }
         decisions = []
         application = QueryRuntimeApplication(
             self.service,
@@ -367,12 +373,12 @@ class QueryServiceTests(unittest.TestCase):
         self.assertEqual(application.model_catalog({}), catalog)
         self.assertEqual(
             application.respond_to_model(
-                {"model_id": "assistant.llama", "decision": "download"}
+                {"model_id": "semantic.selector", "decision": "download"}
             ),
             {"state": "starting"},
         )
         self.assertEqual(decisions, [
-            {"model_id": "assistant.llama", "decision": "download"}
+            {"model_id": "semantic.selector", "decision": "download"}
         ])
         self.assertIn("models.catalog.read", application.capabilities())
         self.assertIn("models.lifecycle.respond", application.capabilities())
@@ -430,6 +436,12 @@ class QueryServiceTests(unittest.TestCase):
                     "state": "consent_required",
                     "prompt_required": True,
                 },
+                {
+                    "model_id": "semantic.selector",
+                    "required": False,
+                    "state": "consent_required",
+                    "prompt_required": True,
+                },
             ],
         }
         application = QueryRuntimeApplication(
@@ -444,7 +456,7 @@ class QueryServiceTests(unittest.TestCase):
         self.assertEqual(snapshot["provider"], provider)
         self.assertEqual(
             [model["effective_state"] for model in snapshot["models"]],
-            ["blocked", "blocked"],
+            ["blocked", "blocked", "blocked"],
         )
         self.assertTrue(all(
             model["blocked_by"] == "provider.ollama" for model in snapshot["models"]
@@ -468,7 +480,7 @@ class QueryServiceTests(unittest.TestCase):
         self.assertEqual(snapshot["provider"]["reason"], "provider_status_unavailable")
         self.assertEqual(
             [model["model_id"] for model in snapshot["models"]],
-            ["workspace.qwen", "assistant.llama"],
+            ["workspace.qwen", "assistant.llama", "semantic.selector"],
         )
         self.assertTrue(all(
             model["reason"] == "model_catalog_unavailable"
@@ -495,7 +507,7 @@ class QueryServiceTests(unittest.TestCase):
         self.assertEqual(snapshot["state"], "error")
         self.assertEqual(
             [model["model_id"] for model in snapshot["models"]],
-            ["workspace.qwen", "assistant.llama"],
+            ["workspace.qwen", "assistant.llama", "semantic.selector"],
         )
         self.assertTrue(all(
             model["reason"] == "model_status_missing" for model in snapshot["models"]
@@ -547,6 +559,10 @@ class QueryServiceTests(unittest.TestCase):
                         "model_id": "assistant.llama", "required": False,
                         "state": llama_state, "prompt_required": llama_prompt,
                     },
+                    {
+                        "model_id": "semantic.selector", "required": False,
+                        "state": "ready", "prompt_required": False,
+                    },
                 ],
             }
             return QueryRuntimeApplication(
@@ -564,7 +580,7 @@ class QueryServiceTests(unittest.TestCase):
         self.assertEqual(ready["state"], "ready")
         self.assertEqual(
             [model["effective_state"] for model in ready["models"]],
-            ["ready", "declined"],
+            ["ready", "declined", "ready"],
         )
 
     def test_runtime_exposes_software_snapshot_only_when_configured(self) -> None:

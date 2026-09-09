@@ -74,8 +74,13 @@ ID, описание, закрытую схему входа, запрашива
 production-коде нет таблицы заранее известных фраз или фиксированного перечня
 операций: model schema, validator и planner получают один runtime-каталог из
 Registry + execution handlers + Permission Gateway.
+Перед Qwen этот же каталог проходит через гибридный Capability Router:
+лексический слой сохраняет быстрый deterministic path, а необязательный локальный
+`qwen3-embedding:0.6b` находит до трёх multilingual semantic-кандидатов. Selector
+не видит отключённых операций, не строит план и не получает права выполнения;
+при его недоступности система автоматически остаётся на lexical fallback.
 Подробности: [`services/intent-compiler/README.md`](services/intent-compiler/README.md)
-и [ADR-004](Architecture/decisions/ADR-004-model-neutral-intent-compiler.md).
+и [ADR-025](Architecture/decisions/ADR-025-bounded-semantic-capability-selector.md).
 
 ## Execution Orchestrator v1
 

@@ -19,6 +19,8 @@ from ai_native_intents import (
 from ai_native_turns import (
     CapabilityCandidateRouter,
     CapabilityDescriptor,
+    OllamaEmbeddingProvider,
+    SemanticCapabilitySelector,
     TurnKind,
     TurnRequest,
     TurnRouter,
@@ -133,6 +135,26 @@ class OllamaLiveEvals(unittest.TestCase):
         self.assertEqual(health.model, "qwen3.5:2b")
         self.assertTrue(health.model_present)
         self.assertIsNotNone(health.version)
+
+    def test_optional_multilingual_semantic_selector(self):
+        if os.environ.get("AI_NATIVE_RUN_SEMANTIC_EVALS") != "1":
+            self.skipTest("set AI_NATIVE_RUN_SEMANTIC_EVALS=1 for embedding evals")
+        provider = OllamaEmbeddingProvider()
+        try:
+            provider.embed(("health probe",))
+        except Exception as error:
+            self.skipTest(f"local semantic model unavailable: {error}")
+        selector = SemanticCapabilitySelector(
+            self.capability_router.descriptors,
+            provider,
+        )
+
+        matches = selector.candidates(
+            "por favor encuentra mis documentos locales en el ordenador"
+        )
+
+        self.assertTrue(matches)
+        self.assertEqual(matches[0].operation, "search_documents")
 
     def test_russian_and_english_golden_requests(self):
         cases = (("Найди все PDF-файлы по математике", "search_documents"),)
