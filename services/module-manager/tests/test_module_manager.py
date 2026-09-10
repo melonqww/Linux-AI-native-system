@@ -20,10 +20,13 @@ class ModuleManagerTests(unittest.TestCase):
         self.root = root
         self.registry = CapabilityRegistry(root / "registry.sqlite3")
         self.registry.sync([PROJECT_ROOT / "services", PROJECT_ROOT / "modules"])
+        self.security_scan_root = root / "scan-root"
+        self.security_scan_root.mkdir()
         self.manager = ModuleProcessManager(
             self.registry,
             idle_seconds=0,
             runtime_directory=self.root / "runtime",
+            security_scan_roots={"test-files": self.security_scan_root},
         )
 
     def tearDown(self) -> None:
@@ -105,10 +108,13 @@ class ModuleManagerTests(unittest.TestCase):
             {
                 "schema_version": 1,
                 "module_id": "security.center",
-                "module_version": "0.1.0",
+                "module_version": "0.2.0",
                 "state": "ready",
                 "lifecycle": "on-demand",
-                "capabilities": ["security.module.status"],
+                "capabilities": [
+                    "security.module.status",
+                    "security.files.scan",
+                ],
             },
         )
         self.assertLessEqual(len(json.dumps(result).encode("utf-8")), 512)
@@ -117,6 +123,25 @@ class ModuleManagerTests(unittest.TestCase):
             self.manager.health_details("security.center"),
             {"status": "ready"},
         )
+
+    def test_starts_security_scan_provider_in_isolated_on_demand_worker(self) -> None:
+        sample = self.security_scan_root / "sample.txt"
+        sample.write_bytes(b"ordinary sample")
+        provider = self.manager.start_for_capability("security.files.scan")
+        result = self.manager.invoke(
+            provider,
+            "scan",
+            {"resource_id": "test-files", "relative_path": "sample.txt"},
+            timeout=30,
+        )
+
+        self.assertEqual(provider, "security.center")
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["verdict"], "no_threat_detected")
+        self.assertEqual(result["size_bytes"], len(b"ordinary sample"))
+        self.assertNotIn(str(self.security_scan_root), json.dumps(result))
+        self.assertIn("security.center", self.manager.running_modules())
+        self.assertTrue(self.manager.health("security.center"))
 
     def test_reads_software_snapshot_from_isolated_background_worker(self) -> None:
         provider = self.manager.start_for_capability("software.catalog.read")

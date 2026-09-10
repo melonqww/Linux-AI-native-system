@@ -14,11 +14,18 @@ class SecurityCenterManifestTests(unittest.TestCase):
 
         self.assertEqual(manifest["schema_version"], 2)
         self.assertEqual(manifest["module_id"], "security.center")
-        self.assertEqual(manifest["module_version"], "0.1.0")
+        self.assertEqual(manifest["module_version"], "0.2.0")
         self.assertEqual(manifest["lifecycle"], "on-demand")
         self.assertTrue(manifest["default_enabled"])
-        self.assertEqual(manifest["requested_permissions"], ["security.read-status"])
-        self.assertEqual(len(manifest["capabilities"]), 1)
+        self.assertEqual(
+            manifest["requested_permissions"],
+            [
+                "security.read-status",
+                "filesystem.read-metadata",
+                "filesystem.read-content",
+            ],
+        )
+        self.assertEqual(len(manifest["capabilities"]), 2)
 
         capability = manifest["capabilities"][0]
         self.assertEqual(capability["id"], "security.module.status")
@@ -34,6 +41,18 @@ class SecurityCenterManifestTests(unittest.TestCase):
         )
         self.assertEqual(
             capability["requested_permissions"], ["security.read-status"]
+        )
+
+        scan = manifest["capabilities"][1]
+        self.assertEqual(scan["id"], "security.files.scan")
+        self.assertNotIn("user_intent", scan)
+        self.assertEqual(
+            scan["input_schema"]["required"], ["resource_id", "relative_path"]
+        )
+        self.assertFalse(scan["input_schema"]["additionalProperties"])
+        self.assertEqual(
+            scan["requested_permissions"],
+            ["filesystem.read-metadata", "filesystem.read-content"],
         )
 
     def test_entrypoint_and_package_metadata_are_consistent(self) -> None:

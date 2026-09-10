@@ -1,6 +1,8 @@
 # Security Center MVP — план работ
 
-**Статус:** план согласования; реализация ещё не начата.
+**Статус:** foundation и первый bounded File Scanner завершены в `0.2.0`;
+Finding Store, системный аудит, внешний AV adapter, карантин и Security Campaign
+остаются следующими этапами.
 
 ## Результат MVP
 

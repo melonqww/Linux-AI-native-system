@@ -44,11 +44,12 @@ operation как пользовательский tool.
 {
   "schema_version": 1,
   "module_id": "security.center",
-  "module_version": "0.1.0",
+  "module_version": "0.2.0",
   "state": "ready",
   "lifecycle": "on-demand",
   "capabilities": [
-    "security.module.status"
+    "security.module.status",
+    "security.files.scan"
   ]
 }
 ```
@@ -64,9 +65,9 @@ arguments, секреты или traceback.
 
 Импорт `ai_native_security` не запускает lifecycle и не выполняет I/O.
 
-## Не входит в v1
+## Не входит в foundation v1
 
-- scan request/result;
+- scan request/result (добавлен отдельным контрактом File Scan API v2);
 - findings persistence;
 - posture probes;
 - quarantine/restore;

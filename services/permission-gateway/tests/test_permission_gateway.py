@@ -190,6 +190,72 @@ class PermissionGatewayTests(unittest.TestCase):
             "arguments_not_allowed",
         )
 
+    def test_security_file_scan_is_bounded_read_only_and_requires_resource_reference(self):
+        gateway = PermissionGateway(
+            builtin_policies(),
+            capability_source=lambda: {"security.files.scan"},
+        )
+        policy = next(
+            item
+            for item in builtin_policies()
+            if item.capability_id == "security.files.scan"
+        )
+
+        self.assertEqual(policy.risk.value, "R0")
+        self.assertFalse(policy.plan_approval_required)
+        self.assertEqual(
+            policy.allowed_arguments,
+            frozenset({"resource_id", "relative_path"}),
+        )
+        self.assertEqual(policy.required_arguments, policy.allowed_arguments)
+        self.assertEqual(policy.max_concurrency, 2)
+        self.assertEqual(policy.timeout_seconds, 30)
+        self.assertEqual(len(policy.phases), 1)
+        self.assertEqual(policy.phases[0].phase, ExecutionPhase.EXECUTE)
+        self.assertEqual(
+            policy.phases[0].allowed_transports,
+            frozenset(
+                {
+                    TransportKind.INTERNAL,
+                    TransportKind.UNIX_PEER,
+                    TransportKind.LOOPBACK_HTTP,
+                }
+            ),
+        )
+        self.assertFalse(policy.phases[0].approval_required)
+        self.assertEqual(
+            policy.phases[0].required_scopes,
+            frozenset(
+                {"filesystem.read-metadata", "filesystem.read-content"}
+            ),
+        )
+
+        value = invocation(
+            capability="security.files.scan",
+            step_id="step_security_scan",
+            arguments={"resource_id": "workspace", "relative_path": "sample.bin"},
+            context=ExecutionContext(TransportContext.internal(), SCOPES),
+        )
+        self.assertTrue(gateway.evaluate(value).allowed)
+        self.assertEqual(
+            gateway.evaluate(
+                replace(value, arguments={"resource_id": "workspace"})
+            ).reason_code,
+            "required_arguments_missing",
+        )
+        self.assertEqual(
+            gateway.evaluate(
+                replace(
+                    value,
+                    context=ExecutionContext(
+                        TransportContext.internal(),
+                        frozenset({"filesystem.read-metadata"}),
+                    ),
+                )
+            ).reason_code,
+            "scope_not_granted",
+        )
+
     def test_software_commit_requires_unix_transport_approval_and_scope(self):
         gateway = PermissionGateway(
             builtin_policies(),

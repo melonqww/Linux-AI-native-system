@@ -2,8 +2,8 @@
   "schema_version": 2,
   "module_id": "security.center",
   "display_name": "Security Center",
-  "description": "Exposes the bounded lifecycle status of the local Security Center foundation.",
-  "module_version": "0.1.0",
+  "description": "Provides bounded status and read-only signature scanning for trusted local resources.",
+  "module_version": "0.2.0",
   "core_api": "1",
   "capabilities": [
     {
@@ -16,11 +16,25 @@
         "additionalProperties": false
       },
       "requested_permissions": ["security.read-status"]
+    },
+    {
+      "id": "security.files.scan",
+      "description": "Scan one regular file inside a trusted resource root without returning its content.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "resource_id": {"type": "string", "minLength": 1, "maxLength": 64},
+          "relative_path": {"type": "string", "minLength": 1, "maxLength": 1024}
+        },
+        "required": ["resource_id", "relative_path"],
+        "additionalProperties": false
+      },
+      "requested_permissions": ["filesystem.read-metadata", "filesystem.read-content"]
     }
   ],
   "dependencies": [],
   "optional_dependencies": [],
-  "requested_permissions": ["security.read-status"],
+  "requested_permissions": ["security.read-status", "filesystem.read-metadata", "filesystem.read-content"],
   "lifecycle": "on-demand",
   "resource_class": "tiny",
   "default_enabled": true,

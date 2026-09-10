@@ -77,4 +77,6 @@ privileged daemon обсуждается только для доказанно�
 Принятые решения:
 
 - [`ADR-026`](../decisions/ADR-026-security-center-foundation.md);
-- [`ADR-027`](../decisions/ADR-027-security-campaign.md).
+- [`ADR-027`](../decisions/ADR-027-security-campaign.md);
+- [`ADR-028`](../decisions/ADR-028-security-file-scan-boundary.md) — trusted
+  `resource_id + relative_path` и fail-closed сигнатурный scan для `0.2.0`.

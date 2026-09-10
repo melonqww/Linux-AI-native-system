@@ -78,6 +78,38 @@ class PolicyManifestAlignmentTests(unittest.TestCase):
             {"security.read-status"},
         )
 
+    def test_security_scan_manifest_matches_trusted_policy(self):
+        gateway = PermissionGateway(builtin_policies())
+        providers = self.registry.providers("security.files.scan")
+
+        self.assertEqual(
+            [provider.module_id for provider in providers],
+            ["security.center"],
+        )
+        manifest = self.registry.get_module("security.center").manifest
+        contract = next(
+            item
+            for item in manifest.capabilities
+            if item.capability_id == "security.files.scan"
+        )
+        self.assertEqual(
+            contract.requested_permissions,
+            ("filesystem.read-metadata", "filesystem.read-content"),
+        )
+        self.assertEqual(
+            set(contract.input_schema["properties"]),
+            {"resource_id", "relative_path"},
+        )
+        self.assertEqual(
+            set(contract.input_schema["required"]),
+            {"resource_id", "relative_path"},
+        )
+        self.assertFalse(contract.input_schema["additionalProperties"])
+        self.assertEqual(
+            gateway.required_scopes("security.files.scan"),
+            {"filesystem.read-metadata", "filesystem.read-content"},
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

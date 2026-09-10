@@ -2,7 +2,7 @@
 
 `Security Lab` — проектный namespace для документации, будущих безопасных
 fixtures и сценариев проверки локального модуля защиты AI-native Linux.
-Production-модуль будет подключаться к Capability Registry как first-party
+Production-модуль подключён к Capability Registry как first-party
 `security.center`. На первом этапе здесь не создаётся отдельный runner:
 специализированные проверки войдут третьим контуром `Security Campaign` в уже
 существующую `AI Scenario Lab`.
@@ -19,8 +19,11 @@ Production-код `security.center` никогда не импортирует �
 
 ## Статус
 
-Сейчас определены границы и MVP. Исполняемого кода, тестового runner, фонового
-мониторинга, привилегированного helper и настоящих вредоносных образцов пока нет.
+Foundation `0.1.0` и файловый scanner `0.2.0` уже реализованы в production-модуле.
+Capability `security.files.scan` проверяет один файл по доверенной ссылке
+`resource_id + relative_path`, потоково считает SHA-256 и ищет точные hash- и
+byte-сигнатуры. Отдельного test runner, фонового мониторинга, привилегированного
+helper и настоящих вредоносных образцов пока нет.
 
 ## Цель MVP
 

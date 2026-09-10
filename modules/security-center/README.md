@@ -1,49 +1,61 @@
 # Security Center
 
-`Security Center` — доверенный on-demand модуль защиты AI-native Linux. Версия
-`0.1.0` намеренно является только фундаментом: она проверяет подключение к
-Capability Registry, trusted policy, отдельный worker lifecycle и строгий
-публичный status-контракт до появления файловых или привилегированных действий.
+`Security Center` — доверенный on-demand модуль защиты AI-native Linux.
+Текущий код `0.2.0` предоставляет status и безопасное детерминированное
+сканирование одного файла через `security.files.scan`.
 
-## Реализовано
+## v0.2.0: файловое сканирование
 
-Модуль публикует одну capability:
+Запрос не принимает абсолютный путь. Core передаёт:
 
-- `security.module.status` с permission `security.read-status`;
-- без `user_intent` и без передачи operation языковой модели;
-- закрытый пустой input object;
-- детерминированный bounded JSON-safe ответ.
+- `resource_id` — идентификатор заранее настроенного и разрешённого root;
+- `relative_path` — относительный путь к одному обычному файлу внутри root.
 
-Worker поддерживает стандартный lifecycle:
+Scanner разрешает пару на своей стороне, запрещает абсолютные пути, `..`,
+symlink, каталоги и специальные файлы и проверяет, что открытый объект остался
+внутри root. Файл читается потоком с лимитами размера, времени и объёма ответа;
+содержимое не исполняется, не изменяется и не возвращается вызывающей стороне.
 
-```text
-worker_start()
-worker_health()
-worker_invoke("status", {})
-worker_stop()
-```
+Во время одного прохода вычисляется SHA-256 и работают два локальных detector:
 
-Повторные start и stop безопасны. Health и invocation закрываются ошибкой, если
-worker не запущен. Неизвестная operation, непустой или не-object payload
-отклоняются.
+1. exact hash detector сравнивает итоговый SHA-256 с локальным набором известных
+   вредоносных digest;
+2. byte-pattern detector ищет точные ограниченные последовательности байтов,
+   включая совпадения на границе блоков.
 
-## Пока не реализовано
+Это сигнатурный сканер: он уверенно распознаёт только известные локальные
+сигнатуры и не пытается «понять код». AI, сеть, subprocess, внешние антивирусные
+процессы и эвристическая классификация в `0.2.0` не используются.
 
-Foundation не сканирует файлы, не обнаруживает malware, не хранит findings, не
-использует карантин, сеть, subprocess, AI или root. Импорт пакета не выполняет
-I/O и не запускает worker.
+Допустимы только три verdict:
 
-Следующие функции могут добавляться только отдельными capabilities вместе с
-trusted policy, строгими контрактами, resource limits и тестами. Запланированные
-границы не считаются готовым API.
+- `malware_detected` — хотя бы одна точная сигнатура подтверждена;
+- `no_threat_detected` — файл полностью прочитан, SHA-256 вычислен и все
+  обязательные detectors успешно завершились без совпадений;
+- `unknown` — проверка неполна: нарушен лимит, файл недоступен или изменился,
+  либо чтение не завершилось корректно.
+
+Fail-closed означает, что ошибка никогда не превращается в
+`no_threat_detected`.
+
+## Границы версии
+
+`0.2.0` сканирует один явно адресованный файл и возвращает bounded JSON-safe
+результат: digest, размер, итог, код ошибки и нормализованные observations. В ответ не входят содержимое файла, абсолютный
+путь, секреты, произвольный detector output или traceback.
+
+Версия не выполняет обход каталогов, карантин, удаление, лечение, фоновый
+мониторинг, аудит Ubuntu, сохранение findings или обновление сигнатур. Scanner не
+имеет сети, не запускает subprocess и не получает постоянный root.
 
 ## Документация
 
+- [File Scan API v2](../../Architecture/api/security-center-file-scan-v2.md)
+- [ADR-028: безопасная граница файлового сканирования](../../Architecture/decisions/ADR-028-security-file-scan-boundary.md)
 - [Foundation API v1](../../Architecture/api/security-center-foundation-v1.md)
 - [ADR-026: фундамент Security Center](../../Architecture/decisions/ADR-026-security-center-foundation.md)
 - [ADR-027: Security Campaign](../../Architecture/decisions/ADR-027-security-campaign.md)
-- [Дискуссия о вариантах MVP](../../Architecture/discussions/security-center-mvp-options.md)
-- [MVP, архитектура и план развития](../../labs/security-lab/README.md)
+- [MVP, архитектура и план](../../labs/security-lab/README.md)
 
 ## Быстрые тесты
 

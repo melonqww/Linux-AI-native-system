@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ai-native-linux-security-center"
-version = "0.1.0"
-description = "Minimal trusted foundation for the AI-native Linux Security Center."
+version = "0.2.0"
+description = "Bounded read-only scanning foundation for the AI-native Linux Security Center."
 requires-python = ">=3.12"
 
 [tool.setuptools.packages.find]

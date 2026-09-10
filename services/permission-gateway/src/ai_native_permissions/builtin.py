@@ -183,4 +183,22 @@ def builtin_policies() -> tuple[CapabilityPolicy, ...]:
             ),
             timeout_seconds=5,
         ),
+        CapabilityPolicy(
+            capability_id="security.files.scan",
+            risk=RiskLevel.READ_ONLY,
+            plan_approval_required=False,
+            allowed_arguments=frozenset({"resource_id", "relative_path"}),
+            required_arguments=frozenset({"resource_id", "relative_path"}),
+            phases=(
+                PhasePolicy(
+                    ExecutionPhase.EXECUTE,
+                    ALL_LOCAL_TRANSPORTS,
+                    frozenset(
+                        {"filesystem.read-metadata", "filesystem.read-content"}
+                    ),
+                ),
+            ),
+            max_concurrency=2,
+            timeout_seconds=30,
+        ),
     )

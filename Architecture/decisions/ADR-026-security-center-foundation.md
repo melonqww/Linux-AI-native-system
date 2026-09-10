@@ -74,3 +74,5 @@ AI не входит в защитный MVP. Verdict, severity и действ�
 [`security-center-foundation-v1`](../api/security-center-foundation-v1.md), а
 рассмотренные варианты — в
 [`security-center-mvp-options`](../discussions/security-center-mvp-options.md).
+Безопасная файловая граница следующей версии закреплена отдельно в
+[`ADR-028`](ADR-028-security-file-scan-boundary.md).

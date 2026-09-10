@@ -8,6 +8,7 @@ import re
 import subprocess
 import sys
 import threading
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from queue import Empty, Queue
@@ -41,6 +42,7 @@ class ModuleProcessManager:
         runtime_directory: Path | None = None,
         storage_database: Path | None = None,
         index_database: Path | None = None,
+        security_scan_roots: Mapping[str, Path] | None = None,
     ) -> None:
         if idle_seconds < 0:
             raise ValueError("idle_seconds must not be negative")
@@ -58,6 +60,10 @@ class ModuleProcessManager:
         self.index_database = (
             index_database or self.runtime_directory / "document-index.sqlite3"
         ).expanduser().absolute()
+        self.security_scan_roots = {
+            resource_id: Path(root).expanduser().resolve(strict=True)
+            for resource_id, root in (security_scan_roots or {}).items()
+        }
         self._running: dict[str, _RunningModule] = {}
 
     def start_for_capability(self, capability_id: str) -> str:
@@ -112,6 +118,14 @@ class ModuleProcessManager:
         env["AI_NATIVE_MODEL_STATE_DATABASE"] = str(
             self.runtime_directory / "model-lifecycle.sqlite3"
         )
+        if module_id == "security.center":
+            env["AI_NATIVE_SECURITY_SCAN_ROOTS"] = json.dumps(
+                {
+                    resource_id: str(root)
+                    for resource_id, root in self.security_scan_roots.items()
+                },
+                separators=(",", ":"),
+            )
         provider_root = self.runtime_directory / "providers" / "ollama"
         env["AI_NATIVE_PROVIDER_STATE_DATABASE"] = str(
             self.runtime_directory / "provider-lifecycle.sqlite3"
