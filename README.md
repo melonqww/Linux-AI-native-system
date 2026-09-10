@@ -164,6 +164,14 @@ on-demand worker и отдаёт панели только сводку. Уст�
 штатном Ubuntu update UI; контракт описан в
 [`Architecture/api/system-updates-v1.md`](Architecture/api/system-updates-v1.md).
 
+`modules/security-center` начинает отдельный first-party Security Center. Его
+foundation v0.1 пока публикует только bounded read-only статус через
+`security.module.status`: без AI, сети, сканирования файлов, карантина и
+привилегированных действий. Это позволяет сначала проверить manifest, trusted
+policy и изолированный worker lifecycle. План следующих этапов и будущего
+третьего Security Campaign находятся в
+[`labs/security-lab`](labs/security-lab/README.md).
+
 Следующий background-слой реализован в `services/index-scheduler`: Linux
 `inotify`, mount monitoring, ограниченная coalescing-очередь, load pause и
 инкрементальное обновление каталога, текста и PDF. `Module Manager` действительно

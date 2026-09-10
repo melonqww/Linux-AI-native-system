@@ -181,24 +181,27 @@ class CapabilityRegistryTests(RegistryTestCase):
     def test_registers_complete_first_party_module_set(self) -> None:
         report = self.registry.sync([PROJECT_ROOT / "services", PROJECT_ROOT / "modules"])
 
-        self.assertEqual(report.scanned, 12)
+        expected_module_ids = [
+            "browser.navigation",
+            "desktop.applications",
+            "documents.index",
+            "documents.pdf",
+            "documents.query",
+            "model.ollama",
+            "provider.ollama",
+            "security.center",
+            "software.manager",
+            "storage.catalog",
+            "storage.watch",
+            "system.monitor",
+            "system.updates",
+        ]
+
+        self.assertEqual(report.scanned, 13)
         self.assertEqual(report.issues, ())
         self.assertEqual(
             [module.manifest.module_id for module in self.registry.list_modules()],
-            [
-                "browser.navigation",
-                "desktop.applications",
-                "documents.index",
-                "documents.pdf",
-                "documents.query",
-                "model.ollama",
-                "provider.ollama",
-                "software.manager",
-                "storage.catalog",
-                "storage.watch",
-                "system.monitor",
-                "system.updates",
-            ],
+            expected_module_ids,
         )
         self.assertIn("documents.pdf.extract", self.registry.available_capabilities())
         self.assertIn("browser.search.plan", self.registry.available_capabilities())
@@ -219,6 +222,10 @@ class CapabilityRegistryTests(RegistryTestCase):
         self.assertIn("software.remove.commit", self.registry.available_capabilities())
         self.assertIn("software.tasks.control", self.registry.available_capabilities())
         self.assertIn("documents.query.search", self.registry.available_capabilities())
+        self.assertIn(
+            "security.module.status",
+            self.registry.available_capabilities(),
+        )
 
     def test_enabled_modules_publish_declarative_intent_routes(self) -> None:
         self.registry.sync([PROJECT_ROOT / "services", PROJECT_ROOT / "modules"])

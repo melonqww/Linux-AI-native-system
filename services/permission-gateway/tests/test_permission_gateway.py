@@ -138,6 +138,58 @@ class PermissionGatewayTests(unittest.TestCase):
             },
         )
 
+    def test_security_module_status_is_read_only_local_and_argument_free(self):
+        gateway = PermissionGateway(
+            builtin_policies(),
+            capability_source=lambda: {"security.module.status"},
+        )
+        policy = next(
+            item
+            for item in builtin_policies()
+            if item.capability_id == "security.module.status"
+        )
+
+        self.assertEqual(policy.risk.value, "R0")
+        self.assertFalse(policy.plan_approval_required)
+        self.assertEqual(policy.allowed_arguments, frozenset())
+        self.assertEqual(policy.required_arguments, frozenset())
+        self.assertEqual(policy.timeout_seconds, 5)
+        self.assertEqual(len(policy.phases), 1)
+        self.assertEqual(policy.phases[0].phase, ExecutionPhase.EXECUTE)
+        self.assertEqual(
+            policy.phases[0].allowed_transports,
+            frozenset(
+                {
+                    TransportKind.INTERNAL,
+                    TransportKind.UNIX_PEER,
+                    TransportKind.LOOPBACK_HTTP,
+                }
+            ),
+        )
+        self.assertFalse(policy.phases[0].approval_required)
+        self.assertEqual(
+            policy.phases[0].required_scopes,
+            frozenset({"security.read-status"}),
+        )
+
+        value = invocation(
+            capability="security.module.status",
+            phase=ExecutionPhase.EXECUTE,
+            step_id="step_security_status",
+            arguments={},
+            declared_risk="R0",
+            declared_approval_required=False,
+            context=ExecutionContext(
+                TransportContext(TransportKind.LOOPBACK_HTTP, "http"),
+                frozenset({"security.read-status"}),
+            ),
+        )
+        self.assertTrue(gateway.evaluate(value).allowed)
+        self.assertEqual(
+            gateway.evaluate(replace(value, arguments={"verbose": True})).reason_code,
+            "arguments_not_allowed",
+        )
+
     def test_software_commit_requires_unix_transport_approval_and_scope(self):
         gateway = PermissionGateway(
             builtin_policies(),

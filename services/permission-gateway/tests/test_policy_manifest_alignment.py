@@ -53,6 +53,31 @@ class PolicyManifestAlignmentTests(unittest.TestCase):
                 checked += 1
         self.assertGreater(checked, 0)
 
+    def test_security_status_manifest_matches_trusted_policy(self):
+        gateway = PermissionGateway(builtin_policies())
+        providers = self.registry.providers("security.module.status")
+
+        self.assertEqual(
+            [provider.module_id for provider in providers],
+            ["security.center"],
+        )
+        manifest = self.registry.get_module("security.center").manifest
+        contract = next(
+            item
+            for item in manifest.capabilities
+            if item.capability_id == "security.module.status"
+        )
+        self.assertEqual(
+            contract.requested_permissions,
+            ("security.read-status",),
+        )
+        self.assertEqual(contract.input_schema["properties"], {})
+        self.assertEqual(contract.input_schema["required"], [])
+        self.assertEqual(
+            gateway.required_scopes("security.module.status"),
+            {"security.read-status"},
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

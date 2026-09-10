@@ -1,0 +1,32 @@
+{
+  "schema_version": 2,
+  "module_id": "security.center",
+  "display_name": "Security Center",
+  "description": "Exposes the bounded lifecycle status of the local Security Center foundation.",
+  "module_version": "0.1.0",
+  "core_api": "1",
+  "capabilities": [
+    {
+      "id": "security.module.status",
+      "description": "Read the bounded lifecycle status of the Security Center module.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "requested_permissions": ["security.read-status"]
+    }
+  ],
+  "dependencies": [],
+  "optional_dependencies": [],
+  "requested_permissions": ["security.read-status"],
+  "lifecycle": "on-demand",
+  "resource_class": "tiny",
+  "default_enabled": true,
+  "entrypoint": {
+    "kind": "python-service",
+    "module": "ai_native_security",
+    "python_path": "src"
+  }
+}

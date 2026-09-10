@@ -95,6 +95,29 @@ class ModuleManagerTests(unittest.TestCase):
         self.assertIn(result["state"], {"updates_available", "up_to_date", "unavailable"})
         self.assertLessEqual(len(json.dumps(result).encode("utf-8")), 64 * 1024)
 
+    def test_invokes_security_foundation_in_isolated_on_demand_worker(self) -> None:
+        provider = self.manager.start_for_capability("security.module.status")
+        result = self.manager.invoke(provider, "status", timeout=5)
+
+        self.assertEqual(provider, "security.center")
+        self.assertEqual(
+            result,
+            {
+                "schema_version": 1,
+                "module_id": "security.center",
+                "module_version": "0.1.0",
+                "state": "ready",
+                "lifecycle": "on-demand",
+                "capabilities": ["security.module.status"],
+            },
+        )
+        self.assertLessEqual(len(json.dumps(result).encode("utf-8")), 512)
+        self.assertIn("security.center", self.manager.running_modules())
+        self.assertEqual(
+            self.manager.health_details("security.center"),
+            {"status": "ready"},
+        )
+
     def test_reads_software_snapshot_from_isolated_background_worker(self) -> None:
         provider = self.manager.start_for_capability("software.catalog.read")
         result = self.manager.invoke(provider, "snapshot", timeout=15)

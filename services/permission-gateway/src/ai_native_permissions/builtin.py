@@ -168,4 +168,19 @@ def builtin_policies() -> tuple[CapabilityPolicy, ...]:
             ),
             timeout_seconds=60,
         ),
+        CapabilityPolicy(
+            capability_id="security.module.status",
+            risk=RiskLevel.READ_ONLY,
+            plan_approval_required=False,
+            allowed_arguments=frozenset(),
+            required_arguments=frozenset(),
+            phases=(
+                PhasePolicy(
+                    ExecutionPhase.EXECUTE,
+                    ALL_LOCAL_TRANSPORTS,
+                    frozenset({"security.read-status"}),
+                ),
+            ),
+            timeout_seconds=5,
+        ),
     )

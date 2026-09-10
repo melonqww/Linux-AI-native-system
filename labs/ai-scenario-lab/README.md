@@ -7,7 +7,7 @@
 ПК.
 
 Лаборатория нужна не для подмены unit-тестов и не для отдельной реализации
-ассистента. Её задача — ответить на три разных вопроса:
+ассистента. Текущие контуры отвечают на четыре вопроса:
 
 1. правильно ли модель поняла chat, action или mixed-запрос;
 2. правильно ли ядро проверило, разрешило и выполнило полученный план;
@@ -19,9 +19,43 @@ scenarios продолжают точно проверять известные 
 пользователя, реагируют на фактический UI-ответ, уточняют запрос, меняют решение
 и оценивают конечную цель по доверенным эффектам.
 
+После появления production-модуля `security.center` лаборатория получит третий
+отдельный контур — `Security Campaign`. Он будет проверять защитный модуль иначе,
+чем технический/Foundation и User Journey контуры: детерминированно испытывать
+его реальные файлы, contracts и функции безопасными security fixtures,
+containment-сценариями и контролируемыми сбоями. На текущем этапе этот campaign и
+его runner ещё не реализованы.
+
 Архитектурное решение зафиксировано в
 [`ADR-017`](../../Architecture/decisions/ADR-017-isolated-ai-scenario-lab.md) и
 [`ADR-018`](../../Architecture/decisions/ADR-018-goal-driven-user-journey-lab.md).
+
+## Будущий Security Campaign
+
+`Security Campaign` будет третьим режимом существующей лаборатории, а не
+отдельным runner в `labs/security-lab`. Его назначение — проверить настоящий
+`security.center` извне:
+
+- импортировать реальные production-пакеты, contracts и функции модуля;
+- сканировать только безопасные fixtures в одноразовом `VirtualSecurityHost`;
+- проверять deterministic verdict, evidence, лимиты и fail-closed ошибки;
+- проверять quarantine/restore, approval, replay, path race и containment;
+- локализовать crash, timeout и malformed detector output;
+- подтверждать неизменность внешнего canary и отсутствие скрытых эффектов.
+
+Направление зависимости строго одностороннее:
+
+```text
+AI Scenario Lab / Security Campaign  →  production security.center
+production security.center           ↛  labs/*
+```
+
+Импорт `lab → production` обязателен: лаборатория должна проверять тот код,
+который поставляется пользователю, а не лабораторную копию. Обратный импорт
+запрещён, поэтому production-модуль не запускает тесты и не тестирует сам себя.
+Security Campaign не требует AI или Ollama; модель может позднее проверяться
+отдельно только на уровне пользовательского общения и не влияет на защитный
+verdict.
 
 ## User Journey Lab
 
