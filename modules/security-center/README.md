@@ -1,20 +1,20 @@
 # Security Center
 
-Security Center is the trusted, on-demand security module for AI-native Linux.
-Version `0.1.0` is deliberately a foundation only: it proves module discovery,
-worker lifecycle, strict invocation, and a bounded public status contract before
-any privileged security behavior is introduced.
+`Security Center` — доверенный on-demand модуль защиты AI-native Linux. Версия
+`0.1.0` намеренно является только фундаментом: она проверяет подключение к
+Capability Registry, trusted policy, отдельный worker lifecycle и строгий
+публичный status-контракт до появления файловых или привилегированных действий.
 
-## Foundation scope
+## Реализовано
 
-The module currently publishes one capability:
+Модуль публикует одну capability:
 
-- `security.module.status`, protected by `security.read-status`;
-- no `user_intent` route;
-- a closed, empty input object;
-- a deterministic, JSON-safe status response.
+- `security.module.status` с permission `security.read-status`;
+- без `user_intent` и без передачи operation языковой модели;
+- закрытый пустой input object;
+- детерминированный bounded JSON-safe ответ.
 
-The worker exposes the standard module lifecycle functions:
+Worker поддерживает стандартный lifecycle:
 
 ```text
 worker_start()
@@ -23,23 +23,31 @@ worker_invoke("status", {})
 worker_stop()
 ```
 
-Starting and stopping are idempotent. Health and invocation fail closed while
-the worker is stopped. Unknown operations and every non-empty or non-object
-payload are rejected.
+Повторные start и stop безопасны. Health и invocation закрываются ошибкой, если
+worker не запущен. Неизвестная operation, непустой или не-object payload
+отклоняются.
 
-## Explicitly excluded
+## Пока не реализовано
 
-This stage performs no file scanning, antivirus detection, quarantine, network
-access, subprocess execution, AI inference, persistence, background monitoring,
-or privileged system changes. Importing the package performs no I/O and does
-not start the worker.
+Foundation не сканирует файлы, не обнаруживает malware, не хранит findings, не
+использует карантин, сеть, subprocess, AI или root. Импорт пакета не выполняет
+I/O и не запускает worker.
 
-Later stages may add security behavior only behind separately reviewed
-capabilities, permissions, bounded contracts, and tests.
+Следующие функции могут добавляться только отдельными capabilities вместе с
+trusted policy, строгими контрактами, resource limits и тестами. Запланированные
+границы не считаются готовым API.
 
-## Run the fast tests
+## Документация
 
-From the repository root:
+- [Foundation API v1](../../Architecture/api/security-center-foundation-v1.md)
+- [ADR-026: фундамент Security Center](../../Architecture/decisions/ADR-026-security-center-foundation.md)
+- [ADR-027: Security Campaign](../../Architecture/decisions/ADR-027-security-campaign.md)
+- [Дискуссия о вариантах MVP](../../Architecture/discussions/security-center-mvp-options.md)
+- [MVP, архитектура и план развития](../../labs/security-lab/README.md)
+
+## Быстрые тесты
+
+Из корня репозитория:
 
 ```bash
 python -m pytest modules/security-center/tests -q

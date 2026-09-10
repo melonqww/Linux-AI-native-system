@@ -187,3 +187,9 @@ MVP считается готовым только если:
 [`PLAN.md`](PLAN.md). Этот каталог не является вторым тестовым backend или
 конкурирующим runner; запуск и отчёты будущего `Security Campaign` принадлежат
 `AI Scenario Lab`.
+
+Принятые границы foundation и будущего третьего контура закреплены в
+[`ADR-026`](../../Architecture/decisions/ADR-026-security-center-foundation.md) и
+[`ADR-027`](../../Architecture/decisions/ADR-027-security-campaign.md).
+Рассмотренные варианты сохранены в
+[`архитектурной дискуссии`](../../Architecture/discussions/security-center-mvp-options.md).

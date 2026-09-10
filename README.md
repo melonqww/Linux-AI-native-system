@@ -59,9 +59,11 @@ python -m unittest discover -s services/agent-runtime/tests -v
 и зависимости и публикует доступные capability-контракты. Manifest v2 объединяет
 ID, описание, закрытую схему входа, запрашиваемые права и необязательный
 пользовательский intent. Формальная manifest schema
-находится в `packages/module-sdk`. Зарегистрированы `storage.catalog`,
-`documents.index`, `documents.pdf`, `desktop.applications` и
-`browser.navigation` и `system.monitor`; команды описаны в
+находится в `packages/module-sdk`. Registry синхронизирует first-party manifests
+из `services/*` и `modules/*`, включая `storage.catalog`, `documents.index`,
+`documents.pdf`, `desktop.applications`, `browser.navigation`,
+`system.monitor`, `system.updates` и новый foundation `security.center`;
+команды описаны в
 [`services/capability-registry/README.md`](services/capability-registry/README.md).
 
 ## Intent Compiler v1
@@ -112,7 +114,7 @@ model reasoning и технические причины ошибок в пол�
 только через authenticated Unix IPC. Подробнее: [контракт](Architecture/api/task-ledger-v1.md)
 и [ADR-008](Architecture/decisions/ADR-008-core-task-ledger.md).
 
-## Шесть базовых компонентов
+## Базовые компоненты
 
 Текущий фундамент собран в один модульный контур:
 
@@ -255,6 +257,7 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [Task Ledger v1](Architecture/api/task-ledger-v1.md)
 - [System Monitor API v1](Architecture/api/system-monitor-v1.md)
 - [System Updates API v1](Architecture/api/system-updates-v1.md)
+- [Security Center Foundation API v1](Architecture/api/security-center-foundation-v1.md)
 - [Контракты Storage Catalog](Architecture/api/storage-catalog-contracts.md)
 - [File Search R1](Architecture/api/file-search-r1.md)
 - [Контракт статуса индекса](Architecture/api/runtime-index-status.md)
@@ -272,6 +275,10 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [Решение о долговечном модуле установки приложений](Architecture/decisions/ADR-015-durable-software-manager.md)
 - [Решение об изолированной лаборатории AI-сценариев](Architecture/decisions/ADR-017-isolated-ai-scenario-lab.md)
 - [Решение о goal-driven User Journey Lab](Architecture/decisions/ADR-018-goal-driven-user-journey-lab.md)
+- [Решение о фундаменте Security Center](Architecture/decisions/ADR-026-security-center-foundation.md)
+- [Решение о Security Campaign](Architecture/decisions/ADR-027-security-campaign.md)
+- [Дискуссия о границах Security Center MVP](Architecture/discussions/security-center-mvp-options.md)
+- [Security Lab: MVP, архитектура и план](labs/security-lab/README.md)
 - [Решение о модульном жизненном цикле локальных моделей](Architecture/decisions/ADR-011-model-lifecycle-module.md)
 - [Решение об Intent Compiler](Architecture/decisions/ADR-004-model-neutral-intent-compiler.md)
 - [Решение об оркестрации серверных планов](Architecture/decisions/ADR-005-server-owned-execution-orchestration.md)
