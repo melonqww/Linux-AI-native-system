@@ -42,6 +42,10 @@ def operation_definitions():
                     "type": "string",
                     "description": "The subject inside indexed document content.",
                 },
+                "content_match": {
+                    "type": "string",
+                    "enum": ["semantic", "exact_phrase"],
+                },
                 "extensions": {"type": "array", "items": {"type": "string"}},
                 "name_terms": {
                     "type": "array",

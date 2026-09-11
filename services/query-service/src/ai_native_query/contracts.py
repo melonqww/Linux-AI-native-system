@@ -8,6 +8,13 @@ class SearchMode(StrEnum):
     HYBRID = "hybrid"
 
 
+class ContentMatch(StrEnum):
+    """Meaning of a non-empty content query."""
+
+    SEMANTIC = "semantic"
+    EXACT_PHRASE = "exact_phrase"
+
+
 class ContentAvailability(StrEnum):
     INDEXED = "indexed"
     PENDING = "pending"
@@ -20,6 +27,7 @@ class ContentAvailability(StrEnum):
 class DocumentQuery:
     mode: SearchMode | None = None
     text: str = ""
+    content_match: ContentMatch | None = None
     name_contains: tuple[str, ...] = ()
     extensions: tuple[str, ...] = ()
     volume_ids: tuple[str, ...] = ()

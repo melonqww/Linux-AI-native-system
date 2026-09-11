@@ -20,6 +20,7 @@ from ai_native_intents import CompilationResult, CompilationState, TaskContext
 from ai_native_permissions import TransportContext
 from ai_native_query import (
     ContentAvailability,
+    ContentMatch,
     DocumentQuery,
     QueryRuntimeApplication,
     QueryService,
@@ -178,7 +179,11 @@ class QueryServiceTests(unittest.TestCase):
         self.service.catalog.scan_volume("test-volume")
 
         report = self.service.ingest_pdfs()
-        results = self.service.search(DocumentQuery(text="algebra", extensions=("pdf",)))
+        results = self.service.search(
+            DocumentQuery(
+                text="algebra", content_match=ContentMatch.SEMANTIC, extensions=("pdf",)
+            )
+        )
         collection_id = self.service.save_snapshot("Math PDF", results)
 
         self.assertEqual(report.indexed, 2)
@@ -200,7 +205,9 @@ class QueryServiceTests(unittest.TestCase):
         service.ingest_pdfs()
 
         page = service.search_page(
-            DocumentQuery(text="математика", extensions=("pdf",))
+            DocumentQuery(
+                text="математика", content_match=ContentMatch.SEMANTIC, extensions=("pdf",)
+            )
         )
         results = list(page.results)
 
@@ -219,7 +226,9 @@ class QueryServiceTests(unittest.TestCase):
         service.catalog.scan_volume("test-volume")
         service.ingest_pdfs()
 
-        results = service.search(DocumentQuery(text="algebra"))
+        results = service.search(
+            DocumentQuery(text="algebra", content_match=ContentMatch.SEMANTIC)
+        )
 
         self.assertEqual([item.name for item in results], ["study.pdf"])
         self.assertEqual(results[0].sources, ("content",))
@@ -236,7 +245,9 @@ class QueryServiceTests(unittest.TestCase):
             semantic_provider=provider,
         )
 
-        results = service.search(DocumentQuery(text="математика"))
+        results = service.search(
+            DocumentQuery(text="математика", content_match=ContentMatch.SEMANTIC)
+        )
 
         self.assertEqual(results, [])
         self.assertEqual(provider.inputs, [])
@@ -253,7 +264,9 @@ class QueryServiceTests(unittest.TestCase):
             semantic_provider=provider,
         )
 
-        results = service.search(DocumentQuery(text="математика"))
+        results = service.search(
+            DocumentQuery(text="математика", content_match=ContentMatch.SEMANTIC)
+        )
 
         self.assertEqual(results, [])
         self.assertEqual(provider.inputs, [])
@@ -266,6 +279,16 @@ class QueryServiceTests(unittest.TestCase):
             {"text": "", "mode": "metadata", "extensions": ["pdf"], "offset": 0}
         )
         self.assertEqual(page.total_matches, 0)
+        semantic_page = application.search_page(
+            {"text": "algebra", "content_match": "semantic"}
+        )
+        self.assertEqual(semantic_page.total_matches, 0)
+        with self.assertRaises(ValueError):
+            application.search({"text": "algebra"})
+        with self.assertRaises(ValueError):
+            application.search(
+                {"text": "algebra", "content_match": "unsupported"}
+            )
         with self.assertRaises(ValueError):
             application.search({"text": [], "limit": 20})
         with self.assertRaises(ValueError):
@@ -326,6 +349,7 @@ class QueryServiceTests(unittest.TestCase):
             DocumentQuery(
                 mode=SearchMode.HYBRID,
                 text="algebra",
+                content_match=ContentMatch.SEMANTIC,
                 name_contains=("cooking",),
                 extensions=("pdf",),
             )
@@ -367,7 +391,12 @@ class QueryServiceTests(unittest.TestCase):
         self.service.indexer.index_directory(self.documents)
 
         page = self.service.search_page(
-            DocumentQuery(mode=SearchMode.CONTENT, text="algebra", limit=1)
+            DocumentQuery(
+                mode=SearchMode.CONTENT,
+                text="algebra",
+                content_match=ContentMatch.SEMANTIC,
+                limit=1,
+            )
         )
 
         self.assertEqual(page.total_matches, 2)
@@ -834,7 +863,9 @@ class QueryServiceTests(unittest.TestCase):
         self.service.ingest_pdfs()
         self.service.volumes.set_permission("test-volume", PermissionLevel.METADATA)
 
-        content = self.service.search(DocumentQuery(text="theorem"))
+        content = self.service.search(
+            DocumentQuery(text="theorem", content_match=ContentMatch.SEMANTIC)
+        )
         metadata = self.service.search(DocumentQuery(name_contains=("study",)))
 
         self.assertEqual(content, [])

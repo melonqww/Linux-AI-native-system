@@ -20,7 +20,13 @@ for source in (
 ):
     sys.path.insert(0, str(source))
 
-from ai_native_query import ContentAvailability, DocumentQuery, QueryService, SearchMode
+from ai_native_query import (
+    ContentAvailability,
+    ContentMatch,
+    DocumentQuery,
+    QueryService,
+    SearchMode,
+)
 from ai_native_scheduler import IndexScheduler
 from ai_native_storage import PermissionLevel, VolumeRegistry
 from ai_native_storage.contracts import DiscoveredVolume
@@ -122,7 +128,14 @@ class FileSearchR1LabTests(unittest.TestCase):
         self.assertEqual(by_name["broken.pdf"].content_state, ContentAvailability.UNAVAILABLE)
         self.assertEqual(by_name["broken.pdf"].content_reason, "damaged")
         self.assertEqual(
-            [result.name for result in query.search(DocumentQuery(text="largefiletoken"))],
+            [
+                result.name
+                for result in query.search(
+                    DocumentQuery(
+                        text="largefiletoken", content_match=ContentMatch.SEMANTIC
+                    )
+                )
+            ],
             ["large-notes.txt"],
         )
         external_metadata = query.search(
@@ -141,6 +154,7 @@ class FileSearchR1LabTests(unittest.TestCase):
                 DocumentQuery(
                     mode=SearchMode.CONTENT,
                     text="externalcontenttoken",
+                    content_match=ContentMatch.SEMANTIC,
                     volume_ids=("external",),
                 )
             ),

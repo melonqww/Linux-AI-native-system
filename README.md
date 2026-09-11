@@ -277,6 +277,7 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [Решение о сохранении search-ограничений и точных oracle](Architecture/decisions/ADR-023-grounded-search-constraints-and-exact-oracles.md)
 - [Решение о сквозном runtime-каталоге операций](Architecture/decisions/ADR-024-runtime-operation-catalog.md)
 - [Решение о lossless-аргументах модульных операций](Architecture/decisions/ADR-029-lossless-operation-arguments.md)
+- [Решение о явном различении смысла content-поиска](Architecture/decisions/ADR-030-search-match-intent-contract.md)
 - [Решение о долговечном модуле установки приложений](Architecture/decisions/ADR-015-durable-software-manager.md)
 - [Решение об изолированной лаборатории AI-сценариев](Architecture/decisions/ADR-017-isolated-ai-scenario-lab.md)
 - [Решение о goal-driven User Journey Lab](Architecture/decisions/ADR-018-goal-driven-user-journey-lab.md)

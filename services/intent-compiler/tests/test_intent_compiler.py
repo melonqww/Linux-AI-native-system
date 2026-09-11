@@ -20,6 +20,10 @@ SEARCH = OperationDefinition(
         "properties": {
             "mode": {"type": "string", "enum": ["metadata", "content", "hybrid"]},
             "text": {"type": "string"},
+            "content_match": {
+                "type": "string",
+                "enum": ["semantic", "exact_phrase"],
+            },
             "extensions": {"type": "array", "items": {"type": "string"}},
             "volume_ids": {"type": "array", "items": {"type": "string"}},
             "name_terms": {"type": "array", "items": {"type": "string"}},
@@ -93,7 +97,11 @@ class IntentCompilerTests(unittest.TestCase):
                 operation(
                     "search",
                     "search_documents",
-                    {"text": "математика", "extensions": ["pdf"]},
+                    {
+                        "text": "математика",
+                        "content_match": "semantic",
+                        "extensions": ["pdf"],
+                    },
                     "Найди PDF по математике",
                 ),
                 operation(
@@ -162,9 +170,17 @@ class IntentCompilerTests(unittest.TestCase):
                 {"mode": "hybrid", "text": "   ", "extensions": ["pdf"]},
                 "metadata",
             ),
-            ({"mode": "metadata", "text": "math"}, "content"),
             (
-                {"mode": "content", "text": "math", "extensions": ["pdf"]},
+                {"mode": "metadata", "text": "math", "content_match": "semantic"},
+                "content",
+            ),
+            (
+                {
+                    "mode": "content",
+                    "text": "math",
+                    "content_match": "semantic",
+                    "extensions": ["pdf"],
+                },
                 "hybrid",
             ),
         )
@@ -184,6 +200,44 @@ class IntentCompilerTests(unittest.TestCase):
                 if not arguments.get("text", "").strip():
                     self.assertNotIn("text", result.intent.operations[0].arguments)
 
+    def test_content_match_is_required_and_preserved_for_content_queries(self):
+        text = "Find documents containing the phrase Pythagorean theorem"
+        missing = payload(
+            text,
+            [
+                operation(
+                    "search",
+                    "search_documents",
+                    {"text": "Pythagorean theorem"},
+                    text,
+                )
+            ],
+            language="en",
+        )
+        rejected = self.compiler(missing).compile_payload(missing, text=text)
+        self.assertEqual(rejected.state, CompilationState.NEEDS_CLARIFICATION)
+
+        exact = payload(
+            text,
+            [
+                operation(
+                    "search",
+                    "search_documents",
+                    {
+                        "text": "Pythagorean theorem",
+                        "content_match": "exact_phrase",
+                    },
+                    text,
+                )
+            ],
+            language="en",
+        )
+        accepted = self.compiler(exact).compile_payload(exact, text=text)
+        self.assertEqual(accepted.state, CompilationState.READY)
+        self.assertEqual(
+            accepted.intent.operations[0].arguments["content_match"],
+            "exact_phrase",
+        )
     def test_resolves_english_follow_up_only_from_trusted_context(self):
         text = "Copy them there"
         response = payload(

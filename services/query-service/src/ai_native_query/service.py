@@ -177,6 +177,10 @@ class QueryService:
             raise ValueError("metadata search cannot contain a content query")
         if mode in {SearchMode.CONTENT, SearchMode.HYBRID} and not query.text.strip():
             raise ValueError("content and hybrid search require text")
+        if query.text.strip() and query.content_match is None:
+            raise ValueError("content_match is required for content search")
+        if not query.text.strip() and query.content_match is not None:
+            raise ValueError("content_match requires non-empty text")
         metadata_query = FileQuery(
             name_contains=query.name_contains,
             extensions=query.extensions,

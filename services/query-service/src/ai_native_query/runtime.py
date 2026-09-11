@@ -7,7 +7,7 @@ from dataclasses import asdict, is_dataclass
 from typing import Callable, Protocol
 from uuid import uuid4
 
-from .contracts import DocumentQuery, QueryResult, SearchMode, SearchPage
+from .contracts import ContentMatch, DocumentQuery, QueryResult, SearchMode, SearchPage
 from .service import QueryService
 from ai_native_permissions import (
     CapabilityInvocation,
@@ -799,6 +799,7 @@ class QueryRuntimeApplication:
     def _document_query(self, payload: dict[str, object]) -> DocumentQuery:
         unknown = set(payload) - {
             "text",
+            "content_match",
             "mode",
             "name_contains",
             "extensions",
@@ -809,6 +810,19 @@ class QueryRuntimeApplication:
         if unknown:
             raise ValueError(f"unknown search fields: {sorted(unknown)}")
         text = self._string(payload, "text")
+        raw_content_match = payload.get("content_match")
+        content_match = None
+        if raw_content_match is not None:
+            if not isinstance(raw_content_match, str):
+                raise ValueError("content_match must be a string")
+            try:
+                content_match = ContentMatch(raw_content_match)
+            except ValueError as error:
+                raise ValueError("unsupported content match") from error
+        if bool(text) and content_match is None:
+            raise ValueError("content_match is required for content search")
+        if not text and content_match is not None:
+            raise ValueError("content_match requires non-empty text")
         raw_mode = payload.get("mode", "content" if text else "metadata")
         if not isinstance(raw_mode, str):
             raise ValueError("mode must be a string")
@@ -828,6 +842,7 @@ class QueryRuntimeApplication:
         return DocumentQuery(
             mode=mode,
             text=text,
+            content_match=content_match,
             name_contains=name_contains,
             extensions=extensions,
             volume_ids=volume_ids,

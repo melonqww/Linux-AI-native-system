@@ -83,7 +83,11 @@ def step(identifier="search", **changes):
         step_id=f"step_{identifier}",
         operation_id=identifier,
         capability="documents.query.search",
-        arguments={"text": "математика", "extensions": ("pdf",)},
+        arguments={
+            "text": "математика",
+            "content_match": "semantic",
+            "extensions": ("pdf",),
+        },
         depends_on=(),
         risk=RiskClass.READ_ONLY,
         approval_required=False,

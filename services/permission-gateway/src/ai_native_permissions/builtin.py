@@ -27,6 +27,7 @@ def builtin_policies() -> tuple[CapabilityPolicy, ...]:
                 {
                     "mode",
                     "text",
+                    "content_match",
                     "name_terms",
                     "extensions",
                     "volume_ids",

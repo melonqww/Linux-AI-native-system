@@ -1,4 +1,5 @@
 from .contracts import (
+    ContentMatch,
     ContentAvailability,
     DocumentQuery,
     PdfIngestReport,
@@ -14,6 +15,7 @@ from .runtime import QueryRuntimeApplication
 
 __all__ = [
     "ContentAvailability",
+    "ContentMatch",
     "EmbeddingProvider",
     "DocumentQuery",
     "PdfIngestReport",

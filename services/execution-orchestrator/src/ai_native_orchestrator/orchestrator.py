@@ -9,7 +9,7 @@ from uuid import UUID, uuid4
 
 from ai_native_intents import CompilationState, ExecutionPlan, PlanStep, TaskContextStore
 from ai_native_ledger import CancellationRequested, ItemOutcome, TaskLedger
-from ai_native_query import DocumentQuery, QueryService
+from ai_native_query import ContentMatch, DocumentQuery, QueryService
 from ai_native_permissions import (
     CapabilityExecutionRegistry,
     CapabilityInvocation,
@@ -553,12 +553,31 @@ class ExecutionOrchestrator:
         plan_id: str,
         deadline_monotonic: float | None,
     ) -> SearchOutput:
-        allowed = {"mode", "text", "name_terms", "extensions", "volume_ids"}
+        allowed = {
+            "mode",
+            "text",
+            "content_match",
+            "name_terms",
+            "extensions",
+            "volume_ids",
+        }
         unknown = set(arguments) - allowed
         if unknown:
             raise ValueError(f"unsupported search arguments: {sorted(unknown)}")
         text = self._string(arguments, "text")
         mode = self._string(arguments, "mode")
+        content_match_value = arguments.get("content_match")
+        if text.strip():
+            if not isinstance(content_match_value, str):
+                raise ValueError("content search requires content_match")
+            try:
+                content_match = ContentMatch(content_match_value)
+            except ValueError as error:
+                raise ValueError("content_match is invalid") from error
+        elif content_match_value is not None:
+            raise ValueError("content_match requires text")
+        else:
+            content_match = None
         name_terms = self._strings(arguments, "name_terms")
         extensions = self._strings(arguments, "extensions")
         volume_ids = self._strings(arguments, "volume_ids")
@@ -576,6 +595,7 @@ class ExecutionOrchestrator:
         document_query = DocumentQuery(
             mode=SearchMode(mode),
             text=text,
+            content_match=content_match,
             name_contains=name_terms,
             extensions=extensions,
             volume_ids=volume_ids,

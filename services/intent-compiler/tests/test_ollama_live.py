@@ -67,6 +67,10 @@ def live_operation_definitions():
             "properties": {
                 "mode": {"type": "string", "enum": ["metadata", "content", "hybrid"]},
                 "text": {"type": "string"},
+                "content_match": {
+                    "type": "string",
+                    "enum": ["semantic", "exact_phrase"],
+                },
                 "extensions": {"type": "array", "items": {"type": "string"}},
                 "name_terms": {"type": "array", "items": {"type": "string"}},
                 "volume_ids": {"type": "array", "items": {"type": "string"}},
