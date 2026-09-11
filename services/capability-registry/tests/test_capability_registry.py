@@ -133,12 +133,28 @@ class ManifestValidationTests(RegistryTestCase):
             load_manifest(path)
 
     def test_manifest_contract_round_trips_without_losing_intent(self) -> None:
-        manifest = validate_manifest(manifest_payload("test.module"))
+        payload = manifest_payload("test.module")
+        capability = payload["capabilities"][0]
+        capability["input_schema"]["properties"]["label"] = {"type": "string"}
+        capability["user_intent"]["preserved_arguments"] = ["label"]
+        manifest = validate_manifest(payload)
         restored = validate_manifest(manifest_to_dict(manifest))
 
         self.assertEqual(restored, manifest)
         self.assertEqual(restored.capability_ids, ("test.module.run",))
         self.assertEqual(restored.intent_routes[0].operation, "run_test")
+        self.assertEqual(restored.intent_routes[0].preserved_arguments, ("label",))
+
+    def test_rejects_preserved_argument_absent_from_operation_schema(self) -> None:
+        payload = manifest_payload("test.module")
+        payload["capabilities"][0]["user_intent"]["preserved_arguments"] = [
+            "invented"
+        ]
+
+        with self.assertRaisesRegex(
+            ManifestValidationError, "must name input properties"
+        ):
+            validate_manifest(payload)
 
     def test_project_first_party_manifests_are_valid(self) -> None:
         storage = load_manifest(PROJECT_ROOT / "services" / "storage-catalog" / "module.json")

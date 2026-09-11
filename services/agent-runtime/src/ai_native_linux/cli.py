@@ -122,10 +122,16 @@ def main() -> int:
                 module_id = manager.start_for_capability("system.updates.check")
                 return manager.invoke(module_id, "check", payload, timeout=30)
 
+            from ai_native_turns import OllamaEmbeddingProvider
+
             query_service = QueryService(
                 storage_database=args.storage_database,
                 index_database=args.index_database,
                 coverage_source=lambda: manager.health_details("storage.watch"),
+                semantic_provider=OllamaEmbeddingProvider(
+                    model=args.semantic_model,
+                    base_url=args.ollama_url,
+                ),
             )
             intent_pipeline = None
             task_context = None

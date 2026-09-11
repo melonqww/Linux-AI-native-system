@@ -40,6 +40,7 @@ class OperationDefinition:
     examples: tuple[str, ...]
     risk: RiskClass
     approval_required: bool
+    preserved_arguments: tuple[str, ...]
     _schema_json: str
 
     def __init__(
@@ -50,6 +51,7 @@ class OperationDefinition:
         input_schema: Mapping[str, object],
         *,
         examples: Iterable[str] = (),
+        preserved_arguments: Iterable[str] = (),
         risk: RiskClass = RiskClass.READ_ONLY,
         approval_required: bool = False,
     ) -> None:
@@ -74,6 +76,13 @@ class OperationDefinition:
         ):
             raise ValueError("operation examples are invalid")
         schema = _validated_object_schema(input_schema)
+        preserved_values = tuple(preserved_arguments)
+        if (
+            len(preserved_values) != len(set(preserved_values))
+            or any(not isinstance(item, str) for item in preserved_values)
+            or not set(preserved_values) <= set(schema["properties"])
+        ):
+            raise ValueError("preserved arguments must name operation input properties")
         object.__setattr__(self, "operation", operation)
         object.__setattr__(self, "capability_id", capability_id)
         object.__setattr__(self, "description", description.strip())
@@ -82,6 +91,7 @@ class OperationDefinition:
         )
         object.__setattr__(self, "risk", risk)
         object.__setattr__(self, "approval_required", approval_required)
+        object.__setattr__(self, "preserved_arguments", preserved_values)
         object.__setattr__(
             self,
             "_schema_json",
@@ -115,6 +125,13 @@ class OperationDefinition:
             key: _validated_value(raw, properties[key], key)
             for key, raw in value.items()
         }
+
+    def validate_argument(self, name: str, value: object) -> IntentValue:
+        """Validate one reviewed optional argument against its module schema."""
+        properties = self.input_schema["properties"]
+        if name not in properties:
+            raise ValueError(f"unsupported argument for {self.operation}: {name}")
+        return _validated_value(value, properties[name], name)
 
 
 class OperationCatalog:
@@ -198,6 +215,7 @@ def build_operation_definitions(
                 getattr(route, "description", None),
                 normalized_schema,
                 examples=getattr(route, "examples", ()),
+                preserved_arguments=getattr(route, "preserved_arguments", ()),
                 risk=risk,
                 approval_required=getattr(policy, "plan_approval_required", None),
             )

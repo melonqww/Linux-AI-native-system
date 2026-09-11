@@ -98,6 +98,8 @@ Fingerprint включает язык, поведение, режим, глуб�
 - `IntentCompiler`;
 - `CapabilityCandidateRouter` и module-owned intent descriptors;
 - `VolumeRegistry`, `IndexScheduler` и `QueryService`;
+- optional multilingual content retrieval через тот же локальный
+  `qwen3-embedding:0.6b`, с фильтрацией разрешений до embedding;
 - Permission Gateway через production `ExecutionOrchestrator`;
 - `MaterializeService` и настоящий approval flow для копирования;
 - `TaskContextStore` и `TaskLedger`.

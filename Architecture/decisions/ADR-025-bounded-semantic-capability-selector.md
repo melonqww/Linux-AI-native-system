@@ -49,6 +49,10 @@ examples. Ядро не содержит синонимов конкретных
 повторно проходит schema validator, актуальный Operation Catalog, Permission
 Gateway и Orchestrator.
 
+ADR-026 дополнительно разделяет advisory `requested_operations` и консервативные
+`required_operations`: semantic-кандидаты могут ограничить видимые функции, но
+никогда автоматически не добавляются в обязательный исполняемый граф.
+
 В стандартной детерминированной AI Scenario Lab используется lexical provider,
 чтобы CI не обращался к сети и не зависел от весов. Live-lab с настоящим Ollama
 подключает тот же hybrid selector, что production. Отдельный opt-in eval проверяет

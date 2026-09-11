@@ -41,7 +41,8 @@ _ENTRYPOINT_FIELDS = frozenset({"kind", "module", "python_path"})
 _CAPABILITY_FIELDS = frozenset(
     {"id", "description", "input_schema", "requested_permissions", "user_intent"}
 )
-_USER_INTENT_FIELDS = frozenset({"operation", "description", "examples"})
+_USER_INTENT_REQUIRED_FIELDS = frozenset({"operation", "description", "examples"})
+_USER_INTENT_FIELDS = _USER_INTENT_REQUIRED_FIELDS | {"preserved_arguments"}
 _INPUT_SCHEMA_FIELDS = frozenset(
     {"type", "properties", "required", "additionalProperties"}
 )
@@ -177,6 +178,9 @@ def manifest_to_dict(manifest: ModuleManifest) -> dict[str, object]:
                             "operation": capability.user_intent.operation,
                             "description": capability.user_intent.description,
                             "examples": list(capability.user_intent.examples),
+                            "preserved_arguments": list(
+                                capability.user_intent.preserved_arguments
+                            ),
                         }
                     }
                     if capability.user_intent is not None
@@ -230,7 +234,11 @@ def _capability_contract(
     user_intent_payload = value.get("user_intent")
     user_intent = None
     if user_intent_payload is not None:
-        if not isinstance(user_intent_payload, dict) or set(user_intent_payload) != _USER_INTENT_FIELDS:
+        if (
+            not isinstance(user_intent_payload, dict)
+            or not _USER_INTENT_REQUIRED_FIELDS <= set(user_intent_payload)
+            or set(user_intent_payload) - _USER_INTENT_FIELDS
+        ):
             raise ManifestValidationError("user_intent fields are invalid")
         operation = _pattern(
             user_intent_payload["operation"],
@@ -243,6 +251,17 @@ def _capability_contract(
         examples_value = user_intent_payload["examples"]
         if not isinstance(examples_value, list) or not 1 <= len(examples_value) <= 32:
             raise ManifestValidationError("user_intent examples must contain from 1 to 32 items")
+        preserved_value = user_intent_payload.get("preserved_arguments", [])
+        properties = input_schema["properties"]
+        if (
+            not isinstance(preserved_value, list)
+            or len(preserved_value) != len(set(preserved_value))
+            or any(not isinstance(item, str) for item in preserved_value)
+            or not set(preserved_value) <= set(properties)
+        ):
+            raise ManifestValidationError(
+                "user_intent preserved_arguments must name input properties"
+            )
         user_intent = IntentRouteDescriptor(
             capability_id=capability_id,
             operation=operation,
@@ -252,6 +271,7 @@ def _capability_contract(
             examples=tuple(
                 _text(item, "user_intent example", 300) for item in examples_value
             ),
+            preserved_arguments=tuple(preserved_value),
         )
     return CapabilityContract(
         capability_id=capability_id,

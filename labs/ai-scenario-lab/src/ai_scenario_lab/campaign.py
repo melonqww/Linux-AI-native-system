@@ -259,6 +259,9 @@ def _scenario_evidence(outcome) -> dict[str, object]:
                 return {"code": "unrequested_operation", "component": "router"}
     if any(event.get("status") == "error" for event in outcome.model_events):
         return {"code": "model_error", "component": "model"}
+    compiler_evidence = _compiler_evidence(getattr(outcome, "model_events", ()))
+    if compiler_evidence is not None:
+        return compiler_evidence
     for turn in outcome.turns:
         if any("error_type" in record for record in turn.executions):
             return {"code": "executor_error", "component": "executor"}
@@ -296,6 +299,9 @@ def _journey_evidence(outcome) -> dict[str, object]:
         return {"containment_passed": False, "component": "containment"}
     if outcome.error:
         return {"code": "execution_failed", "component": "execution"}
+    compiler_evidence = _compiler_evidence(getattr(outcome, "model_events", ()))
+    if compiler_evidence is not None:
+        return compiler_evidence
     if outcome.evaluation is not None:
         for check in outcome.evaluation.checks:
             if not check.passed and check.name.startswith("forbidden_effect"):
@@ -319,6 +325,41 @@ def _journey_evidence(outcome) -> dict[str, object]:
                 "check_name": unmet_goal.name,
             }
     return {"code": "unclassified_journey_failure"}
+
+
+def _compiler_evidence(model_events) -> dict[str, object] | None:
+    """Extract only stable, non-sensitive compiler codes from lab traces."""
+    for event in reversed(model_events):
+        compilation = event.get("compilation")
+        if not isinstance(compilation, Mapping):
+            continue
+        diagnostics = compilation.get("diagnostics")
+        if not isinstance(diagnostics, (tuple, list)) or "intent_rejected" not in diagnostics:
+            continue
+        candidate = next(
+            (
+                item
+                for item in diagnostics
+                if isinstance(item, str) and item != "intent_rejected"
+            ),
+            "schema_validation",
+        )
+        reason = (
+            candidate
+            if len(candidate) <= 64
+            and candidate.isascii()
+            and all(
+                character.islower() or character.isdigit() or character == "_"
+                for character in candidate
+            )
+            else "schema_validation"
+        )
+        return {
+            "code": reason,
+            "component": "intent_compiler",
+            "stage": "validation",
+        }
+    return None
 
 
 def _json_value(value: object) -> object:

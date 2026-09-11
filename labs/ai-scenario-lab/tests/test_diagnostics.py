@@ -60,6 +60,24 @@ def test_each_requested_problem_layer_has_a_deterministic_rule():
         assert classify_problem(_context(), {"code": code}).layer is expected
 
 
+def test_compiler_validation_code_is_structurally_classified():
+    diagnostic = classify_problem(
+        _context(),
+        {
+            "code": "invalid_arguments",
+            "component": "intent_compiler",
+            "stage": "validation",
+            "message": "must never enter a report",
+        },
+    )
+    assert diagnostic.layer is ProblemLayer.COMPILER
+    assert diagnostic.evidence == {
+        "code": "invalid_arguments",
+        "stage": "validation",
+        "component": "intent_compiler",
+    }
+
+
 def test_fingerprint_ignores_volatile_prose_but_separates_real_dimensions():
     first = classify_problem(
         _context(), {"code": "model_timeout", "message": "one", "timestamp": 1}

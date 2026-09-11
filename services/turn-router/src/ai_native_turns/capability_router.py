@@ -127,6 +127,10 @@ class CapabilityCandidateRouter:
                     break
         return tuple(dict.fromkeys(result))
 
+    def required_operations(self, text: str) -> tuple[str, ...]:
+        """Operations explicitly grounded by conservative request cues."""
+        return self.requested_operations(text)
+
     @staticmethod
     def _normalize(value: str) -> str:
         if not isinstance(value, str):

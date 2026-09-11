@@ -199,3 +199,7 @@ class HybridCapabilityRouter:
         lexical = self.lexical.requested_operations(text)
         semantic = tuple(item.operation for item in self.semantic.candidates(text))
         return tuple(dict.fromkeys((*lexical, *semantic)))
+
+    def required_operations(self, text: str) -> tuple[str, ...]:
+        """Never turn advisory semantic candidates into mandatory actions."""
+        return self.lexical.required_operations(text)

@@ -28,6 +28,7 @@ class IntentRouteDescriptor:
     operation: str
     description: str
     examples: tuple[str, ...]
+    preserved_arguments: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

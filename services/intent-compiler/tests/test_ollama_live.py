@@ -1,10 +1,12 @@
 """Opt-in local Qwen evals; disabled in ordinary deterministic CI."""
 
+import gc
 import os
-import tempfile
+import shutil
 import threading
 import unittest
 from pathlib import Path
+from uuid import uuid4
 
 from ai_native_intents import (
     CompilationState,
@@ -32,6 +34,9 @@ from ai_native_workspace import (
     WorkspaceStage,
     WorkspaceStore,
 )
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 
 class CountingCompiler:
@@ -92,6 +97,7 @@ def live_operation_definitions():
             "required": ["results_from", "destination"],
             "additionalProperties": False,
         },
+        preserved_arguments=("directory_name",),
         risk=RiskClass.REVERSIBLE_WRITE,
         approval_required=True,
     )
@@ -205,8 +211,10 @@ class OllamaLiveEvals(unittest.TestCase):
             "Привет ты ИИ и куда точнее запрос",
             "Так а что ты можешь в целом и какой ты ИИ",
         ):
-            with self.subTest(text=text), tempfile.TemporaryDirectory() as directory:
-                store = WorkspaceStore(Path(directory) / "workspace.sqlite3")
+            with self.subTest(text=text):
+                directory = PROJECT_ROOT / "tmp" / "ollama-live" / uuid4().hex
+                directory.mkdir(parents=True)
+                store = WorkspaceStore(directory / "workspace.sqlite3")
                 compiler = CountingCompiler()
                 executor = CountingExecutor()
                 runtime = WorkspaceRuntime(
@@ -240,6 +248,9 @@ class OllamaLiveEvals(unittest.TestCase):
                 assistant = store.list_messages()[-1]
                 self.assertEqual(assistant.kind, MessageKind.CONVERSATION)
                 self.assertNotIn("Не удалось надёжно понять запрос", assistant.content)
+                del store
+                gc.collect()
+                shutil.rmtree(directory)
 
     def test_capability_candidate_drives_mixed_pdf_request_into_search_only(self):
         text = (
@@ -267,7 +278,37 @@ class OllamaLiveEvals(unittest.TestCase):
 
     def test_compound_search_and_copy_requires_approval(self):
         text = "Найди PDF по математике и скопируй результаты на рабочий стол"
-        result = self.compiler.compile_and_plan(text)
+        requested = ("search_documents", "copy_results")
+        request = self.compiler.model_request(
+            text,
+            context=TaskContext(locale="ru"),
+            allowed_operations=requested,
+        )
+        first = self.provider.route(request)
+        runtime = WorkspaceRuntime(
+            object(),
+            self.provider,
+            self.compiler,
+            CountingExecutor(),
+            lambda: TaskContext(locale="ru"),
+        )
+        try:
+            completed = runtime._complete_required_operations(
+                first,
+                text=text,
+                locale="ru",
+                history=(),
+                required=requested,
+            )
+        finally:
+            runtime.close()
+        self.assertEqual(completed.kind, ModelTurnKind.ACTION)
+        result = self.compiler.compile_payload(
+            completed.intent_payload,
+            text=text,
+            context=TaskContext(locale="ru"),
+            allowed_operations=requested,
+        )
 
         self.assertEqual(result.state, CompilationState.READY, result)
         self.assertEqual(
@@ -275,6 +316,47 @@ class OllamaLiveEvals(unittest.TestCase):
             ("search_documents", "copy_results"),
         )
         self.assertTrue(result.plan.approval_required)
+
+    def test_named_folder_survives_compound_plan_and_destination_clarification(self):
+        text = "Find the PDF files and then copy them to a folder called Private"
+        requested = ("search_documents", "copy_results")
+        first = self.provider.route(
+            self.compiler.model_request(
+                text,
+                context=TaskContext(locale="en"),
+                allowed_operations=requested,
+            )
+        )
+        runtime = WorkspaceRuntime(
+            object(),
+            self.provider,
+            self.compiler,
+            CountingExecutor(),
+            lambda: TaskContext(locale="en"),
+        )
+        try:
+            completed = runtime._complete_required_operations(
+                first,
+                text=text,
+                locale="en",
+                history=(),
+                required=requested,
+            )
+        finally:
+            runtime.close()
+
+        payload = (
+            completed.pending_intent_payload
+            if completed.kind is ModelTurnKind.CLARIFICATION
+            else completed.intent_payload
+        )
+        self.assertIsNotNone(payload)
+        copy = next(
+            operation
+            for operation in payload["operations"]
+            if operation["kind"] == "copy_results"
+        )
+        self.assertEqual(copy["arguments"]["directory_name"], "Private")
 
     def test_follow_up_uses_trusted_context_and_injection_has_no_executable_plan(self):
         follow_up = self.compiler.compile_and_plan(

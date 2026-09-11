@@ -110,6 +110,27 @@ class FakeWorkspaceController:
         return (approval_request_id, confirmed)
 
 
+class FakeMultilingualEmbeddings:
+    def __init__(self) -> None:
+        self.inputs: list[str] = []
+
+    def embed(self, texts):
+        self.inputs.extend(texts)
+        vectors = []
+        for text in texts:
+            lowered = text.casefold()
+            if "математ" in lowered or "mathemat" in lowered or "algebra" in lowered:
+                vectors.append((1.0, 0.0))
+            else:
+                vectors.append((0.0, 1.0))
+        return tuple(vectors)
+
+
+class UnavailableEmbeddings:
+    def embed(self, texts):
+        raise OSError("provider unavailable")
+
+
 class QueryServiceTests(unittest.TestCase):
     def setUp(self) -> None:
         self.root = PROJECT_ROOT / "tmp" / "query-service-tests" / str(uuid4())
@@ -165,6 +186,77 @@ class QueryServiceTests(unittest.TestCase):
         self.assertEqual(results[0].name, "study.pdf")
         self.assertIn("PDF page 1", results[0].snippet or "")
         self.assertEqual(len(self.service.collections.resolve(collection_id)), 1)
+
+    def test_semantic_content_search_matches_russian_query_to_english_pdf(self) -> None:
+        provider = FakeMultilingualEmbeddings()
+        service = QueryService(
+            storage_database=self.storage_db,
+            index_database=self.index_db,
+            semantic_provider=provider,
+        )
+        self.make_pdf("Mathematics algebra geometry")
+        self.make_pdf("Cooking recipes and ingredients", "cooking.pdf")
+        service.catalog.scan_volume("test-volume")
+        service.ingest_pdfs()
+
+        page = service.search_page(
+            DocumentQuery(text="математика", extensions=("pdf",))
+        )
+        results = list(page.results)
+
+        self.assertEqual([item.name for item in results], ["study.pdf"])
+        self.assertEqual(results[0].sources, ("content", "semantic"))
+        self.assertFalse(page.total_is_exact)
+        self.assertTrue(any("Mathematics" in text for text in provider.inputs))
+
+    def test_semantic_provider_failure_falls_back_to_lexical_search(self) -> None:
+        service = QueryService(
+            storage_database=self.storage_db,
+            index_database=self.index_db,
+            semantic_provider=UnavailableEmbeddings(),
+        )
+        self.make_pdf("Mathematics algebra geometry")
+        service.catalog.scan_volume("test-volume")
+        service.ingest_pdfs()
+
+        results = service.search(DocumentQuery(text="algebra"))
+
+        self.assertEqual([item.name for item in results], ["study.pdf"])
+        self.assertEqual(results[0].sources, ("content",))
+
+    def test_semantic_provider_never_receives_metadata_only_content(self) -> None:
+        self.make_pdf("Private mathematics theorem")
+        self.service.catalog.scan_volume("test-volume")
+        self.service.ingest_pdfs()
+        self.service.volumes.set_permission("test-volume", PermissionLevel.METADATA)
+        provider = FakeMultilingualEmbeddings()
+        service = QueryService(
+            storage_database=self.storage_db,
+            index_database=self.index_db,
+            semantic_provider=provider,
+        )
+
+        results = service.search(DocumentQuery(text="математика"))
+
+        self.assertEqual(results, [])
+        self.assertEqual(provider.inputs, [])
+
+    def test_semantic_provider_never_receives_none_volume_content(self) -> None:
+        self.make_pdf("Private mathematics theorem")
+        self.service.catalog.scan_volume("test-volume")
+        self.service.ingest_pdfs()
+        self.service.volumes.set_permission("test-volume", PermissionLevel.NONE)
+        provider = FakeMultilingualEmbeddings()
+        service = QueryService(
+            storage_database=self.storage_db,
+            index_database=self.index_db,
+            semantic_provider=provider,
+        )
+
+        results = service.search(DocumentQuery(text="математика"))
+
+        self.assertEqual(results, [])
+        self.assertEqual(provider.inputs, [])
 
     def test_runtime_adapter_validates_payload(self) -> None:
         application = QueryRuntimeApplication(self.service)

@@ -55,6 +55,44 @@ def router():
     )
 
 
+class RequestedRouter:
+    def __init__(self, *operations):
+        self.operations = operations
+
+    def candidates(self, _text):
+        return tuple(
+            SimpleNamespace(operation=value, capability_id=f"capability.{value}")
+            for value in self.operations
+        )
+
+    def requested_operations(self, _text):
+        return self.operations
+
+    def required_operations(self, _text):
+        return self.operations
+
+    def available_operations(self):
+        return self.operations
+
+
+class AdvisoryRouter(RequestedRouter):
+    def required_operations(self, _text):
+        return ()
+
+
+class RouteSequenceModel:
+    def __init__(self, *turns):
+        self.turns = list(turns)
+        self.requests = []
+
+    def route(self, request):
+        self.requests.append(request)
+        return self.turns.pop(0)
+
+    def summarize_result(self, _facts, *, locale):
+        return "Готово." if locale.startswith("ru") else "Done."
+
+
 def wait(store, run):
     for _ in range(300):
         value = store.run(run.run_id)
@@ -226,6 +264,154 @@ def test_operation_outside_user_evidence_is_rejected(store):
         wait(store, runtime.submit(text, transport_context=TransportContext.internal()))
         assert not executor.called.is_set()
         assert store.list_messages()[-1].kind is MessageKind.CLARIFICATION
+    finally:
+        runtime.close()
+
+
+def test_missing_requested_operation_gets_one_constrained_repair(store):
+    text = "Find PDF files and copy them to my Desktop"
+    search = {
+        "schema_version": 1,
+        "language": "en",
+        "summary": text,
+        "confidence": 0.9,
+        "operations": [
+            {
+                "id": "op_1_search_documents",
+                "kind": "search_documents",
+                "arguments": {"extensions": ["pdf"]},
+                "depends_on": [],
+                "evidence": [text],
+            }
+        ],
+    }
+    copy = {
+        "schema_version": 1,
+        "language": "en",
+        "summary": text,
+        "confidence": 0.8,
+        "operations": [
+            {
+                "id": "op_1_copy_results",
+                "kind": "copy_results",
+                "arguments": {
+                    "results_from": "context.active_results",
+                    "destination": "desktop",
+                },
+                "depends_on": [],
+                "evidence": [text],
+            }
+        ],
+    }
+    model = RouteSequenceModel(
+        ModelTurn(ModelTurnKind.ACTION, intent_payload=search),
+        ModelTurn(ModelTurnKind.ACTION, intent_payload=copy),
+    )
+    compiler = Compiler(None)
+    executor = Executor(None)
+    runtime = WorkspaceRuntime(
+        store,
+        model,
+        compiler,
+        executor,
+        lambda: TaskContext(locale="en"),
+        capability_router=RequestedRouter("search_documents", "copy_results"),
+    )
+    try:
+        run = runtime.submit(text, transport_context=TransportContext.internal())
+        wait(store, run)
+        assert len(model.requests) == 2
+        assert model.requests[1].allowed_operations == ("copy_results",)
+        assert compiler.calls == 1
+        payload = compiler.payloads[0]
+        assert [item["kind"] for item in payload["operations"]] == [
+            "search_documents",
+            "copy_results",
+        ]
+        assert payload["operations"][1]["depends_on"] == [
+            "op_1_search_documents"
+        ]
+        assert (
+            payload["operations"][1]["arguments"]["results_from"]
+            == "op_1_search_documents"
+        )
+    finally:
+        runtime.close()
+
+
+def test_incomplete_repair_never_executes_partial_action(store):
+    text = "Find PDF files and copy them to my Desktop"
+    search = {
+        "schema_version": 1,
+        "language": "en",
+        "summary": text,
+        "confidence": 0.9,
+        "operations": [
+            {
+                "id": "op_1_search_documents",
+                "kind": "search_documents",
+                "arguments": {"extensions": ["pdf"]},
+                "depends_on": [],
+                "evidence": [text],
+            }
+        ],
+    }
+    model = RouteSequenceModel(
+        ModelTurn(ModelTurnKind.ACTION, intent_payload=search),
+        ModelTurn(ModelTurnKind.CONVERSATION, response_text="I cannot do that."),
+    )
+    compiler = Compiler(None)
+    executor = Executor(None)
+    runtime = WorkspaceRuntime(
+        store,
+        model,
+        compiler,
+        executor,
+        lambda: TaskContext(locale="en"),
+        capability_router=RequestedRouter("search_documents", "copy_results"),
+    )
+    try:
+        run = runtime.submit(text, transport_context=TransportContext.internal())
+        wait(store, run)
+        assert compiler.calls == 0
+        assert not executor.called.is_set()
+        assert store.list_messages()[-1].kind is MessageKind.CLARIFICATION
+    finally:
+        runtime.close()
+
+
+def test_advisory_candidates_are_not_forced_into_the_operation_graph(store):
+    text = "Please handle my documents"
+    search = {
+        "schema_version": 1,
+        "language": "en",
+        "summary": text,
+        "confidence": 0.9,
+        "operations": [
+            {
+                "id": "op_1_search_documents",
+                "kind": "search_documents",
+                "arguments": {"text": "documents"},
+                "depends_on": [],
+                "evidence": [text],
+            }
+        ],
+    }
+    model = RouteSequenceModel(ModelTurn(ModelTurnKind.ACTION, intent_payload=search))
+    compiler = Compiler(None)
+    runtime = WorkspaceRuntime(
+        store,
+        model,
+        compiler,
+        Executor(None),
+        lambda: TaskContext(locale="en"),
+        capability_router=AdvisoryRouter("search_documents", "copy_results"),
+    )
+    try:
+        run = runtime.submit(text, transport_context=TransportContext.internal())
+        wait(store, run)
+        assert len(model.requests) == 1
+        assert compiler.calls == 1
     finally:
         runtime.close()
 

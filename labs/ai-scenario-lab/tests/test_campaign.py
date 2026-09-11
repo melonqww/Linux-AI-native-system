@@ -8,6 +8,7 @@ import ai_scenario_lab.campaign as campaign_module
 from ai_scenario_lab.adaptive_journeys import load_journey
 from ai_scenario_lab.campaign import (
     CampaignRunner,
+    _compiler_evidence,
     _journey_cases,
     _journey_evidence,
     _json_value,
@@ -19,6 +20,37 @@ from ai_scenario_lab.adaptive_journeys import ObservedEffect
 
 
 LAB_ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_compiler_trace_evidence_preserves_codes_without_model_payload():
+    evidence = _compiler_evidence(
+        (
+            {
+                "kind": "route",
+                "response": {"arguments": {"private": "must-not-be-copied"}},
+                "compilation": {
+                    "state": "needs_clarification",
+                    "diagnostics": ["intent_rejected", "invalid_arguments"],
+                },
+            },
+        )
+    )
+
+    assert evidence == {
+        "code": "invalid_arguments",
+        "component": "intent_compiler",
+        "stage": "validation",
+    }
+    assert "private" not in repr(evidence)
+    assert _compiler_evidence(
+        (
+            {
+                "compilation": {
+                    "diagnostics": ["intent_rejected", "secret=/home/user"],
+                }
+            },
+        )
+    )["code"] == "schema_validation"
 
 
 def test_journey_case_languages_match_the_source_text_language():

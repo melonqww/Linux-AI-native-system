@@ -83,6 +83,9 @@ Registry + execution handlers + Permission Gateway.
 при его недоступности система автоматически остаётся на lexical fallback.
 Подробности: [`services/intent-compiler/README.md`](services/intent-compiler/README.md)
 и [ADR-025](Architecture/decisions/ADR-025-bounded-semantic-capability-selector.md).
+Межъязыковой поиск содержимого, системный вывод search mode и проверка полноты
+составных операций зафиксированы в
+[ADR-026](Architecture/decisions/ADR-026-grounded-retrieval-and-complete-operation-graphs.md).
 
 ## Execution Orchestrator v1
 
@@ -273,6 +276,7 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [Решение о самоописываемых capability-контрактах](Architecture/decisions/ADR-022-self-describing-capability-contracts.md)
 - [Решение о сохранении search-ограничений и точных oracle](Architecture/decisions/ADR-023-grounded-search-constraints-and-exact-oracles.md)
 - [Решение о сквозном runtime-каталоге операций](Architecture/decisions/ADR-024-runtime-operation-catalog.md)
+- [Решение о lossless-аргументах модульных операций](Architecture/decisions/ADR-029-lossless-operation-arguments.md)
 - [Решение о долговечном модуле установки приложений](Architecture/decisions/ADR-015-durable-software-manager.md)
 - [Решение об изолированной лаборатории AI-сценариев](Architecture/decisions/ADR-017-isolated-ai-scenario-lab.md)
 - [Решение о goal-driven User Journey Lab](Architecture/decisions/ADR-018-goal-driven-user-journey-lab.md)

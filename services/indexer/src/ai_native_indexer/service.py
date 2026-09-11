@@ -111,6 +111,17 @@ class IndexerService:
         with self.storage.connect() as connection:
             return self.storage.search(connection, query, limit)
 
+    def semantic_corpus(
+        self, paths: list[str], *, limit: int = 2_048
+    ) -> list[SearchHit]:
+        """Return indexed chunks only for a caller-supplied authorized path set."""
+        if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 2_048:
+            raise ValueError("semantic corpus limit must be an integer from 1 to 2048")
+        if len(paths) > 1_000 or any(not isinstance(path, str) or not path for path in paths):
+            raise ValueError("semantic corpus paths must contain at most 1000 valid paths")
+        with self.storage.connect() as connection:
+            return self.storage.chunks_by_paths(connection, paths, limit)
+
     def index_text(self, path: Path, text: str) -> bool:
         """Index trusted text extracted by another capability module."""
         path = path.expanduser()

@@ -229,6 +229,14 @@ class WorkspaceRuntime:
             requested = (
                 tuple(evidence_source(text)) if callable(evidence_source) else None
             )
+            required_source = getattr(
+                self.capability_router, "required_operations", None
+            )
+            required = (
+                tuple(required_source(text))
+                if callable(required_source)
+                else requested
+            )
             if input_unavailable:
                 self._complete_reply(
                     run_id, input_notice(locale), MessageKind.INPUT_UNAVAILABLE
@@ -242,6 +250,7 @@ class WorkspaceRuntime:
                     locale=locale,
                     transport_context=transport_context,
                     requested=requested,
+                    required=required,
                 )
                 return
             readiness = self._model_readiness()
@@ -360,14 +369,23 @@ class WorkspaceRuntime:
                     model_text = classification.action_text
             if requested:
                 allowed_operations = requested
+            model_history = self._model_history(user_message_id)
             turn = self.model.route(
                 self._intent_request(
                     model_text,
                     locale,
-                    history=self._model_history(user_message_id),
+                    history=model_history,
                     allowed_operations=allowed_operations,
                 )
             )
+            if required:
+                turn = self._complete_required_operations(
+                    turn,
+                    text=model_text,
+                    locale=locale,
+                    history=model_history,
+                    required=required,
+                )
             if turn.kind is ModelTurnKind.CLARIFICATION:
                 if turn.clarification_key == "copy_destination":
                     self.store.save_clarification(
@@ -431,6 +449,7 @@ class WorkspaceRuntime:
                 locale=locale,
                 transport_context=transport_context,
                 requested=requested,
+                required=required,
             )
         except Exception:
             self._finish_failure(run_id, locale)
@@ -444,6 +463,7 @@ class WorkspaceRuntime:
         locale: str,
         transport_context: TransportContext,
         requested: tuple[str, ...] | None,
+        required: tuple[str, ...] | None,
     ) -> None:
         if requested is not None:
             operations = payload.get("operations")
@@ -455,7 +475,11 @@ class WorkspaceRuntime:
                 )
                 return
             proposed = {item.get("kind") for item in operations}
-            if not proposed or not proposed.issubset(set(requested)):
+            if (
+                not proposed
+                or not proposed.issubset(set(requested))
+                or (required is not None and not set(required).issubset(proposed))
+            ):
                 self._complete_reply(
                     run_id, self._clarification(locale), MessageKind.CLARIFICATION
                 )
@@ -564,6 +588,166 @@ class WorkspaceRuntime:
             dict.fromkeys(value for value in values if isinstance(value, str) and value)
         )
         return operations or None
+
+    def _complete_required_operations(
+        self,
+        turn: ModelTurn,
+        *,
+        text: str,
+        locale: str,
+        history: tuple[ModelHistoryMessage, ...],
+        required: tuple[str, ...],
+    ) -> ModelTurn:
+        """Repair an incomplete model graph without broadening user authority.
+
+        ``required`` comes from the conservative, module-owned request-evidence
+        boundary.  A candidate alone is never enough to enter this path.  The
+        model gets one constrained opportunity per missing operation and the
+        final graph is still checked by the intent compiler and permission
+        gateway before anything can execute.
+        """
+        payload = (
+            turn.intent_payload
+            if turn.kind is ModelTurnKind.ACTION
+            else turn.pending_intent_payload
+            if turn.kind is ModelTurnKind.CLARIFICATION
+            else None
+        )
+        merged = self._intent_payload(payload)
+        proposed = self._operation_kinds(merged)
+        missing = tuple(item for item in required if item not in proposed)
+        if not missing:
+            return turn
+
+        clarification = turn if turn.kind is ModelTurnKind.CLARIFICATION else None
+        response_text = turn.response_text
+        unsupported = list(turn.unsupported_actions)
+        for operation in missing:
+            repair = self.model.route(
+                self._intent_request(
+                    text,
+                    locale,
+                    history=history,
+                    allowed_operations=(operation,),
+                )
+            )
+            repair_payload = (
+                repair.intent_payload
+                if repair.kind is ModelTurnKind.ACTION
+                else repair.pending_intent_payload
+                if repair.kind is ModelTurnKind.CLARIFICATION
+                else None
+            )
+            if operation not in self._operation_kinds(repair_payload):
+                return turn
+            try:
+                merged = self._merge_intent_payloads(merged, repair_payload, text)
+            except (TypeError, ValueError):
+                return turn
+            unsupported.extend(repair.unsupported_actions)
+            if repair.kind is ModelTurnKind.CLARIFICATION:
+                clarification = repair
+            elif repair.kind is not ModelTurnKind.ACTION:
+                return turn
+
+        if self._operation_kinds(merged) != set(required):
+            return turn
+        if clarification is not None:
+            return ModelTurn(
+                ModelTurnKind.CLARIFICATION,
+                response_text=clarification.response_text,
+                unsupported_actions=tuple(dict.fromkeys(unsupported)),
+                clarification_key=clarification.clarification_key,
+                pending_intent_payload=merged,
+            )
+        return ModelTurn(
+            ModelTurnKind.ACTION,
+            response_text=response_text,
+            intent_payload=merged,
+            unsupported_actions=tuple(dict.fromkeys(unsupported)),
+        )
+
+    @staticmethod
+    def _intent_payload(value: object) -> dict[str, object] | None:
+        if not isinstance(value, Mapping):
+            return None
+        operations = value.get("operations")
+        if not isinstance(operations, list) or any(
+            not isinstance(item, Mapping) for item in operations
+        ):
+            return None
+        return deepcopy(dict(value))
+
+    @staticmethod
+    def _operation_kinds(payload: object) -> set[str]:
+        if not isinstance(payload, Mapping):
+            return set()
+        operations = payload.get("operations")
+        if not isinstance(operations, list):
+            return set()
+        return {
+            kind
+            for item in operations
+            if isinstance(item, Mapping)
+            and isinstance((kind := item.get("kind")), str)
+        }
+
+    @staticmethod
+    def _merge_intent_payloads(
+        left: dict[str, object] | None,
+        right: object,
+        text: str,
+    ) -> dict[str, object]:
+        right_payload = WorkspaceRuntime._intent_payload(right)
+        if right_payload is None:
+            raise ValueError("repair route has no intent payload")
+        if left is None:
+            return right_payload
+        left_operations = left.get("operations")
+        right_operations = right_payload.get("operations")
+        if not isinstance(left_operations, list) or not isinstance(right_operations, list):
+            raise ValueError("intent payload operations are invalid")
+        operations = deepcopy(left_operations)
+        previous_id = None
+        if operations and isinstance(operations[-1], Mapping):
+            candidate = operations[-1].get("id")
+            previous_id = candidate if isinstance(candidate, str) else None
+        known_ids = {
+            item.get("id") for item in operations if isinstance(item, Mapping)
+        }
+        for raw in deepcopy(right_operations):
+            if not isinstance(raw, dict):
+                raise ValueError("intent repair operation is invalid")
+            operation_id = raw.get("id")
+            if not isinstance(operation_id, str) or operation_id in known_ids:
+                raise ValueError("intent repair operation id is invalid")
+            arguments = raw.get("arguments")
+            dependencies = raw.get("depends_on")
+            if (
+                previous_id is not None
+                and isinstance(arguments, dict)
+                and arguments.get("results_from") == "context.active_results"
+            ):
+                arguments["results_from"] = previous_id
+                if not isinstance(dependencies, list):
+                    raise ValueError("intent repair dependencies are invalid")
+                if previous_id not in dependencies:
+                    dependencies.append(previous_id)
+            operations.append(raw)
+            known_ids.add(operation_id)
+            previous_id = operation_id
+        confidences = tuple(
+            float(value)
+            for value in (left.get("confidence"), right_payload.get("confidence"))
+            if isinstance(value, (int, float)) and not isinstance(value, bool)
+        )
+        return {
+            "schema_version": 1,
+            "language": right_payload.get("language", left.get("language")),
+            "summary": text[:500],
+            "confidence": min(confidences) if confidences else 0.0,
+            "operations": operations,
+        }
 
     def _classify_turn(
         self, text: str, locale: str, current_user_message_id: str

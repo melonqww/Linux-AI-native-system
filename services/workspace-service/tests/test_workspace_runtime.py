@@ -122,9 +122,11 @@ class Compiler:
     def __init__(self, result):
         self.result = result
         self.calls = 0
+        self.payloads = []
 
-    def compile_payload(self, _payload, *, text, context):
+    def compile_payload(self, payload, *, text, context):
         self.calls += 1
+        self.payloads.append(payload)
         return self.result
 
 

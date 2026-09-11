@@ -16,7 +16,11 @@ _OPERATION_KEYS = {"id", "kind", "arguments", "depends_on", "evidence"}
 
 
 class IntentValidationError(ValueError):
-    pass
+    """Rejected untrusted intent with a stable, non-sensitive developer code."""
+
+    def __init__(self, message: str, *, code: str = "schema_validation") -> None:
+        super().__init__(message)
+        self.code = code
 
 
 class IntentValidator:
@@ -77,20 +81,28 @@ class IntentValidator:
         if not isinstance(raw_arguments, Mapping):
             raise IntentValidationError(f"arguments for {kind} must be an object")
         normalized = dict(raw_arguments)
-        if kind == "search_documents" and "mode" not in normalized:
+        if kind == "search_documents":
+            # Search mode is a derived execution detail, not model authority.
+            # Always replace the model value so equivalent argument sets compile
+            # identically even when a small model emits a contradictory mode.
             text = normalized.get("text")
+            has_text = isinstance(text, str) and bool(text.strip())
+            if isinstance(text, str) and not has_text:
+                normalized.pop("text")
+            has_metadata_filter = any(
+                normalized.get(key) for key in ("extensions", "name_terms")
+            )
             normalized["mode"] = (
                 "hybrid"
-                if isinstance(text, str)
-                and any(normalized.get(key) for key in ("extensions", "name_terms"))
+                if has_text and has_metadata_filter
                 else "content"
-                if isinstance(text, str)
+                if has_text
                 else "metadata"
             )
         try:
             arguments = definition.validate_arguments(normalized)
         except (TypeError, ValueError) as error:
-            raise IntentValidationError(str(error)) from error
+            raise IntentValidationError(str(error), code="invalid_arguments") from error
         self._validate_special_semantics(kind, arguments, user_text)
         depends_on = self._string_list(
             value.get("depends_on"), "depends_on", maximum=12
@@ -98,13 +110,15 @@ class IntentValidator:
         evidence = self._string_list(value.get("evidence"), "evidence", maximum=12)
         if not evidence:
             raise IntentValidationError(
-                f"operation {operation_id} has no grounding evidence"
+                f"operation {operation_id} has no grounding evidence",
+                code="ungrounded_operation",
             )
         normalized_text = user_text.casefold()
         for quote in evidence:
             if quote.casefold() not in normalized_text:
                 raise IntentValidationError(
-                    f"operation {operation_id} contains evidence absent from the user message"
+                    f"operation {operation_id} contains evidence absent from the user message",
+                    code="ungrounded_operation",
                 )
         return OperationIntent(operation_id, kind, arguments, depends_on, evidence)
 

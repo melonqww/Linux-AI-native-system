@@ -44,6 +44,7 @@
       "user_intent": {
         "operation": "copy_results",
         "description": "Copy previously found file results into a user destination. results_from is supplied by trusted prior results, destination must be an explicit Desktop/Documents/Downloads role or trusted last destination, and directory_name is one explicitly named child folder, never a path.",
+        "preserved_arguments": ["directory_name"],
         "examples": ["создай папку и скопируй туда найденные файлы", "скопируй результаты на рабочий стол", "сохрани найденные документы в папку", "copy the found files to my desktop"]
       }
     },

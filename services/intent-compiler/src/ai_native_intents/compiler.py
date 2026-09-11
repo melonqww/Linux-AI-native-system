@@ -124,7 +124,12 @@ class IntentCompiler:
                 else ()
             )
             return CompilationResult(plan.state, intent, plan, question, diagnostics)
-        except (IntentValidationError, TypeError, ValueError, RuntimeError):
+        except IntentValidationError as error:
+            return self._rejected(
+                context,
+                diagnostics=("intent_rejected", error.code),
+            )
+        except (TypeError, ValueError, RuntimeError):
             return self._rejected(context)
 
     @staticmethod
@@ -132,6 +137,7 @@ class IntentCompiler:
         context: TaskContext,
         *,
         diagnostic: str = "intent_rejected",
+        diagnostics: tuple[str, ...] | None = None,
     ) -> CompilationResult:
         question = (
             "Не удалось надёжно понять запрос. Сформулируйте, пожалуйста, точнее."
@@ -143,7 +149,7 @@ class IntentCompiler:
             None,
             None,
             question,
-            (diagnostic,),
+            diagnostics or (diagnostic,),
         )
 
     @staticmethod

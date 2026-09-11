@@ -108,6 +108,7 @@ class SemanticSelectorTests(unittest.TestCase):
             hybrid.available_operations(),
             ("search_documents", "copy_results"),
         )
+        self.assertEqual(hybrid.required_operations("por favor copiar los resultados"), ())
 
     def test_rejects_remote_origins_and_malformed_vectors(self):
         with self.assertRaises(ValueError):

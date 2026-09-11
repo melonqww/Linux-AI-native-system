@@ -26,6 +26,7 @@ def contract(capability="notes.lookup", operation="lookup_notes"):
             operation=operation,
             description="Search the user's local notes.",
             examples=("find my meeting notes",),
+            preserved_arguments=("query",),
         ),
     )
 
@@ -76,6 +77,7 @@ def test_new_module_operation_flows_from_contract_to_schema_validation_and_plan(
     variants = captured[0].output_schema["properties"]["operations"]["items"]["oneOf"]
     assert variants[0]["properties"]["kind"]["const"] == "lookup_notes"
     assert captured[0].operation_definitions == definitions
+    assert definitions[0].preserved_arguments == ("query",)
 
 
 def test_catalog_excludes_non_executable_contracts_and_rejects_unknown_arguments():
@@ -125,6 +127,22 @@ def test_catalog_rejects_duplicate_operations_and_unsafe_open_schema():
                 "required": [],
                 "additionalProperties": True,
             },
+        )
+
+
+def test_catalog_rejects_unknown_preserved_argument():
+    with pytest.raises(ValueError, match="must name operation input properties"):
+        OperationDefinition(
+            "lookup_notes",
+            "notes.lookup",
+            "Lookup notes.",
+            {
+                "type": "object",
+                "properties": {"query": {"type": "string"}},
+                "required": ["query"],
+                "additionalProperties": False,
+            },
+            preserved_arguments=("missing",),
         )
 
 

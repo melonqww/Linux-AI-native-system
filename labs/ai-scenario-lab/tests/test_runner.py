@@ -156,6 +156,13 @@ def test_runner_executes_real_search_and_approved_copy_inside_virtual_pc():
         outcome = runner().run(scenario, run_id=run_id)
         assert outcome.passed, outcome
         assert len(outcome.audit_events) > 0
+        route_events = [
+            event for event in outcome.model_events if event.get("kind") == "route"
+        ]
+        assert route_events[0]["compilation"] == {
+            "state": "ready",
+            "diagnostics": [],
+        }
         assert all(
             Path(outcome.virtual_pc).resolve().is_relative_to(LAB_ROOT.resolve())
             for _ in [0]

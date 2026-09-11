@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from collections.abc import Callable, Mapping
 
-from ai_native_indexer import ContentIndexState, ContentIndexStatus, IndexerService
+from ai_native_indexer import ContentIndexState, ContentIndexStatus, IndexerService, SearchHit
 from ai_native_pdf import PdfExtractor
 from ai_native_storage import (
     CatalogEntry,
@@ -28,6 +28,7 @@ from .contracts import (
     SearchPage,
     SearchMode,
 )
+from .semantic import EmbeddingProvider, SemanticContentRetriever
 
 
 class QueryService:
@@ -38,6 +39,7 @@ class QueryService:
         index_database: Path,
         pdf_extractor: PdfExtractor | None = None,
         coverage_source: Callable[[], Mapping[str, object]] | None = None,
+        semantic_provider: EmbeddingProvider | None = None,
     ) -> None:
         self.catalog = FileCatalog(storage_database)
         self.volumes = VolumeRegistry(storage_database)
@@ -46,6 +48,11 @@ class QueryService:
         self.indexer = IndexerService(index_database)
         self.pdf_extractor = pdf_extractor or PdfExtractor()
         self.coverage_source = coverage_source
+        self.semantic_retriever = (
+            None
+            if semantic_provider is None
+            else SemanticContentRetriever(semantic_provider)
+        )
 
     def coverage(self, volume_ids: tuple[str, ...] = ()) -> SearchCoverage:
         catalog = self.catalog.status()
@@ -213,9 +220,43 @@ class QueryService:
             )
 
         candidate_limit = 10_001
-        content_hits = self.indexer.search_candidates(query.text, limit=candidate_limit)
+        lexical_hits = self.indexer.search_candidates(query.text, limit=candidate_limit)
+        semantic_hits: list[SearchHit] = []
+        if self.semantic_retriever is not None:
+            # Resolve permissions and metadata filters before indexed content is
+            # materialized or sent to the local embedding provider.
+            eligible_entries = self.catalog.search(
+                FileQuery(
+                    name_contains=query.name_contains,
+                    extensions=query.extensions,
+                    volume_ids=query.volume_ids,
+                    limit=1_000,
+                )
+            )
+            content_volume_ids = {
+                volume.volume_id
+                for volume in self.volumes.list_volumes(available_only=True)
+                if volume.permission is PermissionLevel.CONTENT
+            }
+            eligible_paths = [
+                entry.path
+                for entry in eligible_entries
+                if entry.entry_type is EntryType.FILE
+                and entry.volume_id in content_volume_ids
+            ]
+            corpus = self.indexer.semantic_corpus(eligible_paths)
+            semantic_hits = self.semantic_retriever.search(
+                query.text, corpus, limit=min(candidate_limit, 100)
+            )
+        semantic_paths = {hit.path for hit in semantic_hits}
+        lexical_paths = {hit.path for hit in lexical_hits}
+        merged_hits = {hit.path: hit for hit in semantic_hits}
+        # Prefer the deterministic lexical snippet when both strategies found a
+        # path; semantic retrieval supplies recall, not authority.
+        merged_hits.update((hit.path, hit) for hit in lexical_hits)
+        content_hits = list(merged_hits.values())
         catalog_for_hits = self.catalog.entries_by_paths([hit.path for hit in content_hits])
-        maximum_content_score = max((hit.score for hit in content_hits), default=1.0) or 1.0
+        maximum_lexical_score = max((hit.score for hit in lexical_hits), default=1.0) or 1.0
         results: list[QueryResult] = []
         content_allowed: dict[str, bool] = {}
         for hit in content_hits:
@@ -243,7 +284,15 @@ class QueryService:
                 term.casefold() in entry.name.casefold() for term in query.name_contains
             ):
                 continue
-            content_score = 0.5 + 0.5 * (hit.score / maximum_content_score)
+            if hit.path in lexical_paths:
+                content_score = 0.5 + 0.5 * (hit.score / maximum_lexical_score)
+            else:
+                content_score = 0.5 + 0.5 * max(0.0, min(1.0, hit.score))
+            sources = (
+                ("content", "semantic")
+                if hit.path in semantic_paths
+                else ("content",)
+            )
             results.append(
                 QueryResult(
                     volume_id=entry.volume_id,
@@ -254,7 +303,7 @@ class QueryService:
                     snippet=hit.content,
                     line_start=hit.line_start,
                     line_end=hit.line_end,
-                    sources=("content",),
+                    sources=sources,
                     size_bytes=entry.size_bytes,
                     mtime_ns=entry.mtime_ns,
                     content_state=ContentAvailability.INDEXED,
@@ -268,7 +317,9 @@ class QueryService:
             query.offset,
             query.limit,
             total,
-            len(content_hits) < candidate_limit,
+            False
+            if self.semantic_retriever is not None
+            else len(lexical_hits) < candidate_limit,
             coverage,
         )
 

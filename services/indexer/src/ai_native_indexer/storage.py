@@ -247,6 +247,49 @@ class IndexStorage:
         ]
 
     @staticmethod
+    def chunks_by_paths(
+        connection: sqlite3.Connection, paths: list[str], limit: int
+    ) -> list[SearchHit]:
+        """Return a bounded semantic corpus for paths authorized by the caller.
+
+        This deliberately requires an explicit path allow-list.  The index has no
+        knowledge of volume permissions, so it must never expose its whole corpus
+        to an embedding provider and filter the result afterwards.
+        """
+        if not paths:
+            return []
+        unique_paths = list(dict.fromkeys(paths))
+        rows: list[sqlite3.Row] = []
+        remaining = limit
+        for start in range(0, len(unique_paths), 400):
+            if remaining <= 0:
+                break
+            batch = unique_paths[start : start + 400]
+            selected = connection.execute(
+                f"""
+                SELECT path, ordinal, line_start, line_end, content
+                FROM chunks_fts
+                WHERE path IN ({','.join('?' for _ in batch)})
+                  AND CAST(ordinal AS INTEGER) < 2
+                ORDER BY path, CAST(ordinal AS INTEGER)
+                LIMIT ?
+                """,
+                (*batch, remaining),
+            ).fetchall()
+            rows.extend(selected)
+            remaining -= len(selected)
+        return [
+            SearchHit(
+                path=str(row["path"]),
+                line_start=int(row["line_start"]),
+                line_end=int(row["line_end"]),
+                content=str(row["content"]),
+                score=0.0,
+            )
+            for row in rows
+        ]
+
+    @staticmethod
     def status(connection: sqlite3.Connection) -> dict[str, int]:
         sources = int(connection.execute("SELECT count(*) FROM sources").fetchone()[0])
         chunks = int(connection.execute("SELECT count(*) FROM chunks_fts").fetchone()[0])

@@ -117,6 +117,34 @@ class TracingModel:
             "classify_turn", request, lambda: self.provider.classify_turn(request)
         )
 
+    def annotate_compilation(self, result: object) -> None:
+        """Attach safe compiler metadata to the producing route trace.
+
+        Compiler exception text and payload values are deliberately excluded.
+        The trace contains only stable codes already intended for developers.
+        """
+        state = getattr(getattr(result, "state", None), "value", None)
+        raw_diagnostics = getattr(result, "diagnostics", ())
+        diagnostics = [
+            item
+            for item in raw_diagnostics
+            if isinstance(item, str)
+            and item
+            and len(item) <= 64
+            and item.isascii()
+            and all(
+                character.islower() or character.isdigit() or character == "_"
+                for character in item
+            )
+        ]
+        for event in reversed(self.events):
+            if event.get("kind") == "route" and "compilation" not in event:
+                event["compilation"] = {
+                    "state": state if isinstance(state, str) else "unknown",
+                    "diagnostics": diagnostics,
+                }
+                return
+
     def _call(self, kind: str, request: object, callback: Callable[[], object]):
         started = perf_counter()
         event: dict[str, object] = {
@@ -201,6 +229,26 @@ class RecordingExecutor:
             self.records.append(record)
 
 
+class TracingIntentCompiler:
+    """Lab-only observer around the production compiler contract."""
+
+    def __init__(self, compiler: IntentCompiler, model: TracingModel) -> None:
+        self.compiler = compiler
+        self.model = model
+
+    def model_request(self, *args, **kwargs):
+        return self.compiler.model_request(*args, **kwargs)
+
+    def compile_and_plan(self, *args, **kwargs):
+        result = self.compiler.compile_and_plan(*args, **kwargs)
+        self.model.annotate_compilation(result)
+        return result
+
+    def compile_payload(self, *args, **kwargs):
+        result = self.compiler.compile_payload(*args, **kwargs)
+        self.model.annotate_compilation(result)
+        return result
+
 class LabEnvironment:
     """One scenario gets one model conversation, database set, and virtual PC."""
 
@@ -243,6 +291,14 @@ class LabEnvironment:
             storage_database=self.storage_db,
             index_database=self.index_db,
             coverage_source=lambda: asdict(self.scheduler.status()),
+            semantic_provider=(
+                OllamaEmbeddingProvider(
+                    model="qwen3-embedding:0.6b",
+                    base_url=base_url,
+                )
+                if provider is None
+                else None
+            ),
         )
         self.context = TaskContextStore(
             locale=locale, database=self.run_root / "task-context.sqlite3"
@@ -290,13 +346,16 @@ class LabEnvironment:
             keep_alive="10m",
         )
         self.model = TracingModel(raw_provider, self.faults)
-        self.compiler = IntentCompiler(
-            self.model,
-            operation_source=lambda: _operation_definitions(
-                self.capability_registry,
-                self.executor.available_capabilities(),
-                orchestrator.permission_gateway.policy,
+        self.compiler = TracingIntentCompiler(
+            IntentCompiler(
+                self.model,
+                operation_source=lambda: _operation_definitions(
+                    self.capability_registry,
+                    self.executor.available_capabilities(),
+                    orchestrator.permission_gateway.policy,
+                ),
             ),
+            self.model,
         )
         self.store = WorkspaceStore(self.run_root / "workspace.sqlite3")
         descriptors = _registry_descriptors(

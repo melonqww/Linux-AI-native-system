@@ -3,7 +3,7 @@
   "module_id": "documents.query",
   "display_name": "Document Query Service",
   "description": "Searches allowed local files by metadata and indexed content.",
-  "module_version": "0.3.0",
+  "module_version": "0.4.0",
   "core_api": "1",
   "capabilities": [
     {

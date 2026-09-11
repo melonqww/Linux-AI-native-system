@@ -94,6 +94,9 @@ def operation_definitions():
                 "required": required,
                 "additionalProperties": False,
             },
+            preserved_arguments=("directory_name",)
+            if operation == "copy_results"
+            else (),
             risk=RiskClass.REVERSIBLE_WRITE
             if operation == "copy_results"
             else RiskClass.READ_ONLY,
@@ -334,6 +337,125 @@ class OllamaProviderTests(unittest.TestCase):
             operation["arguments"]["results_from"], "context.active_results"
         )
         self.assertNotIn("destination", operation["arguments"])
+
+    def test_missing_preserved_argument_is_recovered_from_grounded_review(self):
+        route = FakeResponse(
+            {
+                "message": {
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "copy_results",
+                                "arguments": {
+                                    "destination": "desktop",
+                                    "confidence": 0.9,
+                                },
+                            }
+                        }
+                    ],
+                }
+            }
+        )
+        review = FakeResponse(
+            {
+                "message": {
+                    "content": json.dumps(
+                        {
+                            "reviews": [
+                                {
+                                    "call_index": 0,
+                                    "argument": "directory_name",
+                                    "status": "present",
+                                    "value": "Private",
+                                    "evidence": "Private",
+                                }
+                            ]
+                        }
+                    )
+                }
+            }
+        )
+        request = model_request(
+            "Copy the results to my Desktop in a folder called Private"
+        )
+        request = ModelRequest(
+            request.user_text,
+            "en",
+            {"has_active_results": True, "has_last_destination": False, "locale": "en"},
+            request.output_schema,
+            request.instructions,
+            allowed_operations=("copy_results",),
+            operation_definitions=request.operation_definitions,
+        )
+
+        with patch(
+            "ai_native_intents.ollama._open_loopback", side_effect=[route, review]
+        ):
+            turn = OllamaModelProvider().route(request)
+
+        self.assertEqual(turn.kind, ModelTurnKind.ACTION)
+        self.assertEqual(
+            turn.intent_payload["operations"][0]["arguments"]["directory_name"],
+            "Private",
+        )
+
+    def test_ungrounded_preserved_argument_review_fails_closed(self):
+        route = FakeResponse(
+            {
+                "message": {
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "copy_results",
+                                "arguments": {
+                                    "destination": "desktop",
+                                    "confidence": 0.9,
+                                },
+                            }
+                        }
+                    ],
+                }
+            }
+        )
+        review = FakeResponse(
+            {
+                "message": {
+                    "content": json.dumps(
+                        {
+                            "reviews": [
+                                {
+                                    "call_index": 0,
+                                    "argument": "directory_name",
+                                    "status": "present",
+                                    "value": "Invented",
+                                    "evidence": "Private",
+                                }
+                            ]
+                        }
+                    )
+                }
+            }
+        )
+        request = model_request("Copy the results to my Desktop folder Private")
+        request = ModelRequest(
+            request.user_text,
+            "en",
+            {"has_active_results": True, "has_last_destination": False, "locale": "en"},
+            request.output_schema,
+            request.instructions,
+            allowed_operations=("copy_results",),
+            operation_definitions=request.operation_definitions,
+        )
+
+        with patch(
+            "ai_native_intents.ollama._open_loopback", side_effect=[route, review]
+        ):
+            turn = OllamaModelProvider().route(request)
+
+        self.assertEqual(turn.kind, ModelTurnKind.CLARIFICATION)
+        self.assertIsNone(turn.intent_payload)
 
     def test_composes_only_conversational_part_of_mixed_turn(self):
         response = FakeResponse(
@@ -590,7 +712,27 @@ class OllamaProviderTests(unittest.TestCase):
                 }
             }
         )
-        with patch("ai_native_intents.ollama._open_loopback", return_value=response):
+        review = FakeResponse(
+            {
+                "message": {
+                    "content": json.dumps(
+                        {
+                            "reviews": [
+                                {
+                                    "call_index": 1,
+                                    "argument": "directory_name",
+                                    "status": "absent",
+                                }
+                            ]
+                        }
+                    )
+                }
+            }
+        )
+        with patch(
+            "ai_native_intents.ollama._open_loopback",
+            side_effect=[response, review],
+        ):
             from dataclasses import replace
 
             result = OllamaModelProvider().compile(
