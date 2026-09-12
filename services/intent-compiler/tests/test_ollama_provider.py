@@ -45,6 +45,14 @@ def operation_definitions():
                 "content_match": {
                     "type": "string",
                     "enum": ["semantic", "exact_phrase"],
+                    "coRequiredWith": ["text"],
+                    "reviewChoices": {
+                        "semantic": ["semantic", "topic", "content_topic"],
+                        "exact_phrase": ["exact_phrase", "phrase", "literal_content_phrase"],
+                        "$misplaced": ["misplaced", "destination", "file_type", "other_argument"],
+                    },
+                    "description": "Required whenever text is supplied; semantic is a topic "
+                    "and exact_phrase is text that must occur in the content.",
                 },
                 "extensions": {"type": "array", "items": {"type": "string"}},
                 "name_terms": {
@@ -404,6 +412,108 @@ class OllamaProviderTests(unittest.TestCase):
             "Private",
         )
 
+    def test_derived_enum_is_recovered_from_a_valid_current_turn_trigger(self):
+        route = FakeResponse(
+            {
+                "message": {
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "search_documents",
+                                "arguments": {
+                                    "text": "математика",
+                                    "extensions": ["pdf"],
+                                    "confidence": 0.9,
+                                },
+                            }
+                        }
+                    ],
+                }
+            }
+        )
+        review = FakeResponse(
+            {"message": {"content": json.dumps({"classification": "topic"})}}
+        )
+
+        with patch(
+            "ai_native_intents.ollama._open_loopback", side_effect=[route, review]
+        ):
+            turn = OllamaModelProvider().route(model_request())
+
+        self.assertEqual(turn.kind, ModelTurnKind.ACTION)
+        self.assertEqual(
+            turn.intent_payload["operations"][0]["arguments"]["content_match"],
+            "semantic",
+        )
+
+    def test_conditionally_required_argument_review_cannot_report_absent(self):
+        route = FakeResponse(
+            {
+                "message": {
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "search_documents",
+                                "arguments": {
+                                    "text": "математика",
+                                    "confidence": 0.9,
+                                },
+                            }
+                        }
+                    ],
+                }
+            }
+        )
+        review = FakeResponse(
+            {"message": {"content": json.dumps({"classification": "unknown"})}}
+        )
+
+        with patch(
+            "ai_native_intents.ollama._open_loopback", side_effect=[route, review]
+        ):
+            turn = OllamaModelProvider().route(model_request())
+
+        self.assertEqual(turn.kind, ModelTurnKind.CLARIFICATION)
+        self.assertIsNone(turn.intent_payload)
+
+    def test_review_removes_a_grounded_but_semantically_misplaced_trigger(self):
+        route = FakeResponse(
+            {
+                "message": {
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "search_documents",
+                                "arguments": {
+                                    "text": "PDF files",
+                                    "extensions": ["pdf"],
+                                    "confidence": 0.9,
+                                },
+                            }
+                        }
+                    ],
+                }
+            }
+        )
+        review = FakeResponse(
+            {"message": {"content": json.dumps({"classification": "file_type"})}}
+        )
+        request = model_request("Find PDF files")
+
+        with patch(
+            "ai_native_intents.ollama._open_loopback", side_effect=[route, review]
+        ):
+            turn = OllamaModelProvider().route(request)
+
+        self.assertEqual(turn.kind, ModelTurnKind.ACTION)
+        arguments = turn.intent_payload["operations"][0]["arguments"]
+        self.assertNotIn("text", arguments)
+        self.assertNotIn("content_match", arguments)
+        self.assertEqual(arguments["extensions"], ["pdf"])
+
     def test_ungrounded_preserved_argument_review_fails_closed(self):
         route = FakeResponse(
             {
@@ -546,6 +656,7 @@ class OllamaProviderTests(unittest.TestCase):
                                     "name": "search_documents",
                                     "arguments": {
                                         "text": "математика",
+                                        "content_match": "semantic",
                                         "extensions": ["pdf"],
                                         "confidence": 0.95,
                                     },
@@ -575,6 +686,10 @@ class OllamaProviderTests(unittest.TestCase):
             if item["function"]["name"] == "search_documents"
         )
         self.assertNotIn("languages", search_tool["parameters"]["properties"])
+        self.assertNotIn(
+            "coRequiredWith",
+            search_tool["parameters"]["properties"]["content_match"],
+        )
         self.assertEqual(
             search_tool["description"],
             "Description owned by documents.query.search",
@@ -605,6 +720,7 @@ class OllamaProviderTests(unittest.TestCase):
                                     "name": "search_documents",
                                     "arguments": {
                                         "text": "математика",
+                                        "content_match": "semantic",
                                         "confidence": 0.9,
                                     },
                                 }
@@ -700,7 +816,11 @@ class OllamaProviderTests(unittest.TestCase):
                         {
                             "function": {
                                 "name": "search_documents",
-                                "arguments": {"text": "math", "confidence": 0.9},
+                                "arguments": {
+                                    "text": "math",
+                                    "content_match": "semantic",
+                                    "confidence": 0.9,
+                                },
                             }
                         },
                         {

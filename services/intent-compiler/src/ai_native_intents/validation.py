@@ -89,17 +89,6 @@ class IntentValidator:
             has_text = isinstance(text, str) and bool(text.strip())
             if isinstance(text, str) and not has_text:
                 normalized.pop("text")
-            content_match = normalized.get("content_match")
-            if has_text and content_match not in {"semantic", "exact_phrase"}:
-                raise IntentValidationError(
-                    "content_match is required for content search",
-                    code="invalid_arguments",
-                )
-            if not has_text and content_match is not None:
-                raise IntentValidationError(
-                    "content_match requires non-empty text",
-                    code="invalid_arguments",
-                )
             has_metadata_filter = any(
                 normalized.get(key) for key in ("extensions", "name_terms")
             )

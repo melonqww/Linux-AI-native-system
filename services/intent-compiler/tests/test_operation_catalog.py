@@ -146,6 +146,65 @@ def test_catalog_rejects_unknown_preserved_argument():
         )
 
 
+def test_catalog_enforces_and_hides_conditional_argument_contract():
+    definition = OperationDefinition(
+        "lookup_notes",
+        "notes.lookup",
+        "Lookup notes.",
+        {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "match": {
+                    "type": "string",
+                    "enum": ["semantic", "exact"],
+                    "coRequiredWith": ["query"],
+                    "reviewChoices": {
+                        "semantic": ["semantic", "topic", "content_topic"],
+                        "exact": ["exact", "phrase", "literal_content_phrase"],
+                        "$misplaced": ["misplaced", "destination", "file_type", "other_argument"],
+                    },
+                },
+            },
+            "required": [],
+            "additionalProperties": False,
+        },
+    )
+
+    assert definition.missing_corequired_arguments({"query": "meeting"}) == (
+        "match",
+    )
+    with pytest.raises(ValueError, match="conditionally required"):
+        definition.validate_arguments({"query": "meeting"})
+    with pytest.raises(ValueError, match="requires one of"):
+        definition.validate_arguments({"match": "semantic"})
+    assert definition.validate_arguments(
+        {"query": "meeting", "match": "semantic"}
+    ) == {"query": "meeting", "match": "semantic"}
+    assert "coRequiredWith" not in definition.model_input_schema["properties"]["match"]
+    assert "reviewChoices" not in definition.model_input_schema["properties"]["match"]
+
+
+def test_catalog_rejects_invalid_conditional_argument_reference():
+    with pytest.raises(ValueError, match="must name other operation properties"):
+        OperationDefinition(
+            "lookup_notes",
+            "notes.lookup",
+            "Lookup notes.",
+            {
+                "type": "object",
+                "properties": {
+                    "match": {
+                        "type": "string",
+                        "coRequiredWith": ["missing"],
+                    }
+                },
+                "required": [],
+                "additionalProperties": False,
+            },
+        )
+
+
 def test_module_schema_cannot_expand_trusted_policy_arguments():
     def restrictive(_capability):
         return SimpleNamespace(

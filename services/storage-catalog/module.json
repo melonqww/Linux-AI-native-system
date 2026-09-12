@@ -3,7 +3,7 @@
   "module_id": "storage.catalog",
   "display_name": "Storage Catalog",
   "description": "Discovers volumes, catalogs file metadata and manages virtual collections.",
-  "module_version": "0.2.0",
+  "module_version": "0.2.1",
   "core_api": "1",
   "capabilities": [
     {
@@ -39,7 +39,7 @@
     {
       "id": "storage.materialize.plan-copy",
       "description": "Prepare a bounded copy of previously found files to a named user destination.",
-      "input_schema": {"type": "object", "properties": {"results_from": {"type": "string", "description": "Server-owned reference to results from an earlier operation or trusted task context"}, "destination": {"type": "string", "enum": ["desktop", "documents", "downloads", "context.last_destination"], "description": "User destination role explicitly stated in the request or trusted prior context"}, "directory_name": {"type": "string", "description": "One child directory name explicitly supplied by the user, never a path"}}, "required": ["results_from", "destination"], "additionalProperties": false},
+      "input_schema": {"type": "object", "properties": {"results_from": {"type": "string", "description": "Server-owned reference to results from an earlier operation or trusted task context"}, "destination": {"type": "string", "enum": ["desktop", "documents", "downloads", "context.last_destination"], "description": "User destination role explicitly stated in the request or trusted prior context"}, "directory_name": {"type": "string", "description": "One child directory name explicitly supplied by the user, never a file type, search term, or path"}}, "required": ["results_from", "destination"], "additionalProperties": false},
       "requested_permissions": ["filesystem.read-metadata", "filesystem.read-content", "filesystem.write-content"],
       "user_intent": {
         "operation": "copy_results",

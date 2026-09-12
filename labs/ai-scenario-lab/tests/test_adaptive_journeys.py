@@ -67,6 +67,7 @@ class JourneyProvider:
                     {
                         "mode": "hybrid",
                         "text": "mathematics",
+                        "content_match": "semantic",
                         "extensions": ["pdf"],
                     }
                     if is_math

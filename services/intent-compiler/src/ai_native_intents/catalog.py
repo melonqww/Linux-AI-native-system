@@ -25,6 +25,8 @@ _SCHEMA_KEYS = frozenset(
         "maxItems",
         "minimum",
         "maximum",
+        "coRequiredWith",
+        "reviewChoices",
     }
 )
 _SCALAR_TYPES = frozenset({"string", "integer", "number", "boolean"})
@@ -105,6 +107,15 @@ class OperationDefinition:
         """Return a defensive JSON copy suitable for a model request."""
         return json.loads(self._schema_json)
 
+    @property
+    def model_input_schema(self) -> dict[str, object]:
+        """Return standard JSON Schema without runtime-only contract keywords."""
+        schema = self.input_schema
+        for property_schema in schema["properties"].values():
+            property_schema.pop("coRequiredWith", None)
+            property_schema.pop("reviewChoices", None)
+        return schema
+
     def validate_arguments(self, value: object) -> dict[str, IntentValue]:
         if not isinstance(value, Mapping):
             raise ValueError(f"arguments for {self.operation} must be an object")
@@ -121,6 +132,16 @@ class OperationDefinition:
             raise ValueError(
                 f"missing arguments for {self.operation}: {sorted(missing)}"
             )
+        missing_conditional = self.missing_corequired_arguments(value)
+        if missing_conditional:
+            raise ValueError(
+                f"missing conditionally required arguments for {self.operation}: "
+                f"{sorted(missing_conditional)}"
+            )
+        for name, property_schema in properties.items():
+            peers = property_schema.get("coRequiredWith", [])
+            if name in value and peers and not any(peer in value for peer in peers):
+                raise ValueError(f"{name} requires one of {sorted(peers)}")
         return {
             key: _validated_value(raw, properties[key], key)
             for key, raw in value.items()
@@ -132,6 +153,16 @@ class OperationDefinition:
         if name not in properties:
             raise ValueError(f"unsupported argument for {self.operation}: {name}")
         return _validated_value(value, properties[name], name)
+
+    def missing_corequired_arguments(self, value: Mapping[str, object]) -> tuple[str, ...]:
+        """Return module-declared arguments required by already supplied peers."""
+        properties = self.input_schema["properties"]
+        return tuple(
+            name
+            for name, property_schema in properties.items()
+            if name not in value
+            and any(peer in value for peer in property_schema.get("coRequiredWith", []))
+        )
 
 
 class OperationCatalog:
@@ -245,6 +276,17 @@ def _validated_object_schema(value: Mapping[str, object]) -> dict[str, object]:
         key: _validated_property_schema(schema, array_item=False)
         for key, schema in properties.items()
     }
+    for name, schema in normalized.items():
+        peers = schema.get("coRequiredWith")
+        if peers is not None and (
+            not isinstance(peers, list)
+            or not peers
+            or len(peers) != len(set(peers))
+            or any(not isinstance(peer, str) for peer in peers)
+            or not set(peers) <= set(normalized)
+            or name in peers
+        ):
+            raise ValueError("coRequiredWith must name other operation properties")
     if (
         not isinstance(required, list)
         or len(required) != len(set(required))
@@ -288,6 +330,32 @@ def _validated_property_schema(value: object, *, array_item: bool) -> dict[str, 
         or len({json.dumps(item, sort_keys=True) for item in enum}) != len(enum)
     ):
         raise ValueError("operation property enum is invalid")
+    review_choices = value.get("reviewChoices")
+    if review_choices is not None and (
+        not isinstance(review_choices, Mapping)
+        or enum is None
+        or set(review_choices) != {*enum, "$misplaced"}
+        or any(
+            not isinstance(labels, list)
+            or not labels
+            or any(
+                not isinstance(label, str) or not label or len(label) > 80
+                for label in labels
+            )
+            for labels in review_choices.values()
+        )
+        or len(
+            {
+                label
+                for labels in review_choices.values()
+                for label in labels
+            }
+        )
+        != sum(len(labels) for labels in review_choices.values())
+    ):
+        raise ValueError(
+            "reviewChoices must give unique labels for every enum value and $misplaced"
+        )
     result = dict(value)
     if items is not None:
         result["items"] = items

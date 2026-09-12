@@ -23,6 +23,12 @@ SEARCH = OperationDefinition(
             "content_match": {
                 "type": "string",
                 "enum": ["semantic", "exact_phrase"],
+                "coRequiredWith": ["text"],
+                "reviewChoices": {
+                    "semantic": ["semantic", "topic", "content_topic"],
+                    "exact_phrase": ["exact_phrase", "phrase", "literal_content_phrase"],
+                    "$misplaced": ["misplaced", "destination", "file_type", "other_argument"],
+                },
             },
             "extensions": {"type": "array", "items": {"type": "string"}},
             "volume_ids": {"type": "array", "items": {"type": "string"}},

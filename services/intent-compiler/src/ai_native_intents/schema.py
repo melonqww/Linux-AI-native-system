@@ -14,7 +14,7 @@ def _operation_schema(definition: OperationDefinition) -> dict[str, object]:
                 "const": definition.operation,
                 "description": definition.description,
             },
-            "arguments": definition.input_schema,
+            "arguments": definition.model_input_schema,
             "depends_on": {
                 "type": "array",
                 "maxItems": 12,
@@ -75,9 +75,6 @@ Set language to the detected language of the user message, not the interface loc
 Include only arguments that the message actually requires; omit irrelevant optional fields.
 Follow operation and argument descriptions from the supplied schema. Preserve every
 restriction stated in the current message; a correction replaces earlier action arguments.
-For search_documents, include content_match=semantic for a topic query or
-content_match=exact_phrase when the user asks for a phrase occurring in the document;
-omit content_match only for metadata-only searches.
 For multiple operations, give later operations dependencies and reference earlier IDs. When
 an argument named results_from is present, use an earlier operation ID for results created in
 this turn. Use context.active_results only for prior-turn results and only when the trusted

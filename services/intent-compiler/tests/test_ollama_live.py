@@ -61,32 +61,69 @@ def live_operation_definitions():
     search = OperationDefinition(
         "search_documents",
         "documents.query.search",
-        "Find local files and document content.",
+        "Search allowed local files. Use metadata for type/name only, content for indexed "
+        "text, and hybrid for text plus filters. Keep a topic in text with content_match "
+        "semantic; use exact_phrase when the user asks for a phrase occurring in a document. "
+        "If text is present, always choose one content_match value. name_terms is only for "
+        "an explicit filename.",
         {
             "type": "object",
             "properties": {
                 "mode": {"type": "string", "enum": ["metadata", "content", "hybrid"]},
-                "text": {"type": "string"},
+                "text": {
+                    "type": "string",
+                    "description": "The subject or phrase required inside indexed document "
+                    "content. Put mathematics here for documents about mathematics and put a "
+                    "requested phrase here for documents containing that phrase. A destination "
+                    "folder name is never document content; omit text when the user only names "
+                    "a file type and destination.",
+                },
                 "content_match": {
                     "type": "string",
                     "enum": ["semantic", "exact_phrase"],
+                    "coRequiredWith": ["text"],
+                    "reviewChoices": {
+                        "semantic": ["semantic", "topic", "content_topic"],
+                        "exact_phrase": ["exact_phrase", "phrase", "literal_content_phrase"],
+                        "$misplaced": ["misplaced", "destination", "file_type", "other_argument"],
+                    },
+                    "description": "Required whenever text is supplied. Use semantic for a "
+                    "topic and exact_phrase for a phrase that must occur in the content.",
                 },
-                "extensions": {"type": "array", "items": {"type": "string"}},
-                "name_terms": {"type": "array", "items": {"type": "string"}},
+                "extensions": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Loss-sensitive file type restriction. When the user "
+                    "explicitly names a file type, return its lowercase suffix without a "
+                    "leading dot; uppercase spelling still counts as evidence.",
+                },
+                "name_terms": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Only terms explicitly required in the file name or title. "
+                    "Never put a document topic or content phrase here.",
+                },
                 "volume_ids": {"type": "array", "items": {"type": "string"}},
             },
-            "required": ["mode"],
+            "required": ["mode", "extensions"],
             "additionalProperties": False,
         },
     )
     copy = OperationDefinition(
         "copy_results",
         "storage.materialize.plan-copy",
-        "Copy previously found files.",
+        "Copy previously found file results into a user destination. results_from is supplied "
+        "by trusted prior results, destination must be an explicit Desktop/Documents/Downloads "
+        "role or trusted last destination, and directory_name is one explicitly named child "
+        "folder, never a path.",
         {
             "type": "object",
             "properties": {
-                "results_from": {"type": "string"},
+                "results_from": {
+                    "type": "string",
+                    "description": "Server-owned reference to results from an earlier operation "
+                    "or trusted task context",
+                },
                 "destination": {
                     "type": "string",
                     "enum": [
@@ -95,8 +132,14 @@ def live_operation_definitions():
                         "downloads",
                         "context.last_destination",
                     ],
+                    "description": "User destination role explicitly stated in the request or "
+                    "trusted prior context",
                 },
-                "directory_name": {"type": "string"},
+                "directory_name": {
+                    "type": "string",
+                    "description": "One child directory name explicitly supplied by the user, "
+                    "never a file type, search term, or path",
+                },
             },
             "required": ["results_from", "destination"],
             "additionalProperties": False,
@@ -166,13 +209,30 @@ class OllamaLiveEvals(unittest.TestCase):
         self.assertTrue(matches)
         self.assertEqual(matches[0].operation, "search_documents")
 
-    def test_russian_and_english_golden_requests(self):
-        cases = (("Найди все PDF-файлы по математике", "search_documents"),)
-        for text, expected_kind in cases:
+    def test_topic_and_exact_phrase_search_keep_distinct_arguments(self):
+        cases = (
+            (
+                "Найди все PDF-файлы по математике",
+                "semantic",
+                "математ",
+            ),
+            (
+                "Find PDF documents containing the phrase Pythagorean theorem",
+                "exact_phrase",
+                "pythagorean theorem",
+            ),
+        )
+        for text, expected_match, expected_text in cases:
             with self.subTest(text=text):
                 result = self.compiler.compile_and_plan(text)
                 self.assertEqual(result.state, CompilationState.READY, result)
-                self.assertEqual(result.intent.operations[0].kind, expected_kind)
+                self.assertEqual(len(result.intent.operations), 1)
+                operation = result.intent.operations[0]
+                self.assertEqual(operation.kind, "search_documents")
+                self.assertEqual(operation.arguments["content_match"], expected_match)
+                self.assertIn(expected_text, operation.arguments["text"].casefold())
+                self.assertEqual(operation.arguments["extensions"], ("pdf",))
+                self.assertNotIn("name_terms", operation.arguments)
 
     def test_turn_router_separates_chat_action_and_mixed_requests(self):
         cases = (
@@ -360,6 +420,14 @@ class OllamaLiveEvals(unittest.TestCase):
             for operation in payload["operations"]
             if operation["kind"] == "copy_results"
         )
+        search = next(
+            operation
+            for operation in payload["operations"]
+            if operation["kind"] == "search_documents"
+        )
+        self.assertEqual(search["arguments"]["extensions"], ["pdf"])
+        self.assertNotIn("text", search["arguments"])
+        self.assertNotIn("content_match", search["arguments"])
         self.assertEqual(copy["arguments"]["directory_name"], "Private")
 
     def test_follow_up_uses_trusted_context_and_injection_has_no_executable_plan(self):
