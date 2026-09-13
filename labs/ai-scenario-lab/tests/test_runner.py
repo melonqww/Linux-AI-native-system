@@ -41,7 +41,7 @@ class DeterministicProvider:
 
     def route(self, request):
         text = request.user_text.casefold()
-        if "точную фразу" in text:
+        if "launch code is blue river" in text:
             return ModelTurn(
                 ModelTurnKind.ACTION,
                 response_text="Ищу точное совпадение.",

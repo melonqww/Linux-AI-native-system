@@ -19,8 +19,7 @@
           {
             "capability": "documents.query.search",
             "arguments": {
-              "content_match": "semantic",
-              "extensions": ["txt"]
+              "content_match": "semantic"
             }
           }
         ],
