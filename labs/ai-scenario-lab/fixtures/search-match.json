@@ -1,0 +1,25 @@
+{
+  "volumes": [
+    {
+      "id": "system",
+      "name": "Virtual System Disk",
+      "virtual_root": "/",
+      "permission": "content",
+      "system": true
+    }
+  ],
+  "files": [
+    {
+      "volume": "system",
+      "path": "home/test-user/Documents/exact.txt",
+      "kind": "text",
+      "content": "The launch code is blue river today."
+    },
+    {
+      "volume": "system",
+      "path": "home/test-user/Documents/related.txt",
+      "kind": "text",
+      "content": "Blue river is the internal name for our software launch and access code."
+    }
+  ]
+}

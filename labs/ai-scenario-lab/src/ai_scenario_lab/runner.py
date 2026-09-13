@@ -218,6 +218,7 @@ class ScenarioRunner:
             "execution_error_count",
             "faults_triggered",
             "max_duration_ms",
+            "plan_steps_include",
         }
         unknown = set(expected) - allowed
         if unknown:
@@ -338,6 +339,13 @@ class ScenarioRunner:
                 for item in needles
             )
             checks.append(CheckResult("assistant_excludes", passed, needles, assistant))
+        if "plan_steps_include" in expected:
+            wanted = expected["plan_steps_include"]
+            actual = _planned_steps(records)
+            passed = _expected_steps_are_present(wanted, actual)
+            checks.append(
+                CheckResult("plan_steps_include", passed, wanted, actual)
+            )
         for name, should_exist in (("paths_exist", True), ("paths_absent", False)):
             if name not in expected:
                 continue
@@ -362,3 +370,43 @@ class ScenarioRunner:
         if not checks:
             checks.append(CheckResult("scenario_has_expectations", False, True, False))
         return checks
+
+
+def _planned_steps(records) -> list[dict[str, object]]:
+    """Expose only stable capability/argument facts from recorded plans."""
+    steps: list[dict[str, object]] = []
+    for record in records:
+        plan = record.get("plan")
+        if not isinstance(plan, dict):
+            continue
+        for step in plan.get("steps", []):
+            if not isinstance(step, dict):
+                continue
+            capability = step.get("capability")
+            arguments = step.get("arguments")
+            if isinstance(capability, str) and isinstance(arguments, dict):
+                steps.append({"capability": capability, "arguments": arguments})
+    return steps
+
+
+def _expected_steps_are_present(wanted: object, actual: list[dict[str, object]]) -> bool:
+    """Match declarative argument subsets without coupling the lab to a module."""
+    if not isinstance(wanted, list):
+        return False
+    for expectation in wanted:
+        if not isinstance(expectation, dict) or set(expectation) != {
+            "capability",
+            "arguments",
+        }:
+            return False
+        capability = expectation.get("capability")
+        arguments = expectation.get("arguments")
+        if not isinstance(capability, str) or not isinstance(arguments, dict):
+            return False
+        if not any(
+            step["capability"] == capability
+            and all(step["arguments"].get(key) == value for key, value in arguments.items())
+            for step in actual
+        ):
+            return False
+    return True

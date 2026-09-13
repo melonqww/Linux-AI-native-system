@@ -12,7 +12,7 @@ from ai_scenario_lab.contracts import (
     Scenario,
     ScenarioTurn,
 )
-from ai_scenario_lab.runner import ScenarioRunner
+from ai_scenario_lab.runner import ScenarioRunner, _expected_steps_are_present
 
 
 LAB_ROOT = Path(__file__).resolve().parents[1]
@@ -41,6 +41,31 @@ class DeterministicProvider:
 
     def route(self, request):
         text = request.user_text.casefold()
+        if "точную фразу" in text:
+            return ModelTurn(
+                ModelTurnKind.ACTION,
+                response_text="Ищу точное совпадение.",
+                intent_payload={
+                    "schema_version": 1,
+                    "language": "ru",
+                    "summary": request.user_text,
+                    "confidence": 0.99,
+                    "operations": [
+                        {
+                            "id": "op_exact_search",
+                            "kind": "search_documents",
+                            "arguments": {
+                                "mode": "hybrid",
+                                "text": "launch code is blue river",
+                                "content_match": "exact_phrase",
+                                "extensions": ["txt"],
+                            },
+                            "depends_on": [],
+                            "evidence": [request.user_text],
+                        }
+                    ],
+                },
+            )
         if "скопируй" in text:
             return ModelTurn(
                 ModelTurnKind.ACTION,
@@ -107,6 +132,34 @@ def cleanup(run_id: str):
         shutil.rmtree(target, ignore_errors=True)
 
 
+def test_plan_step_expectation_rejects_a_wrong_module_argument():
+    actual = [
+        {
+            "capability": "documents.query.search",
+            "arguments": {"content_match": "semantic", "extensions": ["txt"]},
+        }
+    ]
+
+    assert _expected_steps_are_present(
+        [
+            {
+                "capability": "documents.query.search",
+                "arguments": {"content_match": "semantic"},
+            }
+        ],
+        actual,
+    )
+    assert not _expected_steps_are_present(
+        [
+            {
+                "capability": "documents.query.search",
+                "arguments": {"content_match": "exact_phrase"},
+            }
+        ],
+        actual,
+    )
+
+
 def test_runner_executes_real_search_and_approved_copy_inside_virtual_pc():
     run_id = f"unit-{uuid4()}"
     scenario = Scenario(
@@ -167,6 +220,46 @@ def test_runner_executes_real_search_and_approved_copy_inside_virtual_pc():
             Path(outcome.virtual_pc).resolve().is_relative_to(LAB_ROOT.resolve())
             for _ in [0]
         )
+    finally:
+        cleanup(run_id)
+
+
+def test_runner_checks_planned_match_mode_and_real_exact_phrase_results():
+    run_id = f"unit-{uuid4()}"
+    scenario = Scenario(
+        "exact-phrase-test",
+        "exact phrase",
+        "ru",
+        ("unit", "files"),
+        "search-match.json",
+        (
+            ScenarioTurn(
+                "Найди TXT с точной фразой launch code is blue river",
+                expect={
+                    "stage": "completed",
+                    "capabilities": ["documents.query.search"],
+                    "found": 1,
+                    "result_paths": [
+                        "/home/test-user/Documents/exact.txt",
+                    ],
+                    "plan_steps_include": [
+                        {
+                            "capability": "documents.query.search",
+                            "arguments": {
+                                "content_match": "exact_phrase",
+                                "text": "launch code is blue river",
+                                "extensions": ["txt"],
+                            },
+                        }
+                    ],
+                },
+            ),
+        ),
+        LAB_ROOT / "tests" / "generated",
+    )
+    try:
+        outcome = runner().run(scenario, run_id=run_id)
+        assert outcome.passed, outcome
     finally:
         cleanup(run_id)
 

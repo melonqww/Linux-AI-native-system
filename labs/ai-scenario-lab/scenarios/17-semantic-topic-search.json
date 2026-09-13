@@ -1,0 +1,32 @@
+{
+  "id": "semantic-topic-search",
+  "title": "A topic request selects semantic search and returns related documents",
+  "locale": "en",
+  "tags": ["foundation", "files", "search-match", "semantic"],
+  "fixture": "search-match.json",
+  "turns": [
+    {
+      "user": "Find my text documents about the blue river launch code project",
+      "expect": {
+        "stage": "completed",
+        "capabilities": ["documents.query.search"],
+        "found": 2,
+        "result_paths": [
+          "/home/test-user/Documents/exact.txt",
+          "/home/test-user/Documents/related.txt"
+        ],
+        "plan_steps_include": [
+          {
+            "capability": "documents.query.search",
+            "arguments": {
+              "content_match": "semantic",
+              "extensions": ["txt"]
+            }
+          }
+        ],
+        "approval_required": false,
+        "assistant_nonempty": true
+      }
+    }
+  ]
+}
