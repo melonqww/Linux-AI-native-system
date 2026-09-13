@@ -25,6 +25,28 @@ Capability `security.files.scan` проверяет один файл по до�
 byte-сигнатуры. Отдельного test runner, фонового мониторинга, привилегированного
 helper и настоящих вредоносных образцов пока нет.
 
+Следующий запланированный релиз модуля — `0.3.0`: optional adapter к реальному
+локальному ClamAV daemon через `AF_UNIX + INSTREAM`. Документация версии готова,
+но код, manifest и tests этого этапа ещё не изменены.
+
+## Этап 0.3.0: optional ClamAV
+
+Scanner остаётся владельцем filesystem boundary: он сам безопасно открывает файл
+и передаёт clamd только поток байтов. Путь к файлу daemon не получает. Adapter
+не запускает `clamd`, не использует shell/subprocess и не поддерживает TCP.
+
+Unix socket задаётся только trusted configuration. Сразу после соединения и до
+передачи файла adapter проверяет peer UID через `SO_PEERCRED` по обязательному
+allowlist. Команда `INSTREAM`, chunks, суммарный поток, ответ и все timeouts
+ограничены. Raw reply/signature нормализуются внутри adapter и не попадают в
+публичный результат, UI, журнал или модель.
+
+Если adapter не configured, scanner работает в базовом профиле `0.2.0`. Если
+adapter configured, но clamd недоступен, не прошёл peer check, вернул malformed
+reply или превысил timeout, scan получает `partial + unknown`, а не clean.
+Исключение безопасно только в одну сторону: точное локальное совпадение уже
+доказывает угрозу, поэтому `malware_detected` сохраняется и при partial coverage.
+
 ## Цель MVP
 
 MVP должен дать пользователю небольшой, но законченный локальный Security Center:
@@ -152,6 +174,12 @@ Security Center не получает постоянный root и универ�
 - отказ или timeout подтверждения не изменяет файл;
 - restore возвращает исходное содержимое и проверяет хеш;
 - crash/timeout детектора локализуется и не превращается в clean verdict;
+- clamd получает байты через `INSTREAM`, но не путь к fixture;
+- TCP endpoint и caller-supplied socket configuration отклоняются;
+- peer UID вне allowlist или недоступный `SO_PEERCRED` дают partial, не clean;
+- oversized command/chunk/reply, malformed и trailing reply закрываются bounded
+  error code без утечки raw daemon output;
+- отказ clamd не понижает уже подтверждённую локальную сигнатуру;
 - неподписанные или повреждённые правила отклоняются;
 - инструкции внутри файла и имени файла всегда считаются данными;
 - capability не может самостоятельно понизить R1/R2/R3 до R0;
@@ -194,5 +222,9 @@ MVP считается готовым только если:
 Принятые границы foundation и будущего третьего контура закреплены в
 [`ADR-026`](../../Architecture/decisions/ADR-026-security-center-foundation.md) и
 [`ADR-027`](../../Architecture/decisions/ADR-027-security-campaign.md).
+Следующий optional adapter закреплён в
+[`ADR-031 Security`](../../Architecture/decisions/ADR-031-security-clamd-adapter.md),
+а публичное расширение результата — в
+[`File Scan API v3`](../../Architecture/api/security-center-file-scan-v3.md).
 Рассмотренные варианты сохранены в
 [`архитектурной дискуссии`](../../Architecture/discussions/security-center-mvp-options.md).

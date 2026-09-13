@@ -14,7 +14,7 @@ class SecurityCenterManifestTests(unittest.TestCase):
 
         self.assertEqual(manifest["schema_version"], 2)
         self.assertEqual(manifest["module_id"], "security.center")
-        self.assertEqual(manifest["module_version"], "0.2.0")
+        self.assertEqual(manifest["module_version"], "0.3.0")
         self.assertEqual(manifest["lifecycle"], "on-demand")
         self.assertTrue(manifest["default_enabled"])
         self.assertEqual(

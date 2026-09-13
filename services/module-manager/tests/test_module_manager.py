@@ -3,6 +3,7 @@ import shutil
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 from uuid import uuid4
 
 
@@ -99,8 +100,15 @@ class ModuleManagerTests(unittest.TestCase):
         self.assertLessEqual(len(json.dumps(result).encode("utf-8")), 64 * 1024)
 
     def test_invokes_security_foundation_in_isolated_on_demand_worker(self) -> None:
-        provider = self.manager.start_for_capability("security.module.status")
-        result = self.manager.invoke(provider, "status", timeout=5)
+        with patch.dict(
+            "os.environ",
+            {
+                "AI_NATIVE_SECURITY_CLAMD_SOCKET": "/untrusted/inherited.sock",
+                "AI_NATIVE_SECURITY_CLAMD_PEER_UIDS": "[999]",
+            },
+        ):
+            provider = self.manager.start_for_capability("security.module.status")
+            result = self.manager.invoke(provider, "status", timeout=5)
 
         self.assertEqual(provider, "security.center")
         self.assertEqual(
@@ -108,7 +116,7 @@ class ModuleManagerTests(unittest.TestCase):
             {
                 "schema_version": 1,
                 "module_id": "security.center",
-                "module_version": "0.2.0",
+                "module_version": "0.3.0",
                 "state": "ready",
                 "lifecycle": "on-demand",
                 "capabilities": [
@@ -123,6 +131,151 @@ class ModuleManagerTests(unittest.TestCase):
             self.manager.health_details("security.center"),
             {"status": "ready"},
         )
+
+    def test_validates_security_clamd_configuration(self) -> None:
+        valid_socket = Path(self.root.anchor) / "run" / "clamd.sock"
+        valid = ModuleProcessManager(
+            self.registry,
+            runtime_directory=self.root / "valid-runtime",
+            security_clamd_socket=valid_socket,
+            security_clamd_peer_uids=[1000, 0, 1000],
+        )
+        self.addCleanup(valid.stop_all)
+        self.assertEqual(valid.security_clamd_socket, valid_socket)
+        self.assertEqual(valid.security_clamd_peer_uids, (0, 1000))
+
+        posix_socket = Path("/run/clamd.sock")
+        posix = ModuleProcessManager(
+            self.registry,
+            runtime_directory=self.root / "posix-runtime",
+            security_clamd_socket=posix_socket,
+            security_clamd_peer_uids=[0],
+        )
+        self.addCleanup(posix.stop_all)
+        self.assertEqual(posix.security_clamd_socket, posix_socket)
+
+        invalid_cases = (
+            (
+                {
+                    "security_clamd_socket": "/run/clamd.sock",
+                    "security_clamd_peer_uids": [0],
+                },
+                TypeError,
+            ),
+            (
+                {
+                    "security_clamd_socket": Path("relative/clamd.sock"),
+                    "security_clamd_peer_uids": [0],
+                },
+                ValueError,
+            ),
+            (
+                {
+                    "security_clamd_socket": Path("C:/" + "x" * 257),
+                    "security_clamd_peer_uids": [0],
+                },
+                ValueError,
+            ),
+            (
+                {
+                    "security_clamd_socket": Path("C:/clamd\x00.sock"),
+                    "security_clamd_peer_uids": [0],
+                },
+                ValueError,
+            ),
+            (
+                {
+                    "security_clamd_socket": valid_socket,
+                    "security_clamd_peer_uids": [],
+                },
+                ValueError,
+            ),
+            (
+                {
+                    "security_clamd_socket": valid_socket,
+                    "security_clamd_peer_uids": [True],
+                },
+                TypeError,
+            ),
+            (
+                {
+                    "security_clamd_socket": valid_socket,
+                    "security_clamd_peer_uids": ["0"],
+                },
+                TypeError,
+            ),
+            (
+                {
+                    "security_clamd_socket": valid_socket,
+                    "security_clamd_peer_uids": [-1],
+                },
+                ValueError,
+            ),
+            (
+                {
+                    "security_clamd_socket": valid_socket,
+                    "security_clamd_peer_uids": [2**31],
+                },
+                ValueError,
+            ),
+            (
+                {
+                    "security_clamd_socket": valid_socket,
+                    "security_clamd_peer_uids": list(range(17)),
+                },
+                ValueError,
+            ),
+        )
+        for arguments, error_type in invalid_cases:
+            with self.subTest(arguments=arguments):
+                with self.assertRaises(error_type):
+                    ModuleProcessManager(
+                        self.registry,
+                        runtime_directory=self.root / "invalid-runtime",
+                        **arguments,
+                    )
+
+    def test_builds_clean_clamd_environment_only_for_security_center(self) -> None:
+        socket_path = Path(self.root.anchor) / "run" / "clamd.sock"
+        manager = ModuleProcessManager(
+            self.registry,
+            runtime_directory=self.root / "clamd-runtime",
+            security_clamd_socket=socket_path,
+            security_clamd_peer_uids={1001, 0},
+        )
+        self.addCleanup(manager.stop_all)
+        inherited = {
+            "AI_NATIVE_SECURITY_CLAMD_SOCKET": "/attacker/socket",
+            "AI_NATIVE_SECURITY_CLAMD_PEER_UIDS": "[999]",
+            "PRESERVED": "yes",
+        }
+
+        security_env = dict(inherited)
+        manager._configure_security_clamd_environment(security_env, "security.center")
+        self.assertEqual(
+            security_env["AI_NATIVE_SECURITY_CLAMD_SOCKET"],
+            str(socket_path),
+        )
+        self.assertEqual(
+            security_env["AI_NATIVE_SECURITY_CLAMD_PEER_UIDS"],
+            "[0,1001]",
+        )
+        self.assertEqual(security_env["PRESERVED"], "yes")
+
+        ordinary_env = dict(inherited)
+        manager._configure_security_clamd_environment(ordinary_env, "system.monitor")
+        self.assertNotIn("AI_NATIVE_SECURITY_CLAMD_SOCKET", ordinary_env)
+        self.assertNotIn("AI_NATIVE_SECURITY_CLAMD_PEER_UIDS", ordinary_env)
+
+    def test_removes_inherited_clamd_environment_when_adapter_is_disabled(self) -> None:
+        env = {
+            "AI_NATIVE_SECURITY_CLAMD_SOCKET": "/attacker/socket",
+            "AI_NATIVE_SECURITY_CLAMD_PEER_UIDS": "[999]",
+        }
+
+        self.manager._configure_security_clamd_environment(env, "security.center")
+
+        self.assertEqual(env, {})
 
     def test_starts_security_scan_provider_in_isolated_on_demand_worker(self) -> None:
         sample = self.security_scan_root / "sample.txt"
@@ -142,6 +295,32 @@ class ModuleManagerTests(unittest.TestCase):
         self.assertNotIn(str(self.security_scan_root), json.dumps(result))
         self.assertIn("security.center", self.manager.running_modules())
         self.assertTrue(self.manager.health("security.center"))
+
+    def test_configured_unavailable_clamd_is_partial_through_isolated_worker(self) -> None:
+        sample = self.security_scan_root / "clamd-sample.txt"
+        sample.write_bytes(b"ordinary sample")
+        manager = ModuleProcessManager(
+            self.registry,
+            runtime_directory=self.root / "clamd-worker-runtime",
+            security_scan_roots={"test-files": self.security_scan_root},
+            security_clamd_socket=self.root / "missing-clamd.sock",
+            security_clamd_peer_uids={0},
+        )
+        self.addCleanup(manager.stop_all)
+
+        provider = manager.start_for_capability("security.files.scan")
+        result = manager.invoke(
+            provider,
+            "scan",
+            {"resource_id": "test-files", "relative_path": "clamd-sample.txt"},
+            timeout=30,
+        )
+
+        self.assertEqual(result["status"], "partial")
+        self.assertEqual(result["verdict"], "unknown")
+        self.assertEqual(result["error_code"], "detector_unavailable")
+        self.assertEqual(result["detectors"][1]["detector"], "clamd")
+        self.assertEqual(result["detectors"][1]["state"], "unavailable")
 
     def test_reads_software_snapshot_from_isolated_background_worker(self) -> None:
         provider = self.manager.start_for_capability("software.catalog.read")

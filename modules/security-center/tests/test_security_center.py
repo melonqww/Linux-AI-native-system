@@ -11,13 +11,19 @@ from unittest import mock
 
 import ai_native_security as security
 from ai_native_security import SecurityModuleStatus
-from ai_native_security import ByteSignature, HashSignature, SignatureDatabase
+from ai_native_security import (
+    ByteSignature,
+    DetectorObservation,
+    HashSignature,
+    SignatureDatabase,
+)
+from ai_native_security.detectors import DetectorError
 
 
 EXPECTED_STATUS = {
     "schema_version": 1,
     "module_id": "security.center",
-    "module_version": "0.2.0",
+    "module_version": "0.3.0",
     "state": "ready",
     "lifecycle": "on-demand",
     "capabilities": ["security.module.status", "security.files.scan"],
@@ -97,8 +103,17 @@ class SecurityFileScannerTests(unittest.TestCase):
         security.worker_stop()
         shutil.rmtree(self.root, ignore_errors=True)
 
-    def _start(self, *, signatures: SignatureDatabase | None = None) -> None:
-        security.worker_start({"downloads": self.root}, signatures=signatures)
+    def _start(
+        self,
+        *,
+        signatures: SignatureDatabase | None = None,
+        external_detectors: tuple[object, ...] = (),
+    ) -> None:
+        security.worker_start(
+            {"downloads": self.root},
+            signatures=signatures,
+            external_detectors=external_detectors,  # type: ignore[arg-type]
+        )
 
     def _scan(self, relative_path: object) -> dict[str, object]:
         return security.worker_invoke(
@@ -143,6 +158,17 @@ class SecurityFileScannerTests(unittest.TestCase):
         self.assertEqual(result["sha256"], hashlib.sha256(content).hexdigest())
         self.assertEqual(result["size_bytes"], len(content))
         self.assertEqual(result["observations"], [])
+        self.assertEqual(
+            result["detectors"],
+            [
+                {
+                    "detector": "local-signatures",
+                    "version": "builtin-v1",
+                    "state": "completed",
+                    "reason_code": None,
+                }
+            ],
+        )
         self.assertEqual(target.read_bytes(), content)
         self.assertEqual(target.stat().st_mtime_ns, before.st_mtime_ns)
 
@@ -305,6 +331,101 @@ class SecurityFileScannerTests(unittest.TestCase):
         self.assertLessEqual(len(encoded), 4096)
         self.assertNotIn(str(self.root), encoded)
         self.assertNotIn("content", encoded)
+
+    def test_configured_detector_failure_is_partial_and_never_clean(self) -> None:
+        (self.root / "file.bin").write_bytes(b"ordinary")
+        self._start(external_detectors=(_FakeDetector(fail_begin=True),))
+
+        result = self._scan("file.bin")
+
+        self.assertEqual(result["schema_version"], 2)
+        self.assertEqual(result["status"], "partial")
+        self.assertEqual(result["verdict"], "unknown")
+        self.assertEqual(result["error_code"], "detector_unavailable")
+        self.assertEqual(result["detectors"][1]["state"], "unavailable")
+
+    def test_local_detection_survives_external_detector_failure(self) -> None:
+        content = b"known local signature"
+        (self.root / "file.bin").write_bytes(content)
+        signatures = SignatureDatabase(
+            hashes=(
+                HashSignature(
+                    rule_id="known-local",
+                    sha256=hashlib.sha256(content).hexdigest(),
+                    classification="test-malware",
+                ),
+            )
+        )
+        self._start(
+            signatures=signatures,
+            external_detectors=(_FakeDetector(fail_finish=True),),
+        )
+
+        result = self._scan("file.bin")
+
+        self.assertEqual(result["status"], "partial")
+        self.assertEqual(result["verdict"], "malware_detected")
+        self.assertEqual(result["error_code"], "detector_protocol_error")
+        self.assertEqual(result["observations"][0]["rule_id"], "known-local")
+
+    def test_external_detector_match_produces_completed_malware_verdict(self) -> None:
+        (self.root / "file.bin").write_bytes(b"ordinary")
+        self._start(external_detectors=(_FakeDetector(match=True),))
+
+        result = self._scan("file.bin")
+
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["verdict"], "malware_detected")
+        self.assertIsNone(result["error_code"])
+        self.assertEqual(result["observations"][0]["detector"], "clamd")
+        self.assertEqual(result["detectors"][1]["state"], "completed")
+
+
+class _FakeDetector:
+    name = "clamd"
+    version = "fake-v1"
+
+    def __init__(
+        self,
+        *,
+        fail_begin: bool = False,
+        fail_finish: bool = False,
+        match: bool = False,
+    ):
+        self.fail_begin = fail_begin
+        self.fail_finish = fail_finish
+        self.match = match
+
+    def begin(self, _deadline: float) -> "_FakeSession":
+        if self.fail_begin:
+            raise DetectorError("detector_unavailable", unavailable=True)
+        return _FakeSession(fail_finish=self.fail_finish, match=self.match)
+
+
+class _FakeSession:
+    def __init__(self, *, fail_finish: bool, match: bool):
+        self.fail_finish = fail_finish
+        self.match = match
+
+    def feed(self, _block: bytes) -> None:
+        return None
+
+    def finish(self) -> tuple[DetectorObservation, ...]:
+        if self.fail_finish:
+            raise DetectorError("detector_protocol_error")
+        if not self.match:
+            return ()
+        return (
+            DetectorObservation(
+                detector="clamd",
+                rule_id="Fake-Test-Signature",
+                classification="malware",
+                severity="high",
+            ),
+        )
+
+    def abort(self) -> None:
+        return None
 
 
 if __name__ == "__main__":

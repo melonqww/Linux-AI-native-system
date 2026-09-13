@@ -56,3 +56,5 @@ payload. Scanner остаётся read-only, без сети, subprocess, quaran
 
 Контракт описан в
 [`security-center-file-scan-v2`](../api/security-center-file-scan-v2.md).
+Следующее optional расширение через clamd сохраняет эту файловую границу и
+закреплено в [`ADR-031 Security`](ADR-031-security-clamd-adapter.md).

@@ -169,11 +169,11 @@ on-demand worker и отдаёт панели только сводку. Уст�
 штатном Ubuntu update UI; контракт описан в
 [`Architecture/api/system-updates-v1.md`](Architecture/api/system-updates-v1.md).
 
-`modules/security-center` реализует first-party Security Center `0.2.0`. Помимо
-bounded status, capability `security.files.scan` потоково проверяет один файл
-внутри доверенного resource root по SHA-256 и точным byte-сигнатурам. Scanner
-не использует AI, сеть или subprocess, не возвращает содержимое и при неполной
-проверке выдаёт `unknown`, а не ложный clean verdict. План следующих этапов и
+`modules/security-center` реализует first-party Security Center `0.3.0`. Помимо
+локальных SHA-256 и byte-сигнатур, capability `security.files.scan` может
+передать тот же bounded поток локальному `clamd` через peer-authenticated Unix
+socket. Scanner не использует AI, TCP или subprocess, не возвращает содержимое
+и при неполной проверке выдаёт `unknown`, а не ложный clean verdict. План следующих этапов и
 будущего третьего Security Campaign находятся в
 [`labs/security-lab`](labs/security-lab/README.md).
 
@@ -262,6 +262,7 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [System Updates API v1](Architecture/api/system-updates-v1.md)
 - [Security Center Foundation API v1](Architecture/api/security-center-foundation-v1.md)
 - [Security Center File Scan API v2](Architecture/api/security-center-file-scan-v2.md)
+- [Security Center File Scan API v3](Architecture/api/security-center-file-scan-v3.md)
 - [Контракты Storage Catalog](Architecture/api/storage-catalog-contracts.md)
 - [File Search R1](Architecture/api/file-search-r1.md)
 - [Контракт статуса индекса](Architecture/api/runtime-index-status.md)
@@ -284,6 +285,7 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [Решение о фундаменте Security Center](Architecture/decisions/ADR-026-security-center-foundation.md)
 - [Решение о Security Campaign](Architecture/decisions/ADR-027-security-campaign.md)
 - [Решение о безопасной границе файлового сканирования](Architecture/decisions/ADR-028-security-file-scan-boundary.md)
+- [Решение об optional ClamAV clamd adapter](Architecture/decisions/ADR-031-security-clamd-adapter.md)
 - [Дискуссия о границах Security Center MVP](Architecture/discussions/security-center-mvp-options.md)
 - [Security Lab: MVP, архитектура и план](labs/security-lab/README.md)
 - [Решение о модульном жизненном цикле локальных моделей](Architecture/decisions/ADR-011-model-lifecycle-module.md)

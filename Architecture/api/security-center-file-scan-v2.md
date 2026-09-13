@@ -83,3 +83,5 @@ trusted policy, а не manifest.
 правил.
 
 Архитектурное решение: [`ADR-028`](../decisions/ADR-028-security-file-scan-boundary.md).
+Optional расширение реальным локальным ClamAV engine для целевой версии `0.3.0`
+описано в [`File Scan API v3`](security-center-file-scan-v3.md).

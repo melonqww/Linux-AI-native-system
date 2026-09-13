@@ -8,9 +8,9 @@ import re
 import subprocess
 import sys
 import threading
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from queue import Empty, Queue
 from time import monotonic
 
@@ -23,6 +23,11 @@ class ModuleProcessError(RuntimeError):
 
 _OPERATION = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
 _MAX_REQUEST_BYTES = 64 * 1024
+_MAX_CLAMD_SOCKET_PATH_LENGTH = 256
+_MAX_CLAMD_PEER_UIDS = 16
+_MAX_UID = 2**31 - 1
+_SECURITY_CLAMD_SOCKET_ENV = "AI_NATIVE_SECURITY_CLAMD_SOCKET"
+_SECURITY_CLAMD_PEER_UIDS_ENV = "AI_NATIVE_SECURITY_CLAMD_PEER_UIDS"
 
 
 @dataclass
@@ -43,6 +48,8 @@ class ModuleProcessManager:
         storage_database: Path | None = None,
         index_database: Path | None = None,
         security_scan_roots: Mapping[str, Path] | None = None,
+        security_clamd_socket: Path | None = None,
+        security_clamd_peer_uids: Collection[int] | None = None,
     ) -> None:
         if idle_seconds < 0:
             raise ValueError("idle_seconds must not be negative")
@@ -64,6 +71,16 @@ class ModuleProcessManager:
             resource_id: Path(root).expanduser().resolve(strict=True)
             for resource_id, root in (security_scan_roots or {}).items()
         }
+        self.security_clamd_socket = self._validate_security_clamd_socket(
+            security_clamd_socket
+        )
+        self.security_clamd_peer_uids = self._validate_security_clamd_peer_uids(
+            security_clamd_peer_uids
+        )
+        if self.security_clamd_socket is not None and not self.security_clamd_peer_uids:
+            raise ValueError(
+                "security_clamd_peer_uids must not be empty when security_clamd_socket is set"
+            )
         self._running: dict[str, _RunningModule] = {}
 
     def start_for_capability(self, capability_id: str) -> str:
@@ -126,6 +143,7 @@ class ModuleProcessManager:
                 },
                 separators=(",", ":"),
             )
+        self._configure_security_clamd_environment(env, module_id)
         provider_root = self.runtime_directory / "providers" / "ollama"
         env["AI_NATIVE_PROVIDER_STATE_DATABASE"] = str(
             self.runtime_directory / "provider-lifecycle.sqlite3"
@@ -322,6 +340,59 @@ class ModuleProcessManager:
         for stream in (process.stdin, process.stdout, process.stderr):
             if stream is not None:
                 stream.close()
+
+    @staticmethod
+    def _validate_security_clamd_socket(value: Path | None) -> Path | None:
+        if value is None:
+            return None
+        if not isinstance(value, Path):
+            raise TypeError("security_clamd_socket must be a Path or None")
+        socket_path = str(value)
+        if "\x00" in socket_path:
+            raise ValueError("security_clamd_socket must not contain NUL")
+        if len(socket_path) > _MAX_CLAMD_SOCKET_PATH_LENGTH:
+            raise ValueError("security_clamd_socket must not exceed 256 characters")
+        if not value.is_absolute() and not PurePosixPath(value.as_posix()).is_absolute():
+            raise ValueError("security_clamd_socket must be absolute")
+        return value
+
+    @staticmethod
+    def _validate_security_clamd_peer_uids(
+        values: Collection[int] | None,
+    ) -> tuple[int, ...]:
+        if values is None:
+            return ()
+        if isinstance(values, (str, bytes)) or not isinstance(values, Collection):
+            raise TypeError(
+                "security_clamd_peer_uids must be a collection of integers or None"
+            )
+        if len(values) > _MAX_CLAMD_PEER_UIDS:
+            raise ValueError("security_clamd_peer_uids must contain at most 16 values")
+        normalized: list[int] = []
+        for uid in values:
+            if isinstance(uid, bool) or not isinstance(uid, int):
+                raise TypeError("security_clamd_peer_uids must contain only integers")
+            if not 0 <= uid <= _MAX_UID:
+                raise ValueError(
+                    "security_clamd_peer_uids values must be between 0 and 2^31-1"
+                )
+            normalized.append(uid)
+        return tuple(sorted(set(normalized)))
+
+    def _configure_security_clamd_environment(
+        self,
+        env: dict[str, str],
+        module_id: str,
+    ) -> None:
+        env.pop(_SECURITY_CLAMD_SOCKET_ENV, None)
+        env.pop(_SECURITY_CLAMD_PEER_UIDS_ENV, None)
+        if module_id != "security.center" or self.security_clamd_socket is None:
+            return
+        env[_SECURITY_CLAMD_SOCKET_ENV] = str(self.security_clamd_socket)
+        env[_SECURITY_CLAMD_PEER_UIDS_ENV] = json.dumps(
+            self.security_clamd_peer_uids,
+            separators=(",", ":"),
+        )
 
     @staticmethod
     def _default_runtime_directory() -> Path:

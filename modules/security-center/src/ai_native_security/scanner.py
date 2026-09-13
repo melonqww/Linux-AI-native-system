@@ -12,7 +12,13 @@ import time
 from types import MappingProxyType
 from typing import Mapping
 
-from .contracts import DetectorObservation, MAX_OBSERVATIONS, ScanResult
+from .contracts import (
+    DetectorObservation,
+    DetectorStatus,
+    MAX_OBSERVATIONS,
+    ScanResult,
+)
+from .detectors import DetectorError, StreamDetector, StreamDetectorSession
 
 
 _RESOURCE_ID = re.compile(r"^[a-z][a-z0-9_.-]{0,63}$")
@@ -43,10 +49,15 @@ class SignatureDatabase:
 
     hashes: tuple[HashSignature, ...] = ()
     byte_patterns: tuple[ByteSignature, ...] = ()
+    version: str = "custom-v1"
 
     def __post_init__(self) -> None:
+        if type(self.hashes) is not tuple or type(self.byte_patterns) is not tuple:
+            raise TypeError("signature_collections_must_be_tuples")
         if not self.hashes and not self.byte_patterns:
             raise ValueError("empty_signature_database")
+        if not _valid_label(self.version):
+            raise ValueError("invalid_signature_version")
         if len(self.hashes) + len(self.byte_patterns) > 4096:
             raise ValueError("too_many_signatures")
         rule_ids: set[str] = set()
@@ -79,7 +90,8 @@ class SignatureDatabase:
                     sha256=_EICAR_SHA256,
                     classification="anti-malware-test",
                 ),
-            )
+            ),
+            version="builtin-v1",
         )
 
 
@@ -91,6 +103,7 @@ class FileScanner:
         allowed_roots: Mapping[str, str | os.PathLike[str]],
         *,
         signatures: SignatureDatabase | None = None,
+        external_detectors: tuple[StreamDetector, ...] = (),
         max_file_bytes: int = 8 * 1024 * 1024,
         chunk_bytes: int = 64 * 1024,
         timeout_seconds: float = 10.0,
@@ -114,6 +127,12 @@ class FileScanner:
             roots[resource_id] = resolved
         self._roots = MappingProxyType(roots)
         self._signatures = signatures or SignatureDatabase.builtin()
+        if type(external_detectors) is not tuple:
+            raise TypeError("external_detectors_must_be_tuple")
+        names = [item.name for item in external_detectors]
+        if len(names) != len(set(names)) or any(name != "clamd" for name in names):
+            raise ValueError("invalid_external_detectors")
+        self._external_detectors = external_detectors
         self._max_file_bytes = max_file_bytes
         self._chunk_bytes = chunk_bytes
         self._timeout_seconds = timeout_seconds
@@ -144,6 +163,7 @@ class FileScanner:
         self, resource_id: str, relative_path: str, root: Path, path: Path
     ) -> ScanResult:
         descriptor: int | None = None
+        active: list[tuple[StreamDetector, StreamDetectorSession]] = []
         try:
             descriptor = _open_confined(root, relative_path, path)
             before = os.fstat(descriptor)
@@ -154,9 +174,25 @@ class FileScanner:
 
             digest = hashlib.sha256()
             matched_patterns: set[str] = set()
+            external_observations: list[DetectorObservation] = []
+            external_statuses: dict[str, DetectorStatus] = {}
             overlap = b""
             total = 0
             deadline = time.monotonic() + self._timeout_seconds
+            for detector in self._external_detectors:
+                try:
+                    active.append((detector, detector.begin(deadline)))
+                except DetectorError as error:
+                    external_statuses[detector.name] = _detector_failure(
+                        detector, error
+                    )
+                except Exception:
+                    external_statuses[detector.name] = DetectorStatus(
+                        detector=detector.name,
+                        version=detector.version,
+                        state="failed",
+                        reason_code="detector_protocol_error",
+                    )
             max_pattern = max(
                 (len(item.pattern) for item in self._signatures.byte_patterns),
                 default=1,
@@ -171,6 +207,24 @@ class FileScanner:
                 if total > self._max_file_bytes:
                     return _rejected("file_too_large", resource_id, relative_path)
                 digest.update(block)
+                for detector, session in tuple(active):
+                    try:
+                        session.feed(block)
+                    except DetectorError as error:
+                        _abort_session(session)
+                        active.remove((detector, session))
+                        external_statuses[detector.name] = _detector_failure(
+                            detector, error
+                        )
+                    except Exception:
+                        _abort_session(session)
+                        active.remove((detector, session))
+                        external_statuses[detector.name] = DetectorStatus(
+                            detector=detector.name,
+                            version=detector.version,
+                            state="failed",
+                            reason_code="detector_protocol_error",
+                        )
                 window = overlap + block
                 for signature in self._signatures.byte_patterns:
                     if signature.rule_id not in matched_patterns and signature.pattern in window:
@@ -180,20 +234,66 @@ class FileScanner:
             after = os.fstat(descriptor)
             if _identity(before) != _identity(after) or total != after.st_size:
                 return _failed("file_changed_during_scan", resource_id, relative_path)
+            for detector, session in tuple(active):
+                try:
+                    external_observations.extend(session.finish())
+                    external_statuses[detector.name] = DetectorStatus(
+                        detector=detector.name,
+                        version=detector.version,
+                        state="completed",
+                    )
+                except DetectorError as error:
+                    external_statuses[detector.name] = _detector_failure(
+                        detector, error
+                    )
+                except Exception:
+                    external_statuses[detector.name] = DetectorStatus(
+                        detector=detector.name,
+                        version=detector.version,
+                        state="failed",
+                        reason_code="detector_protocol_error",
+                    )
+                finally:
+                    _abort_session(session)
+                    active.remove((detector, session))
             digest_hex = digest.hexdigest()
-            observations = self._observations(digest_hex, matched_patterns)
+            observations = tuple(
+                sorted(
+                    (*self._observations(digest_hex, matched_patterns), *external_observations),
+                    key=lambda item: (item.detector, item.rule_id),
+                )[:MAX_OBSERVATIONS]
+            )
+            detectors = (
+                DetectorStatus(
+                    detector="local-signatures",
+                    version=self._signatures.version,
+                    state="completed",
+                ),
+                *(external_statuses[item.name] for item in self._external_detectors),
+            )
+            incomplete = next(
+                (item for item in detectors if item.state != "completed"), None
+            )
             return ScanResult(
                 resource_id=resource_id,
                 relative_path=relative_path,
-                status="completed",
-                verdict="malware_detected" if observations else "no_threat_detected",
+                status="partial" if incomplete else "completed",
+                verdict=(
+                    "malware_detected"
+                    if observations
+                    else "unknown" if incomplete else "no_threat_detected"
+                ),
+                error_code=incomplete.reason_code if incomplete else None,
                 sha256=digest_hex,
                 size_bytes=total,
                 observations=observations,
+                detectors=detectors,
             )
         except OSError:
             return _failed("scan_io_error", resource_id, relative_path)
         finally:
+            for _detector, session in active:
+                _abort_session(session)
             if descriptor is not None:
                 os.close(descriptor)
 
@@ -218,6 +318,24 @@ def _observation(detector: str, item: HashSignature | ByteSignature) -> Detector
         classification=item.classification,
         severity=item.severity,
     )
+
+
+def _detector_failure(
+    detector: StreamDetector, error: DetectorError
+) -> DetectorStatus:
+    return DetectorStatus(
+        detector=detector.name,
+        version=detector.version,
+        state="unavailable" if error.unavailable else "failed",
+        reason_code=error.reason_code,
+    )
+
+
+def _abort_session(session: StreamDetectorSession) -> None:
+    try:
+        session.abort()
+    except Exception:
+        pass
 
 
 def _normalize_relative_path(value: object) -> str:

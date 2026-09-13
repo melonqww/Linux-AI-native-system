@@ -7,12 +7,13 @@ from dataclasses import dataclass, field
 
 STATUS_SCHEMA_VERSION = 1
 MODULE_ID = "security.center"
-MODULE_VERSION = "0.2.0"
+MODULE_VERSION = "0.3.0"
 MODULE_LIFECYCLE = "on-demand"
 STATUS_CAPABILITIES = ("security.module.status", "security.files.scan")
-SCAN_SCHEMA_VERSION = 1
+SCAN_SCHEMA_VERSION = 2
 MAX_OBSERVATIONS = 8
-_DETECTORS = frozenset({"sha256-signature", "byte-signature"})
+_DETECTORS = frozenset({"sha256-signature", "byte-signature", "clamd"})
+_DETECTOR_STATES = frozenset({"completed", "failed", "unavailable"})
 _SEVERITIES = frozenset({"low", "medium", "high", "critical"})
 _ERROR_CODES = frozenset(
     {
@@ -25,6 +26,10 @@ _ERROR_CODES = frozenset(
         "scan_timeout",
         "scan_io_error",
         "file_changed_during_scan",
+        "detector_unavailable",
+        "detector_timeout",
+        "detector_protocol_error",
+        "detector_identity_rejected",
     }
 )
 
@@ -80,6 +85,37 @@ class DetectorObservation:
 
 
 @dataclass(frozen=True, slots=True)
+class DetectorStatus:
+    """Bounded coverage state for one trusted detector."""
+
+    detector: str
+    version: str
+    state: str
+    reason_code: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.detector not in {"local-signatures", "clamd"}:
+            raise ValueError("invalid_detector_status")
+        if not _bounded_ascii(self.version):
+            raise ValueError("invalid_detector_version")
+        if self.state not in _DETECTOR_STATES:
+            raise ValueError("invalid_detector_state")
+        if self.state == "completed":
+            if self.reason_code is not None:
+                raise ValueError("completed_detector_has_reason")
+        elif self.reason_code not in _ERROR_CODES:
+            raise ValueError("invalid_detector_reason")
+
+    def to_dict(self) -> dict[str, str | None]:
+        return {
+            "detector": self.detector,
+            "version": self.version,
+            "state": self.state,
+            "reason_code": self.reason_code,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class ScanResult:
     """Public, JSON-safe result for one bounded file scan."""
 
@@ -91,6 +127,7 @@ class ScanResult:
     sha256: str | None = None
     size_bytes: int | None = None
     observations: tuple[DetectorObservation, ...] = ()
+    detectors: tuple[DetectorStatus, ...] = ()
     schema_version: int = field(init=False, default=SCAN_SCHEMA_VERSION)
 
     def __post_init__(self) -> None:
@@ -100,17 +137,42 @@ class ScanResult:
             raise ValueError("invalid_result_path")
         if len(self.observations) > MAX_OBSERVATIONS:
             raise ValueError("too_many_observations")
+        if len(self.detectors) > 8:
+            raise ValueError("too_many_detectors")
+        if len({item.detector for item in self.detectors}) != len(self.detectors):
+            raise ValueError("duplicate_detector_status")
+        if self.detectors and self.detectors[0].detector != "local-signatures":
+            raise ValueError("missing_local_detector_status")
         if self.status == "completed":
             if self.verdict not in {"malware_detected", "no_threat_detected"}:
                 raise ValueError("invalid_completed_verdict")
             if self.error_code is not None or self.sha256 is None or self.size_bytes is None:
                 raise ValueError("incomplete_completed_result")
-            if len(self.sha256) != 64 or any(char not in "0123456789abcdef" for char in self.sha256):
-                raise ValueError("invalid_result_hash")
-            if self.size_bytes < 0:
-                raise ValueError("invalid_result_size")
+            _validate_file_measurements(self.sha256, self.size_bytes)
             if (self.verdict == "malware_detected") != bool(self.observations):
                 raise ValueError("observations_verdict_mismatch")
+            if not self.detectors or any(
+                item.state != "completed" for item in self.detectors
+            ):
+                raise ValueError("incomplete_detector_coverage")
+        elif self.status == "partial":
+            if self.verdict not in {"malware_detected", "unknown"}:
+                raise ValueError("invalid_partial_verdict")
+            if (
+                self.error_code not in _ERROR_CODES
+                or self.sha256 is None
+                or self.size_bytes is None
+                or not self.detectors
+                or all(item.state == "completed" for item in self.detectors)
+            ):
+                raise ValueError("invalid_partial_result")
+            _validate_file_measurements(self.sha256, self.size_bytes)
+            if not any(
+                item.reason_code == self.error_code for item in self.detectors
+            ):
+                raise ValueError("partial_reason_mismatch")
+            if (self.verdict == "malware_detected") != bool(self.observations):
+                raise ValueError("partial_observations_verdict_mismatch")
         elif self.status in {"rejected", "failed"}:
             if (
                 self.verdict != "unknown"
@@ -118,6 +180,7 @@ class ScanResult:
                 or self.sha256 is not None
                 or self.size_bytes is not None
                 or self.observations
+                or self.detectors
             ):
                 raise ValueError("invalid_incomplete_result")
         else:
@@ -134,8 +197,20 @@ class ScanResult:
             "sha256": self.sha256,
             "size_bytes": self.size_bytes,
             "observations": [item.to_dict() for item in self.observations],
+            "detectors": [item.to_dict() for item in self.detectors],
         }
 
 
 def _bounded_ascii(value: object) -> bool:
     return isinstance(value, str) and 1 <= len(value) <= 48 and value.isascii()
+
+
+def _validate_file_measurements(digest: str, size: int) -> None:
+    if (
+        type(digest) is not str
+        or len(digest) != 64
+        or any(char not in "0123456789abcdef" for char in digest)
+    ):
+        raise ValueError("invalid_result_hash")
+    if type(size) is not int or size < 0:
+        raise ValueError("invalid_result_size")

@@ -9,8 +9,15 @@ from __future__ import annotations
 from collections.abc import Mapping
 import json
 import os
+from pathlib import Path
 
-from .contracts import DetectorObservation, ScanResult, SecurityModuleStatus
+from .contracts import (
+    DetectorObservation,
+    DetectorStatus,
+    ScanResult,
+    SecurityModuleStatus,
+)
+from .detectors import ClamdUnixSocketDetector, StreamDetector
 from .scanner import ByteSignature, FileScanner, HashSignature, SignatureDatabase
 
 
@@ -22,6 +29,7 @@ def worker_start(
     allowed_roots: Mapping[str, str | os.PathLike[str]] | None = None,
     *,
     signatures: SignatureDatabase | None = None,
+    external_detectors: tuple[StreamDetector, ...] | None = None,
 ) -> None:
     """Start with roots supplied only by trusted bootstrap code."""
 
@@ -29,7 +37,16 @@ def worker_start(
     if _started:
         return
     roots = _roots_from_environment() if allowed_roots is None else allowed_roots
-    _scanner = FileScanner(roots, signatures=signatures)
+    detectors = (
+        _detectors_from_environment()
+        if external_detectors is None
+        else external_detectors
+    )
+    _scanner = FileScanner(
+        roots,
+        signatures=signatures,
+        external_detectors=detectors,
+    )
     _started = True
 
 
@@ -86,9 +103,34 @@ def _roots_from_environment() -> dict[str, str]:
     return parsed
 
 
+def _detectors_from_environment() -> tuple[StreamDetector, ...]:
+    raw_socket = os.environ.get("AI_NATIVE_SECURITY_CLAMD_SOCKET")
+    raw_uids = os.environ.get("AI_NATIVE_SECURITY_CLAMD_PEER_UIDS")
+    if raw_socket is None and raw_uids is None:
+        return ()
+    if raw_socket is None or raw_uids is None or len(raw_uids) > 256:
+        raise ValueError("invalid_clamd_configuration")
+    try:
+        parsed_uids = json.loads(raw_uids)
+    except json.JSONDecodeError as error:
+        raise ValueError("invalid_clamd_configuration") from error
+    if type(parsed_uids) is not list:
+        raise ValueError("invalid_clamd_configuration")
+    try:
+        detector = ClamdUnixSocketDetector(
+            socket_path=Path(raw_socket),
+            expected_peer_uids=frozenset(parsed_uids),
+        )
+    except (TypeError, ValueError) as error:
+        raise ValueError("invalid_clamd_configuration") from error
+    return (detector,)
+
+
 __all__ = [
     "ByteSignature",
+    "ClamdUnixSocketDetector",
     "DetectorObservation",
+    "DetectorStatus",
     "FileScanner",
     "HashSignature",
     "ScanResult",

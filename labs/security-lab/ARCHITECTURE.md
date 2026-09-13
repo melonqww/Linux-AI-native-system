@@ -1,7 +1,8 @@
 # Security Center MVP — архитектура
 
-**Статус:** целевая архитектура; foundation и ограниченный File Scanner
-реализованы в `security.center` `0.2.0`, остальные компоненты остаются планом.
+**Статус:** целевая архитектура; foundation, ограниченный File Scanner и
+optional clamd adapter реализованы в `security.center` `0.3.0`; остальные
+компоненты остаются планом.
 
 ## 1. Решение
 
@@ -50,6 +51,10 @@ Security Center создаётся как один first-party capability-дом
 9. Компрометация одного detector adapter не выдаёт сеть, root или произвольную
    запись в файловую систему.
 10. Отключение или сбой Security Center не повышает права остальных модулей.
+11. Только scanner открывает выбранный файл; внешний detector получает bounded
+    поток, но не filesystem path.
+12. Локальный detector peer принимается только через `AF_UNIX` после обязательной
+    проверки UID посредством `SO_PEERCRED`; TCP запрещён.
 
 ## 3. Компоненты MVP
 
@@ -66,9 +71,23 @@ worker и агрегирует структурированный результ
 нормализованные наблюдения. Сканирование имеет лимиты размера, количества
 объектов, вложенности, времени и объёма вывода.
 
-Первый реальный антивирусный движок подключается через adapter. Его отсутствие
+Первый реальный антивирусный движок подключён через adapter. Его отсутствие
 отображается как `unavailable` или `partial`, а не скрывается внутренней
 эвристикой.
+
+Для `0.3.0` выбран `ClamdUnixSocketDetector`. Он не является владельцем файла:
+scanner безопасно открывает объект один раз, одновременно вычисляет digest,
+выполняет локальные detectors и отправляет прочитанные chunks командой
+`INSTREAM`. Adapter соединяется только с trusted `AF_UNIX` socket, проверяет peer
+UID через `SO_PEERCRED` по непустому allowlist и не поддерживает TCP.
+
+Команда, chunk, суммарный поток, connect/write/read timeout и reply имеют жёсткие
+ceiling. Raw clamd reply и signature остаются внутри adapter; наружу выходят
+только закрыто нормализованные state, reason code и observation. Adapter
+optional, однако после включения в trusted configuration он обязателен для clean
+coverage. Его отказ даёт `partial + unknown`, если другой detector не подтвердил
+угрозу. Точное локальное совпадение сохраняет `malware_detected` даже при
+`partial`, потому что неполное дополнительное покрытие не отменяет hard evidence.
 
 ### Posture Collector
 
@@ -131,7 +150,7 @@ restore_state
 → проверка scope
 → безопасное открытие
 → фиксация идентичности и лимитов
-→ hash/type/signature detectors
+→ hash/type/signature detectors + optional bounded clamd INSTREAM
 → нормализация observations
 → deterministic verdict policy
 → сохранение finding
@@ -140,6 +159,11 @@ restore_state
 
 Повторное сканирование создаёт новое observation. История не переписывается
 задним числом при обновлении правил.
+
+`clamd` не получает путь и не открывает объект повторно. Если adapter configured,
+clean verdict возможен только после корректного peer check, полной отправки
+потока и валидного bounded reply. TCP, shell, subprocess и AI в этом потоке
+отсутствуют.
 
 ## 6. Поток карантина
 
@@ -241,3 +265,9 @@ Runtime-проверка собственной целостности моду�
 
 Каждый этап должен оставлять систему полезной и отключаемой. Дополнительные
 фоновые и привилегированные возможности начинаются только после стабильного MVP.
+
+Подэтап 3 соответствует целевой версии `security.center` `0.3.0` и ограничен
+optional ClamAV clamd adapter через `AF_UNIX + INSTREAM`. Его контракт закреплён
+в [`File Scan API v3`](../../Architecture/api/security-center-file-scan-v3.md),
+а решение — в
+[`ADR-031 Security`](../../Architecture/decisions/ADR-031-security-clamd-adapter.md).

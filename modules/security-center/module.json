@@ -2,8 +2,8 @@
   "schema_version": 2,
   "module_id": "security.center",
   "display_name": "Security Center",
-  "description": "Provides bounded status and read-only signature scanning for trusted local resources.",
-  "module_version": "0.2.0",
+  "description": "Provides bounded local signature scanning with an optional peer-authenticated clamd adapter.",
+  "module_version": "0.3.0",
   "core_api": "1",
   "capabilities": [
     {

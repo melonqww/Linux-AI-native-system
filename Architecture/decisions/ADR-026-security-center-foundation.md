@@ -76,3 +76,5 @@ AI не входит в защитный MVP. Verdict, severity и действ�
 [`security-center-mvp-options`](../discussions/security-center-mvp-options.md).
 Безопасная файловая граница следующей версии закреплена отдельно в
 [`ADR-028`](ADR-028-security-file-scan-boundary.md).
+Optional локальный ClamAV adapter для целевой версии `0.3.0` определён в
+[`ADR-031 Security`](ADR-031-security-clamd-adapter.md).

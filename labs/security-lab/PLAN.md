@@ -1,8 +1,8 @@
 # Security Center MVP — план работ
 
-**Статус:** foundation и первый bounded File Scanner завершены в `0.2.0`;
-Finding Store, системный аудит, внешний AV adapter, карантин и Security Campaign
-остаются следующими этапами.
+**Статус:** foundation, bounded File Scanner и optional ClamAV adapter завершены
+в `0.3.0`; Finding Store, системный аудит, карантин и Security Campaign остаются
+следующими этапами.
 
 ## Результат MVP
 
@@ -189,6 +189,38 @@ Ubuntu, Ollama, антивирусной базы или сети.
 
 Критерий этапа: одинаковые fixtures дают структурно одинаковые результаты, а
 сбой detector не выдаётся за отсутствие угрозы.
+
+### Подэтап 2.1 — Security Center 0.3.0 / ClamAV clamd adapter
+
+Этот завершённый вертикальный срез добавляет optional реальный engine без изменения
+публичного scan request:
+
+- `ClamdUnixSocketDetector` получает chunks от scanner, но не путь к файлу;
+- scanner остаётся единственным владельцем safe open, identity и общего scan
+  deadline;
+- transport ограничен trusted `AF_UNIX` socket, TCP запрещён;
+- peer UID проверяется через `SO_PEERCRED` по обязательному trusted allowlist до
+  отправки первого chunk;
+- используется только фиксированная bounded wire-команда `zINSTREAM\0`;
+- command, chunks, total stream, reply и connect/write/read timeouts имеют
+  жёсткие ceilings;
+- parser принимает только один ожидаемый bounded reply и отклоняет malformed,
+  oversized, trailing или неизвестный ответ;
+- raw clamd reply/signature не проходит наружу без нормализации;
+- adapter не запускает daemon и не использует shell, subprocess, AI или TCP;
+- отсутствие adapter в конфигурации сохраняет базовый профиль `0.2.0`;
+- configured, но недоступный/ошибочный adapter даёт `partial + unknown`, не
+  `no_threat_detected`;
+- точное локальное hash/byte совпадение сохраняет `malware_detected` при partial
+  coverage clamd.
+
+Критерий подэтапа: fake Unix peer и Linux integration tests подтверждают framing,
+лимиты, deadline, `SO_PEERCRED`, нормализацию и verdict matrix. Ни один тест не
+передаёт clamd путь и не требует настоящего вредоносного образца. Документированный
+контракт находится в
+[`File Scan API v3`](../../Architecture/api/security-center-file-scan-v3.md),
+решение — в
+[`ADR-031 Security`](../../Architecture/decisions/ADR-031-security-clamd-adapter.md).
 
 ## Этап 3 — findings и базовый posture
 

@@ -1,8 +1,9 @@
 # Security Center
 
 `Security Center` — доверенный on-demand модуль защиты AI-native Linux.
-Текущий код `0.2.0` предоставляет status и безопасное детерминированное
-сканирование одного файла через `security.files.scan`.
+Текущий код `0.3.0` предоставляет status, безопасное детерминированное
+сканирование одного файла и optional интеграцию с локальным `clamd` через
+`security.files.scan`.
 
 ## v0.2.0: файловое сканирование
 
@@ -27,6 +28,27 @@ symlink, каталоги и специальные файлы и проверя
 сигнатуры и не пытается «понять код». AI, сеть, subprocess, внешние антивирусные
 процессы и эвристическая классификация в `0.2.0` не используются.
 
+## v0.3.0: реальный ClamAV engine
+
+Optional `ClamdUnixSocketDetector` добавляет проверку тем же
+`security.files.scan`, не расширяя публичный запрос. Scanner сам безопасно
+открывает файл и передаёт уже прочитанные bounded chunks командой `INSTREAM`.
+`clamd` не получает путь, `resource_id` или право самостоятельно открывать
+пользовательский объект.
+
+Разрешён только trusted Unix socket (`AF_UNIX`). TCP, hostname/port, shell и
+subprocess запрещены. До отправки содержимого adapter обязан проверить peer UID
+через `SO_PEERCRED` по непустому trusted allowlist. Команда, chunks, общий поток,
+reply и connect/write/read timeouts ограничены; общий deadline scan нельзя
+продлить внутренней настройкой.
+
+Ответ clamd считается недоверенным. Raw reply и raw signature не возвращаются:
+adapter преобразует их в закрытые states, error codes и bounded observation.
+Если adapter не configured, базовые локальные detectors продолжают работать как
+в `0.2.0`. Если он configured, но недоступен или ошибся, результат становится
+`partial + unknown`, а не clean. Уже подтверждённая точная локальная сигнатура
+сохраняет `malware_detected` даже при partial coverage.
+
 Допустимы только три verdict:
 
 - `malware_detected` — хотя бы одна точная сигнатура подтверждена;
@@ -40,7 +62,7 @@ Fail-closed означает, что ошибка никогда не превр
 
 ## Границы версии
 
-`0.2.0` сканирует один явно адресованный файл и возвращает bounded JSON-safe
+`0.3.0` сканирует один явно адресованный файл и возвращает bounded JSON-safe
 результат: digest, размер, итог, код ошибки и нормализованные observations. В ответ не входят содержимое файла, абсолютный
 путь, секреты, произвольный detector output или traceback.
 
@@ -50,6 +72,8 @@ Fail-closed означает, что ошибка никогда не превр
 
 ## Документация
 
+- [File Scan API v3: optional clamd adapter](../../Architecture/api/security-center-file-scan-v3.md)
+- [ADR-031: ClamAV clamd через AF_UNIX + INSTREAM](../../Architecture/decisions/ADR-031-security-clamd-adapter.md)
 - [File Scan API v2](../../Architecture/api/security-center-file-scan-v2.md)
 - [ADR-028: безопасная граница файлового сканирования](../../Architecture/decisions/ADR-028-security-file-scan-boundary.md)
 - [Foundation API v1](../../Architecture/api/security-center-foundation-v1.md)
