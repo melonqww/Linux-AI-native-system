@@ -21,6 +21,7 @@ from ai_native_storage.registry import VolumeRegistry
 
 from .contracts import (
     ContentAvailability,
+    ContentMatch,
     DocumentQuery,
     PdfIngestReport,
     QueryResult,
@@ -181,6 +182,8 @@ class QueryService:
             raise ValueError("content_match is required for content search")
         if not query.text.strip() and query.content_match is not None:
             raise ValueError("content_match requires non-empty text")
+        if query.content_match is not None and not isinstance(query.content_match, ContentMatch):
+            raise ValueError("content_match must use ContentMatch")
         metadata_query = FileQuery(
             name_contains=query.name_contains,
             extensions=query.extensions,
@@ -224,9 +227,16 @@ class QueryService:
             )
 
         candidate_limit = 10_001
-        lexical_hits = self.indexer.search_candidates(query.text, limit=candidate_limit)
+        exact_phrase = query.content_match is ContentMatch.EXACT_PHRASE
+        lexical_hits = (
+            self.indexer.search_exact_phrase_candidates(
+                query.text, limit=candidate_limit
+            )
+            if exact_phrase
+            else self.indexer.search_candidates(query.text, limit=candidate_limit)
+        )
         semantic_hits: list[SearchHit] = []
-        if self.semantic_retriever is not None:
+        if self.semantic_retriever is not None and not exact_phrase:
             # Resolve permissions and metadata filters before indexed content is
             # materialized or sent to the local embedding provider.
             eligible_entries = self.catalog.search(
@@ -295,6 +305,8 @@ class QueryService:
             sources = (
                 ("content", "semantic")
                 if hit.path in semantic_paths
+                else ("content", "exact_phrase")
+                if exact_phrase
                 else ("content",)
             )
             results.append(
@@ -321,9 +333,9 @@ class QueryService:
             query.offset,
             query.limit,
             total,
-            False
-            if self.semantic_retriever is not None
-            else len(lexical_hits) < candidate_limit,
+            len(lexical_hits) < candidate_limit
+            if exact_phrase or self.semantic_retriever is None
+            else False,
             coverage,
         )
 

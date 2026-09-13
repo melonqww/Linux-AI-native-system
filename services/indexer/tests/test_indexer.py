@@ -162,6 +162,28 @@ class IndexerServiceTests(unittest.TestCase):
 
         self.assertEqual(len(hits), 2)
 
+    def test_exact_phrase_requires_adjacent_terms_in_order(self) -> None:
+        exact = self.root / "exact.txt"
+        exact.write_text("alpha beta gamma", encoding="utf-8")
+        (self.root / "separated.txt").write_text(
+            "alpha something beta", encoding="utf-8"
+        )
+        (self.root / "reversed.txt").write_text("beta alpha", encoding="utf-8")
+        self.service.index_directory(self.root)
+
+        hits = self.service.search_exact_phrase_candidates("alpha beta")
+
+        self.assertEqual([Path(hit.path) for hit in hits], [exact.resolve()])
+
+    def test_exact_phrase_treats_user_fts_syntax_as_text(self) -> None:
+        document = self.root / "operators.txt"
+        document.write_text("alpha OR near beta", encoding="utf-8")
+        self.service.index_directory(self.root)
+
+        hits = self.service.search_exact_phrase_candidates('alpha OR "near" beta')
+
+        self.assertEqual([Path(hit.path) for hit in hits], [document.resolve()])
+
     def test_chunk_overlap_starts_on_text_boundary(self) -> None:
         text = "первая строка документа\nвторая строка документа\nтретья строка документа"
 

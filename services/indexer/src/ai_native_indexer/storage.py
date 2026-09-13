@@ -214,6 +214,28 @@ class IndexStorage:
         if not terms:
             return []
         match_query = " OR ".join(f'"{term.replace(chr(34), chr(34) * 2)}"' for term in terms)
+        return IndexStorage._search_match(connection, match_query, limit)
+
+    @staticmethod
+    def search_exact_phrase(
+        connection: sqlite3.Connection, query: str, limit: int
+    ) -> list[SearchHit]:
+        """Find adjacent query tokens in their original order.
+
+        Token extraction mirrors the configured FTS unicode tokenizer. Building
+        one quoted FTS phrase prevents operators supplied by a user from being
+        interpreted as query syntax.
+        """
+        terms = re.findall(r"[^\W_]+", query, flags=re.UNICODE)
+        if not terms:
+            return []
+        match_query = f'"{" ".join(terms)}"'
+        return IndexStorage._search_match(connection, match_query, limit)
+
+    @staticmethod
+    def _search_match(
+        connection: sqlite3.Connection, match_query: str, limit: int
+    ) -> list[SearchHit]:
         rows = connection.execute(
             """
             WITH matching AS (

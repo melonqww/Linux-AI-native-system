@@ -111,6 +111,15 @@ class IndexerService:
         with self.storage.connect() as connection:
             return self.storage.search(connection, query, limit)
 
+    def search_exact_phrase_candidates(
+        self, query: str, *, limit: int = 10_001
+    ) -> list[SearchHit]:
+        """Bounded paths whose indexed content contains the requested phrase."""
+        if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 10_001:
+            raise ValueError("candidate limit must be an integer from 1 to 10001")
+        with self.storage.connect() as connection:
+            return self.storage.search_exact_phrase(connection, query, limit)
+
     def semantic_corpus(
         self, paths: list[str], *, limit: int = 2_048
     ) -> list[SearchHit]:

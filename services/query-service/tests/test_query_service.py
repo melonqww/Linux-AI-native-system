@@ -233,6 +233,36 @@ class QueryServiceTests(unittest.TestCase):
         self.assertEqual([item.name for item in results], ["study.pdf"])
         self.assertEqual(results[0].sources, ("content",))
 
+    def test_exact_phrase_excludes_semantic_only_hits_and_provider(self) -> None:
+        provider = FakeMultilingualEmbeddings()
+        service = QueryService(
+            storage_database=self.storage_db,
+            index_database=self.index_db,
+            semantic_provider=provider,
+        )
+        self.make_pdf("alpha beta gamma", "exact.pdf")
+        self.make_pdf("alpha something beta", "separated.pdf")
+        self.make_pdf("beta alpha", "reversed.pdf")
+        service.catalog.scan_volume("test-volume")
+        service.ingest_pdfs()
+
+        page = service.search_page(
+            DocumentQuery(
+                text="alpha beta",
+                content_match=ContentMatch.EXACT_PHRASE,
+                extensions=("pdf",),
+            )
+        )
+
+        self.assertEqual([item.name for item in page.results], ["exact.pdf"])
+        self.assertEqual(page.results[0].sources, ("content", "exact_phrase"))
+        self.assertTrue(page.total_is_exact)
+        self.assertEqual(provider.inputs, [])
+
+    def test_direct_query_rejects_untyped_content_match(self) -> None:
+        with self.assertRaisesRegex(ValueError, "must use ContentMatch"):
+            self.service.search(DocumentQuery(text="alpha", content_match="semantic"))
+
     def test_semantic_provider_never_receives_metadata_only_content(self) -> None:
         self.make_pdf("Private mathematics theorem")
         self.service.catalog.scan_volume("test-volume")
