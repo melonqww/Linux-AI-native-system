@@ -2,8 +2,8 @@
   "schema_version": 2,
   "module_id": "security.center",
   "display_name": "Security Center",
-  "description": "Provides bounded local signature scanning with an optional peer-authenticated clamd adapter.",
-  "module_version": "0.3.0",
+  "description": "Provides bounded file and profile scanning, optional peer-authenticated clamd detection, and a durable finding store.",
+  "module_version": "0.4.0",
   "core_api": "1",
   "capabilities": [
     {
@@ -29,12 +29,40 @@
         "required": ["resource_id", "relative_path"],
         "additionalProperties": false
       },
-      "requested_permissions": ["filesystem.read-metadata", "filesystem.read-content"]
+      "requested_permissions": ["filesystem.read-metadata", "filesystem.read-content", "security.write-findings"]
+    },
+    {
+      "id": "security.scan.run",
+      "description": "Run a bounded quick or full scan profile inside one trusted resource root.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "resource_id": {"type": "string", "minLength": 1, "maxLength": 64},
+          "mode": {"type": "string", "enum": ["quick", "full"]}
+        },
+        "required": ["resource_id", "mode"],
+        "additionalProperties": false
+      },
+      "requested_permissions": ["filesystem.read-metadata", "filesystem.read-content", "security.write-findings"]
+    },
+    {
+      "id": "security.findings.list",
+      "description": "List a bounded page of metadata-only security findings.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "state": {"type": "string", "enum": ["active", "resolved", "ignored"]},
+          "limit": {"type": "integer", "minimum": 1, "maximum": 25}
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "requested_permissions": ["security.read-findings"]
     }
   ],
   "dependencies": [],
   "optional_dependencies": [],
-  "requested_permissions": ["security.read-status", "filesystem.read-metadata", "filesystem.read-content"],
+  "requested_permissions": ["security.read-status", "filesystem.read-metadata", "filesystem.read-content", "security.write-findings", "security.read-findings"],
   "lifecycle": "on-demand",
   "resource_class": "tiny",
   "default_enabled": true,

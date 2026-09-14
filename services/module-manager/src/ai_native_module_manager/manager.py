@@ -67,10 +67,19 @@ class ModuleProcessManager:
         self.index_database = (
             index_database or self.runtime_directory / "document-index.sqlite3"
         ).expanduser().absolute()
+        self.security_findings_database = (
+            self.runtime_directory / "security-findings.sqlite3"
+        ).expanduser().absolute()
         self.security_scan_roots = {
             resource_id: Path(root).expanduser().resolve(strict=True)
             for resource_id, root in (security_scan_roots or {}).items()
         }
+        for root in self.security_scan_roots.values():
+            try:
+                self.security_findings_database.relative_to(root)
+            except ValueError:
+                continue
+            raise ValueError("security findings database must be outside scan roots")
         self.security_clamd_socket = self._validate_security_clamd_socket(
             security_clamd_socket
         )
@@ -142,6 +151,9 @@ class ModuleProcessManager:
                     for resource_id, root in self.security_scan_roots.items()
                 },
                 separators=(",", ":"),
+            )
+            env["AI_NATIVE_SECURITY_FINDINGS_DATABASE"] = str(
+                self.security_findings_database
             )
         self._configure_security_clamd_environment(env, module_id)
         provider_root = self.runtime_directory / "providers" / "ollama"

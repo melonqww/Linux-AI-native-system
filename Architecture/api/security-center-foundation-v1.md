@@ -44,12 +44,14 @@ operation как пользовательский tool.
 {
   "schema_version": 1,
   "module_id": "security.center",
-  "module_version": "0.3.0",
+  "module_version": "0.4.0",
   "state": "ready",
   "lifecycle": "on-demand",
   "capabilities": [
     "security.module.status",
-    "security.files.scan"
+    "security.files.scan",
+    "security.scan.run",
+    "security.findings.list"
   ]
 }
 ```

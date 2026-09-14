@@ -116,12 +116,14 @@ class ModuleManagerTests(unittest.TestCase):
             {
                 "schema_version": 1,
                 "module_id": "security.center",
-                "module_version": "0.3.0",
+                "module_version": "0.4.0",
                 "state": "ready",
                 "lifecycle": "on-demand",
                 "capabilities": [
                     "security.module.status",
                     "security.files.scan",
+                    "security.scan.run",
+                    "security.findings.list",
                 ],
             },
         )
@@ -235,6 +237,17 @@ class ModuleManagerTests(unittest.TestCase):
                         **arguments,
                     )
 
+    def test_rejects_finding_database_inside_security_scan_root(self) -> None:
+        runtime = self.root / "overlapping-runtime"
+        runtime.mkdir()
+
+        with self.assertRaisesRegex(ValueError, "outside scan roots"):
+            ModuleProcessManager(
+                self.registry,
+                runtime_directory=runtime,
+                security_scan_roots={"runtime": self.root},
+            )
+
     def test_builds_clean_clamd_environment_only_for_security_center(self) -> None:
         socket_path = Path(self.root.anchor) / "run" / "clamd.sock"
         manager = ModuleProcessManager(
@@ -295,6 +308,29 @@ class ModuleManagerTests(unittest.TestCase):
         self.assertNotIn(str(self.security_scan_root), json.dumps(result))
         self.assertIn("security.center", self.manager.running_modules())
         self.assertTrue(self.manager.health("security.center"))
+
+    def test_runs_security_profile_and_reads_durable_finding_store(self) -> None:
+        (self.security_scan_root / "a.txt").write_bytes(b"ordinary sample")
+        nested = self.security_scan_root / "nested"
+        nested.mkdir()
+        (nested / "b.txt").write_bytes(b"another sample")
+        provider = self.manager.start_for_capability("security.scan.run")
+
+        result = self.manager.invoke(
+            provider,
+            "scan_profile",
+            {"resource_id": "test-files", "mode": "quick"},
+            timeout=30,
+        )
+        findings = self.manager.invoke(provider, "findings_list", {}, timeout=5)
+
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["verdict"], "no_threat_detected")
+        self.assertEqual(result["scanned_files"], 2)
+        self.assertEqual(findings["findings"], [])
+        self.assertTrue(self.manager.security_findings_database.is_file())
+        encoded = json.dumps({"scan": result, "findings": findings})
+        self.assertNotIn(str(self.security_scan_root), encoded)
 
     def test_configured_unavailable_clamd_is_partial_through_isolated_worker(self) -> None:
         sample = self.security_scan_root / "clamd-sample.txt"

@@ -1,8 +1,8 @@
 # Security Center MVP — архитектура
 
-**Статус:** целевая архитектура; foundation, ограниченный File Scanner и
-optional clamd adapter реализованы в `security.center` `0.3.0`; остальные
-компоненты остаются планом.
+**Статус:** целевая архитектура; foundation, File Scanner, optional clamd,
+quick/full coordinator и Finding Store реализованы в `security.center` `0.4.0`;
+остальные компоненты остаются планом.
 
 ## 1. Решение
 
@@ -97,9 +97,10 @@ coverage. Его отказ даёт `partial + unknown`, если другой 
 
 ### Finding Store
 
-Хранит findings и историю изменения их состояния. Сырые файлы, секреты, полный
-вывод процессов и содержимое документов в базе не сохраняются. Task Ledger
-получает только безопасную пользовательскую сводку.
+Реализованная SQLite-версия хранит подтверждённые findings, detector version,
+относительную ссылку, digest, severity, timestamps и occurrence count. Сырые
+файлы, абсолютные пути, секреты, полный вывод процессов и содержимое документов
+в базе не сохраняются. Task Ledger в этой версии ещё не подключён.
 
 ### Quarantine Worker
 
@@ -157,8 +158,9 @@ restore_state
 → безопасный результат пользователю
 ```
 
-Повторное сканирование создаёт новое observation. История не переписывается
-задним числом при обновлении правил.
+Повторное совпадение той же версии detector/rule и того же digest увеличивает
+occurrence count существующего finding. Новая версия detector или другой digest
+создают отдельную запись, поэтому происхождение не переписывается задним числом.
 
 `clamd` не получает путь и не открывает объект повторно. Если adapter configured,
 clean verdict возможен только после корректного peer check, полной отправки
@@ -254,11 +256,11 @@ Runtime-проверка собственной целостности моду�
 
 ## 10. Этапы реализации
 
-1. Контракты findings и deterministic verdict policy.
-2. Bounded File Scanner с fake detector для полностью автономных тестов.
-3. Adapter реального локального антивирусного движка.
-4. Read-only Posture Collector.
-5. Finding Store и безопасная проекция в UI/Task Ledger.
+1. Контракты findings и deterministic verdict policy. ✓
+2. Bounded File Scanner с fake detector для полностью автономных тестов. ✓
+3. Adapter реального локального антивирусного движка. ✓
+4. Quick/full coordinator и Finding Store. ✓
+5. Read-only Posture Collector и проекция в UI/Task Ledger.
 6. Карантин с prepare/commit, receipt и restore.
 7. Третий `Security Campaign` в `AI Scenario Lab`, безопасные fixtures и Linux
    VM integration.
@@ -266,8 +268,11 @@ Runtime-проверка собственной целостности моду�
 Каждый этап должен оставлять систему полезной и отключаемой. Дополнительные
 фоновые и привилегированные возможности начинаются только после стабильного MVP.
 
-Подэтап 3 соответствует целевой версии `security.center` `0.3.0` и ограничен
-optional ClamAV clamd adapter через `AF_UNIX + INSTREAM`. Его контракт закреплён
+Этап 3 реализован в `security.center` `0.3.0` и ограничен optional ClamAV clamd
+adapter через `AF_UNIX + INSTREAM`. Его контракт закреплён
 в [`File Scan API v3`](../../Architecture/api/security-center-file-scan-v3.md),
 а решение — в
 [`ADR-031 Security`](../../Architecture/decisions/ADR-031-security-clamd-adapter.md).
+Этап 4 реализован в `0.4.0`; контракты находятся в
+[`API v4`](../../Architecture/api/security-center-findings-v4.md) и
+[`ADR-032`](../../Architecture/decisions/ADR-032-security-finding-store-and-scan-profiles.md).

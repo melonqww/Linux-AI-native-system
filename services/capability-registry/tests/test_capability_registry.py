@@ -246,6 +246,14 @@ class CapabilityRegistryTests(RegistryTestCase):
             "security.files.scan",
             self.registry.available_capabilities(),
         )
+        self.assertIn(
+            "security.scan.run",
+            self.registry.available_capabilities(),
+        )
+        self.assertIn(
+            "security.findings.list",
+            self.registry.available_capabilities(),
+        )
 
     def test_enabled_modules_publish_declarative_intent_routes(self) -> None:
         self.registry.sync([PROJECT_ROOT / "services", PROJECT_ROOT / "modules"])
@@ -284,6 +292,21 @@ class CapabilityRegistryTests(RegistryTestCase):
             {"resource_id", "relative_path"},
         )
         self.assertFalse(security_scan.input_schema["additionalProperties"])
+        security_profile = by_id["security.scan.run"]
+        self.assertEqual(
+            set(security_profile.input_schema["required"]),
+            {"resource_id", "mode"},
+        )
+        self.assertEqual(
+            security_profile.input_schema["properties"]["mode"]["enum"],
+            ["quick", "full"],
+        )
+        security_findings = by_id["security.findings.list"]
+        self.assertEqual(
+            set(security_findings.input_schema["properties"]),
+            {"state", "limit"},
+        )
+        self.assertFalse(security_findings.input_schema["additionalProperties"])
 
         self.registry.set_enabled("documents.query", False)
         self.assertNotIn(

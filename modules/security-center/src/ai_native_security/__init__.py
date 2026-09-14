@@ -17,12 +17,16 @@ from .contracts import (
     ScanResult,
     SecurityModuleStatus,
 )
+from .campaigns import CampaignScanner, ScanProfile
 from .detectors import ClamdUnixSocketDetector, StreamDetector
+from .findings import FindingStore, FindingStoreError
 from .scanner import ByteSignature, FileScanner, HashSignature, SignatureDatabase
 
 
 _started = False
 _scanner: FileScanner | None = None
+_campaign_scanner: CampaignScanner | None = None
+_finding_store: FindingStore | None = None
 
 
 def worker_start(
@@ -30,10 +34,12 @@ def worker_start(
     *,
     signatures: SignatureDatabase | None = None,
     external_detectors: tuple[StreamDetector, ...] | None = None,
+    finding_database: str | os.PathLike[str] | None = None,
+    scan_profiles: Mapping[str, ScanProfile] | None = None,
 ) -> None:
     """Start with roots supplied only by trusted bootstrap code."""
 
-    global _scanner, _started
+    global _campaign_scanner, _finding_store, _scanner, _started
     if _started:
         return
     roots = _roots_from_environment() if allowed_roots is None else allowed_roots
@@ -42,11 +48,32 @@ def worker_start(
         if external_detectors is None
         else external_detectors
     )
-    _scanner = FileScanner(
+    scanner = FileScanner(
         roots,
         signatures=signatures,
         external_detectors=detectors,
     )
+    database = (
+        os.environ.get("AI_NATIVE_SECURITY_FINDINGS_DATABASE", ":memory:")
+        if finding_database is None
+        else finding_database
+    )
+    _validate_finding_database_boundary(database, roots)
+    finding_store = FindingStore(database)
+    campaign_options = {} if scan_profiles is None else {"profiles": scan_profiles}
+    try:
+        campaign_scanner = CampaignScanner(
+            roots,
+            scanner.scan,
+            finding_store.record,
+            **campaign_options,
+        )
+    except Exception:
+        finding_store.close()
+        raise
+    _scanner = scanner
+    _finding_store = finding_store
+    _campaign_scanner = campaign_scanner
     _started = True
 
 
@@ -71,14 +98,34 @@ def worker_invoke(operation: str, payload: dict[str, object]) -> dict[str, objec
         if set(payload) != {"resource_id", "relative_path"}:
             raise ValueError("invalid_payload")
         assert _scanner is not None
-        return _scanner.scan(payload["resource_id"], payload["relative_path"]).to_dict()
+        result = _scanner.scan(payload["resource_id"], payload["relative_path"])
+        assert _finding_store is not None
+        _finding_store.record(result)
+        return result.to_dict()
+    if operation == "scan_profile":
+        if set(payload) != {"resource_id", "mode"}:
+            raise ValueError("invalid_payload")
+        assert _campaign_scanner is not None
+        return _campaign_scanner.run(payload["resource_id"], payload["mode"])
+    if operation == "findings_list":
+        if not set(payload).issubset({"state", "limit"}):
+            raise ValueError("invalid_payload")
+        assert _finding_store is not None
+        return _finding_store.list(
+            state=payload.get("state", "active"),
+            limit=payload.get("limit", 20),
+        )
     raise ValueError("unknown_operation")
 
 
 def worker_stop() -> None:
     """Stop the worker; repeated stops are harmless."""
 
-    global _scanner, _started
+    global _campaign_scanner, _finding_store, _scanner, _started
+    if _finding_store is not None:
+        _finding_store.close()
+    _finding_store = None
+    _campaign_scanner = None
     _scanner = None
     _started = False
 
@@ -126,14 +173,34 @@ def _detectors_from_environment() -> tuple[StreamDetector, ...]:
     return (detector,)
 
 
+def _validate_finding_database_boundary(
+    database: str | os.PathLike[str],
+    roots: Mapping[str, str | os.PathLike[str]],
+) -> None:
+    if str(database) == ":memory:":
+        return
+    database_path = Path(database).expanduser().absolute()
+    for raw_root in roots.values():
+        root = Path(raw_root).expanduser().resolve(strict=True)
+        try:
+            database_path.relative_to(root)
+        except ValueError:
+            continue
+        raise ValueError("finding_database_inside_scan_root")
+
+
 __all__ = [
     "ByteSignature",
+    "CampaignScanner",
     "ClamdUnixSocketDetector",
     "DetectorObservation",
     "DetectorStatus",
     "FileScanner",
+    "FindingStore",
+    "FindingStoreError",
     "HashSignature",
     "ScanResult",
+    "ScanProfile",
     "SecurityModuleStatus",
     "SignatureDatabase",
     "worker_health",

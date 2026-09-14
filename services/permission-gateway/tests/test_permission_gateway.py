@@ -226,7 +226,11 @@ class PermissionGatewayTests(unittest.TestCase):
         self.assertEqual(
             policy.phases[0].required_scopes,
             frozenset(
-                {"filesystem.read-metadata", "filesystem.read-content"}
+                {
+                    "filesystem.read-metadata",
+                    "filesystem.read-content",
+                    "security.write-findings",
+                }
             ),
         )
 
@@ -234,7 +238,10 @@ class PermissionGatewayTests(unittest.TestCase):
             capability="security.files.scan",
             step_id="step_security_scan",
             arguments={"resource_id": "workspace", "relative_path": "sample.bin"},
-            context=ExecutionContext(TransportContext.internal(), SCOPES),
+            context=ExecutionContext(
+                TransportContext.internal(),
+                SCOPES | {"security.write-findings"},
+            ),
         )
         self.assertTrue(gateway.evaluate(value).allowed)
         self.assertEqual(

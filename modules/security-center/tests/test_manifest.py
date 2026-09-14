@@ -14,7 +14,7 @@ class SecurityCenterManifestTests(unittest.TestCase):
 
         self.assertEqual(manifest["schema_version"], 2)
         self.assertEqual(manifest["module_id"], "security.center")
-        self.assertEqual(manifest["module_version"], "0.3.0")
+        self.assertEqual(manifest["module_version"], "0.4.0")
         self.assertEqual(manifest["lifecycle"], "on-demand")
         self.assertTrue(manifest["default_enabled"])
         self.assertEqual(
@@ -23,9 +23,11 @@ class SecurityCenterManifestTests(unittest.TestCase):
                 "security.read-status",
                 "filesystem.read-metadata",
                 "filesystem.read-content",
+                "security.write-findings",
+                "security.read-findings",
             ],
         )
-        self.assertEqual(len(manifest["capabilities"]), 2)
+        self.assertEqual(len(manifest["capabilities"]), 4)
 
         capability = manifest["capabilities"][0]
         self.assertEqual(capability["id"], "security.module.status")
@@ -52,8 +54,27 @@ class SecurityCenterManifestTests(unittest.TestCase):
         self.assertFalse(scan["input_schema"]["additionalProperties"])
         self.assertEqual(
             scan["requested_permissions"],
-            ["filesystem.read-metadata", "filesystem.read-content"],
+            [
+                "filesystem.read-metadata",
+                "filesystem.read-content",
+                "security.write-findings",
+            ],
         )
+
+        profile = manifest["capabilities"][2]
+        self.assertEqual(profile["id"], "security.scan.run")
+        self.assertEqual(profile["input_schema"]["required"], ["resource_id", "mode"])
+        self.assertEqual(profile["input_schema"]["properties"]["mode"]["enum"], ["quick", "full"])
+        self.assertFalse(profile["input_schema"]["additionalProperties"])
+
+        findings = manifest["capabilities"][3]
+        self.assertEqual(findings["id"], "security.findings.list")
+        self.assertEqual(findings["input_schema"]["required"], [])
+        self.assertFalse(findings["input_schema"]["additionalProperties"])
+        self.assertEqual(
+            findings["input_schema"]["properties"]["limit"]["maximum"], 25
+        )
+        self.assertEqual(findings["requested_permissions"], ["security.read-findings"])
 
     def test_entrypoint_and_package_metadata_are_consistent(self) -> None:
         manifest = json.loads(

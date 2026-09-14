@@ -195,11 +195,53 @@ def builtin_policies() -> tuple[CapabilityPolicy, ...]:
                     ExecutionPhase.EXECUTE,
                     ALL_LOCAL_TRANSPORTS,
                     frozenset(
-                        {"filesystem.read-metadata", "filesystem.read-content"}
+                        {
+                            "filesystem.read-metadata",
+                            "filesystem.read-content",
+                            "security.write-findings",
+                        }
                     ),
                 ),
             ),
             max_concurrency=2,
             timeout_seconds=30,
+        ),
+        CapabilityPolicy(
+            capability_id="security.scan.run",
+            risk=RiskLevel.READ_ONLY,
+            plan_approval_required=False,
+            allowed_arguments=frozenset({"resource_id", "mode"}),
+            required_arguments=frozenset({"resource_id", "mode"}),
+            phases=(
+                PhasePolicy(
+                    ExecutionPhase.EXECUTE,
+                    ALL_LOCAL_TRANSPORTS,
+                    frozenset(
+                        {
+                            "filesystem.read-metadata",
+                            "filesystem.read-content",
+                            "security.write-findings",
+                        }
+                    ),
+                ),
+            ),
+            max_concurrency=1,
+            timeout_seconds=60,
+        ),
+        CapabilityPolicy(
+            capability_id="security.findings.list",
+            risk=RiskLevel.READ_ONLY,
+            plan_approval_required=False,
+            allowed_arguments=frozenset({"state", "limit"}),
+            required_arguments=frozenset(),
+            phases=(
+                PhasePolicy(
+                    ExecutionPhase.EXECUTE,
+                    ALL_LOCAL_TRANSPORTS,
+                    frozenset({"security.read-findings"}),
+                ),
+            ),
+            max_concurrency=2,
+            timeout_seconds=5,
         ),
     )

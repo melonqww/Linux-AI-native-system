@@ -1,8 +1,8 @@
 # Security Center MVP — план работ
 
-**Статус:** foundation, bounded File Scanner и optional ClamAV adapter завершены
-в `0.3.0`; Finding Store, системный аудит, карантин и Security Campaign остаются
-следующими этапами.
+**Статус:** foundation, bounded File Scanner, optional ClamAV adapter, quick/full
+profiles и Finding Store завершены в `0.4.0`; системный аудит, карантин и Security
+Campaign остаются следующими этапами.
 
 ## Результат MVP
 
@@ -222,16 +222,22 @@ Ubuntu, Ollama, антивирусной базы или сети.
 решение — в
 [`ADR-031 Security`](../../Architecture/decisions/ADR-031-security-clamd-adapter.md).
 
-## Этап 3 — findings и базовый posture
+## Подэтап 2.2 — Security Center 0.4.0 / profiles и findings
 
-- локальный Finding Store с ограниченной схемой;
+Завершённый срез добавляет bounded quick/full обход доверенного resource,
+автоматическое сохранение подтверждённых observations, дедупликацию и bounded
+read API. Контракт: [`API v4`](../../Architecture/api/security-center-findings-v4.md),
+решение: [`ADR-032`](../../Architecture/decisions/ADR-032-security-finding-store-and-scan-profiles.md).
+
+## Этап 3 — базовый posture
+
 - безопасная проекция результата в UI и Task Ledger;
 - allowlisted Ubuntu probes;
 - security updates, firewall, AppArmor, ports, autostart и rules status;
 - состояния `healthy`, `finding`, `partial` и `unavailable`.
 
-Критерий этапа: аудит ничего не изменяет, а finding содержит detector, версию
-правил и evidence codes.
+Критерий этапа: аудит ничего не изменяет, а системные findings содержат probe,
+версию правил и evidence codes.
 
 ## Этап 4 — обратимый карантин
 
@@ -264,11 +270,10 @@ security fixtures. Отдельный runner и второй тестовый ba
 
 ## Ближайшие решения
 
-1. Утвердить сообщения и владельцев состояний из этапа 0.
-2. Зафиксировать permission scopes и risk каждой capability.
-3. Выбрать безопасную ссылку на файл между core и scanner.
-4. Определить state machines для scan job, finding и quarantine operation.
-5. После этого создать manifest, contracts и базовые быстрые тесты.
+1. Зафиксировать allowlist и parsers read-only Ubuntu posture probes.
+2. Определить проекцию findings в UI и Task Ledger без утечки путей.
+3. Спроектировать state machine карантина и server-owned approval.
+4. После стабильного карантина добавить внешний Security Campaign.
 
-До первых четырёх решений писать scanner, quarantine и `Security Campaign`
-преждевременно: иначе критические границы станут случайным следствием кода.
+Следующий production-срез — `0.5.0` с read-only Ubuntu posture. Карантин остаётся
+отдельной версией, потому что впервые изменяет пользовательские файлы.

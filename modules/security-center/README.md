@@ -1,9 +1,8 @@
 # Security Center
 
 `Security Center` — доверенный on-demand модуль защиты AI-native Linux.
-Текущий код `0.3.0` предоставляет status, безопасное детерминированное
-сканирование одного файла и optional интеграцию с локальным `clamd` через
-`security.files.scan`.
+Текущий код `0.4.0` предоставляет status, безопасное сканирование одного файла,
+профили `quick`/`full`, Finding Store и optional интеграцию с локальным `clamd`.
 
 ## v0.2.0: файловое сканирование
 
@@ -60,18 +59,41 @@ adapter преобразует их в закрытые states, error codes и b
 Fail-closed означает, что ошибка никогда не превращается в
 `no_threat_detected`.
 
+## v0.4.0: scan profiles и Finding Store
+
+Доступны три пользовательских сценария:
+
+- `security.files.scan` — проверить конкретный файл;
+- `security.scan.run` — выполнить `quick` или `full` внутри выбранного trusted
+  resource root;
+- `security.findings.list` — получить bounded список подтверждённых находок.
+
+Quick ограничен 128 файлами, 64 MiB, глубиной 3 и 15 секундами. Full расширяет
+границы до 2048 файлов, 512 MiB, глубины 32 и 60 секунд. Оба режима используют
+тот же scanner для каждого файла, не следуют symlink/junction и становятся
+`partial + unknown`, если проверка неполна.
+
+Finding Store дедуплицирует подтверждённые observations и хранит только hash,
+размер, относительный путь, detector/version/rule, severity, timestamps и
+счётчик.
+Содержимое и абсолютные пути не сохраняются. SQLite path задаётся Module Manager,
+а не вызывающей стороной; POSIX-файлы базы ограничиваются mode `0600`.
+
 ## Границы версии
 
-`0.3.0` сканирует один явно адресованный файл и возвращает bounded JSON-safe
+`0.4.0` сканирует один файл или bounded trusted root и возвращает JSON-safe
 результат: digest, размер, итог, код ошибки и нормализованные observations. В ответ не входят содержимое файла, абсолютный
 путь, секреты, произвольный detector output или traceback.
 
-Версия не выполняет обход каталогов, карантин, удаление, лечение, фоновый
-мониторинг, аудит Ubuntu, сохранение findings или обновление сигнатур. Scanner не
-имеет сети, не запускает subprocess и не получает постоянный root.
+Версия не выполняет карантин, удаление, лечение, распаковку архивов, фоновый
+мониторинг, аудит Ubuntu или обновление сигнатур. Scanner не имеет сети, не
+запускает subprocess и не получает постоянный root. Full означает полный обход
+выбранного resource в жёстких пределах профиля, а не всей операционной системы.
 
 ## Документация
 
+- [Scan Profiles and Finding Store API v4](../../Architecture/api/security-center-findings-v4.md)
+- [ADR-032: Finding Store и bounded scan profiles](../../Architecture/decisions/ADR-032-security-finding-store-and-scan-profiles.md)
 - [File Scan API v3: optional clamd adapter](../../Architecture/api/security-center-file-scan-v3.md)
 - [ADR-031: ClamAV clamd через AF_UNIX + INSTREAM](../../Architecture/decisions/ADR-031-security-clamd-adapter.md)
 - [File Scan API v2](../../Architecture/api/security-center-file-scan-v2.md)

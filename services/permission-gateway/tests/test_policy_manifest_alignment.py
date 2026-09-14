@@ -94,7 +94,11 @@ class PolicyManifestAlignmentTests(unittest.TestCase):
         )
         self.assertEqual(
             contract.requested_permissions,
-            ("filesystem.read-metadata", "filesystem.read-content"),
+            (
+                "filesystem.read-metadata",
+                "filesystem.read-content",
+                "security.write-findings",
+            ),
         )
         self.assertEqual(
             set(contract.input_schema["properties"]),
@@ -107,7 +111,38 @@ class PolicyManifestAlignmentTests(unittest.TestCase):
         self.assertFalse(contract.input_schema["additionalProperties"])
         self.assertEqual(
             gateway.required_scopes("security.files.scan"),
-            {"filesystem.read-metadata", "filesystem.read-content"},
+            {
+                "filesystem.read-metadata",
+                "filesystem.read-content",
+                "security.write-findings",
+            },
+        )
+
+    def test_security_profile_and_finding_policies_match_manifest(self):
+        gateway = PermissionGateway(builtin_policies())
+        manifest = self.registry.get_module("security.center").manifest
+        contracts = {
+            item.capability_id: item for item in manifest.capabilities
+        }
+
+        profile = contracts["security.scan.run"]
+        self.assertEqual(
+            set(profile.requested_permissions),
+            {
+                "filesystem.read-metadata",
+                "filesystem.read-content",
+                "security.write-findings",
+            },
+        )
+        self.assertEqual(
+            gateway.required_scopes("security.scan.run"),
+            set(profile.requested_permissions),
+        )
+        findings = contracts["security.findings.list"]
+        self.assertEqual(findings.requested_permissions, ("security.read-findings",))
+        self.assertEqual(
+            gateway.required_scopes("security.findings.list"),
+            {"security.read-findings"},
         )
 
 

@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import sqlite3
 import unittest
 import uuid
 from dataclasses import FrozenInstanceError
@@ -23,10 +24,15 @@ from ai_native_security.detectors import DetectorError
 EXPECTED_STATUS = {
     "schema_version": 1,
     "module_id": "security.center",
-    "module_version": "0.3.0",
+    "module_version": "0.4.0",
     "state": "ready",
     "lifecycle": "on-demand",
-    "capabilities": ["security.module.status", "security.files.scan"],
+    "capabilities": [
+        "security.module.status",
+        "security.files.scan",
+        "security.scan.run",
+        "security.findings.list",
+    ],
 }
 MODULE_ROOT = Path(__file__).resolve().parents[1]
 
@@ -98,21 +104,28 @@ class SecurityFileScannerTests(unittest.TestCase):
         security.worker_stop()
         self.root = MODULE_ROOT / f"security-scan-{uuid.uuid4().hex}"
         self.root.mkdir()
+        self.findings_database = self.root.parent / f"{self.root.name}-findings.sqlite3"
 
     def tearDown(self) -> None:
         security.worker_stop()
         shutil.rmtree(self.root, ignore_errors=True)
+        self.findings_database.unlink(missing_ok=True)
+        self.findings_database.with_name(self.findings_database.name + "-wal").unlink(missing_ok=True)
+        self.findings_database.with_name(self.findings_database.name + "-shm").unlink(missing_ok=True)
 
     def _start(
         self,
         *,
         signatures: SignatureDatabase | None = None,
         external_detectors: tuple[object, ...] = (),
+        scan_profiles: dict[str, object] | None = None,
     ) -> None:
         security.worker_start(
             {"downloads": self.root},
             signatures=signatures,
             external_detectors=external_detectors,  # type: ignore[arg-type]
+            finding_database=self.findings_database,
+            scan_profiles=scan_profiles,  # type: ignore[arg-type]
         )
 
     def _scan(self, relative_path: object) -> dict[str, object]:
@@ -379,6 +392,205 @@ class SecurityFileScannerTests(unittest.TestCase):
         self.assertIsNone(result["error_code"])
         self.assertEqual(result["observations"][0]["detector"], "clamd")
         self.assertEqual(result["detectors"][1]["state"], "completed")
+
+    def test_detected_file_is_deduplicated_in_finding_store(self) -> None:
+        content = b"known repeated signature"
+        (self.root / "sample.bin").write_bytes(content)
+        signatures = SignatureDatabase(
+            hashes=(
+                HashSignature(
+                    rule_id="repeated-test",
+                    sha256=hashlib.sha256(content).hexdigest(),
+                    classification="test-malware",
+                ),
+            )
+        )
+        self._start(signatures=signatures)
+
+        self._scan("sample.bin")
+        self._scan("sample.bin")
+        listed = security.worker_invoke("findings_list", {})
+
+        self.assertEqual(listed["schema_version"], 1)
+        self.assertEqual(len(listed["findings"]), 1)
+        finding = listed["findings"][0]
+        self.assertEqual(finding["relative_path"], "sample.bin")
+        self.assertEqual(finding["detector_version"], "custom-v1")
+        self.assertEqual(finding["occurrence_count"], 2)
+        self.assertNotIn(str(self.root), json.dumps(listed))
+        self.assertNotIn(content.decode(), json.dumps(listed))
+
+    def test_clean_file_is_not_stored_as_a_finding(self) -> None:
+        (self.root / "clean.txt").write_bytes(b"clean")
+        self._start()
+
+        self._scan("clean.txt")
+
+        self.assertEqual(
+            security.worker_invoke("findings_list", {})["findings"], []
+        )
+
+    def test_quick_and_full_profiles_scan_trusted_root(self) -> None:
+        clean = b"ordinary"
+        threat = b"campaign threat"
+        (self.root / "a-clean.txt").write_bytes(clean)
+        nested = self.root / "nested"
+        nested.mkdir()
+        (nested / "b-threat.bin").write_bytes(threat)
+        signatures = SignatureDatabase(
+            hashes=(
+                HashSignature(
+                    rule_id="campaign-test",
+                    sha256=hashlib.sha256(threat).hexdigest(),
+                    classification="test-malware",
+                ),
+            )
+        )
+        self._start(signatures=signatures)
+
+        quick = security.worker_invoke(
+            "scan_profile", {"resource_id": "downloads", "mode": "quick"}
+        )
+        full = security.worker_invoke(
+            "scan_profile", {"resource_id": "downloads", "mode": "full"}
+        )
+
+        self.assertEqual(quick["status"], "completed")
+        self.assertEqual(quick["verdict"], "malware_detected")
+        self.assertEqual(quick["scanned_files"], 2)
+        self.assertEqual(quick["threat_files"], 1)
+        self.assertEqual(full["verdict"], "malware_detected")
+        self.assertTrue(full["finding_ids"])
+        self.assertLessEqual(len(json.dumps(full)), 4096)
+
+    def test_profile_limit_is_partial_not_clean(self) -> None:
+        from ai_native_security import ScanProfile
+
+        for name in ("a.txt", "b.txt"):
+            (self.root / name).write_bytes(b"clean")
+        profiles = {
+            "quick": ScanProfile(1, 1024, 1, 5),
+            "full": ScanProfile(1, 1024, 1, 5),
+        }
+        self._start(scan_profiles=profiles)
+
+        result = security.worker_invoke(
+            "scan_profile", {"resource_id": "downloads", "mode": "quick"}
+        )
+
+        self.assertEqual(result["status"], "partial")
+        self.assertEqual(result["verdict"], "unknown")
+        self.assertEqual(result["error_code"], "profile_limit_reached")
+        self.assertEqual(result["scanned_files"], 1)
+
+    def test_profile_and_finding_payloads_are_closed_and_bounded(self) -> None:
+        self._start()
+        with self.assertRaisesRegex(ValueError, "invalid_payload"):
+            security.worker_invoke(
+                "scan_profile", {"resource_id": "downloads", "mode": "quick", "x": 1}
+            )
+        with self.assertRaisesRegex(ValueError, "invalid_finding_limit"):
+            security.worker_invoke("findings_list", {"limit": 26})
+        rejected = security.worker_invoke(
+            "scan_profile", {"resource_id": "downloads", "mode": "unknown"}
+        )
+        self.assertEqual(rejected["status"], "rejected")
+        self.assertEqual(rejected["error_code"], "invalid_scan_mode")
+
+    def test_finding_database_cannot_be_placed_inside_scan_root(self) -> None:
+        with self.assertRaisesRegex(ValueError, "finding_database_inside_scan_root"):
+            security.worker_start(
+                {"downloads": self.root},
+                finding_database=self.root / "private" / "findings.sqlite3",
+            )
+
+    def test_symlink_makes_profile_partial_when_supported(self) -> None:
+        outside = self.root.parent / f"{self.root.name}-campaign-outside.txt"
+        outside.write_bytes(b"outside")
+        link = self.root / "outside-link.txt"
+        try:
+            link.symlink_to(outside)
+        except OSError:
+            outside.unlink(missing_ok=True)
+            self.skipTest("symlinks are unavailable for this test account")
+        try:
+            self._start()
+            result = security.worker_invoke(
+                "scan_profile", {"resource_id": "downloads", "mode": "quick"}
+            )
+            self.assertEqual(result["status"], "partial")
+            self.assertEqual(result["verdict"], "unknown")
+            self.assertEqual(result["error_code"], "scan_incomplete")
+            self.assertEqual(result["skipped_files"], 1)
+        finally:
+            outside.unlink(missing_ok=True)
+
+    def test_tampered_finding_record_is_not_returned(self) -> None:
+        content = b"tamper-safe finding"
+        (self.root / "sample.bin").write_bytes(content)
+        signatures = SignatureDatabase(
+            hashes=(
+                HashSignature(
+                    rule_id="tamper-test",
+                    sha256=hashlib.sha256(content).hexdigest(),
+                    classification="test-malware",
+                ),
+            )
+        )
+        self._start(signatures=signatures)
+        self._scan("sample.bin")
+        security.worker_stop()
+        connection = sqlite3.connect(self.findings_database)
+        try:
+            connection.execute(
+                "UPDATE security_findings SET relative_path = ?",
+                ("C:/private/secret.bin",),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+        store = security.FindingStore(self.findings_database)
+        try:
+            with self.assertRaisesRegex(
+                security.FindingStoreError, "invalid_finding_record"
+            ):
+                store.list()
+        finally:
+            store.close()
+
+    def test_maximum_finding_page_fits_worker_response_limit(self) -> None:
+        store = security.FindingStore(":memory:")
+        observation = DetectorObservation(
+            detector="sha256-signature",
+            rule_id="bounded-page",
+            classification="test-malware",
+            severity="high",
+        )
+        detector = security.DetectorStatus(
+            detector="local-signatures",
+            version="test-v1",
+            state="completed",
+        )
+        try:
+            for index in range(25):
+                store.record(
+                    security.ScanResult(
+                        resource_id="downloads",
+                        relative_path="a" * 990 + f"-{index:02d}",
+                        status="completed",
+                        verdict="malware_detected",
+                        sha256=f"{index:064x}",
+                        size_bytes=index,
+                        observations=(observation,),
+                        detectors=(detector,),
+                    )
+                )
+            output = store.list(limit=25)
+        finally:
+            store.close()
+
+        self.assertEqual(len(output["findings"]), 25)
+        self.assertLessEqual(len(json.dumps(output).encode("utf-8")), 64 * 1024)
 
 
 class _FakeDetector:

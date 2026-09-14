@@ -19,15 +19,13 @@ Production-код `security.center` никогда не импортирует �
 
 ## Статус
 
-Foundation `0.1.0` и файловый scanner `0.2.0` уже реализованы в production-модуле.
-Capability `security.files.scan` проверяет один файл по доверенной ссылке
-`resource_id + relative_path`, потоково считает SHA-256 и ищет точные hash- и
-byte-сигнатуры. Отдельного test runner, фонового мониторинга, привилегированного
-helper и настоящих вредоносных образцов пока нет.
-
-Следующий запланированный релиз модуля — `0.3.0`: optional adapter к реальному
-локальному ClamAV daemon через `AF_UNIX + INSTREAM`. Документация версии готова,
-но код, manifest и tests этого этапа ещё не изменены.
+Foundation, файловый scanner, optional ClamAV adapter и Finding Store реализованы
+в production-модуле `0.4.0`. `security.files.scan` проверяет один файл по
+доверенной ссылке, `security.scan.run` выполняет bounded `quick`/`full` внутри
+выбранного resource root, а `security.findings.list` возвращает журнал
+подтверждённых наблюдений без содержимого и абсолютных путей. Отдельного test
+runner, фонового мониторинга, привилегированного helper и настоящих вредоносных
+образцов нет.
 
 ## Этап 0.3.0: optional ClamAV
 
@@ -46,6 +44,17 @@ adapter configured, но clamd недоступен, не прошёл peer chec
 reply или превысил timeout, scan получает `partial + unknown`, а не clean.
 Исключение безопасно только в одну сторону: точное локальное совпадение уже
 доказывает угрозу, поэтому `malware_detected` сохраняется и при partial coverage.
+
+## Этап 0.4.0: scan profiles и Finding Store
+
+Quick и full являются разными bounded профилями одного доверенного root. Они не
+принимают абсолютный путь, повторно используют безопасный scanner для каждого
+файла и не выдают clean при недоступном объекте или достижении лимита.
+
+Finding Store сохраняет SHA-256, относительную ссылку, detector и его версию,
+rule, severity и timestamps. Повторная идентичная находка увеличивает счётчик.
+SQLite принадлежит trusted runtime, находится вне scan roots и на POSIX получает
+mode `0600`.
 
 ## Цель MVP
 
@@ -129,7 +138,8 @@ MVP ничего не исправляет автоматически и не и
 
 | Capability | Назначение | Risk |
 |---|---|---|
-| `security.files.scan` | Проверить явно разрешённый файл или каталог | R0 |
+| `security.files.scan` | Проверить явно разрешённый файл | R0 |
+| `security.scan.run` | Запустить bounded quick/full для trusted root | R0 |
 | `security.posture.scan` | Выполнить базовый read-only аудит Ubuntu | R0 |
 | `security.findings.list` | Показать сохранённые находки | R0 |
 | `security.quarantine.prepare` | Подготовить обратимую изоляцию файла | R1 |
@@ -222,9 +232,12 @@ MVP считается готовым только если:
 Принятые границы foundation и будущего третьего контура закреплены в
 [`ADR-026`](../../Architecture/decisions/ADR-026-security-center-foundation.md) и
 [`ADR-027`](../../Architecture/decisions/ADR-027-security-campaign.md).
-Следующий optional adapter закреплён в
+Optional adapter закреплён в
 [`ADR-031 Security`](../../Architecture/decisions/ADR-031-security-clamd-adapter.md),
 а публичное расширение результата — в
 [`File Scan API v3`](../../Architecture/api/security-center-file-scan-v3.md).
+Finding Store и профили закреплены в
+[`ADR-032`](../../Architecture/decisions/ADR-032-security-finding-store-and-scan-profiles.md)
+и [`API v4`](../../Architecture/api/security-center-findings-v4.md).
 Рассмотренные варианты сохранены в
 [`архитектурной дискуссии`](../../Architecture/discussions/security-center-mvp-options.md).
