@@ -489,6 +489,7 @@ class OllamaProviderTests(unittest.TestCase):
                                 "name": "search_documents",
                                 "arguments": {
                                     "text": "PDF files",
+                                    "content_match": "semantic",
                                     "extensions": ["pdf"],
                                     "confidence": 0.9,
                                 },
@@ -513,6 +514,40 @@ class OllamaProviderTests(unittest.TestCase):
         self.assertNotIn("text", arguments)
         self.assertNotIn("content_match", arguments)
         self.assertEqual(arguments["extensions"], ["pdf"])
+
+    def test_present_conditional_enum_is_reaudited_against_trigger_role(self):
+        route = FakeResponse(
+            {
+                "message": {
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "search_documents",
+                                "arguments": {
+                                    "text": "математика",
+                                    "content_match": "exact_phrase",
+                                    "extensions": ["pdf"],
+                                    "confidence": 0.9,
+                                },
+                            }
+                        }
+                    ],
+                }
+            }
+        )
+        review = FakeResponse(
+            {"message": {"content": json.dumps({"classification": "topic"})}}
+        )
+
+        with patch(
+            "ai_native_intents.ollama._open_loopback", side_effect=[route, review]
+        ):
+            turn = OllamaModelProvider().route(model_request())
+
+        arguments = turn.intent_payload["operations"][0]["arguments"]
+        self.assertEqual(arguments["text"], "математика")
+        self.assertEqual(arguments["content_match"], "semantic")
 
     def test_ungrounded_preserved_argument_review_fails_closed(self):
         route = FakeResponse(
@@ -645,6 +680,14 @@ class OllamaProviderTests(unittest.TestCase):
 
         def open_request(request, timeout):
             captured.append((request, timeout))
+            if len(captured) > 1:
+                return FakeResponse(
+                    {
+                        "message": {
+                            "content": json.dumps({"classification": "topic"})
+                        }
+                    }
+                )
             return FakeResponse(
                 {
                     "message": {
@@ -710,6 +753,14 @@ class OllamaProviderTests(unittest.TestCase):
 
         def open_request(request, _timeout):
             captured.append(json.loads(request.data))
+            if len(captured) > 1:
+                return FakeResponse(
+                    {
+                        "message": {
+                            "content": json.dumps({"classification": "topic"})
+                        }
+                    }
+                )
             return FakeResponse(
                 {
                     "message": {
@@ -853,9 +904,16 @@ class OllamaProviderTests(unittest.TestCase):
                 }
             }
         )
+        conditional_review = FakeResponse(
+            {
+                "message": {
+                    "content": json.dumps({"classification": "topic"})
+                }
+            }
+        )
         with patch(
             "ai_native_intents.ollama._open_loopback",
-            side_effect=[response, review],
+            side_effect=[response, conditional_review, review],
         ):
             from dataclasses import replace
 
