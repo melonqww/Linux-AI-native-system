@@ -185,6 +185,75 @@ def test_catalog_enforces_and_hides_conditional_argument_contract():
     assert "reviewChoices" not in definition.model_input_schema["properties"]["match"]
 
 
+def test_catalog_applies_module_default_and_cleans_empty_conditional_pair():
+    definition = OperationDefinition(
+        "lookup_notes",
+        "notes.lookup",
+        "Lookup notes.",
+        {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "match": {
+                    "type": "string",
+                    "enum": ["semantic", "exact"],
+                    "coRequiredWith": ["query"],
+                },
+                "formats": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "default": [],
+                },
+            },
+            "required": ["formats"],
+            "additionalProperties": False,
+        },
+    )
+
+    assert definition.validate_arguments(
+        {"query": "   ", "match": "semantic"}
+    ) == {"formats": ()}
+    assert "default" not in definition.model_input_schema["properties"]["formats"]
+    with pytest.raises(ValueError, match="requires one of"):
+        definition.validate_arguments({"match": "semantic"})
+
+
+def test_catalog_rejects_default_outside_property_schema():
+    with pytest.raises(ValueError, match="neutral empty array"):
+        OperationDefinition(
+            "lookup_notes",
+            "notes.lookup",
+            "Lookup notes.",
+            {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "default": []},
+                },
+                "required": ["query"],
+                "additionalProperties": False,
+            },
+        )
+
+    with pytest.raises(ValueError, match="neutral empty array"):
+        OperationDefinition(
+            "lookup_notes",
+            "notes.lookup",
+            "Lookup notes.",
+            {
+                "type": "object",
+                "properties": {
+                    "formats": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "default": ["pdf"],
+                    },
+                },
+                "required": ["formats"],
+                "additionalProperties": False,
+            },
+        )
+
+
 def test_catalog_rejects_invalid_conditional_argument_reference():
     with pytest.raises(ValueError, match="must name other operation properties"):
         OperationDefinition(

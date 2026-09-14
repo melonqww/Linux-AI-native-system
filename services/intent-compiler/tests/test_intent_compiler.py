@@ -30,11 +30,15 @@ SEARCH = OperationDefinition(
                     "$misplaced": ["misplaced", "destination", "file_type", "other_argument"],
                 },
             },
-            "extensions": {"type": "array", "items": {"type": "string"}},
+            "extensions": {
+                "type": "array",
+                "items": {"type": "string"},
+                "default": [],
+            },
             "volume_ids": {"type": "array", "items": {"type": "string"}},
             "name_terms": {"type": "array", "items": {"type": "string"}},
         },
-        "required": ["mode"],
+        "required": ["mode", "extensions"],
         "additionalProperties": False,
     },
 )
@@ -173,7 +177,12 @@ class IntentCompilerTests(unittest.TestCase):
         cases = (
             ({"mode": "hybrid", "extensions": ["pdf"]}, "metadata"),
             (
-                {"mode": "hybrid", "text": "   ", "extensions": ["pdf"]},
+                {
+                    "mode": "hybrid",
+                    "text": "   ",
+                    "content_match": "semantic",
+                    "extensions": ["pdf"],
+                },
                 "metadata",
             ),
             (
@@ -205,6 +214,32 @@ class IntentCompilerTests(unittest.TestCase):
                 )
                 if not arguments.get("text", "").strip():
                     self.assertNotIn("text", result.intent.operations[0].arguments)
+                    self.assertNotIn(
+                        "content_match", result.intent.operations[0].arguments
+                    )
+
+    def test_module_default_recovers_omitted_neutral_required_argument(self):
+        text = "Найди мои учебные документы"
+        response = payload(
+            text,
+            [
+                operation(
+                    "search",
+                    "search_documents",
+                    {
+                        "mode": "content",
+                        "text": "учебные документы",
+                        "content_match": "semantic",
+                    },
+                    text,
+                )
+            ],
+        )
+
+        result = self.compiler(response).compile_payload(response, text=text)
+
+        self.assertEqual(result.state, CompilationState.READY)
+        self.assertEqual(result.intent.operations[0].arguments["extensions"], ())
 
     def test_content_match_is_required_and_preserved_for_content_queries(self):
         text = "Find documents containing the phrase Pythagorean theorem"

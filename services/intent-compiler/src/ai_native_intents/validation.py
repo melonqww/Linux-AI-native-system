@@ -80,7 +80,10 @@ class IntentValidator:
         raw_arguments = value.get("arguments")
         if not isinstance(raw_arguments, Mapping):
             raise IntentValidationError(f"arguments for {kind} must be an object")
-        normalized = dict(raw_arguments)
+        try:
+            normalized = definition.normalize_arguments(raw_arguments)
+        except (TypeError, ValueError) as error:
+            raise IntentValidationError(str(error), code="invalid_arguments") from error
         if kind == "search_documents":
             # Search mode is a derived execution detail, not model authority.
             # Always replace the model value so equivalent argument sets compile

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from copy import deepcopy
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 
@@ -27,6 +28,7 @@ _SCHEMA_KEYS = frozenset(
         "maximum",
         "coRequiredWith",
         "reviewChoices",
+        "default",
     }
 )
 _SCALAR_TYPES = frozenset({"string", "integer", "number", "boolean"})
@@ -114,16 +116,51 @@ class OperationDefinition:
         for property_schema in schema["properties"].values():
             property_schema.pop("coRequiredWith", None)
             property_schema.pop("reviewChoices", None)
+            property_schema.pop("default", None)
         return schema
 
-    def validate_arguments(self, value: object) -> dict[str, IntentValue]:
+    def normalize_arguments(self, value: object) -> dict[str, object]:
+        """Apply bounded, module-owned normalization before strict validation."""
         if not isinstance(value, Mapping):
             raise ValueError(f"arguments for {self.operation} must be an object")
         schema = self.input_schema
         properties = schema["properties"]
         required = set(schema["required"])
-        unknown = set(value) - set(properties)
-        missing = required - set(value)
+        normalized = dict(value)
+        removed_empty: set[str] = set()
+        for name, raw in tuple(normalized.items()):
+            property_schema = properties.get(name)
+            if (
+                name not in required
+                and isinstance(property_schema, Mapping)
+                and property_schema.get("type") == "string"
+                and isinstance(raw, str)
+                and not raw.strip()
+            ):
+                normalized.pop(name)
+                removed_empty.add(name)
+        for name, property_schema in properties.items():
+            if name not in normalized and "default" in property_schema:
+                normalized[name] = deepcopy(property_schema["default"])
+        for name, property_schema in properties.items():
+            peers = property_schema.get("coRequiredWith", [])
+            if (
+                name in normalized
+                and name not in required
+                and peers
+                and not any(peer in normalized for peer in peers)
+                and any(peer in removed_empty for peer in peers)
+            ):
+                normalized.pop(name)
+        return normalized
+
+    def validate_arguments(self, value: object) -> dict[str, IntentValue]:
+        normalized = self.normalize_arguments(value)
+        schema = self.input_schema
+        properties = schema["properties"]
+        required = set(schema["required"])
+        unknown = set(normalized) - set(properties)
+        missing = required - set(normalized)
         if unknown:
             raise ValueError(
                 f"unsupported arguments for {self.operation}: {sorted(unknown)}"
@@ -132,7 +169,7 @@ class OperationDefinition:
             raise ValueError(
                 f"missing arguments for {self.operation}: {sorted(missing)}"
             )
-        missing_conditional = self.missing_corequired_arguments(value)
+        missing_conditional = self.missing_corequired_arguments(normalized)
         if missing_conditional:
             raise ValueError(
                 f"missing conditionally required arguments for {self.operation}: "
@@ -140,11 +177,13 @@ class OperationDefinition:
             )
         for name, property_schema in properties.items():
             peers = property_schema.get("coRequiredWith", [])
-            if name in value and peers and not any(peer in value for peer in peers):
+            if name in normalized and peers and not any(
+                peer in normalized for peer in peers
+            ):
                 raise ValueError(f"{name} requires one of {sorted(peers)}")
         return {
             key: _validated_value(raw, properties[key], key)
-            for key, raw in value.items()
+            for key, raw in normalized.items()
         }
 
     def validate_argument(self, name: str, value: object) -> IntentValue:
@@ -359,6 +398,15 @@ def _validated_property_schema(value: object, *, array_item: bool) -> dict[str, 
     result = dict(value)
     if items is not None:
         result["items"] = items
+    if "default" in result:
+        if kind != "array" or result["default"] != []:
+            raise ValueError(
+                "operation property default must be a neutral empty array"
+            )
+        try:
+            _validated_value(result["default"], result, "default")
+        except (TypeError, ValueError) as error:
+            raise ValueError("operation property default is invalid") from error
     json.dumps(result, ensure_ascii=False, allow_nan=False)
     return result
 
