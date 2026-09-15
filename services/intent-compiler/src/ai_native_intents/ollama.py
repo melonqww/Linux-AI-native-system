@@ -760,6 +760,11 @@ class OllamaModelProvider:
                 and len(evidence) <= 300
                 and evidence in user_text
             )
+            reviewed_value_is_literal = (
+                OllamaModelProvider._argument_value_is_in_message(
+                    raw.get("value"), user_text
+                )
+            )
             grounded_conditional_enum = (
                 key in conditionally_required
                 and "enum" in schema
@@ -767,13 +772,19 @@ class OllamaModelProvider:
                     definition, key[1], arguments
                 )
             )
-            if not evidence_is_grounded and not grounded_conditional_enum:
+            if (
+                not evidence_is_grounded
+                and not reviewed_value_is_literal
+                and not grounded_conditional_enum
+            ):
                 return None
             try:
                 value = definition.validate_argument(key[1], raw.get("value"))
             except (TypeError, ValueError):
                 return None
-            if not OllamaModelProvider._review_value_is_grounded(value, evidence, schema):
+            if not reviewed_value_is_literal and not OllamaModelProvider._review_value_is_grounded(
+                value, evidence, schema
+            ):
                 return None
             if already_present and arguments[key[1]] != value:
                 return None

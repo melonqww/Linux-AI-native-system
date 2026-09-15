@@ -350,6 +350,66 @@ class OllamaProviderTests(unittest.TestCase):
         )
         self.assertNotIn("destination", operation["arguments"])
 
+    def test_literal_preserved_value_survives_a_hallucinated_evidence_label(self):
+        route = FakeResponse(
+            {
+                "message": {
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "copy_results",
+                                "arguments": {
+                                    "destination": "Private",
+                                    "confidence": 1,
+                                },
+                            }
+                        }
+                    ],
+                }
+            }
+        )
+        review = FakeResponse(
+            {
+                "message": {
+                    "content": json.dumps(
+                        {
+                            "reviews": [
+                                {
+                                    "call_index": 0,
+                                    "argument": "directory_name",
+                                    "status": "present",
+                                    "value": "Private",
+                                    "evidence": "directory_name",
+                                }
+                            ]
+                        }
+                    )
+                }
+            }
+        )
+        request = model_request("Copy those results to a folder called Private")
+        request = ModelRequest(
+            request.user_text,
+            "en",
+            {"has_active_results": True, "has_last_destination": False, "locale": "en"},
+            request.output_schema,
+            request.instructions,
+            allowed_operations=("copy_results",),
+            operation_definitions=request.operation_definitions,
+        )
+
+        with patch(
+            "ai_native_intents.ollama._open_loopback", side_effect=[route, review]
+        ):
+            turn = OllamaModelProvider().route(request)
+
+        self.assertEqual(turn.kind, ModelTurnKind.CLARIFICATION)
+        self.assertEqual(turn.clarification_key, "copy_destination")
+        operation = turn.pending_intent_payload["operations"][0]
+        self.assertEqual(operation["arguments"]["directory_name"], "Private")
+        self.assertNotIn("destination", operation["arguments"])
+
     def test_missing_preserved_argument_is_recovered_from_grounded_review(self):
         route = FakeResponse(
             {

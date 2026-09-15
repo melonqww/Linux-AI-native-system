@@ -60,6 +60,7 @@ class MeasuredOllamaModelProvider(OllamaModelProvider):
         started = perf_counter()
         result = super()._json_request(method, path, payload, timeout=timeout)
         if method == "POST":
+            message = result.get("message") if isinstance(result, Mapping) else None
             self._usage.append(
                 {
                     "path": path,
@@ -67,6 +68,7 @@ class MeasuredOllamaModelProvider(OllamaModelProvider):
                     "prompt_tokens": _counter(result, "prompt_eval_count"),
                     "output_tokens": _counter(result, "eval_count"),
                     "ollama_total_ns": _counter(result, "total_duration"),
+                    "response_message": _wire_message(message),
                 }
             )
         return result
@@ -476,6 +478,17 @@ def _operation_definitions(registry, available, policy_source):
         available_capabilities=available,
         policy_source=policy_source,
     )
+
+
+def _wire_message(value: object) -> object:
+    """Keep bounded raw model output for diagnosing rejected internal reviews."""
+    if not isinstance(value, Mapping):
+        return None
+    content = value.get("content")
+    return {
+        "content": content[:2_000] if isinstance(content, str) else None,
+        "tool_calls": _json_value(value.get("tool_calls")),
+    }
 
 
 def _counter(payload: Mapping[str, object], name: str) -> int | None:

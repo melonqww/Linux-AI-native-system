@@ -497,7 +497,10 @@ Markdown даёт короткий результат для человека и
 coverage. JSON schema v2 хранит turn-by-turn checks,
 сообщения, model boundary events, планы/результаты исполнителя, approval decision,
 audit events, fault events, containment hashes, latency, число вызовов модели,
-Ollama prompt/output token counters, ошибку слоя и путь к виртуальному ПК.
+Ollama prompt/output token counters, ограниченный до 2000 символов wire-ответ
+модели без системного prompt, ошибку слоя и путь к виртуальному ПК. Wire-ответ
+нужен для разбора внутренних review-вызовов, которые не становятся публичным
+ответом Workspace.
 Благодаря этому можно
 различить:
 
