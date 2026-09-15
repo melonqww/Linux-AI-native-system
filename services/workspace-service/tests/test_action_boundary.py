@@ -102,6 +102,28 @@ def wait(store, run):
     pytest.fail("runtime did not finish")
 
 
+def pending_copy_state(text="Copy those results to a folder called Private", collection=None):
+    draft = {
+        "schema_version": 1,
+        "language": "en",
+        "summary": text,
+        "confidence": 0.9,
+        "operations": [
+            {
+                "id": "op_1_copy_results",
+                "kind": "copy_results",
+                "arguments": {
+                    "results_from": "context.active_results",
+                    "directory_name": "Private",
+                },
+                "depends_on": [],
+                "evidence": [text],
+            }
+        ],
+    }
+    return WorkspaceRuntime._new_pending_copy_state(text, collection, draft)
+
+
 @pytest.mark.parametrize(
     "text",
     [
@@ -489,7 +511,7 @@ def test_destination_followup_is_not_approval_and_does_not_replay_on_new_topic(
         MessageRole.USER, MessageKind.CONVERSATION, "Copy those files to Private"
     )
     store.save_clarification(
-        "core", original.message_id, {"text": original.content, "collection": None}
+        "core", original.message_id, pending_copy_state(original.content)
     )
     model = SplitModel(
         ModelTurn(
@@ -506,10 +528,11 @@ def test_destination_followup_is_not_approval_and_does_not_replay_on_new_topic(
         },
     )
     executor = Executor(None)
+    compiler = Compiler(None)
     runtime = WorkspaceRuntime(
         store,
         model,
-        Compiler(None),
+        compiler,
         executor,
         lambda: TaskContext(locale="en"),
         turn_router=TurnRouter(model),
@@ -521,8 +544,7 @@ def test_destination_followup_is_not_approval_and_does_not_replay_on_new_topic(
         )
         assert not executor.called.is_set()
         assert model.route_calls == 0
-        if resumes:
-            assert store.list_messages()[-1].kind is MessageKind.CLARIFICATION
+        assert compiler.calls == int(resumes)
     finally:
         runtime.close()
 
@@ -643,9 +665,7 @@ def test_ambiguous_or_negated_destination_never_resumes_saved_copy(store, reply)
         MessageRole.USER, MessageKind.CONVERSATION, "Copy results to Private"
     )
     store.save_clarification(
-        "core",
-        original.message_id,
-        {"text": original.content, "collection": None, "intent_payload": {}},
+        "core", original.message_id, pending_copy_state(original.content)
     )
     model = SplitModel(
         ModelTurn(ModelTurnKind.CONVERSATION, "Please clarify."),

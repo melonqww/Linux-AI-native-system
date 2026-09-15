@@ -607,7 +607,38 @@ class OllamaModelProvider:
             ],
             "stream": False,
             "think": False,
-            "format": "json",
+            "format": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["reviews"],
+                "properties": {
+                    "reviews": {
+                        "type": "array",
+                        "minItems": len(review_specs),
+                        "maxItems": len(review_specs),
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "required": ["call_index", "argument", "status"],
+                            "properties": {
+                                "call_index": {"type": "integer", "minimum": 0},
+                                "argument": {"type": "string"},
+                                "status": {
+                                    "type": "string",
+                                    "enum": [
+                                        "present",
+                                        "absent",
+                                        "uncertain",
+                                        "misplaced",
+                                    ],
+                                },
+                                "value": {},
+                                "evidence": {"type": "string", "maxLength": 300},
+                            },
+                        },
+                    }
+                },
+            },
             "keep_alive": self.keep_alive,
             "options": {
                 "num_ctx": self.context_tokens,

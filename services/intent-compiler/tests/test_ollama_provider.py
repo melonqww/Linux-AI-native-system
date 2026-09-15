@@ -403,13 +403,24 @@ class OllamaProviderTests(unittest.TestCase):
 
         with patch(
             "ai_native_intents.ollama._open_loopback", side_effect=[route, review]
-        ):
+        ) as open_loopback:
             turn = OllamaModelProvider().route(request)
 
         self.assertEqual(turn.kind, ModelTurnKind.ACTION)
         self.assertEqual(
             turn.intent_payload["operations"][0]["arguments"]["directory_name"],
             "Private",
+        )
+        review_request = json.loads(open_loopback.call_args_list[1].args[0].data)
+        review_format = review_request["format"]
+        self.assertEqual(review_format["type"], "object")
+        self.assertEqual(
+            review_format["properties"]["reviews"]["minItems"], 1
+        )
+        self.assertFalse(
+            review_format["properties"]["reviews"]["items"][
+                "additionalProperties"
+            ]
         )
 
     def test_derived_enum_is_recovered_from_a_valid_current_turn_trigger(self):

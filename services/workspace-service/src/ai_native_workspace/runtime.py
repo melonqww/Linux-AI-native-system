@@ -194,10 +194,10 @@ class WorkspaceRuntime:
             pending = self.store.take_clarification(
                 transport_context.principal, user_message_id
             )
-            if (
-                pending
-                and pending.get("collection") == self.context().active_collection_id
-            ):
+            pending_copy = self._pending_copy_state(
+                pending, self.context().active_collection_id
+            )
+            if pending_copy is not None:
                 if re.fullmatch(
                     r"\s*(?:no|cancel|no[,.]?\s*cancel(?:\s*it)?|нет|отмена|не надо)[.!]?\s*",
                     text,
@@ -212,9 +212,9 @@ class WorkspaceRuntime:
                     return
                 role = destination_role(text, clarification=True)
                 if role is not None:
-                    text = pending["text"] + " " + text
+                    text = pending_copy["original_text"] + " " + text
                     resumed_payload = self._resume_copy_intent(
-                        pending.get("intent_payload"), role
+                        pending_copy["intent_payload"], role
                     )
                     if resumed_payload is None:
                         self._complete_reply(
@@ -388,15 +388,17 @@ class WorkspaceRuntime:
                 )
             if turn.kind is ModelTurnKind.CLARIFICATION:
                 if turn.clarification_key == "copy_destination":
-                    self.store.save_clarification(
-                        transport_context.principal,
-                        user_message_id,
-                        {
-                            "text": text,
-                            "collection": self.context().active_collection_id,
-                            "intent_payload": turn.pending_intent_payload,
-                        },
+                    pending_state = self._new_pending_copy_state(
+                        text,
+                        self.context().active_collection_id,
+                        turn.pending_intent_payload,
                     )
+                    if pending_state is not None:
+                        self.store.save_clarification(
+                            transport_context.principal,
+                            user_message_id,
+                            pending_state,
+                        )
                 self._complete_reply(
                     run_id,
                     turn.response_text or self._clarification(locale),
@@ -567,6 +569,62 @@ class WorkspaceRuntime:
             return None
         copies[0]["destination"] = role
         return resumed
+
+    @staticmethod
+    def _new_pending_copy_state(
+        original_text: str,
+        collection_id: str | None,
+        intent_payload: object,
+    ) -> dict[str, object] | None:
+        """Create a typed, non-executable clarification checkpoint.
+
+        The checkpoint describes the one field that may be supplied by the
+        following turn.  It is deliberately separate from chat history and
+        cannot become executable until ``_resume_copy_intent`` fills that field
+        and the normal compiler and permission boundary run again.
+        """
+        if WorkspaceRuntime._resume_copy_intent(intent_payload, "desktop") is None:
+            return None
+        return {
+            "version": 1,
+            "clarification_key": "copy_destination",
+            "operation": "copy_results",
+            "missing_arguments": ["destination"],
+            "original_text": original_text,
+            "collection_id": collection_id,
+            "intent_payload": deepcopy(intent_payload),
+        }
+
+    @staticmethod
+    def _pending_copy_state(
+        value: object, active_collection_id: str | None
+    ) -> dict[str, object] | None:
+        """Validate a persisted checkpoint before interpreting a short reply."""
+        if not isinstance(value, dict) or set(value) != {
+            "version",
+            "clarification_key",
+            "operation",
+            "missing_arguments",
+            "original_text",
+            "collection_id",
+            "intent_payload",
+        }:
+            return None
+        if (
+            value["version"] != 1
+            or value["clarification_key"] != "copy_destination"
+            or value["operation"] != "copy_results"
+            or value["missing_arguments"] != ["destination"]
+            or not isinstance(value["original_text"], str)
+            or not value["original_text"].strip()
+            or value["collection_id"] != active_collection_id
+            or WorkspaceRuntime._resume_copy_intent(
+                value["intent_payload"], "desktop"
+            )
+            is None
+        ):
+            return None
+        return value
 
     def _complete_reply(
         self, run_id: str, text: str, kind: MessageKind = MessageKind.CONVERSATION
