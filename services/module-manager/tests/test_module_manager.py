@@ -116,7 +116,7 @@ class ModuleManagerTests(unittest.TestCase):
             {
                 "schema_version": 1,
                 "module_id": "security.center",
-                "module_version": "0.5.0",
+                "module_version": "0.6.0",
                 "state": "ready",
                 "lifecycle": "on-demand",
                 "capabilities": [
@@ -125,6 +125,9 @@ class ModuleManagerTests(unittest.TestCase):
                     "security.scan.run",
                     "security.findings.list",
                     "security.posture.scan",
+                    "security.quarantine.prepare",
+                    "security.quarantine.commit",
+                    "security.quarantine.restore",
                 ],
             },
         )

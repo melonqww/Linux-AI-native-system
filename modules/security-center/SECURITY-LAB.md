@@ -20,7 +20,8 @@ Production-код `security.center` никогда не импортирует �
 ## Статус
 
 Foundation, файловый scanner, optional ClamAV adapter, Finding Store и Ubuntu
-posture реализованы в production-модуле `0.5.0`. `security.files.scan` проверяет один файл по
+posture и обратимый карантин реализованы в production-модуле `0.6.0`.
+`security.files.scan` проверяет один файл по
 доверенной ссылке, `security.scan.run` выполняет bounded `quick`/`full` внутри
 выбранного resource root, а `security.findings.list` возвращает журнал
 подтверждённых наблюдений без содержимого и абсолютных путей. Отдельного test

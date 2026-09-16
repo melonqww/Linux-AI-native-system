@@ -297,6 +297,43 @@ class PermissionGatewayTests(unittest.TestCase):
         )
         self.assertEqual(gateway.evaluate(http).reason_code, "transport_not_allowed")
 
+    def test_quarantine_commit_requires_approval_secure_transport_and_scope(self):
+        gateway = PermissionGateway(
+            builtin_policies(),
+            capability_source=lambda: {"security.quarantine.commit"},
+        )
+        value = invocation(
+            capability="security.quarantine.commit",
+            phase=ExecutionPhase.COMMIT,
+            step_id="step_quarantine",
+            arguments={"quarantine_id": "12345678-1234-1234-1234-123456789abc"},
+            declared_risk="R1",
+            declared_approval_required=True,
+            context=ExecutionContext(
+                TransportContext.internal(),
+                frozenset(
+                    {
+                        "filesystem.read-metadata",
+                        "filesystem.read-content",
+                        "security.write-quarantine",
+                    }
+                ),
+                False,
+            ),
+        )
+
+        self.assertEqual(gateway.evaluate(value).reason_code, "approval_required")
+        approved = replace(value, context=replace(value.context, approval_granted=True))
+        self.assertTrue(gateway.evaluate(approved).allowed)
+        http = replace(
+            approved,
+            context=replace(
+                approved.context,
+                transport=TransportContext(TransportKind.LOOPBACK_HTTP, "http"),
+            ),
+        )
+        self.assertEqual(gateway.evaluate(http).reason_code, "transport_not_allowed")
+
 
 class ExecutionRegistryTests(unittest.TestCase):
     def setUp(self):

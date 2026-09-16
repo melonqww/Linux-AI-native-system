@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 
 STATUS_SCHEMA_VERSION = 1
 MODULE_ID = "security.center"
-MODULE_VERSION = "0.5.0"
+MODULE_VERSION = "0.6.0"
 MODULE_LIFECYCLE = "on-demand"
 STATUS_CAPABILITIES = (
     "security.module.status",
@@ -15,6 +15,9 @@ STATUS_CAPABILITIES = (
     "security.scan.run",
     "security.findings.list",
     "security.posture.scan",
+    "security.quarantine.prepare",
+    "security.quarantine.commit",
+    "security.quarantine.restore",
 )
 SCAN_SCHEMA_VERSION = 2
 MAX_OBSERVATIONS = 8

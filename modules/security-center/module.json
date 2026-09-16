@@ -2,8 +2,8 @@
   "schema_version": 2,
   "module_id": "security.center",
   "display_name": "Security Center",
-  "description": "Provides bounded malware scanning, durable findings, and read-only Ubuntu security posture checks.",
-  "module_version": "0.5.0",
+  "description": "Provides bounded malware scanning, durable findings, Ubuntu posture, and reversible quarantine.",
+  "module_version": "0.6.0",
   "core_api": "1",
   "capabilities": [
     {
@@ -69,11 +69,44 @@
         "additionalProperties": false
       },
       "requested_permissions": ["security.read-posture"]
+    },
+    {
+      "id": "security.quarantine.prepare",
+      "description": "Prepare a reversible quarantine receipt for one active finding.",
+      "input_schema": {
+        "type": "object",
+        "properties": {"finding_id": {"type": "integer", "minimum": 1}},
+        "required": ["finding_id"],
+        "additionalProperties": false
+      },
+      "requested_permissions": ["security.read-findings", "filesystem.read-metadata", "filesystem.read-content"]
+    },
+    {
+      "id": "security.quarantine.commit",
+      "description": "Commit an approved one-time quarantine operation.",
+      "input_schema": {
+        "type": "object",
+        "properties": {"quarantine_id": {"type": "string", "minLength": 36, "maxLength": 36}},
+        "required": ["quarantine_id"],
+        "additionalProperties": false
+      },
+      "requested_permissions": ["filesystem.read-metadata", "filesystem.read-content", "security.write-quarantine"]
+    },
+    {
+      "id": "security.quarantine.restore",
+      "description": "Restore one approved quarantined object without overwriting an existing path.",
+      "input_schema": {
+        "type": "object",
+        "properties": {"quarantine_id": {"type": "string", "minLength": 36, "maxLength": 36}},
+        "required": ["quarantine_id"],
+        "additionalProperties": false
+      },
+      "requested_permissions": ["security.write-quarantine", "filesystem.write-content"]
     }
   ],
   "dependencies": [],
   "optional_dependencies": [],
-  "requested_permissions": ["security.read-status", "filesystem.read-metadata", "filesystem.read-content", "security.write-findings", "security.read-findings", "security.read-posture"],
+  "requested_permissions": ["security.read-status", "filesystem.read-metadata", "filesystem.read-content", "filesystem.write-content", "security.write-findings", "security.read-findings", "security.read-posture", "security.write-quarantine"],
   "lifecycle": "on-demand",
   "resource_class": "tiny",
   "default_enabled": true,

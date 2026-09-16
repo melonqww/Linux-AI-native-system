@@ -14,7 +14,7 @@ class SecurityCenterManifestTests(unittest.TestCase):
 
         self.assertEqual(manifest["schema_version"], 2)
         self.assertEqual(manifest["module_id"], "security.center")
-        self.assertEqual(manifest["module_version"], "0.5.0")
+        self.assertEqual(manifest["module_version"], "0.6.0")
         self.assertEqual(manifest["lifecycle"], "on-demand")
         self.assertTrue(manifest["default_enabled"])
         self.assertEqual(
@@ -23,12 +23,14 @@ class SecurityCenterManifestTests(unittest.TestCase):
                 "security.read-status",
                 "filesystem.read-metadata",
                 "filesystem.read-content",
+                "filesystem.write-content",
                 "security.write-findings",
                 "security.read-findings",
                 "security.read-posture",
+                "security.write-quarantine",
             ],
         )
-        self.assertEqual(len(manifest["capabilities"]), 5)
+        self.assertEqual(len(manifest["capabilities"]), 8)
 
         capability = manifest["capabilities"][0]
         self.assertEqual(capability["id"], "security.module.status")
@@ -83,6 +85,14 @@ class SecurityCenterManifestTests(unittest.TestCase):
         self.assertEqual(posture["input_schema"]["required"], [])
         self.assertFalse(posture["input_schema"]["additionalProperties"])
         self.assertEqual(posture["requested_permissions"], ["security.read-posture"])
+
+        prepare, commit, restore = manifest["capabilities"][5:]
+        self.assertEqual(prepare["id"], "security.quarantine.prepare")
+        self.assertEqual(prepare["input_schema"]["required"], ["finding_id"])
+        self.assertEqual(commit["id"], "security.quarantine.commit")
+        self.assertEqual(restore["id"], "security.quarantine.restore")
+        self.assertEqual(commit["input_schema"]["required"], ["quarantine_id"])
+        self.assertEqual(restore["input_schema"]["required"], ["quarantine_id"])
 
     def test_entrypoint_and_package_metadata_are_consistent(self) -> None:
         manifest = json.loads(

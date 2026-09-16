@@ -258,6 +258,12 @@ class CapabilityRegistryTests(RegistryTestCase):
             "security.posture.scan",
             self.registry.available_capabilities(),
         )
+        for capability_id in (
+            "security.quarantine.prepare",
+            "security.quarantine.commit",
+            "security.quarantine.restore",
+        ):
+            self.assertIn(capability_id, self.registry.available_capabilities())
 
     def test_enabled_modules_publish_declarative_intent_routes(self) -> None:
         self.registry.sync([PROJECT_ROOT / "services", PROJECT_ROOT / "modules"])
@@ -315,6 +321,18 @@ class CapabilityRegistryTests(RegistryTestCase):
         self.assertEqual(security_posture.input_schema["properties"], {})
         self.assertEqual(security_posture.input_schema["required"], [])
         self.assertFalse(security_posture.input_schema["additionalProperties"])
+        self.assertEqual(
+            set(by_id["security.quarantine.prepare"].input_schema["required"]),
+            {"finding_id"},
+        )
+        for capability_id in (
+            "security.quarantine.commit",
+            "security.quarantine.restore",
+        ):
+            self.assertEqual(
+                set(by_id[capability_id].input_schema["required"]),
+                {"quarantine_id"},
+            )
 
         self.registry.set_enabled("documents.query", False)
         self.assertNotIn(

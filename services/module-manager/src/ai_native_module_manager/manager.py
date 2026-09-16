@@ -70,6 +70,12 @@ class ModuleProcessManager:
         self.security_findings_database = (
             self.runtime_directory / "security-findings.sqlite3"
         ).expanduser().absolute()
+        self.security_quarantine_root = (
+            self.runtime_directory / "security-quarantine"
+        ).expanduser().absolute()
+        self.security_quarantine_database = (
+            self.runtime_directory / "security-quarantine.sqlite3"
+        ).expanduser().absolute()
         self.security_scan_roots = {
             resource_id: Path(root).expanduser().resolve(strict=True)
             for resource_id, root in (security_scan_roots or {}).items()
@@ -80,6 +86,16 @@ class ModuleProcessManager:
             except ValueError:
                 continue
             raise ValueError("security findings database must be outside scan roots")
+        for root in self.security_scan_roots.values():
+            for protected in (
+                self.security_quarantine_root,
+                self.security_quarantine_database,
+            ):
+                try:
+                    protected.relative_to(root)
+                except ValueError:
+                    continue
+                raise ValueError("security quarantine must be outside scan roots")
         self.security_clamd_socket = self._validate_security_clamd_socket(
             security_clamd_socket
         )
@@ -157,6 +173,12 @@ class ModuleProcessManager:
             )
             env["AI_NATIVE_SECURITY_USER_AUTOSTART"] = str(
                 Path.home() / ".config" / "autostart"
+            )
+            env["AI_NATIVE_SECURITY_QUARANTINE_ROOT"] = str(
+                self.security_quarantine_root
+            )
+            env["AI_NATIVE_SECURITY_QUARANTINE_DATABASE"] = str(
+                self.security_quarantine_database
             )
         self._configure_security_clamd_environment(env, module_id)
         provider_root = self.runtime_directory / "providers" / "ollama"

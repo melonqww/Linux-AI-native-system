@@ -239,7 +239,7 @@ read API. Контракт: [`API v4`](../../Architecture/api/security-center-fi
 Критерий этапа: аудит ничего не изменяет, а системные findings содержат probe,
 версию правил и evidence codes.
 
-## Этап 4 — обратимый карантин
+## Этап 4 — обратимый карантин — завершён в 0.6.0
 
 - server-owned `prepare` и понятный preview;
 - одноразовое approval;
@@ -275,5 +275,5 @@ security fixtures и будущий runner принадлежат третьем
 3. Зафиксировать quarantine storage и restore receipt.
 4. После стабильного карантина добавить внешний Security Campaign.
 
-Следующий production-срез — `0.6.0` с обратимым карантином. Он остаётся отдельной
-версией, потому что впервые изменяет пользовательские файлы.
+Следующий этап — внешний Security Campaign и Ubuntu integration для проверки
+containment, path races, permissions и реального clamd на целевой системе.

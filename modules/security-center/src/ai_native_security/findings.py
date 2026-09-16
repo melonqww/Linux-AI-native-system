@@ -142,6 +142,41 @@ class FindingStore:
             "findings": [self._serialize(row) for row in rows],
         }
 
+    def get(self, finding_id: object) -> dict[str, object]:
+        if type(finding_id) is not int or finding_id < 1:
+            raise ValueError("invalid_finding_id")
+        try:
+            with self._connection() as connection:
+                row = connection.execute(
+                    """
+                    SELECT finding_id, resource_id, relative_path, sha256, size_bytes,
+                           detector, detector_version, rule_id, classification,
+                           severity, state, first_seen_at, last_seen_at,
+                           occurrence_count
+                    FROM security_findings WHERE finding_id = ?
+                    """,
+                    (finding_id,),
+                ).fetchone()
+        except (OSError, sqlite3.Error) as error:
+            raise FindingStoreError("finding_store_unavailable") from error
+        if row is None:
+            raise ValueError("finding_not_found")
+        return self._serialize(row)
+
+    def set_state(self, finding_id: int, state: str) -> None:
+        if state not in _STATES:
+            raise ValueError("invalid_finding_state")
+        try:
+            with self._connection() as connection:
+                changed = connection.execute(
+                    "UPDATE security_findings SET state = ? WHERE finding_id = ?",
+                    (state, finding_id),
+                ).rowcount
+        except (OSError, sqlite3.Error) as error:
+            raise FindingStoreError("finding_store_unavailable") from error
+        if changed != 1:
+            raise ValueError("finding_not_found")
+
     def close(self) -> None:
         """Connections are short-lived; retained for a symmetric worker lifecycle."""
 

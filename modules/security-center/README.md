@@ -1,7 +1,7 @@
 # Security Center
 
 `Security Center` — доверенный on-demand модуль защиты AI-native Linux.
-Текущий код `0.5.0` предоставляет status, безопасное сканирование одного файла,
+Текущий код `0.6.0` предоставляет status, безопасное сканирование одного файла,
 профили `quick`/`full`, Finding Store, optional локальный `clamd` и read-only
 аудит Ubuntu.
 
@@ -88,20 +88,30 @@ rules. Используются только фиксированные paths/co
 таймаутами и bounded input/output. Collector ничего не исправляет и при
 неполном покрытии возвращает `partial + unknown`.
 
+## v0.6.0: обратимый карантин
+
+Три R1 capability реализуют `prepare → approved commit → approved restore`.
+Prepare повторно сверяет finding и digest, но не меняет файл. Commit выполняет
+только атомарный same-filesystem move в закрытый runtime root; copy-delete и
+безвозвратное удаление запрещены. Restore не перезаписывает занятый путь и после
+каждого перемещения повторно проверяет SHA-256.
+
 ## Границы версии
 
-`0.5.0` сканирует один файл или bounded trusted root, выполняет read-only Ubuntu
+`0.6.0` сканирует один файл или bounded trusted root, выполняет read-only Ubuntu
 posture и возвращает JSON-safe
 результат: digest, размер, итог, код ошибки и нормализованные observations. В ответ не входят содержимое файла, абсолютный
 путь, секреты, произвольный detector output или traceback.
 
-Версия не выполняет карантин, удаление, лечение, распаковку архивов, фоновый
+Версия не выполняет удаление, лечение, распаковку архивов, фоновый
 мониторинг или обновление сигнатур. Scanner не имеет сети, не
 запускает subprocess и не получает постоянный root. Full означает полный обход
 выбранного resource в жёстких пределах профиля, а не всей операционной системы.
 
 ## Документация
 
+- [Reversible Quarantine API v6](../../Architecture/api/security-center-quarantine-v6.md)
+- [ADR-034: обратимый same-filesystem карантин](../../Architecture/decisions/ADR-034-security-reversible-quarantine.md)
 - [Ubuntu Posture API v5](../../Architecture/api/security-center-posture-v5.md)
 - [ADR-033: bounded read-only Ubuntu posture](../../Architecture/decisions/ADR-033-security-ubuntu-posture.md)
 - [Scan Profiles and Finding Store API v4](../../Architecture/api/security-center-findings-v4.md)

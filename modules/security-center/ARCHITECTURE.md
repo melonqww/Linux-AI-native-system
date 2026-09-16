@@ -1,8 +1,8 @@
 # Security Center MVP — архитектура
 
 **Статус:** целевая архитектура; foundation, File Scanner, optional clamd,
-quick/full coordinator, Finding Store и read-only Ubuntu posture реализованы в
-`security.center` `0.5.0`; остальные компоненты остаются планом.
+quick/full coordinator, Finding Store, read-only Ubuntu posture и обратимый
+карантин реализованы в `security.center` `0.6.0`; Security Campaign остаётся планом.
 
 ## 1. Решение
 
@@ -279,3 +279,6 @@ adapter через `AF_UNIX + INSTREAM`. Его контракт закрепл�
 Этап 5 реализован в `0.5.0`; контракт находится в
 [`Posture API v5`](../../Architecture/api/security-center-posture-v5.md), решение —
 в [`ADR-033`](../../Architecture/decisions/ADR-033-security-ubuntu-posture.md).
+Этап 6 реализован в `0.6.0`; контракт находится в
+[`Quarantine API v6`](../../Architecture/api/security-center-quarantine-v6.md),
+решение — в [`ADR-034`](../../Architecture/decisions/ADR-034-security-reversible-quarantine.md).

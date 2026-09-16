@@ -21,6 +21,7 @@ from .campaigns import CampaignScanner, ScanProfile
 from .detectors import ClamdUnixSocketDetector, StreamDetector
 from .findings import FindingStore, FindingStoreError
 from .posture import PostureObservation, UbuntuPostureCollector
+from .quarantine import QuarantineManager
 from .scanner import ByteSignature, FileScanner, HashSignature, SignatureDatabase
 
 
@@ -29,6 +30,7 @@ _scanner: FileScanner | None = None
 _campaign_scanner: CampaignScanner | None = None
 _finding_store: FindingStore | None = None
 _posture_collector: UbuntuPostureCollector | None = None
+_quarantine_manager: QuarantineManager | None = None
 
 
 def worker_start(
@@ -39,10 +41,13 @@ def worker_start(
     finding_database: str | os.PathLike[str] | None = None,
     scan_profiles: Mapping[str, ScanProfile] | None = None,
     posture_collector: UbuntuPostureCollector | None = None,
+    quarantine_root: str | os.PathLike[str] | None = None,
+    quarantine_database: str | os.PathLike[str] | None = None,
 ) -> None:
     """Start with roots supplied only by trusted bootstrap code."""
 
-    global _campaign_scanner, _finding_store, _posture_collector, _scanner, _started
+    global _campaign_scanner, _finding_store, _posture_collector
+    global _quarantine_manager, _scanner, _started
     if _started:
         return
     roots = _roots_from_environment() if allowed_roots is None else allowed_roots
@@ -72,6 +77,25 @@ def worker_start(
             finding_store.record,
             **campaign_options,
         )
+        configured_root = quarantine_root or os.environ.get(
+            "AI_NATIVE_SECURITY_QUARANTINE_ROOT"
+        )
+        configured_database = quarantine_database or os.environ.get(
+            "AI_NATIVE_SECURITY_QUARANTINE_DATABASE"
+        )
+        if (configured_root is None) != (configured_database is None):
+            raise ValueError("invalid_quarantine_configuration")
+        quarantine_manager = (
+            None
+            if configured_root is None
+            else QuarantineManager(
+                roots,
+                scanner,
+                finding_store,
+                configured_root,
+                configured_database,
+            )
+        )
     except Exception:
         finding_store.close()
         raise
@@ -83,6 +107,7 @@ def worker_start(
         signature_version=signature_database.version,
         clamd_configured=bool(detectors),
     )
+    _quarantine_manager = quarantine_manager
     _started = True
 
 
@@ -129,18 +154,34 @@ def worker_invoke(operation: str, payload: dict[str, object]) -> dict[str, objec
             raise ValueError("invalid_payload")
         assert _posture_collector is not None
         return _posture_collector.scan()
+    if operation == "quarantine_prepare":
+        if set(payload) != {"finding_id"}:
+            raise ValueError("invalid_payload")
+        return _require_quarantine().prepare(payload["finding_id"])
+    if operation == "quarantine_commit":
+        if set(payload) != {"quarantine_id"}:
+            raise ValueError("invalid_payload")
+        return _require_quarantine().commit(payload["quarantine_id"])
+    if operation == "quarantine_restore":
+        if set(payload) != {"quarantine_id"}:
+            raise ValueError("invalid_payload")
+        return _require_quarantine().restore(payload["quarantine_id"])
     raise ValueError("unknown_operation")
 
 
 def worker_stop() -> None:
     """Stop the worker; repeated stops are harmless."""
 
-    global _campaign_scanner, _finding_store, _posture_collector, _scanner, _started
+    global _campaign_scanner, _finding_store, _posture_collector
+    global _quarantine_manager, _scanner, _started
     if _finding_store is not None:
         _finding_store.close()
     _finding_store = None
     _campaign_scanner = None
     _posture_collector = None
+    if _quarantine_manager is not None:
+        _quarantine_manager.close()
+    _quarantine_manager = None
     _scanner = None
     _started = False
 
@@ -148,6 +189,12 @@ def worker_stop() -> None:
 def _require_started() -> None:
     if not _started:
         raise RuntimeError("security_worker_not_started")
+
+
+def _require_quarantine() -> QuarantineManager:
+    if _quarantine_manager is None:
+        raise RuntimeError("quarantine_not_configured")
+    return _quarantine_manager
 
 
 def _roots_from_environment() -> dict[str, str]:
@@ -227,6 +274,7 @@ __all__ = [
     "FindingStoreError",
     "HashSignature",
     "PostureObservation",
+    "QuarantineManager",
     "ScanResult",
     "ScanProfile",
     "SecurityModuleStatus",

@@ -24,7 +24,7 @@ from ai_native_security.detectors import DetectorError
 EXPECTED_STATUS = {
     "schema_version": 1,
     "module_id": "security.center",
-    "module_version": "0.5.0",
+    "module_version": "0.6.0",
     "state": "ready",
     "lifecycle": "on-demand",
     "capabilities": [
@@ -33,6 +33,9 @@ EXPECTED_STATUS = {
         "security.scan.run",
         "security.findings.list",
         "security.posture.scan",
+        "security.quarantine.prepare",
+        "security.quarantine.commit",
+        "security.quarantine.restore",
     ],
 }
 MODULE_ROOT = Path(__file__).resolve().parents[1]
@@ -112,6 +115,8 @@ class SecurityFileScannerTests(unittest.TestCase):
         self.root = MODULE_ROOT / f"security-scan-{uuid.uuid4().hex}"
         self.root.mkdir()
         self.findings_database = self.root.parent / f"{self.root.name}-findings.sqlite3"
+        self.quarantine_root = self.root.parent / f"{self.root.name}-quarantine"
+        self.quarantine_database = self.root.parent / f"{self.root.name}-quarantine.sqlite3"
 
     def tearDown(self) -> None:
         security.worker_stop()
@@ -119,6 +124,10 @@ class SecurityFileScannerTests(unittest.TestCase):
         self.findings_database.unlink(missing_ok=True)
         self.findings_database.with_name(self.findings_database.name + "-wal").unlink(missing_ok=True)
         self.findings_database.with_name(self.findings_database.name + "-shm").unlink(missing_ok=True)
+        shutil.rmtree(self.quarantine_root, ignore_errors=True)
+        self.quarantine_database.unlink(missing_ok=True)
+        self.quarantine_database.with_name(self.quarantine_database.name + "-wal").unlink(missing_ok=True)
+        self.quarantine_database.with_name(self.quarantine_database.name + "-shm").unlink(missing_ok=True)
 
     def _start(
         self,
@@ -133,6 +142,8 @@ class SecurityFileScannerTests(unittest.TestCase):
             external_detectors=external_detectors,  # type: ignore[arg-type]
             finding_database=self.findings_database,
             scan_profiles=scan_profiles,  # type: ignore[arg-type]
+            quarantine_root=self.quarantine_root,
+            quarantine_database=self.quarantine_database,
         )
 
     def _scan(self, relative_path: object) -> dict[str, object]:
@@ -598,6 +609,107 @@ class SecurityFileScannerTests(unittest.TestCase):
 
         self.assertEqual(len(output["findings"]), 25)
         self.assertLessEqual(len(json.dumps(output).encode("utf-8")), 64 * 1024)
+
+    def test_quarantine_commit_and_restore_are_reversible_and_one_time(self) -> None:
+        content = b"reversible quarantine sample"
+        target = self.root / "sample.bin"
+        target.write_bytes(content)
+        signatures = SignatureDatabase(
+            hashes=(
+                HashSignature(
+                    rule_id="quarantine-test",
+                    sha256=hashlib.sha256(content).hexdigest(),
+                    classification="test-malware",
+                ),
+            )
+        )
+        self._start(signatures=signatures)
+        self._scan("sample.bin")
+        finding_id = security.worker_invoke("findings_list", {})["findings"][0]["finding_id"]
+
+        prepared = security.worker_invoke("quarantine_prepare", {"finding_id": finding_id})
+        self.assertEqual(prepared["state"], "awaiting_confirmation")
+        self.assertEqual(target.read_bytes(), content)
+
+        quarantined = security.worker_invoke(
+            "quarantine_commit", {"quarantine_id": prepared["quarantine_id"]}
+        )
+        self.assertEqual(quarantined["state"], "quarantined")
+        self.assertFalse(target.exists())
+        objects = list((self.quarantine_root / "objects").iterdir())
+        self.assertEqual(len(objects), 1)
+        self.assertEqual(objects[0].read_bytes(), content)
+        with self.assertRaisesRegex(ValueError, "invalid_quarantine_state"):
+            security.worker_invoke(
+                "quarantine_commit", {"quarantine_id": prepared["quarantine_id"]}
+            )
+
+        security.worker_stop()
+        self._start(signatures=signatures)
+
+        restored = security.worker_invoke(
+            "quarantine_restore", {"quarantine_id": prepared["quarantine_id"]}
+        )
+        self.assertEqual(restored["state"], "restored")
+        self.assertEqual(target.read_bytes(), content)
+        self.assertEqual(security.worker_invoke("findings_list", {})["findings"][0]["state"], "active")
+
+    def test_quarantine_rejects_file_changed_after_prepare(self) -> None:
+        original = b"original threat"
+        target = self.root / "changing.bin"
+        target.write_bytes(original)
+        signatures = SignatureDatabase(
+            hashes=(
+                HashSignature(
+                    rule_id="changing-test",
+                    sha256=hashlib.sha256(original).hexdigest(),
+                    classification="test-malware",
+                ),
+            )
+        )
+        self._start(signatures=signatures)
+        self._scan("changing.bin")
+        finding_id = security.worker_invoke("findings_list", {})["findings"][0]["finding_id"]
+        prepared = security.worker_invoke("quarantine_prepare", {"finding_id": finding_id})
+        target.write_bytes(b"changed after approval preview")
+
+        result = security.worker_invoke(
+            "quarantine_commit", {"quarantine_id": prepared["quarantine_id"]}
+        )
+
+        self.assertEqual(result["state"], "failed")
+        self.assertEqual(result["error_code"], "finding_asset_changed")
+        self.assertEqual(target.read_bytes(), b"changed after approval preview")
+
+    def test_restore_never_overwrites_existing_destination(self) -> None:
+        content = b"restore collision threat"
+        target = self.root / "collision.bin"
+        target.write_bytes(content)
+        signatures = SignatureDatabase(
+            hashes=(
+                HashSignature(
+                    rule_id="collision-test",
+                    sha256=hashlib.sha256(content).hexdigest(),
+                    classification="test-malware",
+                ),
+            )
+        )
+        self._start(signatures=signatures)
+        self._scan("collision.bin")
+        finding_id = security.worker_invoke("findings_list", {})["findings"][0]["finding_id"]
+        prepared = security.worker_invoke("quarantine_prepare", {"finding_id": finding_id})
+        security.worker_invoke(
+            "quarantine_commit", {"quarantine_id": prepared["quarantine_id"]}
+        )
+        target.write_bytes(b"new unrelated file")
+
+        result = security.worker_invoke(
+            "quarantine_restore", {"quarantine_id": prepared["quarantine_id"]}
+        )
+
+        self.assertEqual(result["state"], "quarantined")
+        self.assertEqual(result["error_code"], "restore_destination_exists")
+        self.assertEqual(target.read_bytes(), b"new unrelated file")
 
 
 class _FakeDetector:

@@ -44,7 +44,7 @@ operation как пользовательский tool.
 {
   "schema_version": 1,
   "module_id": "security.center",
-  "module_version": "0.5.0",
+  "module_version": "0.6.0",
   "state": "ready",
   "lifecycle": "on-demand",
   "capabilities": [
@@ -52,7 +52,10 @@ operation как пользовательский tool.
     "security.files.scan",
     "security.scan.run",
     "security.findings.list",
-    "security.posture.scan"
+    "security.posture.scan",
+    "security.quarantine.prepare",
+    "security.quarantine.commit",
+    "security.quarantine.restore"
   ]
 }
 ```
