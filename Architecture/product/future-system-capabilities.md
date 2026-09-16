@@ -1,11 +1,47 @@
 # Желаемые возможности AI-native Linux
 
 **Статус:** продуктовые идеи, не утверждённый roadmap
-**Обновлено:** 2026-08-18
+**Обновлено:** 2026-09-16
 
 Этот документ фиксирует желаемое поведение системы, чтобы идеи не потерялись и
 не выдавались за уже принятые обязательства. Каждая возможность перед
 реализацией требует отдельного сценария, policy-контракта и критерия готовности.
+
+## Сверка с текущей реализацией
+
+Документ появился до большей части backend. Поэтому некоторые бывшие пожелания
+уже реализованы, но сохраняются ниже как описание продуктового поведения.
+
+| Возможность | Состояние на 2026-09-16 | Реализация или пробел |
+|---|---|---|
+| Модульное capability-ядро | Реализовано | Capability Registry, Module Manager, manifest v2 и module-owned descriptors. |
+| Локальная модель | Реализовано | `provider.ollama`, `model.ollama`, Qwen lifecycle и optional semantic model. |
+| Metadata/FTS/semantic поиск | Реализовано | Storage Catalog, Indexer, Query Service, PDF extraction и optional local embeddings. |
+| Виртуальные коллекции | Реализовано | Dynamic queries и immutable snapshot collections. |
+| Создание папки и копирование результатов | Реализовано для snapshot copy | Preview, R1 approval, SHA-256 recheck, conflict policy и rollback. Move/symlink не реализованы. |
+| Поиск установленного приложения | Реализовано базово | `.desktop` metadata и executable; полный обзор config/data/cache/logs пока отсутствует. |
+| Открытие URL и веб-поиска | Реализовано | Проверяемый HTTP(S)-план и системный браузер. Навигация по сайту и формы отсутствуют. |
+| Task Ledger | Реализовано | Семидневная история, состояния, checkpoints, cancel/resume и redacted events. |
+| Визуальные карточки задач | Частично | GNOME-панель показывает Workspace runs/messages; полный интерфейс коллекций и всех ledger actions не завершён. |
+| Управление приложениями | Реализовано сверх исходного пожелания | Durable Snap install/remove, pause/resume/cancel, notifications и backup/restore. |
+| Security Center | Реализовано сверх исходного пожелания | File/quick/full scan, ClamAV adapter, findings, Ubuntu posture, quarantine/restore и Security Campaign. |
+
+### Что действительно остаётся пожеланием
+
+- полноценные группы дубликатов и top-N больших файлов;
+- сохранённые desktop workspaces с набором приложений, вкладок и терминалов;
+- диагностика systemd/journal как отдельная capability;
+- allowlisted terminal assistant без unrestricted shell;
+- OCR изображений, сканов, формул, таблиц и графиков;
+- browser interaction за пределами безопасного открытия URL;
+- восстановление ссылок после перемещения/переименования;
+- общий пользовательский undo поверх поддерживаемых операций;
+- сторонние подписанные модули и проверяемое обновление их происхождения;
+- optional cloud adapter — только если позднее появится отдельная privacy-policy.
+
+Эти пункты не входят автоматически в Beta 0.1. Перед реализацией каждого нужно
+отдельно доказать, что он полезнее завершения, демонстрации и стабилизации уже
+существующего фундамента.
 
 ## Система и AI-слой
 

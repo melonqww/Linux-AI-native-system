@@ -255,7 +255,7 @@ bash apps/desktop-panel/gnome-extension/install.sh
 
 ## Документация
 
-- [Концепция v0.1](Architecture/AI-native-Linux-v0.1-концепция.md)
+- [Концепция и текущая матрица Beta 0.1](Architecture/AI-native-Linux-v0.1-концепция.md)
 - [Структура проекта и пути](Architecture/02-Структура-проекта-и-пути.md)
 - [Контракты намерений и инструментов](Architecture/api/intent-and-tool-contracts.md)
 - [Intent Compiler API v1](Architecture/api/intent-compiler-v1.md)
@@ -275,7 +275,7 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [File Search R1](Architecture/api/file-search-r1.md)
 - [Контракт статуса индекса](Architecture/api/runtime-index-status.md)
 - [JSON Schema manifest модуля](packages/module-sdk/schema/module-manifest.schema.json)
-- [Решение о портфолио-MVP](Architecture/decisions/ADR-001-portfolio-mvp-scope.md)
+- [Исходная граница портфолио-MVP и фактический результат](Architecture/decisions/ADR-001-portfolio-mvp-scope.md)
 - [Границы действий, уточнения и недоступные вложения](Architecture/decisions/ADR-021-grounded-actions-and-input-facts.md)
 - [Решение о каталоге хранилищ и виртуальных коллекциях](Architecture/decisions/ADR-002-storage-catalog-and-virtual-collections.md)
 - [Решение о модульном capability-ядре](Architecture/decisions/ADR-003-modular-capability-core.md)
@@ -305,5 +305,5 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [Решение об authenticated Unix transport](Architecture/decisions/ADR-006-authenticated-unix-runtime-transport.md)
 - [Решение о доверенном Permission Gateway](Architecture/decisions/ADR-007-trusted-permission-gateway.md)
 - [Решение о core Task Ledger](Architecture/decisions/ADR-008-core-task-ledger.md)
-- [Желаемые будущие возможности системы](Architecture/product/future-system-capabilities.md)
+- [Желаемые возможности и сверка с реализацией](Architecture/product/future-system-capabilities.md)
 - [Подготовка Ubuntu VM](docs/developer/Ubuntu-VM-setup.md)
