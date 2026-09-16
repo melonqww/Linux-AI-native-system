@@ -1,8 +1,8 @@
 # Security Center MVP — план работ
 
 **Статус:** foundation, bounded File Scanner, optional ClamAV adapter, quick/full
-profiles и Finding Store завершены в `0.4.0`; системный аудит, карантин и Security
-Campaign остаются следующими этапами.
+profiles, Finding Store и read-only Ubuntu posture завершены в `0.5.0`;
+карантин и Security Campaign остаются следующими этапами.
 
 ## Результат MVP
 
@@ -130,7 +130,7 @@ deadline
 
 Обязательные свойства будущей реализации:
 
-- production не импортирует код или fixtures из `labs/security-lab`;
+- production не импортирует fixtures или runner из `labs/ai-scenario-lab`;
 - процессы запускаются с очищенным окружением и фиксированным entrypoint;
 - worker нельзя подменить через `PATH`, `PYTHONPATH` или пользовательский config;
 - IPC использует защищённый локальный endpoint и проверяет peer identity;
@@ -167,7 +167,7 @@ Campaign`, но они также проверяют production-модуль и�
 - истёкший deadline и повторный request ID отклоняются;
 - недоверенный path не становится разрешённым resource reference;
 - направление импортов одностороннее: тесты могут импортировать production
-  package, а production package не импортирует `labs/security-lab` или
+  package, а production package не импортирует `labs/ai-scenario-lab` или
   `labs/ai-scenario-lab`;
 - импорт модуля не запускает scan, subprocess, сеть или запись;
 - отключённый модуль не публикует capabilities;
@@ -229,7 +229,7 @@ Ubuntu, Ollama, антивирусной базы или сети.
 read API. Контракт: [`API v4`](../../Architecture/api/security-center-findings-v4.md),
 решение: [`ADR-032`](../../Architecture/decisions/ADR-032-security-finding-store-and-scan-profiles.md).
 
-## Этап 3 — базовый posture
+## Этап 3 — базовый posture — завершён в 0.5.0
 
 - безопасная проекция результата в UI и Task Ledger;
 - allowlisted Ubuntu probes;
@@ -259,10 +259,10 @@ production-файлы и функции `security.center`, создаёт `Virtu
 запускает безопасные attack fixtures, containment/fault scenarios и отчёты.
 Campaign не содержит второй реализации scanner, workers или policy.
 
-`labs/security-lab` остаётся проектной документацией и namespace для безопасных
-security fixtures. Отдельный runner и второй тестовый backend в этой папке на
-первом этапе не создаются. Production-модуль не запускает Campaign и не проверяет
-сам себя.
+Проектная документация теперь находится рядом с production-модулем. Безопасные
+security fixtures и будущий runner принадлежат третьему контуру существующей
+`AI Scenario Lab`. Production-модуль не запускает Campaign и не проверяет сам
+себя.
 
 Отдельный Ubuntu VM набор затем проверяет реальные filesystem permissions,
 антивирусный adapter, IPC peer identity и карантин. Живые вредоносные образцы в
@@ -270,10 +270,10 @@ security fixtures. Отдельный runner и второй тестовый ba
 
 ## Ближайшие решения
 
-1. Зафиксировать allowlist и parsers read-only Ubuntu posture probes.
-2. Определить проекцию findings в UI и Task Ledger без утечки путей.
-3. Спроектировать state machine карантина и server-owned approval.
+1. Определить проекцию findings в UI и Task Ledger без утечки путей.
+2. Спроектировать state machine карантина и server-owned approval.
+3. Зафиксировать quarantine storage и restore receipt.
 4. После стабильного карантина добавить внешний Security Campaign.
 
-Следующий production-срез — `0.5.0` с read-only Ubuntu posture. Карантин остаётся
-отдельной версией, потому что впервые изменяет пользовательские файлы.
+Следующий production-срез — `0.6.0` с обратимым карантином. Он остаётся отдельной
+версией, потому что впервые изменяет пользовательские файлы.

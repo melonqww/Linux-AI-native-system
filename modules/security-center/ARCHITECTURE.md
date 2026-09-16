@@ -1,15 +1,15 @@
 # Security Center MVP — архитектура
 
 **Статус:** целевая архитектура; foundation, File Scanner, optional clamd,
-quick/full coordinator и Finding Store реализованы в `security.center` `0.4.0`;
-остальные компоненты остаются планом.
+quick/full coordinator, Finding Store и read-only Ubuntu posture реализованы в
+`security.center` `0.5.0`; остальные компоненты остаются планом.
 
 ## 1. Решение
 
 Security Center создаётся как один first-party capability-домен, а не набор
 мелких пользовательских модулей. Внутри домена полномочия разделяются между
-процессами. `labs/security-lab` хранит проектную документацию и будущие fixtures,
-но на первом этапе не является самостоятельным test harness или runner.
+процессами. Проектная документация хранится рядом с модулем, а будущие fixtures
+принадлежат `labs/ai-scenario-lab`; отдельный конкурирующий runner не создаётся.
 Специализированная проверка будет третьим контуром `Security Campaign` внутри
 существующей `AI Scenario Lab` и не поставляется как часть runtime.
 
@@ -220,8 +220,8 @@ approval, concurrency и deadline.
 
 ## 9. Security Lab
 
-`labs/security-lab` является namespace для этой архитектуры и будущих безопасных
-fixtures. Отдельного конкурирующего runner здесь на первом этапе нет.
+Этот каталог является владельцем архитектуры модуля. Будущие безопасные fixtures
+живут только внутри внешнего `AI Scenario Lab`, без копии production-кода.
 
 Существующая `AI Scenario Lab` получит третий самостоятельный режим
 `Security Campaign`. Он строит одноразовый `VirtualSecurityHost` с разрешёнными
@@ -276,3 +276,6 @@ adapter через `AF_UNIX + INSTREAM`. Его контракт закрепл�
 Этап 4 реализован в `0.4.0`; контракты находятся в
 [`API v4`](../../Architecture/api/security-center-findings-v4.md) и
 [`ADR-032`](../../Architecture/decisions/ADR-032-security-finding-store-and-scan-profiles.md).
+Этап 5 реализован в `0.5.0`; контракт находится в
+[`Posture API v5`](../../Architecture/api/security-center-posture-v5.md), решение —
+в [`ADR-033`](../../Architecture/decisions/ADR-033-security-ubuntu-posture.md).

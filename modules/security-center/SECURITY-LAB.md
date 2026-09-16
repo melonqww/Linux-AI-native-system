@@ -19,13 +19,17 @@ Production-код `security.center` никогда не импортирует �
 
 ## Статус
 
-Foundation, файловый scanner, optional ClamAV adapter и Finding Store реализованы
-в production-модуле `0.4.0`. `security.files.scan` проверяет один файл по
+Foundation, файловый scanner, optional ClamAV adapter, Finding Store и Ubuntu
+posture реализованы в production-модуле `0.5.0`. `security.files.scan` проверяет один файл по
 доверенной ссылке, `security.scan.run` выполняет bounded `quick`/`full` внутри
 выбранного resource root, а `security.findings.list` возвращает журнал
 подтверждённых наблюдений без содержимого и абсолютных путей. Отдельного test
 runner, фонового мониторинга, привилегированного helper и настоящих вредоносных
 образцов нет.
+
+`security.posture.scan` выполняет шесть фиксированных read-only проверок:
+security updates, firewall, AppArmor, listening ports, autostart и scanner rules.
+Ошибки отдельных probes дают partial/unknown и не изменяют систему.
 
 ## Этап 0.3.0: optional ClamAV
 
@@ -55,6 +59,12 @@ Finding Store сохраняет SHA-256, относительную ссылк�
 rule, severity и timestamps. Повторная идентичная находка увеличивает счётчик.
 SQLite принадлежит trusted runtime, находится вне scan roots и на POSIX получает
 mode `0600`.
+
+## Этап 0.5.0: read-only Ubuntu posture
+
+Отдельный collector проверяет security updates, UFW, AppArmor, TCP listeners,
+autostart и scanner rules. Он использует фиксированные allowlisted probes,
+ничего не исправляет и при неполном покрытии возвращает `partial + unknown`.
 
 ## Цель MVP
 

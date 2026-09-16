@@ -32,8 +32,9 @@ production security.center           -X-> labs/*
 ```
 
 Security Campaign импортирует реальные production contracts и функции, а не
-лабораторную копию. `labs/security-lab` хранит документацию и будущие security
-fixtures, но на первом этапе не получает отдельный конкурирующий runner.
+лабораторную копию. `modules/security-center` хранит проектную документацию, а
+будущие security fixtures принадлежат `AI Scenario Lab`; отдельный
+конкурирующий runner не создаётся.
 
 Контур не использует Ollama для защитного verdict. Он применяет безопасные
 fixtures, deterministic oracles и независимый effect collector. Допускается

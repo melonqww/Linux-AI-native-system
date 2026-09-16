@@ -39,7 +39,7 @@ detector adapters, возвращающие только observations.
 Изоляция предметной области привлекательна, но дублирование AI Scenario Lab
 создаёт две версии containment и раздувает проект.
 
-Вариант отклонён на MVP. `labs/security-lab` остаётся namespace документации и
+Вариант отклонён на MVP. `modules/security-center` остаётся владельцем документации, а
 fixtures, а Security Campaign расширяет существующий runner.
 
 ## Вариант 4 — выбранный

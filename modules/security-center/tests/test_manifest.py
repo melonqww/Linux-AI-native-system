@@ -14,7 +14,7 @@ class SecurityCenterManifestTests(unittest.TestCase):
 
         self.assertEqual(manifest["schema_version"], 2)
         self.assertEqual(manifest["module_id"], "security.center")
-        self.assertEqual(manifest["module_version"], "0.4.0")
+        self.assertEqual(manifest["module_version"], "0.5.0")
         self.assertEqual(manifest["lifecycle"], "on-demand")
         self.assertTrue(manifest["default_enabled"])
         self.assertEqual(
@@ -25,9 +25,10 @@ class SecurityCenterManifestTests(unittest.TestCase):
                 "filesystem.read-content",
                 "security.write-findings",
                 "security.read-findings",
+                "security.read-posture",
             ],
         )
-        self.assertEqual(len(manifest["capabilities"]), 4)
+        self.assertEqual(len(manifest["capabilities"]), 5)
 
         capability = manifest["capabilities"][0]
         self.assertEqual(capability["id"], "security.module.status")
@@ -75,6 +76,13 @@ class SecurityCenterManifestTests(unittest.TestCase):
             findings["input_schema"]["properties"]["limit"]["maximum"], 25
         )
         self.assertEqual(findings["requested_permissions"], ["security.read-findings"])
+
+        posture = manifest["capabilities"][4]
+        self.assertEqual(posture["id"], "security.posture.scan")
+        self.assertEqual(posture["input_schema"]["properties"], {})
+        self.assertEqual(posture["input_schema"]["required"], [])
+        self.assertFalse(posture["input_schema"]["additionalProperties"])
+        self.assertEqual(posture["requested_permissions"], ["security.read-posture"])
 
     def test_entrypoint_and_package_metadata_are_consistent(self) -> None:
         manifest = json.loads(

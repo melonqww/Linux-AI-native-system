@@ -116,7 +116,7 @@ class ModuleManagerTests(unittest.TestCase):
             {
                 "schema_version": 1,
                 "module_id": "security.center",
-                "module_version": "0.4.0",
+                "module_version": "0.5.0",
                 "state": "ready",
                 "lifecycle": "on-demand",
                 "capabilities": [
@@ -124,6 +124,7 @@ class ModuleManagerTests(unittest.TestCase):
                     "security.files.scan",
                     "security.scan.run",
                     "security.findings.list",
+                    "security.posture.scan",
                 ],
             },
         )
@@ -331,6 +332,16 @@ class ModuleManagerTests(unittest.TestCase):
         self.assertTrue(self.manager.security_findings_database.is_file())
         encoded = json.dumps({"scan": result, "findings": findings})
         self.assertNotIn(str(self.security_scan_root), encoded)
+
+    def test_security_posture_is_bounded_in_isolated_worker(self) -> None:
+        provider = self.manager.start_for_capability("security.posture.scan")
+
+        result = self.manager.invoke(provider, "posture_scan", {}, timeout=30)
+
+        self.assertEqual(provider, "security.center")
+        self.assertEqual(result["schema_version"], 1)
+        self.assertIn(result["status"], {"completed", "partial", "unsupported"})
+        self.assertLessEqual(len(json.dumps(result).encode("utf-8")), 16 * 1024)
 
     def test_configured_unavailable_clamd_is_partial_through_isolated_worker(self) -> None:
         sample = self.security_scan_root / "clamd-sample.txt"

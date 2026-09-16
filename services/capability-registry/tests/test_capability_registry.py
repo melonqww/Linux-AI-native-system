@@ -254,6 +254,10 @@ class CapabilityRegistryTests(RegistryTestCase):
             "security.findings.list",
             self.registry.available_capabilities(),
         )
+        self.assertIn(
+            "security.posture.scan",
+            self.registry.available_capabilities(),
+        )
 
     def test_enabled_modules_publish_declarative_intent_routes(self) -> None:
         self.registry.sync([PROJECT_ROOT / "services", PROJECT_ROOT / "modules"])
@@ -307,6 +311,10 @@ class CapabilityRegistryTests(RegistryTestCase):
             {"state", "limit"},
         )
         self.assertFalse(security_findings.input_schema["additionalProperties"])
+        security_posture = by_id["security.posture.scan"]
+        self.assertEqual(security_posture.input_schema["properties"], {})
+        self.assertEqual(security_posture.input_schema["required"], [])
+        self.assertFalse(security_posture.input_schema["additionalProperties"])
 
         self.registry.set_enabled("documents.query", False)
         self.assertNotIn(

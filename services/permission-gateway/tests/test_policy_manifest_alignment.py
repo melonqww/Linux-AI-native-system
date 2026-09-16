@@ -145,6 +145,14 @@ class PolicyManifestAlignmentTests(unittest.TestCase):
             {"security.read-findings"},
         )
 
+        posture = contracts["security.posture.scan"]
+        self.assertEqual(posture.requested_permissions, ("security.read-posture",))
+        self.assertEqual(posture.input_schema["properties"], {})
+        self.assertEqual(
+            gateway.required_scopes("security.posture.scan"),
+            {"security.read-posture"},
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

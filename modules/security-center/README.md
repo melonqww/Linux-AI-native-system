@@ -1,8 +1,9 @@
 # Security Center
 
 `Security Center` — доверенный on-demand модуль защиты AI-native Linux.
-Текущий код `0.4.0` предоставляет status, безопасное сканирование одного файла,
-профили `quick`/`full`, Finding Store и optional интеграцию с локальным `clamd`.
+Текущий код `0.5.0` предоставляет status, безопасное сканирование одного файла,
+профили `quick`/`full`, Finding Store, optional локальный `clamd` и read-only
+аудит Ubuntu.
 
 ## v0.2.0: файловое сканирование
 
@@ -79,19 +80,30 @@ Finding Store дедуплицирует подтверждённые observatio
 Содержимое и абсолютные пути не сохраняются. SQLite path задаётся Module Manager,
 а не вызывающей стороной; POSIX-файлы базы ограничиваются mode `0600`.
 
+## v0.5.0: Ubuntu posture
+
+`security.posture.scan` без аргументов проверяет security updates, UFW,
+AppArmor, TCP listeners, системные/пользовательские autostart entries и scanner
+rules. Используются только фиксированные paths/commands с очищенным окружением,
+таймаутами и bounded input/output. Collector ничего не исправляет и при
+неполном покрытии возвращает `partial + unknown`.
+
 ## Границы версии
 
-`0.4.0` сканирует один файл или bounded trusted root и возвращает JSON-safe
+`0.5.0` сканирует один файл или bounded trusted root, выполняет read-only Ubuntu
+posture и возвращает JSON-safe
 результат: digest, размер, итог, код ошибки и нормализованные observations. В ответ не входят содержимое файла, абсолютный
 путь, секреты, произвольный detector output или traceback.
 
 Версия не выполняет карантин, удаление, лечение, распаковку архивов, фоновый
-мониторинг, аудит Ubuntu или обновление сигнатур. Scanner не имеет сети, не
+мониторинг или обновление сигнатур. Scanner не имеет сети, не
 запускает subprocess и не получает постоянный root. Full означает полный обход
 выбранного resource в жёстких пределах профиля, а не всей операционной системы.
 
 ## Документация
 
+- [Ubuntu Posture API v5](../../Architecture/api/security-center-posture-v5.md)
+- [ADR-033: bounded read-only Ubuntu posture](../../Architecture/decisions/ADR-033-security-ubuntu-posture.md)
 - [Scan Profiles and Finding Store API v4](../../Architecture/api/security-center-findings-v4.md)
 - [ADR-032: Finding Store и bounded scan profiles](../../Architecture/decisions/ADR-032-security-finding-store-and-scan-profiles.md)
 - [File Scan API v3: optional clamd adapter](../../Architecture/api/security-center-file-scan-v3.md)
@@ -101,7 +113,9 @@ Finding Store дедуплицирует подтверждённые observatio
 - [Foundation API v1](../../Architecture/api/security-center-foundation-v1.md)
 - [ADR-026: фундамент Security Center](../../Architecture/decisions/ADR-026-security-center-foundation.md)
 - [ADR-027: Security Campaign](../../Architecture/decisions/ADR-027-security-campaign.md)
-- [MVP, архитектура и план](../../labs/security-lab/README.md)
+- [План модуля](PLAN.md)
+- [Архитектура модуля](ARCHITECTURE.md)
+- [Security Campaign и лабораторная стратегия](SECURITY-LAB.md)
 
 ## Быстрые тесты
 

@@ -244,4 +244,20 @@ def builtin_policies() -> tuple[CapabilityPolicy, ...]:
             max_concurrency=2,
             timeout_seconds=5,
         ),
+        CapabilityPolicy(
+            capability_id="security.posture.scan",
+            risk=RiskLevel.READ_ONLY,
+            plan_approval_required=False,
+            allowed_arguments=frozenset(),
+            required_arguments=frozenset(),
+            phases=(
+                PhasePolicy(
+                    ExecutionPhase.EXECUTE,
+                    ALL_LOCAL_TRANSPORTS,
+                    frozenset({"security.read-posture"}),
+                ),
+            ),
+            max_concurrency=1,
+            timeout_seconds=30,
+        ),
     )

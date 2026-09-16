@@ -155,6 +155,9 @@ class ModuleProcessManager:
             env["AI_NATIVE_SECURITY_FINDINGS_DATABASE"] = str(
                 self.security_findings_database
             )
+            env["AI_NATIVE_SECURITY_USER_AUTOSTART"] = str(
+                Path.home() / ".config" / "autostart"
+            )
         self._configure_security_clamd_environment(env, module_id)
         provider_root = self.runtime_directory / "providers" / "ollama"
         env["AI_NATIVE_PROVIDER_STATE_DATABASE"] = str(

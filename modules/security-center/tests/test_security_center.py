@@ -24,7 +24,7 @@ from ai_native_security.detectors import DetectorError
 EXPECTED_STATUS = {
     "schema_version": 1,
     "module_id": "security.center",
-    "module_version": "0.4.0",
+    "module_version": "0.5.0",
     "state": "ready",
     "lifecycle": "on-demand",
     "capabilities": [
@@ -32,6 +32,7 @@ EXPECTED_STATUS = {
         "security.files.scan",
         "security.scan.run",
         "security.findings.list",
+        "security.posture.scan",
     ],
 }
 MODULE_ROOT = Path(__file__).resolve().parents[1]
@@ -77,6 +78,12 @@ class SecurityCenterWorkerTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "unknown_operation"):
             security.worker_invoke("unsupported", {})
+
+    def test_posture_payload_is_closed(self) -> None:
+        security.worker_start()
+
+        with self.assertRaisesRegex(ValueError, "invalid_payload"):
+            security.worker_invoke("posture_scan", {"command": "ufw disable"})
 
     def test_non_empty_and_non_object_payloads_are_rejected(self) -> None:
         security.worker_start()

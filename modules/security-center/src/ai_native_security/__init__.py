@@ -20,6 +20,7 @@ from .contracts import (
 from .campaigns import CampaignScanner, ScanProfile
 from .detectors import ClamdUnixSocketDetector, StreamDetector
 from .findings import FindingStore, FindingStoreError
+from .posture import PostureObservation, UbuntuPostureCollector
 from .scanner import ByteSignature, FileScanner, HashSignature, SignatureDatabase
 
 
@@ -27,6 +28,7 @@ _started = False
 _scanner: FileScanner | None = None
 _campaign_scanner: CampaignScanner | None = None
 _finding_store: FindingStore | None = None
+_posture_collector: UbuntuPostureCollector | None = None
 
 
 def worker_start(
@@ -36,10 +38,11 @@ def worker_start(
     external_detectors: tuple[StreamDetector, ...] | None = None,
     finding_database: str | os.PathLike[str] | None = None,
     scan_profiles: Mapping[str, ScanProfile] | None = None,
+    posture_collector: UbuntuPostureCollector | None = None,
 ) -> None:
     """Start with roots supplied only by trusted bootstrap code."""
 
-    global _campaign_scanner, _finding_store, _scanner, _started
+    global _campaign_scanner, _finding_store, _posture_collector, _scanner, _started
     if _started:
         return
     roots = _roots_from_environment() if allowed_roots is None else allowed_roots
@@ -48,9 +51,10 @@ def worker_start(
         if external_detectors is None
         else external_detectors
     )
+    signature_database = signatures or SignatureDatabase.builtin()
     scanner = FileScanner(
         roots,
-        signatures=signatures,
+        signatures=signature_database,
         external_detectors=detectors,
     )
     database = (
@@ -74,6 +78,11 @@ def worker_start(
     _scanner = scanner
     _finding_store = finding_store
     _campaign_scanner = campaign_scanner
+    _posture_collector = posture_collector or UbuntuPostureCollector(
+        user_autostart=_user_autostart_from_environment(),
+        signature_version=signature_database.version,
+        clamd_configured=bool(detectors),
+    )
     _started = True
 
 
@@ -115,17 +124,23 @@ def worker_invoke(operation: str, payload: dict[str, object]) -> dict[str, objec
             state=payload.get("state", "active"),
             limit=payload.get("limit", 20),
         )
+    if operation == "posture_scan":
+        if payload:
+            raise ValueError("invalid_payload")
+        assert _posture_collector is not None
+        return _posture_collector.scan()
     raise ValueError("unknown_operation")
 
 
 def worker_stop() -> None:
     """Stop the worker; repeated stops are harmless."""
 
-    global _campaign_scanner, _finding_store, _scanner, _started
+    global _campaign_scanner, _finding_store, _posture_collector, _scanner, _started
     if _finding_store is not None:
         _finding_store.close()
     _finding_store = None
     _campaign_scanner = None
+    _posture_collector = None
     _scanner = None
     _started = False
 
@@ -189,6 +204,18 @@ def _validate_finding_database_boundary(
         raise ValueError("finding_database_inside_scan_root")
 
 
+def _user_autostart_from_environment() -> Path | None:
+    raw = os.environ.get("AI_NATIVE_SECURITY_USER_AUTOSTART")
+    if raw is None:
+        return None
+    if not 1 <= len(raw) <= 1024:
+        raise ValueError("invalid_user_autostart_path")
+    path = Path(raw)
+    if not path.is_absolute():
+        raise ValueError("invalid_user_autostart_path")
+    return path
+
+
 __all__ = [
     "ByteSignature",
     "CampaignScanner",
@@ -199,10 +226,12 @@ __all__ = [
     "FindingStore",
     "FindingStoreError",
     "HashSignature",
+    "PostureObservation",
     "ScanResult",
     "ScanProfile",
     "SecurityModuleStatus",
     "SignatureDatabase",
+    "UbuntuPostureCollector",
     "worker_health",
     "worker_invoke",
     "worker_start",

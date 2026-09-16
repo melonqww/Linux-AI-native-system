@@ -2,8 +2,8 @@
   "schema_version": 2,
   "module_id": "security.center",
   "display_name": "Security Center",
-  "description": "Provides bounded file and profile scanning, optional peer-authenticated clamd detection, and a durable finding store.",
-  "module_version": "0.4.0",
+  "description": "Provides bounded malware scanning, durable findings, and read-only Ubuntu security posture checks.",
+  "module_version": "0.5.0",
   "core_api": "1",
   "capabilities": [
     {
@@ -58,11 +58,22 @@
         "additionalProperties": false
       },
       "requested_permissions": ["security.read-findings"]
+    },
+    {
+      "id": "security.posture.scan",
+      "description": "Run six bounded read-only Ubuntu security posture checks.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "requested_permissions": ["security.read-posture"]
     }
   ],
   "dependencies": [],
   "optional_dependencies": [],
-  "requested_permissions": ["security.read-status", "filesystem.read-metadata", "filesystem.read-content", "security.write-findings", "security.read-findings"],
+  "requested_permissions": ["security.read-status", "filesystem.read-metadata", "filesystem.read-content", "security.write-findings", "security.read-findings", "security.read-posture"],
   "lifecycle": "on-demand",
   "resource_class": "tiny",
   "default_enabled": true,
