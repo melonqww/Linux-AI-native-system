@@ -553,8 +553,10 @@ def test_destination_followup_is_not_approval_and_does_not_replay_on_new_topic(
     "reply, expected_role",
     [
         ("Quickly: On my Desktop", "desktop"),
+        ("Quickly: On my Dekstop", "desktop"),
         ("Please put it in Documents", "documents"),
         ("Давай на рабочем столе", "desktop"),
+        ("Давай на рабочем стлое", "desktop"),
         ("Лучше в загрузках, пожалуйста", "downloads"),
     ],
 )
@@ -658,7 +660,15 @@ def test_saved_copy_draft_resumes_without_reclassifying_or_calling_model(
 
 @pytest.mark.parametrize(
     "reply",
-    ["not Desktop", "не на рабочем столе", "Desktop or Downloads"],
+    [
+        "not Desktop",
+        "not Dekstop",
+        "nto Dekstop",
+        "не на рабочем столе",
+        "не на рабочем стлое",
+        "Desktop or Downloads",
+        "Dekstop or Downlaods",
+    ],
 )
 def test_ambiguous_or_negated_destination_never_resumes_saved_copy(store, reply):
     original = store.append_message(
