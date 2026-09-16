@@ -753,6 +753,50 @@ class WorkspaceRuntimeTests(unittest.TestCase):
             ],
         )
 
+    def test_conversation_history_keeps_recent_turns_after_long_session(self):
+        for index in range(35):
+            self.store.append_message(
+                MessageRole.USER,
+                MessageKind.CONVERSATION,
+                f"Старое сообщение {index}",
+            )
+            self.store.append_message(
+                MessageRole.ASSISTANT,
+                MessageKind.CONVERSATION,
+                f"Старый ответ {index}",
+            )
+        marker = self.store.append_message(
+            MessageRole.USER,
+            MessageKind.CONVERSATION,
+            "Запомни кодовое слово: маяк.",
+        )
+        self.store.append_message(
+            MessageRole.ASSISTANT,
+            MessageKind.CONVERSATION,
+            "Запомнил: маяк.",
+        )
+        current = self.store.append_message(
+            MessageRole.USER,
+            MessageKind.CONVERSATION,
+            "Какое слово я назвал?",
+        )
+        runtime = WorkspaceRuntime(
+            self.store,
+            Model(ModelTurn(ModelTurnKind.CONVERSATION, response_text="маяк")),
+            Compiler(None),
+            Executor(None),
+            lambda: TaskContext(locale="ru"),
+        )
+        try:
+            history = runtime._conversation_history(current.message_id)
+        finally:
+            runtime.close()
+
+        self.assertLessEqual(len(history), 10)
+        self.assertLessEqual(sum(len(item.content) for item in history), 6_000)
+        self.assertIn(marker.content, [item.content for item in history])
+        self.assertNotIn("Старое сообщение 0", [item.content for item in history])
+
     def test_unsupported_action_is_never_sent_to_executor(self):
         model = Model(
             ModelTurn(
