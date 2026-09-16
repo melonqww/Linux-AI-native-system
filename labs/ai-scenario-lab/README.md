@@ -19,20 +19,19 @@ scenarios продолжают точно проверять известные 
 пользователя, реагируют на фактический UI-ответ, уточняют запрос, меняют решение
 и оценивают конечную цель по доверенным эффектам.
 
-После появления production-модуля `security.center` лаборатория получит третий
-отдельный контур — `Security Campaign`. Он будет проверять защитный модуль иначе,
+После появления production-модуля `security.center` лаборатория получила третий
+отдельный контур — `Security Campaign`. Он проверяет защитный модуль иначе,
 чем технический/Foundation и User Journey контуры: детерминированно испытывать
 его реальные файлы, contracts и функции безопасными security fixtures,
-containment-сценариями и контролируемыми сбоями. На текущем этапе этот campaign и
-его runner ещё не реализованы.
+containment-сценариями и контролируемыми сбоями без Ollama и сети.
 
 Архитектурное решение зафиксировано в
 [`ADR-017`](../../Architecture/decisions/ADR-017-isolated-ai-scenario-lab.md) и
 [`ADR-018`](../../Architecture/decisions/ADR-018-goal-driven-user-journey-lab.md).
 
-## Будущий Security Campaign
+## Security Campaign
 
-`Security Campaign` будет третьим режимом существующей лаборатории, а не
+`Security Campaign` является третьим режимом существующей лаборатории, а не
 отдельным runner рядом с модулем. Его назначение — проверить настоящий
 `security.center` извне:
 
@@ -56,6 +55,25 @@ production security.center           ↛  labs/*
 Security Campaign не требует AI или Ollama; модель может позднее проверяться
 отдельно только на уровне пользовательского общения и не влияет на защитный
 verdict.
+
+Первый детерминированный набор запускается командой:
+
+```powershell
+python run.py security
+```
+
+Он создаёт одноразовый `VirtualSecurityHost`, импортирует настоящий
+`ai_native_security` и проверяет clean/threat verdict, Finding Store,
+path containment, лимиты, fail-closed отказ detector, закрытую схему запроса,
+неизменность файла без commit, quarantine/restore, replay, path race и защиту от
+перезаписи при restore. Отчёт сохраняется в `reports/security/<run-id>/`, а
+`security-latest.txt` указывает на последний прогон. В fixtures хранится только
+безопасный синтетический маркер — реальных вредоносных файлов нет.
+
+На Linux тот же прогон дополнительно проверяет режимы `0700` приватного
+quarantine storage. Настоящий clamd, peer credentials и системные permissions
+проверяются отдельным Ubuntu integration-запуском, потому что Windows не может
+достоверно эмулировать эти свойства.
 
 ## User Journey Lab
 

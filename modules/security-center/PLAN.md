@@ -1,8 +1,8 @@
 # Security Center MVP — план работ
 
-**Статус:** foundation, bounded File Scanner, optional ClamAV adapter, quick/full
-profiles, Finding Store и read-only Ubuntu posture завершены в `0.5.0`;
-карантин и Security Campaign остаются следующими этапами.
+**Статус:** production MVP завершён в `0.6.0`; первый внешний deterministic
+Security Campaign реализован в AI Scenario Lab. Следующий шаг — Ubuntu
+integration для настоящих Linux boundaries и clamd.
 
 ## Результат MVP
 
@@ -251,18 +251,21 @@ read API. Контракт: [`API v4`](../../Architecture/api/security-center-fi
 Критерий этапа: deny, timeout, replay, path race и crash не приводят к скрытому
 изменению файла.
 
-## Этап 5 — Security Campaign и Linux integration
+## Этап 5 — Security Campaign реализован; Linux integration следующий
 
-После стабилизации production-контрактов существующая `AI Scenario Lab` получает
+После стабилизации production-контрактов существующая `AI Scenario Lab` получила
 третий отдельный контур `Security Campaign`. Он импортирует реальные
 production-файлы и функции `security.center`, создаёт `VirtualSecurityHost` и
 запускает безопасные attack fixtures, containment/fault scenarios и отчёты.
 Campaign не содержит второй реализации scanner, workers или policy.
 
 Проектная документация теперь находится рядом с production-модулем. Безопасные
-security fixtures и будущий runner принадлежат третьему контуру существующей
+security fixtures и runner принадлежат третьему контуру существующей
 `AI Scenario Lab`. Production-модуль не запускает Campaign и не проверяет сам
 себя.
+
+Первый runner проверяет scan/findings/quarantine, fail-closed, containment,
+лимиты, replay, path race и restore collision командой `python run.py security`.
 
 Отдельный Ubuntu VM набор затем проверяет реальные filesystem permissions,
 антивирусный adapter, IPC peer identity и карантин. Живые вредоносные образцы в
@@ -273,7 +276,7 @@ security fixtures и будущий runner принадлежат третьем
 1. Определить проекцию findings в UI и Task Ledger без утечки путей.
 2. Спроектировать state machine карантина и server-owned approval.
 3. Зафиксировать quarantine storage и restore receipt.
-4. После стабильного карантина добавить внешний Security Campaign.
+4. Добавить автоматизируемый Ubuntu integration profile для clamd и permissions.
 
-Следующий этап — внешний Security Campaign и Ubuntu integration для проверки
-containment, path races, permissions и реального clamd на целевой системе.
+Следующий этап — Ubuntu integration для проверки permissions, peer identity и
+реального clamd на целевой системе.

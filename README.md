@@ -179,7 +179,7 @@ socket. Scanner не использует AI, TCP или subprocess, не воз
 posture проверяет updates, UFW, AppArmor, TCP listeners, autostart и scanner
 rules. Подтверждённую находку можно обратимо переместить в закрытый карантин и
 восстановить без перезаписи существующего пути. План следующих этапов и
-будущего третьего Security Campaign находятся в
+реализованного третьего Security Campaign находятся в
 [`modules/security-center`](modules/security-center/README.md).
 
 Следующий background-слой реализован в `services/index-scheduler`: Linux

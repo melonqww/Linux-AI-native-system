@@ -1,6 +1,6 @@
 # ADR-027: Security Campaign как третий контур AI Scenario Lab
 
-**Статус:** принято 2026-09-10; runner ещё не реализован
+**Статус:** принято 2026-09-10; первый deterministic runner реализован 2026-09-16
 
 ## Контекст
 
@@ -66,8 +66,9 @@ clean verdict является жёстким провалом независи�
 - Быстрые unit/contract-тесты остаются в `modules/security-center/tests`.
 - Linux permissions, peer credentials и реальный антивирусный adapter требуют
   отдельного Ubuntu VM integration-набора.
-- До появления scanner/quarantine contracts Security Campaign остаётся
-  документированным будущим режимом и не создаёт пустой runner.
+- Первый runner проверяет production scanner, findings и quarantine через
+  безопасные synthetic fixtures; Linux-only clamd integration остаётся отдельным
+  целевым прогоном на Ubuntu.
 
 Границы модуля приняты в
 [`ADR-026`](ADR-026-security-center-foundation.md).

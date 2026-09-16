@@ -80,6 +80,10 @@ def parser() -> argparse.ArgumentParser:
     worker = sub.add_parser("foundation-worker", help=argparse.SUPPRESS)
     worker.add_argument("--run", required=True)
     worker.add_argument("--case", required=True)
+    sub.add_parser(
+        "security",
+        help="run deterministic Security Center boundary and containment cases",
+    )
     return result
 
 
@@ -100,7 +104,24 @@ def main(argv: list[str] | None = None) -> int:
         return run_case(
             LAB_ROOT, PROJECT_ROOT, resolve_run(LAB_ROOT, arguments.run), arguments.case
         )
+    if arguments.command == "security":
+        return _security()
     return _report(path_only=arguments.path)
+
+
+def _security() -> int:
+    from .security_campaign import SecurityCampaignRunner
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
+    report, results = SecurityCampaignRunner(PROJECT_ROOT, LAB_ROOT).run(run_id=stamp)
+    passed = sum(item.passed for item in results)
+    skipped = sum(item.skipped for item in results)
+    failed = len(results) - passed - skipped
+    print(
+        f"SECURITY CAMPAIGN: {passed} passed, {failed} failed, {skipped} skipped"
+    )
+    print(f"SECURITY REPORT: {report / 'summary.md'}")
+    return 0 if failed == 0 else 1
 
 
 def _foundation(arguments) -> int:

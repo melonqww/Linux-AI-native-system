@@ -4,7 +4,7 @@
 fixtures и сценариев проверки локального модуля защиты AI-native Linux.
 Production-модуль подключён к Capability Registry как first-party
 `security.center`. На первом этапе здесь не создаётся отдельный runner:
-специализированные проверки войдут третьим контуром `Security Campaign` в уже
+специализированные проверки входят третьим контуром `Security Campaign` в уже
 существующую `AI Scenario Lab`.
 
 Зависимость направлена только от проверки к продукту: `AI Scenario Lab` может и
@@ -174,7 +174,7 @@ Security Center не получает постоянный root и универ�
 Большие полномочия в будущей версии означают набор узких разрешений у разных
 процессов, а не один всемогущий процесс.
 
-## Что проверит Security Campaign
+## Что проверяет Security Campaign
 
 Третий контур существующей `AI Scenario Lab` должен импортировать и проверять
 реальные production-контракты и функции `security.center`. Он использует
@@ -237,10 +237,10 @@ MVP считается готовым только если:
 
 Порядок проектирования и будущей реализации находится в
 [`PLAN.md`](PLAN.md). Этот каталог не является вторым тестовым backend или
-конкурирующим runner; запуск и отчёты будущего `Security Campaign` принадлежат
+конкурирующим runner; запуск и отчёты `Security Campaign` принадлежат
 `AI Scenario Lab`.
 
-Принятые границы foundation и будущего третьего контура закреплены в
+Принятые границы foundation и третьего контура закреплены в
 [`ADR-026`](../../Architecture/decisions/ADR-026-security-center-foundation.md) и
 [`ADR-027`](../../Architecture/decisions/ADR-027-security-campaign.md).
 Optional adapter закреплён в

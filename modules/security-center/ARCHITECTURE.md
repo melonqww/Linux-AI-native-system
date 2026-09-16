@@ -2,7 +2,8 @@
 
 **Статус:** целевая архитектура; foundation, File Scanner, optional clamd,
 quick/full coordinator, Finding Store, read-only Ubuntu posture и обратимый
-карантин реализованы в `security.center` `0.6.0`; Security Campaign остаётся планом.
+карантин реализованы в `security.center` `0.6.0`; первый внешний Security Campaign
+реализован в AI Scenario Lab.
 
 ## 1. Решение
 
@@ -10,7 +11,7 @@ Security Center создаётся как один first-party capability-дом
 мелких пользовательских модулей. Внутри домена полномочия разделяются между
 процессами. Проектная документация хранится рядом с модулем, а будущие fixtures
 принадлежат `labs/ai-scenario-lab`; отдельный конкурирующий runner не создаётся.
-Специализированная проверка будет третьим контуром `Security Campaign` внутри
+Специализированная проверка является третьим контуром `Security Campaign` внутри
 существующей `AI Scenario Lab` и не поставляется как часть runtime.
 
 ```text
@@ -220,10 +221,10 @@ approval, concurrency и deadline.
 
 ## 9. Security Lab
 
-Этот каталог является владельцем архитектуры модуля. Будущие безопасные fixtures
+Этот каталог является владельцем архитектуры модуля. Безопасные fixtures
 живут только внутри внешнего `AI Scenario Lab`, без копии production-кода.
 
-Существующая `AI Scenario Lab` получит третий самостоятельный режим
+Существующая `AI Scenario Lab` получила третий самостоятельный режим
 `Security Campaign`. Он строит одноразовый `VirtualSecurityHost` с разрешёнными
 и закрытыми областями, виртуальным карантином, synthetic posture snapshots и
 внешним canary. Campaign импортирует реальные production-файлы, contracts и
@@ -260,10 +261,10 @@ Runtime-проверка собственной целостности моду�
 2. Bounded File Scanner с fake detector для полностью автономных тестов. ✓
 3. Adapter реального локального антивирусного движка. ✓
 4. Quick/full coordinator и Finding Store. ✓
-5. Read-only Posture Collector и проекция в UI/Task Ledger.
-6. Карантин с prepare/commit, receipt и restore.
-7. Третий `Security Campaign` в `AI Scenario Lab`, безопасные fixtures и Linux
-   VM integration.
+5. Read-only Posture Collector и безопасная публичная проекция. ✓
+6. Карантин с prepare/commit, receipt и restore. ✓
+7. Третий `Security Campaign` в `AI Scenario Lab` и безопасные fixtures. ✓
+8. Linux VM integration с настоящим clamd и системными permissions.
 
 Каждый этап должен оставлять систему полезной и отключаемой. Дополнительные
 фоновые и привилегированные возможности начинаются только после стабильного MVP.
