@@ -305,6 +305,19 @@ class OllamaModelProvider:
                 response_text=response_text,
                 unsupported_actions=unsupported_actions,
             )
+        supported_calls = self._relocate_invalid_conditional_values(
+            supported_calls, request, definitions
+        )
+        if supported_calls is None:
+            return ModelTurn(
+                ModelTurnKind.CLARIFICATION,
+                response_text=(
+                    "Уточните, пожалуйста, все важные параметры операции."
+                    if request.locale.startswith("ru")
+                    else "Please clarify all important operation details."
+                ),
+                clarification_key="operation_arguments",
+            )
         supported_calls = self._review_conditional_arguments(
             supported_calls, request, definitions
         )
@@ -364,6 +377,62 @@ class OllamaModelProvider:
             unsupported_actions=unsupported_actions,
         )
 
+    @staticmethod
+    def _relocate_invalid_conditional_values(
+        calls: list[object],
+        request: ModelRequest,
+        definitions: tuple[OperationDefinition, ...],
+    ) -> list[object] | None:
+        """Move one grounded value from an invalid dependent into its missing peer.
+
+        Small models sometimes put a topic into the enum that describes how the
+        topic must be matched.  The module schema already declares that relation
+        with ``coRequiredWith``.  Relocation is allowed only when the value is
+        invalid for its current property, valid for exactly one missing peer and
+        literally present in the current message.  Ambiguity still fails closed.
+        """
+        amended = deepcopy(calls)
+        catalog = OperationCatalog(definitions)
+        for call in amended:
+            function = call.get("function") if isinstance(call, Mapping) else None
+            if not isinstance(function, Mapping) or not isinstance(
+                function.get("arguments"), Mapping
+            ):
+                return None
+            definition = catalog.operation(function.get("name"))
+            arguments = function["arguments"]
+            properties = definition.input_schema["properties"]
+            for argument, schema in properties.items():
+                peers = schema.get("coRequiredWith", [])
+                if argument not in arguments or not peers:
+                    continue
+                value = arguments[argument]
+                try:
+                    definition.validate_argument(argument, value)
+                except (TypeError, ValueError):
+                    pass
+                else:
+                    continue
+                if not OllamaModelProvider._argument_value_is_in_message(
+                    value, request.user_text
+                ):
+                    return None
+                candidates: list[tuple[str, object]] = []
+                for peer in peers:
+                    if peer in arguments or peer not in properties:
+                        continue
+                    try:
+                        normalized = definition.validate_argument(peer, value)
+                    except (TypeError, ValueError):
+                        continue
+                    candidates.append((peer, normalized))
+                if len(candidates) != 1:
+                    return None
+                peer, normalized = candidates[0]
+                arguments.pop(argument)
+                arguments[peer] = normalized
+        return amended
+
     def _review_conditional_arguments(
         self,
         calls: list[object],
@@ -421,8 +490,12 @@ class OllamaModelProvider:
                             "identifier of an object is not a topic of its contents. For "
                             "example, in 'find all FORMAT files', FORMAT has the file-type "
                             "role; in 'find files about SUBJECT', SUBJECT has the content-topic "
-                            "role; and in 'find files containing PHRASE', PHRASE has the "
-                            "literal-content role. Apply the same distinction in any language. "
+                            "role; and only in 'find files containing the exact phrase PHRASE' "
+                            "does PHRASE have the literal-content role. 'Find my documents' "
+                            "names an object category, not a content topic or literal phrase. "
+                            "Exact occurrence of words in the request alone never makes them a "
+                            "literal-content phrase: the user must explicitly require verbatim "
+                            "occurrence. Apply the same distinction in any language. "
                             "Choose exactly one allowed label. Return one JSON field only.",
                         },
                         {

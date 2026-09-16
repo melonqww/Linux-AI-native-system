@@ -518,6 +518,68 @@ class OllamaProviderTests(unittest.TestCase):
             "semantic",
         )
 
+    def test_grounded_value_in_invalid_dependent_is_relocated_to_its_peer(self):
+        route = FakeResponse(
+            {
+                "message": {
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "search_documents",
+                                "arguments": {
+                                    "mode": "content",
+                                    "extensions": ["pdf"],
+                                    "content_match": "математике",
+                                    "confidence": 0.9,
+                                },
+                            }
+                        }
+                    ],
+                }
+            }
+        )
+        review = FakeResponse(
+            {"message": {"content": json.dumps({"classification": "topic"})}}
+        )
+
+        with patch(
+            "ai_native_intents.ollama._open_loopback", side_effect=[route, review]
+        ):
+            turn = OllamaModelProvider().route(model_request())
+
+        arguments = turn.intent_payload["operations"][0]["arguments"]
+        self.assertEqual(arguments["text"], "математике")
+        self.assertEqual(arguments["content_match"], "semantic")
+
+    def test_ungrounded_invalid_conditional_value_fails_closed(self):
+        route = FakeResponse(
+            {
+                "message": {
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "search_documents",
+                                "arguments": {
+                                    "mode": "content",
+                                    "extensions": ["pdf"],
+                                    "content_match": "invented topic",
+                                    "confidence": 0.9,
+                                },
+                            }
+                        }
+                    ],
+                }
+            }
+        )
+
+        with patch("ai_native_intents.ollama._open_loopback", return_value=route):
+            turn = OllamaModelProvider().route(model_request())
+
+        self.assertEqual(turn.kind, ModelTurnKind.CLARIFICATION)
+        self.assertIsNone(turn.intent_payload)
+
     def test_conditionally_required_argument_review_cannot_report_absent(self):
         route = FakeResponse(
             {
