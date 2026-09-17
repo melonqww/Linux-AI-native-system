@@ -10,6 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from ai_native_linux.bridge import create_server
+from ai_native_linux.routing import RuntimeRouter
 
 
 @dataclass
@@ -70,6 +71,9 @@ class App:
             "software.remove.commit",
             "software.tasks.control",
             "software.backups.restore",
+            "security.module.status",
+            "security.findings.list",
+            "security.posture.scan",
         ]
 
     def search(self, payload):
@@ -165,8 +169,21 @@ class App:
     def software_restore(self, payload, *, transport_context):
         return {"schema_version": 1, "backup": payload}
 
+    def security_snapshot(self, payload, *, transport_context):
+        if payload:
+            raise ValueError("unexpected payload")
+        return {"schema_version": 1, "module": {"state": "ready"}}
+
 
 class BridgeTests(unittest.TestCase):
+    def test_security_snapshot_is_available_to_secure_runtime(self):
+        response = RuntimeRouter(App()).dispatch(
+            "POST", "/v1/security/snapshot", {}
+        )
+
+        self.assertEqual(response.status, 200)
+        self.assertEqual(response.payload["module"]["state"], "ready")
+
     def test_rejects_non_loopback_binding(self):
         with self.assertRaises(ValueError):
             create_server(App(), host="0.0.0.0")
@@ -291,6 +308,13 @@ class BridgeTests(unittest.TestCase):
             )
             with self.assertRaises(urllib.error.HTTPError) as software_prepare_error:
                 urllib.request.urlopen(software_prepare_request)
+            security_request = urllib.request.Request(
+                base + "/v1/security/snapshot",
+                data=b"{}",
+                headers={"Content-Type": "application/json"},
+            )
+            with self.assertRaises(urllib.error.HTTPError) as security_error:
+                urllib.request.urlopen(security_request)
         finally:
             server.shutdown()
             server.server_close()
@@ -316,6 +340,9 @@ class BridgeTests(unittest.TestCase):
         self.assertNotIn("software.remove.commit", capabilities["capabilities"])
         self.assertNotIn("software.tasks.control", capabilities["capabilities"])
         self.assertNotIn("software.backups.restore", capabilities["capabilities"])
+        self.assertNotIn("security.module.status", capabilities["capabilities"])
+        self.assertNotIn("security.findings.list", capabilities["capabilities"])
+        self.assertNotIn("security.posture.scan", capabilities["capabilities"])
         self.assertEqual(status["scheduler"]["state"], "idle")
         self.assertEqual(system_status["schema_version"], 1)
         self.assertTrue(system_status["supported"])
@@ -335,6 +362,7 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(storage_error.exception.code, 403)
         self.assertEqual(software_error.exception.code, 403)
         self.assertEqual(software_prepare_error.exception.code, 403)
+        self.assertEqual(security_error.exception.code, 403)
         self.assertEqual(workspace_error.exception.code, 403)
         self.assertEqual(submit_error.exception.code, 403)
         self.assertEqual(models_error.exception.code, 403)

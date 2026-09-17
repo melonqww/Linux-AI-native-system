@@ -159,6 +159,58 @@ export function systemUpdatePresentation(result) {
     };
 }
 
+export function securityPresentation(snapshot) {
+    const module = snapshot?.module ?? {};
+    const posture = snapshot?.posture ?? {};
+    const ready = module.state === 'ready';
+    const verdict = posture.verdict;
+    const summary = !ready
+        ? {label: 'Недоступен', style: 'neutral'}
+        : verdict === 'findings_detected'
+        ? {label: 'Требует внимания', style: 'error'}
+        : verdict === 'no_findings'
+            ? {label: 'Защита активна', style: 'connected'}
+            : {label: 'Неполные данные', style: 'neutral'};
+    const checkLabels = {
+        security_updates: 'Обновления безопасности',
+        firewall: 'Сетевой экран',
+        apparmor: 'AppArmor',
+        listening_ports: 'Открытые порты',
+        autostart: 'Автозапуск',
+        scanner_rules: 'Правила сканирования',
+    };
+    const stateLabels = {
+        healthy: ['Норма', 'connected'],
+        finding: ['Внимание', 'error'],
+        unknown: ['Нет данных', 'neutral'],
+    };
+    const checks = safeArray(posture.observations).slice(0, 8).map(item => {
+        const [status, style] = stateLabels[item?.state] ?? stateLabels.unknown;
+        const count = Number.isInteger(item?.count) && item.count >= 0
+            ? ` · объектов: ${item.count}`
+            : '';
+        return {
+            title: checkLabels[item?.check_id] ?? 'Проверка системы',
+            detail: `Уровень: ${safeText(item?.severity, 'info')}${count}`,
+            status,
+            style,
+        };
+    });
+    const findings = safeArray(snapshot?.findings?.findings).slice(0, 10).map(item => ({
+        title: safeText(item?.classification, 'Подозрительный файл'),
+        detail: safeText(item?.relative_path, 'Путь недоступен'),
+        status: safeText(item?.severity, 'unknown').toUpperCase(),
+        style: ['high', 'critical'].includes(item?.severity) ? 'error' : 'neutral',
+    }));
+    return {
+        available: ready,
+        moduleVersion: safeText(module.module_version),
+        summary,
+        checks,
+        findings,
+    };
+}
+
 export function monitorPresentation(snapshot) {
     if (snapshot?.supported !== true) {
         return {

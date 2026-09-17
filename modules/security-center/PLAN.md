@@ -278,12 +278,10 @@ Linux integration разделён на две части:
    clean/detected verdict через production `INSTREAM` adapter. Живые вредоносные
    образцы и скачивание публичной signature database не используются.
 
-## Ближайшие решения
+## Пользовательская проекция панели — завершена
 
-1. Определить проекцию findings в UI и Task Ledger без утечки путей.
-2. Спроектировать state machine карантина и server-owned approval.
-3. Зафиксировать quarantine storage и restore receipt.
-4. Подключить результаты Security Center к пользовательской проекции панели.
-
-Linux integration закрыт. Следующее продуктовое решение — компактная проекция
-scan/findings/quarantine в панель без расширения полномочий модуля.
+Панель показывает status, шесть Ubuntu posture checks и до 10 активных findings
+через отдельный read-only snapshot. Endpoint доступен только по authenticated
+Unix IPC; loopback fallback его не публикует. Следующий продуктовый этап —
+выбор trusted resource и запуск quick/full scan, затем отдельный approval-поток
+для карантина.

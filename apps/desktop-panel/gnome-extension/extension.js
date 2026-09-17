@@ -15,6 +15,7 @@ import {
     executionPresentation,
     monitorPresentation,
     runtimeErrorMessage,
+    securityPresentation,
     systemPresentation,
     systemUpdatePresentation,
     taskDetailPresentation,
@@ -1165,6 +1166,7 @@ class SettingsView extends St.Widget {
         this._runtime = runtime;
         this._extensionDir = extensionDir;
         this._softwareGeneration = 0;
+        this._securityGeneration = 0;
         this._softwarePollSourceId = 0;
         this._softwarePollInFlight = false;
         this._softwareLaunchRequests = new Map();
@@ -1224,6 +1226,7 @@ class SettingsView extends St.Widget {
     _buildSettings() {
         this._stopSoftwarePolling();
         this._softwareGeneration += 1;
+        this._securityGeneration += 1;
         this._clearContent();
         const header = new St.BoxLayout({style_class: 'ai-settings-hero', x_expand: true});
         const softwareShortcut = new St.Button({
@@ -1272,8 +1275,95 @@ class SettingsView extends St.Widget {
 
         const security = this._card('Безопасность');
         security.add_child(this._row('Подтверждение опасных действий', 'Запрашивать подтверждение перед изменениями', 'Включено', 'connected'));
-        security.add_child(this._row('Разрешённые директории', 'Источники для поиска файлов', 'Домашняя папка', 'neutral'));
+        security.add_child(this._navigationRow(
+            'Security Center',
+            'Состояние защиты, проверки Ubuntu и активные находки',
+            'Открыть ›',
+            () => this._openSecurity(),
+        ));
         this._content.add_child(security);
+    }
+
+    _openSecurity() {
+        this._stopSoftwarePolling();
+        const generation = ++this._securityGeneration;
+        this._clearContent();
+
+        const toolbar = new St.BoxLayout({style_class: 'ai-software-toolbar', x_expand: true});
+        const back = new St.Button({
+            style_class: 'ai-software-back',
+            child: new St.Icon({icon_name: 'go-previous-symbolic'}),
+            can_focus: true,
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        back.connect('clicked', () => this._buildSettings());
+        toolbar.add_child(back);
+        toolbar.add_child(this._sectionHeading(
+            'Security Center',
+            'Локальная защита без передачи данных наружу.',
+            'SECURITY.CENTER',
+        ));
+        const refresh = new St.Button({label: 'Обновить', style_class: 'ai-settings-action'});
+        toolbar.add_child(refresh);
+        this._content.add_child(toolbar);
+
+        const body = new St.BoxLayout({vertical: true, x_expand: true});
+        this._content.add_child(body);
+        refresh.connect('clicked', () => this._loadSecuritySnapshot(body, generation));
+        this._loadSecuritySnapshot(body, generation);
+    }
+
+    async _loadSecuritySnapshot(body, generation) {
+        body.get_children().forEach(child => child.destroy());
+        body.add_child(new St.Label({
+            text: 'Проверяю состояние защиты…',
+            style_class: 'ai-software-empty',
+        }));
+        try {
+            const snapshot = await this._runtime.securitySnapshot();
+            if (generation !== this._securityGeneration)
+                return;
+            this._renderSecuritySnapshot(body, securityPresentation(snapshot));
+        } catch (_error) {
+            if (generation !== this._securityGeneration)
+                return;
+            body.get_children().forEach(child => child.destroy());
+            body.add_child(new St.Label({
+                text: 'Security Center сейчас недоступен. Остальная система продолжает работать.',
+                style_class: 'ai-software-empty',
+            }));
+        }
+    }
+
+    _renderSecuritySnapshot(body, view) {
+        body.get_children().forEach(child => child.destroy());
+        const summary = this._card('Состояние защиты');
+        summary.add_child(this._row(
+            'Security Center',
+            `Локальный модуль · версия ${view.moduleVersion}`,
+            view.summary.label,
+            view.summary.style,
+        ));
+        body.add_child(summary);
+
+        const checks = this._card('Проверки Ubuntu');
+        if (view.checks.length === 0)
+            checks.add_child(this._row('Проверки недоступны', 'Модуль не вернул наблюдения', 'Нет данных', 'neutral'));
+        else
+            view.checks.forEach(item => checks.add_child(this._row(
+                item.title, item.detail, item.status, item.style,
+            )));
+        body.add_child(checks);
+
+        const findings = this._card('Активные находки');
+        if (view.findings.length === 0)
+            findings.add_child(this._row('Подозрительных файлов нет', 'Хранилище активных находок пусто', 'Чисто', 'connected'));
+        else
+            view.findings.forEach(item => findings.add_child(this._row(
+                item.title, item.detail, item.status, item.style,
+            )));
+        body.add_child(findings);
+        this._queueViewportRedraw();
     }
 
     _openSoftware(initialSection = 'catalog') {

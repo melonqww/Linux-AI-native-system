@@ -101,6 +101,7 @@ class QueryRuntimeApplication:
         | None = None,
         software_restore: Callable[[dict[str, object]], dict[str, object]]
         | None = None,
+        security_snapshot: Callable[[], dict[str, object]] | None = None,
     ) -> None:
         self.query_service = query_service
         self.scheduler_status = scheduler_status
@@ -122,6 +123,7 @@ class QueryRuntimeApplication:
         self.software_respond_callback = software_respond
         self.software_control_callback = software_control
         self.software_restore_callback = software_restore
+        self.security_snapshot_callback = security_snapshot
         if intent_pipeline is not None and task_context is None:
             raise ValueError("task_context is required with intent_pipeline")
         if (plan_store is None) != (plan_executor is None):
@@ -189,7 +191,28 @@ class QueryRuntimeApplication:
             capabilities.append("software.tasks.control")
         if self.software_restore_callback is not None:
             capabilities.append("software.backups.restore")
+        if self.security_snapshot_callback is not None:
+            capabilities.extend(
+                (
+                    "security.module.status",
+                    "security.findings.list",
+                    "security.posture.scan",
+                )
+            )
         return capabilities
+
+    def security_snapshot(
+        self, payload: dict[str, object], *, transport_context: TransportContext
+    ) -> dict[str, object]:
+        if self.security_snapshot_callback is None:
+            raise RuntimeError("security_center_unavailable")
+        self._require_secure_transport(transport_context)
+        if payload:
+            raise ValueError("security snapshot does not accept fields")
+        result = self.security_snapshot_callback()
+        if not isinstance(result, dict):
+            raise RuntimeError("security_center_invalid_response")
+        return result
 
     def software_snapshot(self, payload: dict[str, object]) -> dict[str, object]:
         if self.software_snapshot_callback is None:

@@ -118,6 +118,8 @@ posture и возвращает JSON-safe
 
 ## Документация
 
+- [Panel API v1](../../Architecture/api/security-center-panel-v1.md)
+- [ADR-035: безопасная проекция в панели](../../Architecture/decisions/ADR-035-security-center-panel-projection.md)
 - [Reversible Quarantine API v6](../../Architecture/api/security-center-quarantine-v6.md)
 - [ADR-034: обратимый same-filesystem карантин](../../Architecture/decisions/ADR-034-security-reversible-quarantine.md)
 - [Ubuntu Posture API v5](../../Architecture/api/security-center-posture-v5.md)

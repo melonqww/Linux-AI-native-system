@@ -82,6 +82,10 @@ export class RuntimeClient {
         return this.request('POST', '/v1/software/snapshot');
     }
 
+    securitySnapshot() {
+        return this.request('POST', '/v1/security/snapshot');
+    }
+
     softwarePrepare(payload) {
         return this.request('POST', '/v1/software/prepare', payload);
     }

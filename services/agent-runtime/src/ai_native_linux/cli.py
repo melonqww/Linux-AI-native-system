@@ -203,6 +203,30 @@ def main() -> int:
                 software_respond = None
                 software_control = None
                 software_restore = None
+            security_snapshot = None
+            try:
+                security_module_id = manager.start_for_capability(
+                    "security.module.status"
+                )
+
+                def security_snapshot():
+                    return {
+                        "schema_version": 1,
+                        "module": manager.invoke(
+                            security_module_id, "status", timeout=15
+                        ),
+                        "posture": manager.invoke(
+                            security_module_id, "posture_scan", timeout=30
+                        ),
+                        "findings": manager.invoke(
+                            security_module_id,
+                            "findings_list",
+                            {"state": "active", "limit": 10},
+                            timeout=15,
+                        ),
+                    }
+            except ModuleProcessError:
+                print("Security Center: unavailable")
             if not args.no_intent_compiler:
                 from ai_native_intents import (
                     IntentCompiler,
@@ -344,6 +368,7 @@ def main() -> int:
                 software_respond=software_respond,
                 software_control=software_control,
                 software_restore=software_restore,
+                security_snapshot=security_snapshot,
             )
             transport = (
                 "unix"

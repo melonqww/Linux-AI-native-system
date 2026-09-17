@@ -10,12 +10,50 @@ import {
     monitorPresentation,
     runtimeErrorMessage,
     schedulerLabel,
+    securityPresentation,
     systemPresentation,
     systemUpdatePresentation,
     taskDetailPresentation,
     taskRowLabel,
     taskStateLabel,
 } from '../panel-presenter.js';
+
+
+test('security snapshot presents bounded posture checks and findings', () => {
+    const view = securityPresentation({
+        module: {state: 'ready', module_version: '0.6.0'},
+        posture: {
+            verdict: 'findings_detected',
+            observations: [
+                {check_id: 'firewall', state: 'finding', severity: 'medium'},
+                {check_id: 'apparmor', state: 'healthy', severity: 'info'},
+            ],
+        },
+        findings: {findings: [{
+            classification: 'EICAR-Test',
+            relative_path: 'Downloads/sample.txt',
+            severity: 'high',
+        }]},
+    });
+    assert.equal(view.available, true);
+    assert.deepEqual(view.summary, {label: 'Требует внимания', style: 'error'});
+    assert.equal(view.checks[0].title, 'Сетевой экран');
+    assert.equal(view.checks[0].status, 'Внимание');
+    assert.deepEqual(view.findings[0], {
+        title: 'EICAR-Test',
+        detail: 'Downloads/sample.txt',
+        status: 'HIGH',
+        style: 'error',
+    });
+});
+
+test('security snapshot degrades safely on malformed data', () => {
+    const view = securityPresentation(null);
+    assert.equal(view.available, false);
+    assert.deepEqual(view.summary, {label: 'Недоступен', style: 'neutral'});
+    assert.deepEqual(view.checks, []);
+    assert.deepEqual(view.findings, []);
+});
 
 
 test('system update states decide whether the native update UI opens', () => {

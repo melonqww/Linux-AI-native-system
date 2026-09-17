@@ -755,6 +755,35 @@ class QueryServiceTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             QueryRuntimeApplication(self.service).software_snapshot({})
 
+    def test_runtime_exposes_security_snapshot_only_on_secure_transport(self) -> None:
+        snapshot = {
+            "schema_version": 1,
+            "module": {"state": "ready"},
+            "posture": {"verdict": "no_findings", "observations": []},
+            "findings": {"state": "active", "findings": []},
+        }
+        application = QueryRuntimeApplication(
+            self.service, security_snapshot=lambda: snapshot
+        )
+
+        self.assertEqual(
+            application.security_snapshot(
+                {}, transport_context=TransportContext.internal()
+            ),
+            snapshot,
+        )
+        self.assertIn("security.module.status", application.capabilities())
+        self.assertIn("security.findings.list", application.capabilities())
+        self.assertIn("security.posture.scan", application.capabilities())
+        with self.assertRaises(ValueError):
+            application.security_snapshot(
+                {"refresh": True}, transport_context=TransportContext.internal()
+            )
+        with self.assertRaises(RuntimeError):
+            QueryRuntimeApplication(self.service).security_snapshot(
+                {}, transport_context=TransportContext.internal()
+            )
+
     def test_runtime_exposes_validated_software_mutations(self) -> None:
         calls: list[tuple[str, dict[str, object]]] = []
 
