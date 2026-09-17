@@ -8,8 +8,10 @@
 Ubuntu CI дополнительно проверяет реальные Linux-границы: `AF_UNIX` framing,
 kernel `SO_PEERCRED`, отказ чужому UID до передачи команды, symlink containment и
 режимы `0700/0600` приватного quarantine storage. Это первая часть Linux
-integration; отдельный smoke с установленным системным `clamd` остаётся следующим
-небольшим этапом.
+integration. Отдельный Ubuntu CI job составляет вторую часть: устанавливает
+настоящий системный `clamd`, запускает его под package service user с изолированной
+безопасной custom signature database и проверяет production `INSTREAM` adapter.
+Публичные базы не скачиваются, живые вредоносные образцы не используются.
 
 ## v0.2.0: файловое сканирование
 

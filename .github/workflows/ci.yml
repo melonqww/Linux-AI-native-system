@@ -31,3 +31,19 @@ jobs:
         run: python -m compileall -q services modules apps labs/ai-scenario-lab/src
       - name: Validate GNOME extension JavaScript syntax
         run: node --check apps/desktop-panel/gnome-extension/extension.js
+
+  security-clamd-smoke:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install clamd and smoke-test dependencies
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install --yes clamav-daemon
+          sudo systemctl stop clamav-freshclam.service clamav-daemon.service || true
+          python -m pip install --disable-pip-version-check pytest
+      - name: Run Security Center against real clamd
+        run: bash modules/security-center/scripts/run-real-clamd-smoke.sh

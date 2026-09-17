@@ -1,8 +1,8 @@
 # Security Center MVP — план работ
 
-**Статус:** production MVP завершён в `0.6.0`; первый внешний deterministic
-Security Campaign и Linux integration part 1 реализованы. Следующий шаг —
-отдельный smoke с установленным настоящим `clamd` на Ubuntu.
+**Статус:** production MVP завершён в `0.6.0`; Security Campaign и обе части
+Linux integration реализованы, включая отдельный Ubuntu smoke с настоящим
+установленным `clamd`.
 
 ## Результат MVP
 
@@ -273,15 +273,17 @@ Linux integration разделён на две части:
    symlink boundary и реальные режимы `0700/0600` quarantine storage, receipts и
    objects. Одноразовый безопасный peer проверяет только wire-контракт
    `INSTREAM`; production scanner/detector/quarantine импортируются без копии.
-2. Следующий шаг: отдельный smoke с установленным настоящим `clamd`, его
-   системным socket и фактическим daemon UID. Он не должен замедлять обычный
-   cross-platform test job и не использует живые вредоносные образцы.
+2. Завершено: отдельный Ubuntu CI job устанавливает настоящий `clamd`, запускает
+   его под пакетным service user с изолированной custom database и проверяет
+   clean/detected verdict через production `INSTREAM` adapter. Живые вредоносные
+   образцы и скачивание публичной signature database не используются.
 
 ## Ближайшие решения
 
 1. Определить проекцию findings в UI и Task Ledger без утечки путей.
 2. Спроектировать state machine карантина и server-owned approval.
 3. Зафиксировать quarantine storage и restore receipt.
-4. Добавить отдельный Ubuntu smoke profile с настоящим `clamd`.
+4. Подключить результаты Security Center к пользовательской проекции панели.
 
-Следующий этап — part 2: настоящий `clamd` smoke на целевой Ubuntu-системе.
+Linux integration закрыт. Следующее продуктовое решение — компактная проекция
+scan/findings/quarantine в панель без расширения полномочий модуля.

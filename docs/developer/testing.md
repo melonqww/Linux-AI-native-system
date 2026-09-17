@@ -139,6 +139,14 @@ capability по success/denial/timeout/fault.
 профили и отдельные security tests.
 
 Security Center Linux integration part 1 входит в обычный Ubuntu job и не требует
-установленного ClamAV. Part 2 будет отдельным smoke-профилем с настоящим `clamd`:
-он проверит системный socket и daemon UID, не добавляя вредоносные образцы в
-репозиторий и не утяжеляя Windows job.
+установленного ClamAV. Part 2 запускается отдельным `security-clamd-smoke` job:
+он устанавливает настоящий `clamd`, проверяет системный binary, Unix socket,
+daemon UID и `INSTREAM`, но использует только изолированную безопасную custom
+signature database. Поэтому smoke не зависит от `freshclam`, не добавляет
+вредоносные образцы в репозиторий и не утяжеляет Windows job. В подготовленной
+Ubuntu VM тот же профиль запускается командой:
+
+```bash
+sudo apt-get install clamav-daemon
+bash modules/security-center/scripts/run-real-clamd-smoke.sh
+```
