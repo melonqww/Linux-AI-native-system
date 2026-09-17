@@ -893,6 +893,29 @@
     padding: 10px 0 0 0;
 }
 
+.ai-sidebar-sections {
+    spacing: 6px;
+    padding: 0 11px 9px 11px;
+}
+
+.ai-sidebar-section {
+    background-color: #3d3d3d;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    color: #cfcfcf;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 7px 9px;
+}
+
+.ai-sidebar-section:hover,
+.ai-sidebar-section:focus,
+.ai-sidebar-section.active {
+    background-color: rgba(183, 216, 174, 0.18);
+    border-color: rgba(183, 216, 174, 0.42);
+    color: #e9f4e4;
+}
+
 .ai-sidebar-overlay {
     background-color: rgba(52, 52, 52, 0.98);
     border-radius: 0 0 20px 20px;
@@ -964,6 +987,12 @@
     border-radius: 16px;
     padding: 12px;
     spacing: 8px;
+}
+
+.ai-security-item {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 4px 0 6px 0;
+    spacing: 2px;
 }
 
 .ai-sidebar-title {

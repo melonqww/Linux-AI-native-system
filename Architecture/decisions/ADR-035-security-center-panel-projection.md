@@ -4,8 +4,9 @@
 
 ## Решение
 
-Добавить в существующие настройки отдельный экран Security Center. Runtime
-собирает status, Ubuntu posture и bounded список активных findings через
+Добавить в левую основную вкладку компактный внутренний экран Security Center
+рядом с разделом «Система и задачи». Runtime собирает status, Ubuntu posture и
+bounded список активных findings через
 Module Manager и возвращает единую read-only проекцию только по authenticated
 Unix IPC.
 

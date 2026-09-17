@@ -138,6 +138,9 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "this._runtime.securitySnapshot()",
             "securityPresentation(snapshot)",
             "Security Center",
+            "_buildSectionSwitcher",
+            "Система и задачи",
+            "_selectSection('security')",
             "Проверки Ubuntu",
             "Активные находки",
             "Вы точно хотите удалить",
@@ -194,6 +197,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
         ):
             self.assertIn(marker, source)
         self.assertNotIn("St.CheckButton", source)
+        self.assertNotIn("_openSecurity()", source)
         self.assertNotIn("Gemma 2 2B", source)
         self.assertNotIn("Qwen 3 1.7B", source)
         self.assertNotIn("Qwen 3.5 4B", source)

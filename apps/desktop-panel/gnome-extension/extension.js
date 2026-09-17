@@ -1166,7 +1166,6 @@ class SettingsView extends St.Widget {
         this._runtime = runtime;
         this._extensionDir = extensionDir;
         this._softwareGeneration = 0;
-        this._securityGeneration = 0;
         this._softwarePollSourceId = 0;
         this._softwarePollInFlight = false;
         this._softwareLaunchRequests = new Map();
@@ -1226,7 +1225,6 @@ class SettingsView extends St.Widget {
     _buildSettings() {
         this._stopSoftwarePolling();
         this._softwareGeneration += 1;
-        this._securityGeneration += 1;
         this._clearContent();
         const header = new St.BoxLayout({style_class: 'ai-settings-hero', x_expand: true});
         const softwareShortcut = new St.Button({
@@ -1275,95 +1273,7 @@ class SettingsView extends St.Widget {
 
         const security = this._card('Безопасность');
         security.add_child(this._row('Подтверждение опасных действий', 'Запрашивать подтверждение перед изменениями', 'Включено', 'connected'));
-        security.add_child(this._navigationRow(
-            'Security Center',
-            'Состояние защиты, проверки Ubuntu и активные находки',
-            'Открыть ›',
-            () => this._openSecurity(),
-        ));
         this._content.add_child(security);
-    }
-
-    _openSecurity() {
-        this._stopSoftwarePolling();
-        const generation = ++this._securityGeneration;
-        this._clearContent();
-
-        const toolbar = new St.BoxLayout({style_class: 'ai-software-toolbar', x_expand: true});
-        const back = new St.Button({
-            style_class: 'ai-software-back',
-            child: new St.Icon({icon_name: 'go-previous-symbolic'}),
-            can_focus: true,
-            y_align: Clutter.ActorAlign.CENTER,
-        });
-        back.connect('clicked', () => this._buildSettings());
-        toolbar.add_child(back);
-        toolbar.add_child(this._sectionHeading(
-            'Security Center',
-            'Локальная защита без передачи данных наружу.',
-            'SECURITY.CENTER',
-        ));
-        const refresh = new St.Button({label: 'Обновить', style_class: 'ai-settings-action'});
-        toolbar.add_child(refresh);
-        this._content.add_child(toolbar);
-
-        const body = new St.BoxLayout({vertical: true, x_expand: true});
-        this._content.add_child(body);
-        refresh.connect('clicked', () => this._loadSecuritySnapshot(body, generation));
-        this._loadSecuritySnapshot(body, generation);
-    }
-
-    async _loadSecuritySnapshot(body, generation) {
-        body.get_children().forEach(child => child.destroy());
-        body.add_child(new St.Label({
-            text: 'Проверяю состояние защиты…',
-            style_class: 'ai-software-empty',
-        }));
-        try {
-            const snapshot = await this._runtime.securitySnapshot();
-            if (generation !== this._securityGeneration)
-                return;
-            this._renderSecuritySnapshot(body, securityPresentation(snapshot));
-        } catch (_error) {
-            if (generation !== this._securityGeneration)
-                return;
-            body.get_children().forEach(child => child.destroy());
-            body.add_child(new St.Label({
-                text: 'Security Center сейчас недоступен. Остальная система продолжает работать.',
-                style_class: 'ai-software-empty',
-            }));
-        }
-    }
-
-    _renderSecuritySnapshot(body, view) {
-        body.get_children().forEach(child => child.destroy());
-        const summary = this._card('Состояние защиты');
-        summary.add_child(this._row(
-            'Security Center',
-            `Локальный модуль · версия ${view.moduleVersion}`,
-            view.summary.label,
-            view.summary.style,
-        ));
-        body.add_child(summary);
-
-        const checks = this._card('Проверки Ubuntu');
-        if (view.checks.length === 0)
-            checks.add_child(this._row('Проверки недоступны', 'Модуль не вернул наблюдения', 'Нет данных', 'neutral'));
-        else
-            view.checks.forEach(item => checks.add_child(this._row(
-                item.title, item.detail, item.status, item.style,
-            )));
-        body.add_child(checks);
-
-        const findings = this._card('Активные находки');
-        if (view.findings.length === 0)
-            findings.add_child(this._row('Подозрительных файлов нет', 'Хранилище активных находок пусто', 'Чисто', 'connected'));
-        else
-            view.findings.forEach(item => findings.add_child(this._row(
-                item.title, item.detail, item.status, item.style,
-            )));
-        body.add_child(findings);
-        this._queueViewportRedraw();
     }
 
     _openSoftware(initialSection = 'catalog') {
@@ -2365,6 +2275,8 @@ class SidebarView extends St.Widget {
         });
         this._runtime = runtime;
         this._refreshing = false;
+        this._securityRefreshing = false;
+        this._section = 'system';
         this._disposed = false;
         this.connect('destroy', () => {
             this._disposed = true;
@@ -2391,6 +2303,7 @@ class SidebarView extends St.Widget {
             y_expand: true,
         });
         this.add_child(this._body);
+        this._body.add_child(this._buildSectionSwitcher());
         this._scroll = new St.ScrollView({
             style_class: 'ai-sidebar-scroll',
             x_expand: true,
@@ -2398,17 +2311,30 @@ class SidebarView extends St.Widget {
         });
         this._scroll.set_policy(St.PolicyType.NEVER, St.PolicyType.AUTOMATIC);
 
+        this._sections = new St.BoxLayout({
+            vertical: true,
+            x_expand: true,
+        });
         this._content = new St.BoxLayout({
             vertical: true,
             style_class: 'ai-sidebar-content',
             x_expand: true,
         });
-        this._scroll.set_child(this._content);
+        this._securityContent = new St.BoxLayout({
+            vertical: true,
+            style_class: 'ai-sidebar-content',
+            x_expand: true,
+        });
+        this._securityContent.hide();
+        this._sections.add_child(this._content);
+        this._sections.add_child(this._securityContent);
+        this._scroll.set_child(this._sections);
         this._body.add_child(this._scroll);
 
         this._content.add_child(this._buildStatusCard());
         this._content.add_child(this._buildTaskCard());
         this._content.add_child(this._buildActionsCard());
+        this._buildSecurityContent();
         this._historyCard = this._buildHistoryCard();
         this._historyCard.hide();
         this._historyButton = this._buildHistoryButton();
@@ -2419,6 +2345,91 @@ class SidebarView extends St.Widget {
         this._showAllProcesses = false;
         this._processSort = 'cpu';
         this._processOrder = 'desc';
+    }
+
+    _buildSectionSwitcher() {
+        const switcher = new St.BoxLayout({
+            style_class: 'ai-sidebar-sections',
+            x_expand: true,
+        });
+        this._securitySectionButton = new St.Button({
+            label: 'Security Center',
+            style_class: 'ai-sidebar-section',
+            x_expand: true,
+        });
+        this._systemSectionButton = new St.Button({
+            label: 'Система и задачи',
+            style_class: 'ai-sidebar-section active',
+            x_expand: true,
+        });
+        this._securitySectionButton.connect(
+            'clicked', () => this._selectSection('security'),
+        );
+        this._systemSectionButton.connect(
+            'clicked', () => this._selectSection('system'),
+        );
+        switcher.add_child(this._securitySectionButton);
+        switcher.add_child(this._systemSectionButton);
+        return switcher;
+    }
+
+    _selectSection(section) {
+        if (!['system', 'security'].includes(section))
+            return;
+        this._section = section;
+        const security = section === 'security';
+        this._content.visible = !security;
+        this._securityContent.visible = security;
+        this._historyButton.visible = !security;
+        if (security) {
+            this._securitySectionButton.add_style_class_name('active');
+            this._systemSectionButton.remove_style_class_name('active');
+        } else {
+            this._securitySectionButton.remove_style_class_name('active');
+            this._systemSectionButton.add_style_class_name('active');
+        }
+        this._scroll.get_vadjustment().value = 0;
+        this.refresh();
+    }
+
+    _buildSecurityContent() {
+        const summary = this._card('Security Center');
+        this._securityState = this._boundMetricRow(summary, 'Состояние', 'проверка…');
+        this._securityVersion = this._boundMetricRow(summary, 'Версия', '—');
+        summary.add_child(sidebarLabel(
+            'Локальная проверка. Данные не отправляются наружу.',
+            'ai-sidebar-caption',
+        ));
+        this._securityContent.add_child(summary);
+
+        const checks = this._card('Проверки Ubuntu');
+        this._securityChecks = new St.BoxLayout({vertical: true, x_expand: true});
+        checks.add_child(this._securityChecks);
+        this._securityContent.add_child(checks);
+
+        const findings = this._card('Активные находки');
+        this._securityFindings = new St.BoxLayout({vertical: true, x_expand: true});
+        findings.add_child(this._securityFindings);
+        this._securityContent.add_child(findings);
+
+        const refresh = new St.Button({
+            label: 'Обновить Security Center',
+            style_class: 'ai-sidebar-action ai-sidebar-action-wide',
+            x_expand: true,
+        });
+        refresh.connect('clicked', () => this._refreshSecurity());
+        this._securityContent.add_child(refresh);
+    }
+
+    _securityItem(item) {
+        const row = new St.BoxLayout({
+            vertical: true,
+            style_class: 'ai-security-item',
+            x_expand: true,
+        });
+        row.add_child(metricRow(item.title, item.status));
+        row.add_child(sidebarLabel(item.detail, 'ai-sidebar-caption', {wrap: true}));
+        return row;
     }
 
     _card(title) {
@@ -2722,7 +2733,13 @@ class SidebarView extends St.Widget {
             this._overlayProcessList.add_child(processRow(`${process.name} (${process.pid})`, process.cpu, process.memory));
     }
 
-    async refresh() {
+    refresh() {
+        return this._section === 'security'
+            ? this._refreshSecurity()
+            : this._refreshSystem();
+    }
+
+    async _refreshSystem() {
         if (this._refreshing)
             return;
         this._refreshing = true;
@@ -2756,6 +2773,53 @@ class SidebarView extends St.Widget {
             this._renderMonitor(monitorResult.status === 'fulfilled' ? monitorResult.value : null);
         } finally {
             this._refreshing = false;
+        }
+    }
+
+    async _refreshSecurity() {
+        if (this._securityRefreshing)
+            return;
+        this._securityRefreshing = true;
+        try {
+            const snapshot = await this._runtime.securitySnapshot();
+            if (this._disposed)
+                return;
+            const view = securityPresentation(snapshot);
+            this._securityState.set_text(view.summary.label);
+            this._securityVersion.set_text(view.moduleVersion);
+            this._securityChecks.destroy_all_children();
+            this._securityFindings.destroy_all_children();
+            if (view.checks.length === 0) {
+                this._securityChecks.add_child(sidebarLabel(
+                    'Проверки недоступны.', 'ai-sidebar-caption',
+                ));
+            } else {
+                for (const item of view.checks)
+                    this._securityChecks.add_child(this._securityItem(item));
+            }
+            if (view.findings.length === 0) {
+                this._securityFindings.add_child(sidebarLabel(
+                    'Активных находок нет.', 'ai-sidebar-caption',
+                ));
+            } else {
+                for (const item of view.findings)
+                    this._securityFindings.add_child(this._securityItem(item));
+            }
+        } catch (_error) {
+            if (this._disposed)
+                return;
+            this._securityState.set_text('недоступен');
+            this._securityVersion.set_text('—');
+            this._securityChecks.destroy_all_children();
+            this._securityFindings.destroy_all_children();
+            this._securityChecks.add_child(sidebarLabel(
+                'Модуль защиты сейчас недоступен.', 'ai-sidebar-caption',
+            ));
+            this._securityFindings.add_child(sidebarLabel(
+                'Данные о находках недоступны.', 'ai-sidebar-caption',
+            ));
+        } finally {
+            this._securityRefreshing = false;
         }
     }
 
