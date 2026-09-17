@@ -38,7 +38,9 @@ unit/integration тесты лаборатории; они не обращают
 - битые, слишком большие, многостраничные и требующие OCR PDF;
 - coalescing/overflow очереди, load pause и инкрементальные create/modify/delete;
 - чистый декодер inotify на каждой ОС;
-- настоящий inotify event на Ubuntu runner.
+- настоящий inotify event на Ubuntu runner;
+- настоящий Security Center `AF_UNIX`/`SO_PEERCRED` обмен с безопасным локальным
+  INSTREAM peer, Linux symlink containment и режимы `0700/0600` карантина.
 
 Workflow `.github/workflows/ci.yml` запускает весь корневой набор, включая быстрые
 тесты лаборатории, на `windows-latest` и
@@ -135,3 +137,8 @@ capability по success/denial/timeout/fault.
 Тесты значительно снижают риск регрессий, но не доказывают абсолютную безопасность.
 Перед привилегированными модулями дополнительно потребуются threat model, sandbox-
 профили и отдельные security tests.
+
+Security Center Linux integration part 1 входит в обычный Ubuntu job и не требует
+установленного ClamAV. Part 2 будет отдельным smoke-профилем с настоящим `clamd`:
+он проверит системный socket и daemon UID, не добавляя вредоносные образцы в
+репозиторий и не утяжеляя Windows job.

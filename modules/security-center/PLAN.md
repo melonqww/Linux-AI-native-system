@@ -1,8 +1,8 @@
 # Security Center MVP — план работ
 
 **Статус:** production MVP завершён в `0.6.0`; первый внешний deterministic
-Security Campaign реализован в AI Scenario Lab. Следующий шаг — Ubuntu
-integration для настоящих Linux boundaries и clamd.
+Security Campaign и Linux integration part 1 реализованы. Следующий шаг —
+отдельный smoke с установленным настоящим `clamd` на Ubuntu.
 
 ## Результат MVP
 
@@ -267,16 +267,21 @@ security fixtures и runner принадлежат третьему контур
 Первый runner проверяет scan/findings/quarantine, fail-closed, containment,
 лимиты, replay, path race и restore collision командой `python run.py security`.
 
-Отдельный Ubuntu VM набор затем проверяет реальные filesystem permissions,
-антивирусный adapter, IPC peer identity и карантин. Живые вредоносные образцы в
-репозитории не используются.
+Linux integration разделён на две части:
+
+1. Завершено: Ubuntu CI использует настоящий `AF_UNIX`, kernel `SO_PEERCRED`,
+   symlink boundary и реальные режимы `0700/0600` quarantine storage, receipts и
+   objects. Одноразовый безопасный peer проверяет только wire-контракт
+   `INSTREAM`; production scanner/detector/quarantine импортируются без копии.
+2. Следующий шаг: отдельный smoke с установленным настоящим `clamd`, его
+   системным socket и фактическим daemon UID. Он не должен замедлять обычный
+   cross-platform test job и не использует живые вредоносные образцы.
 
 ## Ближайшие решения
 
 1. Определить проекцию findings в UI и Task Ledger без утечки путей.
 2. Спроектировать state machine карантина и server-owned approval.
 3. Зафиксировать quarantine storage и restore receipt.
-4. Добавить автоматизируемый Ubuntu integration profile для clamd и permissions.
+4. Добавить отдельный Ubuntu smoke profile с настоящим `clamd`.
 
-Следующий этап — Ubuntu integration для проверки permissions, peer identity и
-реального clamd на целевой системе.
+Следующий этап — part 2: настоящий `clamd` smoke на целевой Ubuntu-системе.

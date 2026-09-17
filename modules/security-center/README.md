@@ -5,6 +5,12 @@
 профили `quick`/`full`, Finding Store, optional локальный `clamd` и read-only
 аудит Ubuntu.
 
+Ubuntu CI дополнительно проверяет реальные Linux-границы: `AF_UNIX` framing,
+kernel `SO_PEERCRED`, отказ чужому UID до передачи команды, symlink containment и
+режимы `0700/0600` приватного quarantine storage. Это первая часть Linux
+integration; отдельный smoke с установленным системным `clamd` остаётся следующим
+небольшим этапом.
+
 ## v0.2.0: файловое сканирование
 
 Запрос не принимает абсолютный путь. Core передаёт:
