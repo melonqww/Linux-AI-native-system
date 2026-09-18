@@ -97,19 +97,25 @@ _RULES: tuple[tuple[ProblemLayer, str, tuple[str, ...], tuple[str, ...]], ...] =
             "decision_mismatch",
             "access_violation",
             "policy_denied_unexpectedly",
+            "approval_required_unexpectedly",
         ),
         ("policy", "approval"),
     ),
     (
         ProblemLayer.EXECUTOR,
         "executor",
-        ("executor_error", "execution_failed", "side_effect_mismatch"),
+        (
+            "executor_error",
+            "execution_failed",
+            "side_effect_mismatch",
+            "invalid_step_arguments",
+        ),
         ("executor", "execution"),
     ),
     (
         ProblemLayer.INDEX,
         "index",
-        ("index_error", "index_stale", "document_missing"),
+        ("index_error", "index_stale", "document_missing", "search_result_mismatch"),
         ("index", "search_index"),
     ),
     (
@@ -126,6 +132,10 @@ _RULES: tuple[tuple[ProblemLayer, str, tuple[str, ...], tuple[str, ...]], ...] =
             "classifier_fallback",
             "unsupported_route",
             "intent_not_recognized",
+            "requested_operation_missing",
+            "unrequested_operation",
+            "conversation_instead_of_action",
+            "journey_transition_mismatch",
         ),
         ("router", "route", "classifier"),
     ),
@@ -198,12 +208,35 @@ def _classify(evidence: Mapping[str, object]) -> tuple[ProblemLayer, str]:
 
 
 def _stable_evidence(evidence: Mapping[str, object]) -> dict[str, object]:
-    allowed = ("code", "stage", "component", "check_name", "fault_point")
+    token_fields = {
+        "code": "_",
+        "stage": "_",
+        "component": "_",
+        "check_name": "_:",
+        "fault_point": "_.",
+        "actual_status": "_",
+        "stop_reason": "_",
+        "model_event": "_",
+    }
     result: dict[str, object] = {}
-    for key in allowed:
+    for key, punctuation in token_fields.items():
         value = evidence.get(key)
-        if isinstance(value, (str, int)) and not isinstance(value, bool):
-            result[key] = value.strip().lower() if isinstance(value, str) else value
+        if isinstance(value, int) and not isinstance(value, bool):
+            result[key] = value
+            continue
+        if not isinstance(value, str):
+            continue
+        token = value.strip().lower()
+        if (
+            token
+            and len(token) <= 96
+            and token.isascii()
+            and all(
+                character.isalnum() or character in punctuation
+                for character in token
+            )
+        ):
+            result[key] = token
     for key in ("containment_passed", "unauthorized_side_effect"):
         value = evidence.get(key)
         if isinstance(value, bool):

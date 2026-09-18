@@ -110,8 +110,8 @@ def test_prepare_never_calls_model_or_starts_process(prepared, monkeypatch):
     )
     run = foundation.prepare(lab, project)
     manifest = foundation.read_json(run / "manifest.json")
-    assert len(manifest["cases"]) == 95  # 3 gates + 2 * (25 contracts + 21 journeys)
-    assert len({case["id"] for case in manifest["cases"]}) == 95
+    assert len(manifest["cases"]) == 97  # 3 gates + 2 * (26 contracts + 21 journeys)
+    assert len({case["id"] for case in manifest["cases"]}) == 97
     assert manifest["model"] == "qwen3.5:2b"
     assert manifest["context_tokens"] == 8192
     assert manifest["automatic_retries"] == 0
@@ -303,6 +303,45 @@ def test_gate_distinguishes_speed_from_function_and_never_releases_beta(prepared
         == "performance_problems"
     )
     assert foundation.publish(run, manifest, "interrupted")["verdict"] == "incomplete"
+
+
+def test_foundation_failure_report_keeps_bounded_unknown_evidence(prepared):
+    _, _, run = prepared
+    manifest = reduce_plan(run)
+    foundation.atomic_json(
+        run / "results/case-0.json",
+        {
+            "id": "case-0",
+            "status": "failed",
+            "diagnostic": {
+                "layer": "UNKNOWN",
+                "fingerprint": "diag-v1-000000000000000000000000",
+                "rule": "no_structured_rule_matched",
+                "evidence": {
+                    "code": "new_failure",
+                    "check_name": "unknown_check",
+                },
+            },
+        },
+    )
+    foundation.atomic_json(
+        run / "results/case-1.json", {"id": "case-1", "status": "passed"}
+    )
+
+    foundation.publish(run, manifest, "completed")
+    failures = foundation.read_json(run / "failures.json")
+    assert failures["unknown"] == ["case-0"]
+    assert failures["unknown_details"] == [
+        {
+            "id": "case-0",
+            "rule": "no_structured_rule_matched",
+            "evidence": {
+                "code": "new_failure",
+                "check_name": "unknown_check",
+            },
+        }
+    ]
+    assert "Failure diagnosis" in (run / "summary.md").read_text(encoding="utf-8")
 
 
 def test_stale_heartbeat_does_not_look_like_a_live_run(prepared):

@@ -79,7 +79,10 @@ def test_unknown_failures_are_not_grouped_under_a_shared_fingerprint():
             "unknown-diagnostic",
             "no-diagnostic",
         ]
-        assert "## UNKNOWN" in (directory / "failures.md").read_text(encoding="utf-8")
+        failures = (directory / "failures.md").read_text(encoding="utf-8")
+        assert "## UNKNOWN" in failures
+        assert "no_structured_rule_matched" in failures
+        assert "brand_new" in failures
     finally:
         shutil.rmtree(reports, ignore_errors=True)
 

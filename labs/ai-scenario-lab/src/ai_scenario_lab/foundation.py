@@ -441,13 +441,20 @@ def publish(
             cell = cells.setdefault(key, Counter())
             cell[result["status"]] += 1
         dimensions[axis] = {key: dict(value) for key, value in cells.items()}
-    groups, unknown, repeats = {}, [], {}
+    groups, unknown, unknown_details, repeats = {}, [], [], {}
     for result in failures:
         diagnostic = result.get("diagnostic") or {}
         if diagnostic.get("layer") in {None, "UNKNOWN"} or not diagnostic.get(
             "fingerprint"
         ):
             unknown.append(result["id"])
+            unknown_details.append(
+                {
+                    "id": result["id"],
+                    "rule": diagnostic.get("rule", "missing_diagnostic"),
+                    "evidence": diagnostic.get("evidence", {}),
+                }
+            )
         else:
             groups.setdefault(diagnostic["fingerprint"], []).append(result["id"])
     for case, result in zip(manifest["cases"], results, strict=True):
@@ -473,6 +480,7 @@ def publish(
             "failures": failures,
             "groups": groups,
             "unknown": unknown,
+            "unknown_details": unknown_details,
             "slow_cases": slow,
         },
     )
@@ -502,6 +510,11 @@ def publish(
             link = "not executed"
         lines.append(f"| {case['id']} | {result['status']} | {link} |")
     lines += [
+        "",
+        "## Failure diagnosis",
+        "",
+        f"Fingerprint groups: {len(groups)}. Unknown failures: {len(unknown)}.",
+        "Unknown entries retain stable rule/evidence in `failures.json`.",
         "",
         "## Coverage (executed results, not universal coverage)",
         "",

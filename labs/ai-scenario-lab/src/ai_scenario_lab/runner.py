@@ -203,6 +203,7 @@ class ScenarioRunner:
             "stage",
             "capabilities",
             "found",
+            "inaccessible",
             "copied",
             "result_paths",
             "copied_paths",
@@ -225,7 +226,7 @@ class ScenarioRunner:
             raise ValueError(f"unknown expectation fields: {sorted(unknown)}")
         checks: list[CheckResult] = []
         capabilities: list[str] = []
-        found = copied = 0
+        found = inaccessible = copied = 0
         result_paths: list[str] = []
         copied_paths: list[str] = []
         approval_required = False
@@ -244,6 +245,11 @@ class ScenarioRunner:
                 output = step.get("output")
                 if isinstance(output, dict):
                     found = max(found, int(output.get("result_count", 0)))
+                    coverage = output.get("coverage")
+                    if isinstance(coverage, dict):
+                        inaccessible += max(
+                            0, int(coverage.get("inaccessible_items", 0))
+                        )
                     copied = max(copied, int(output.get("copied_count", 0)))
                     for item in output.get("results", []):
                         if isinstance(item, dict) and isinstance(item.get("path"), str):
@@ -263,6 +269,7 @@ class ScenarioRunner:
             "stage": run.stage.value,
             "capabilities": list(dict.fromkeys(capabilities)),
             "found": found,
+            "inaccessible": inaccessible,
             "copied": copied,
             "result_paths": sorted(set(result_paths)),
             "copied_paths": sorted(set(copied_paths)),
@@ -284,6 +291,7 @@ class ScenarioRunner:
             "stage",
             "capabilities",
             "found",
+            "inaccessible",
             "copied",
             "approval_required",
             "message_kinds",

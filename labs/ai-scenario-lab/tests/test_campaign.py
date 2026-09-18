@@ -9,9 +9,11 @@ from ai_scenario_lab.adaptive_journeys import load_journey
 from ai_scenario_lab.campaign import (
     CampaignRunner,
     _compiler_evidence,
+    _executor_evidence,
     _journey_cases,
     _journey_evidence,
     _json_value,
+    _scenario_evidence,
     _selected_journeys,
 )
 from ai_scenario_lab.cli import parser
@@ -136,8 +138,173 @@ def test_unmet_journey_goal_without_capability_is_a_router_failure():
     assert _journey_evidence(outcome) == {
         "code": "intent_not_recognized",
         "component": "router",
-        "check_name": "required_effect:file_copy:*",
+        "check_name": "required_effect:file_copy",
     }
+
+
+def test_failed_assistant_contract_is_attributed_to_model_without_reading_text():
+    outcome = SimpleNamespace(
+        containment={"passed": True},
+        model_events=(),
+        turns=(
+            SimpleNamespace(
+                executions=(),
+                checks=(
+                    SimpleNamespace(
+                        name="assistant_contains_any",
+                        passed=False,
+                        expected=["secret expected phrase"],
+                        actual="arbitrary model prose",
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    assert _scenario_evidence(outcome) == {
+        "code": "semantic_mismatch",
+        "component": "model",
+        "check_name": "assistant_contains_any",
+    }
+
+
+def test_failed_execution_step_uses_executor_error_code():
+    evidence = _executor_evidence(
+        (
+            {
+                "result": {
+                    "steps": [
+                        {
+                            "state": "failed",
+                            "error_code": "invalid_step_arguments",
+                            "output": {"private": "not retained"},
+                        }
+                    ]
+                }
+            },
+        )
+    )
+
+    assert evidence == {
+        "code": "invalid_step_arguments",
+        "component": "executor",
+        "stage": "execution",
+    }
+
+
+def test_conversation_instead_of_required_action_is_a_router_failure():
+    outcome = SimpleNamespace(
+        containment={"passed": True},
+        error=None,
+        capabilities=("documents.query.search",),
+        execution_records=(),
+        model_events=(
+            {"kind": "respond_chat", "status": "ok", "response": "private prose"},
+        ),
+        stop_reason=SimpleNamespace(value="terminal_status"),
+        evaluation=SimpleNamespace(
+            checks=(SimpleNamespace(name="result:copied_count", passed=False),)
+        ),
+    )
+
+    assert _journey_evidence(outcome) == {
+        "code": "conversation_instead_of_action",
+        "component": "router",
+        "check_name": "result:copied_count",
+        "stop_reason": "terminal_status",
+        "model_event": "respond_chat",
+    }
+
+
+def test_scenario_level_error_is_attributed_without_retaining_error_prose():
+    outcome = SimpleNamespace(
+        containment={"passed": True},
+        error="private traceback-like error text",
+        model_events=(),
+        turns=(),
+    )
+
+    evidence = _scenario_evidence(outcome)
+    assert evidence == {"code": "execution_failed", "component": "execution"}
+    assert "private" not in repr(evidence)
+
+
+def test_structured_model_error_has_priority_over_generic_outcome_error():
+    outcome = SimpleNamespace(
+        containment={"passed": True},
+        error="generic runner error",
+        model_events=(
+            {
+                "kind": "respond_chat",
+                "status": "error",
+                "error_type": "TimeoutError",
+            },
+        ),
+        turns=(),
+    )
+
+    assert _scenario_evidence(outcome) == {
+        "code": "model_timeout",
+        "component": "model",
+        "model_event": "respond_chat",
+    }
+
+
+def test_message_kind_mismatch_remains_unknown_without_producer_evidence():
+    outcome = SimpleNamespace(
+        containment={"passed": True},
+        error=None,
+        model_events=(),
+        turns=(
+            SimpleNamespace(
+                executions=(),
+                checks=(
+                    SimpleNamespace(
+                        name="message_kinds",
+                        passed=False,
+                        expected=["task_result"],
+                        actual=["conversation"],
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    assert _scenario_evidence(outcome) == {
+        "code": "unclassified_contract_failure",
+        "check_name": "message_kinds",
+    }
+
+
+def test_effect_check_name_does_not_copy_virtual_path_into_diagnostic():
+    outcome = SimpleNamespace(
+        containment={"passed": True},
+        error=None,
+        capabilities=("storage.materialize.plan-copy",),
+        execution_records=(
+            {
+                "result": {
+                    "steps": [
+                        {"state": "failed", "error_code": "executor_error"}
+                    ]
+                }
+            },
+        ),
+        model_events=(),
+        stop_reason=None,
+        evaluation=SimpleNamespace(
+            checks=(
+                SimpleNamespace(
+                    name="forbidden_effect:file_copy:/home/user/private.pdf",
+                    passed=False,
+                ),
+            )
+        ),
+    )
+
+    evidence = _journey_evidence(outcome)
+    assert evidence["check_name"] == "forbidden_effect:file_copy"
+    assert "/home/user" not in repr(evidence)
 
 
 def test_campaign_continues_and_publishes_contract_and_journey_results(

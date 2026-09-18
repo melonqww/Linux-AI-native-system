@@ -54,6 +54,9 @@ def test_each_requested_problem_layer_has_a_deterministic_rule():
         "index_stale": ProblemLayer.INDEX,
         "outside_write": ProblemLayer.CONTAINMENT,
         "malformed_model_output": ProblemLayer.MODEL,
+        "conversation_instead_of_action": ProblemLayer.ROUTER,
+        "search_result_mismatch": ProblemLayer.INDEX,
+        "invalid_step_arguments": ProblemLayer.EXECUTOR,
         "something_new": ProblemLayer.UNKNOWN,
     }
     for code, expected in cases.items():
@@ -107,3 +110,39 @@ def test_context_rejects_non_integer_memory_depth():
         assert "memory_depth" in str(error)
     else:
         raise AssertionError("text memory depth was accepted")
+
+
+def test_fingerprint_preserves_stable_failure_shape_without_prose():
+    diagnostic = classify_problem(
+        _context(),
+        {
+            "code": "conversation_instead_of_action",
+            "component": "router",
+            "check_name": "result:copied_count",
+            "stop_reason": "terminal_status",
+            "model_event": "respond_chat",
+            "message": "must not be retained",
+        },
+    )
+    assert diagnostic.layer is ProblemLayer.ROUTER
+    assert diagnostic.evidence == {
+        "code": "conversation_instead_of_action",
+        "component": "router",
+        "check_name": "result:copied_count",
+        "stop_reason": "terminal_status",
+        "model_event": "respond_chat",
+    }
+
+
+def test_stable_evidence_rejects_paths_and_prose_even_from_future_callers():
+    diagnostic = classify_problem(
+        _context(),
+        {
+            "code": "brand_new",
+            "check_name": "required_effect:file_copy:/home/user/private.pdf",
+            "fault_point": "executor.copy; cat /home/user/private.txt",
+        },
+    )
+
+    assert diagnostic.layer is ProblemLayer.UNKNOWN
+    assert diagnostic.evidence == {"code": "brand_new"}

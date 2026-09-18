@@ -251,24 +251,51 @@ def _scenario_evidence(outcome) -> dict[str, object]:
         return {"containment_passed": False, "component": "containment"}
     for turn in outcome.turns:
         for check in turn.checks:
+            if not check.passed and check.name == "paths_absent":
+                return {
+                    "unauthorized_side_effect": True,
+                    "component": "policy",
+                    "check_name": "paths_absent",
+                }
+    for turn in outcome.turns:
+        for check in turn.checks:
             if (
                 check.name == "no_operations"
                 and not check.passed
                 and check.expected is True
             ):
-                return {"code": "unrequested_operation", "component": "router"}
-    if any(event.get("status") == "error" for event in outcome.model_events):
-        return {"code": "model_error", "component": "model"}
+                return {
+                    "code": "unrequested_operation",
+                    "component": "router",
+                    "check_name": "no_operations",
+                }
+    model_evidence = _model_error_evidence(getattr(outcome, "model_events", ()))
+    if model_evidence is not None:
+        return model_evidence
     compiler_evidence = _compiler_evidence(getattr(outcome, "model_events", ()))
     if compiler_evidence is not None:
         return compiler_evidence
+    records = tuple(
+        record
+        for turn in outcome.turns
+        for record in getattr(turn, "executions", ())
+    )
+    executor_evidence = _executor_evidence(records)
+    if executor_evidence is not None:
+        return executor_evidence
+    if getattr(outcome, "error", None):
+        return {"code": "execution_failed", "component": "execution"}
     for turn in outcome.turns:
-        if any("error_type" in record for record in turn.executions):
-            return {"code": "executor_error", "component": "executor"}
         for check in turn.checks:
-            if not check.passed and check.name == "capabilities":
-                return {"code": "route_mismatch", "component": "router"}
-    return {"code": "unclassified_contract_failure"}
+            if not check.passed:
+                evidence = _scenario_check_evidence(check)
+                if evidence is not None:
+                    return evidence
+    failed = _first_failed_check(outcome)
+    return {
+        "code": "unclassified_contract_failure",
+        **({"check_name": _stable_check_name(failed.name)} if failed else {}),
+    }
 
 
 def _journey_context(case: JourneyCase, outcome) -> DiagnosticContext:
@@ -297,15 +324,28 @@ def _journey_context(case: JourneyCase, outcome) -> DiagnosticContext:
 def _journey_evidence(outcome) -> dict[str, object]:
     if not bool(outcome.containment.get("passed")):
         return {"containment_passed": False, "component": "containment"}
-    if outcome.error:
-        return {"code": "execution_failed", "component": "execution"}
-    compiler_evidence = _compiler_evidence(getattr(outcome, "model_events", ()))
-    if compiler_evidence is not None:
-        return compiler_evidence
     if outcome.evaluation is not None:
         for check in outcome.evaluation.checks:
             if not check.passed and check.name.startswith("forbidden_effect"):
-                return {"unauthorized_side_effect": True, "component": "policy"}
+                return {
+                    "unauthorized_side_effect": True,
+                    "component": "policy",
+                    "check_name": _stable_check_name(check.name),
+                }
+    model_evidence = _model_error_evidence(getattr(outcome, "model_events", ()))
+    if model_evidence is not None:
+        return model_evidence
+    compiler_evidence = _compiler_evidence(getattr(outcome, "model_events", ()))
+    if compiler_evidence is not None:
+        return compiler_evidence
+    executor_evidence = _executor_evidence(
+        getattr(outcome, "execution_records", ())
+    )
+    if executor_evidence is not None:
+        return executor_evidence
+    if getattr(outcome, "error", None):
+        return {"code": "execution_failed", "component": "execution"}
+    if outcome.evaluation is not None:
         unmet_goal = next(
             (
                 check
@@ -322,9 +362,224 @@ def _journey_evidence(outcome) -> dict[str, object]:
             return {
                 "code": "intent_not_recognized",
                 "component": "router",
-                "check_name": unmet_goal.name,
+                "check_name": _stable_check_name(unmet_goal.name),
             }
-    return {"code": "unclassified_journey_failure"}
+        if unmet_goal is not None:
+            last_event = _last_successful_model_event(
+                getattr(outcome, "model_events", ())
+            )
+            if last_event is not None and last_event.get("kind") == "respond_chat":
+                return {
+                    "code": "conversation_instead_of_action",
+                    "component": "router",
+                    "check_name": _stable_check_name(unmet_goal.name),
+                    "stop_reason": _enum_value(getattr(outcome, "stop_reason", None)),
+                    "model_event": "respond_chat",
+                }
+            if (
+                last_event is not None
+                and last_event.get("kind") == "route"
+                and isinstance(last_event.get("response"), Mapping)
+                and last_event["response"].get("kind")
+                in {"conversation", "clarification", "unsupported_action"}
+            ):
+                return {
+                    "code": "journey_transition_mismatch",
+                    "component": "router",
+                    "check_name": _stable_check_name(unmet_goal.name),
+                    "stop_reason": _enum_value(getattr(outcome, "stop_reason", None)),
+                    "model_event": "route",
+                }
+    failed = next(
+        (
+            check
+            for check in getattr(getattr(outcome, "evaluation", None), "checks", ())
+            if not check.passed
+        ),
+        None,
+    )
+    return {
+        "code": "unclassified_journey_failure",
+        **({"check_name": _stable_check_name(failed.name)} if failed else {}),
+        "stop_reason": _enum_value(getattr(outcome, "stop_reason", None)),
+    }
+
+
+def _scenario_check_evidence(check) -> dict[str, object] | None:
+    """Map a failed typed check to its producer without reading prose output."""
+    name = str(check.name)
+    stable_name = _stable_check_name(name)
+    if name in {"assistant_nonempty", "assistant_contains_any", "assistant_excludes"}:
+        return {
+            "code": "semantic_mismatch",
+            "component": "model",
+            "check_name": stable_name,
+        }
+    if name == "model_error_kinds":
+        return {
+            "code": "model_error",
+            "component": "model",
+            "check_name": stable_name,
+        }
+    if name == "capabilities":
+        return {
+            "code": "route_mismatch",
+            "component": "router",
+            "check_name": stable_name,
+        }
+    if name == "no_operations":
+        code = (
+            "unrequested_operation"
+            if check.expected is True
+            else "requested_operation_missing"
+        )
+        return {"code": code, "component": "router", "check_name": stable_name}
+    if name == "plan_steps_include":
+        return {
+            "code": "invalid_plan",
+            "component": "intent_compiler",
+            "check_name": stable_name,
+        }
+    if name in {"found", "inaccessible", "result_paths"}:
+        return {
+            "code": "search_result_mismatch",
+            "component": "index",
+            "check_name": stable_name,
+        }
+    if name in {"copied", "copied_paths", "paths_exist", "execution_error_count"}:
+        return {
+            "code": "side_effect_mismatch",
+            "component": "executor",
+            "check_name": stable_name,
+        }
+    if name == "paths_absent":
+        return {
+            "unauthorized_side_effect": True,
+            "component": "policy",
+            "check_name": stable_name,
+        }
+    if name == "approval_required":
+        return {
+            "code": "decision_mismatch",
+            "component": "policy",
+            "check_name": stable_name,
+        }
+    if name == "stage" and isinstance(check.actual, str):
+        if check.actual == "failed":
+            return {
+                "code": "execution_failed",
+                "component": "executor",
+                "check_name": stable_name,
+                "actual_status": check.actual,
+            }
+        if check.actual == "awaiting_approval":
+            return {
+                "code": "decision_mismatch",
+                "component": "policy",
+                "check_name": stable_name,
+                "actual_status": check.actual,
+            }
+    return None
+
+
+def _model_error_evidence(model_events) -> dict[str, object] | None:
+    for event in reversed(tuple(model_events)):
+        if not isinstance(event, Mapping) or event.get("status") != "error":
+            continue
+        error_type = str(event.get("error_type", "")).lower()
+        return {
+            "code": "model_timeout" if "timeout" in error_type else "model_error",
+            "component": "model",
+            "model_event": _stable_model_event(event.get("kind")),
+        }
+    return None
+
+
+def _executor_evidence(records) -> dict[str, object] | None:
+    for record in reversed(tuple(records)):
+        if not isinstance(record, Mapping):
+            continue
+        if "error_type" in record:
+            return {
+                "code": "executor_error",
+                "component": "executor",
+                "stage": "execution",
+            }
+        result = record.get("result")
+        if not isinstance(result, Mapping):
+            continue
+        steps = result.get("steps")
+        if not isinstance(steps, (tuple, list)):
+            continue
+        for step in reversed(steps):
+            if not isinstance(step, Mapping) or step.get("state") != "failed":
+                continue
+            code = _stable_code(step.get("error_code"), "executor_error")
+            return {
+                "code": code,
+                "component": "executor",
+                "stage": "execution",
+            }
+    return None
+
+
+def _first_failed_check(outcome):
+    return next(
+        (
+            check
+            for turn in getattr(outcome, "turns", ())
+            for check in getattr(turn, "checks", ())
+            if not check.passed
+        ),
+        None,
+    )
+
+
+def _last_successful_model_event(model_events):
+    return next(
+        (
+            event
+            for event in reversed(tuple(model_events))
+            if isinstance(event, Mapping) and event.get("status") == "ok"
+        ),
+        None,
+    )
+
+
+def _stable_check_name(value: object) -> str:
+    name = str(value).strip().lower()
+    for prefix in ("required_effect", "forbidden_effect"):
+        if name.startswith(prefix + ":"):
+            parts = name.split(":", 2)
+            kind = _stable_code(parts[1] if len(parts) > 1 else None, "unknown")
+            return f"{prefix}:{kind}"
+    if name.startswith("result:"):
+        return "result:" + _stable_code(name.removeprefix("result:"), "unknown")
+    return _stable_code(name, "unknown_check")
+
+
+def _stable_model_event(value: object) -> str:
+    return _stable_code(value, "unknown")
+
+
+def _stable_code(value: object, fallback: str) -> str:
+    candidate = str(value or "").strip().lower()
+    if (
+        candidate
+        and len(candidate) <= 64
+        and candidate.isascii()
+        and all(
+            character.islower() or character.isdigit() or character == "_"
+            for character in candidate
+        )
+    ):
+        return candidate
+    return fallback
+
+
+def _enum_value(value: object) -> str:
+    candidate = getattr(value, "value", value)
+    return _stable_code(candidate, "unknown")
 
 
 def _compiler_evidence(model_events) -> dict[str, object] | None:

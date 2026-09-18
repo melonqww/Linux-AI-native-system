@@ -175,6 +175,7 @@ def test_runner_executes_real_search_and_approved_copy_inside_virtual_pc():
                     "stage": "completed",
                     "capabilities": ["documents.query.search"],
                     "found": 3,
+                    "inaccessible": 1,
                     "result_paths": [
                         "/home/test-user/Documents/algebra.pdf",
                         "/home/test-user/Documents/broken.pdf",

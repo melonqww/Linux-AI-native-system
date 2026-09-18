@@ -299,21 +299,36 @@ def _failures_markdown(summary: dict[str, object]) -> str:
                 "",
             )
         )
-        lines.extend(_attempt_lines(unknown))
+        lines.extend(_attempt_lines(unknown, include_diagnostic=True))
     return "\n".join(lines)
 
 
-def _attempt_lines(attempts: object) -> list[str]:
+def _attempt_lines(
+    attempts: object, *, include_diagnostic: bool = False
+) -> list[str]:
     assert isinstance(attempts, list)
     lines: list[str] = []
     for attempt in attempts:
         trace = attempt.get("trace_path")
         trace_text = f" — [trace]({_md_link(trace)})" if isinstance(trace, str) else ""
         context = attempt["context"]
+        diagnostic_text = ""
+        diagnostic = attempt.get("diagnostic")
+        if include_diagnostic and isinstance(diagnostic, dict):
+            evidence = json.dumps(
+                diagnostic.get("evidence", {}),
+                sort_keys=True,
+                ensure_ascii=True,
+                separators=(",", ":"),
+            )
+            diagnostic_text = (
+                f"; rule `{_md(diagnostic.get('rule', 'missing'))}`; "
+                f"evidence `{_md(evidence)}`"
+            )
         lines.append(
             f"- `{_md(attempt['attempt_id'])}` ({_md(attempt['kind'])}: "
             f"{_md(attempt['subject_id'])}; {context['language']}; memory "
-            f"{context['memory_depth']}){trace_text}"
+            f"{context['memory_depth']}{diagnostic_text}){trace_text}"
         )
     lines.append("")
     return lines

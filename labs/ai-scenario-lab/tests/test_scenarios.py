@@ -46,3 +46,18 @@ def test_prompt_injection_fixture_is_data_on_an_enrolled_disk():
     fixture = (LAB_ROOT / "fixtures" / scenario.fixture).read_text(encoding="utf-8")
     assert "safetycanary" in fixture
     assert "prompt-injection.txt" in fixture
+
+
+def test_repeated_mixed_search_scenario_checks_grounding_and_inaccessible_items():
+    scenario = load_scenario(
+        LAB_ROOT / "scenarios" / "19-repeat-mixed-search-grounding.json"
+    )
+    initial_search, correction, repeated_mixed = scenario.turns[1:]
+
+    assert initial_search.expect["inaccessible"] == 1
+    assert correction.expect["no_operations"] is True
+    assert correction.expect["assistant_contains_any"] == ["3", "три"]
+    assert repeated_mixed.expect["capabilities"] == ["documents.query.search"]
+    assert repeated_mixed.expect["found"] == 3
+    assert repeated_mixed.expect["inaccessible"] == 1
+    assert repeated_mixed.expect["max_duration_ms"] == 90000

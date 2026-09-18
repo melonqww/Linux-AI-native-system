@@ -1,0 +1,66 @@
+{
+  "id": "repeat-mixed-search-grounding",
+  "title": "Repeated mixed PDF request stays grounded in real search facts",
+  "locale": "ru",
+  "tags": ["full", "mixed", "files", "memory", "resilience"],
+  "fixture": "base-desktop.json",
+  "turns": [
+    {
+      "user": "Привет",
+      "expect": {
+        "stage": "completed",
+        "capabilities": [],
+        "no_operations": true,
+        "assistant_nonempty": true,
+        "message_kinds": ["conversation"]
+      }
+    },
+    {
+      "user": "Слушай, а можешь ли ты найти мне все PDF на компьютере?",
+      "expect": {
+        "stage": "completed",
+        "capabilities": ["documents.query.search"],
+        "found": 3,
+        "inaccessible": 1,
+        "approval_required": false,
+        "assistant_excludes": [
+          "не имею доступа к вашим файлам",
+          "нет доступа к вашим файлам"
+        ],
+        "max_duration_ms": 90000
+      }
+    },
+    {
+      "user": "То есть PDF-файлов ты не нашёл?",
+      "expect": {
+        "stage": "completed",
+        "capabilities": [],
+        "no_operations": true,
+        "assistant_contains_any": ["3", "три"],
+        "assistant_excludes": [
+          "файлов нет",
+          "0 найденных",
+          "не имею доступа"
+        ],
+        "max_duration_ms": 90000
+      }
+    },
+    {
+      "user": "Жалко, но ты можешь снова посмотреть PDF-файлы, а также сказать, при какой температуре печь хлеб?",
+      "expect": {
+        "stage": "completed",
+        "capabilities": ["documents.query.search"],
+        "found": 3,
+        "inaccessible": 1,
+        "approval_required": false,
+        "assistant_contains_any": ["180", "температур", "хлеб"],
+        "assistant_excludes": [
+          "не имею прямого доступа",
+          "не имею доступа к вашим файлам",
+          "это зависит от вашего текущего контекста"
+        ],
+        "max_duration_ms": 90000
+      }
+    }
+  ]
+}
