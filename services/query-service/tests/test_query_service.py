@@ -784,6 +784,43 @@ class QueryServiceTests(unittest.TestCase):
                 {}, transport_context=TransportContext.internal()
             )
 
+    def test_runtime_validates_security_scan_targets(self) -> None:
+        calls = []
+        application = QueryRuntimeApplication(
+            self.service,
+            security_scan=lambda payload: calls.append(payload) or {
+                "schema_version": 1,
+                "target": payload["target"],
+                "status": "completed",
+                "verdict": "no_threat_detected",
+            },
+        )
+        transport = TransportContext.internal()
+
+        for payload in (
+            {"target": "quick"},
+            {"target": "full"},
+            {"target": "file", "relative_path": "Downloads/sample.bin"},
+            {"target": "folder", "relative_path": "Downloads", "mode": "full"},
+        ):
+            self.assertEqual(
+                application.security_scan(payload, transport_context=transport)[
+                    "target"
+                ],
+                payload["target"],
+            )
+        self.assertEqual(calls[2]["relative_path"], "Downloads/sample.bin")
+        self.assertIn("security.files.scan", application.capabilities())
+        self.assertIn("security.scan.run", application.capabilities())
+        for payload in (
+            {"target": "quick", "relative_path": "x"},
+            {"target": "file", "relative_path": "../secret"},
+            {"target": "folder", "relative_path": "/etc", "mode": "full"},
+            {"target": "folder", "relative_path": "Downloads", "mode": "deep"},
+        ):
+            with self.assertRaises(ValueError):
+                application.security_scan(payload, transport_context=transport)
+
     def test_runtime_exposes_validated_software_mutations(self) -> None:
         calls: list[tuple[str, dict[str, object]]] = []
 

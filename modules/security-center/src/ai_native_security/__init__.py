@@ -137,10 +137,16 @@ def worker_invoke(operation: str, payload: dict[str, object]) -> dict[str, objec
         _finding_store.record(result)
         return result.to_dict()
     if operation == "scan_profile":
-        if set(payload) != {"resource_id", "mode"}:
+        if not {"resource_id", "mode"}.issubset(payload) or not set(payload).issubset(
+            {"resource_id", "mode", "relative_path"}
+        ):
             raise ValueError("invalid_payload")
         assert _campaign_scanner is not None
-        return _campaign_scanner.run(payload["resource_id"], payload["mode"])
+        return _campaign_scanner.run(
+            payload["resource_id"],
+            payload["mode"],
+            payload.get("relative_path", ""),
+        )
     if operation == "findings_list":
         if not set(payload).issubset({"state", "limit"}):
             raise ValueError("invalid_payload")

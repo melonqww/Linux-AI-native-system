@@ -11,6 +11,7 @@ import {
     runtimeErrorMessage,
     schedulerLabel,
     securityPresentation,
+    securityScanPresentation,
     systemPresentation,
     systemUpdatePresentation,
     taskDetailPresentation,
@@ -21,7 +22,7 @@ import {
 
 test('security snapshot presents bounded posture checks and findings', () => {
     const view = securityPresentation({
-        module: {state: 'ready', module_version: '0.6.0'},
+        module: {state: 'ready', module_version: '0.7.0'},
         posture: {
             verdict: 'findings_detected',
             observations: [
@@ -53,6 +54,23 @@ test('security snapshot degrades safely on malformed data', () => {
     assert.deepEqual(view.summary, {label: 'Недоступен', style: 'neutral'});
     assert.deepEqual(view.checks, []);
     assert.deepEqual(view.findings, []);
+});
+
+test('security scan result distinguishes clean, detected and partial outcomes', () => {
+    assert.deepEqual(securityScanPresentation({
+        status: 'completed', verdict: 'no_threat_detected',
+        scanned_files: 14, skipped_files: 0,
+    }), {
+        title: 'Угроз не обнаружено',
+        detail: 'Проверено файлов: 14 · пропущено: 0',
+        style: 'connected',
+    });
+    assert.equal(securityScanPresentation({
+        verdict: 'malware_detected', scanned_files: 4, threat_files: 1,
+    }).title, 'Обнаружены угрозы');
+    assert.equal(securityScanPresentation({
+        status: 'partial', verdict: 'unknown', unknown_files: 2,
+    }).title, 'Проверка завершена частично');
 });
 
 

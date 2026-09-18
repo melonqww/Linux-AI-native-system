@@ -308,6 +308,10 @@ class CapabilityRegistryTests(RegistryTestCase):
             {"resource_id", "mode"},
         )
         self.assertEqual(
+            set(security_profile.input_schema["properties"]),
+            {"resource_id", "relative_path", "mode"},
+        )
+        self.assertEqual(
             security_profile.input_schema["properties"]["mode"]["enum"],
             ["quick", "full"],
         )

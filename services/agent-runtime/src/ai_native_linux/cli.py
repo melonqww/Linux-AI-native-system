@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import os
+import re
 import signal
 import sys
 from pathlib import Path
@@ -10,6 +12,116 @@ from uuid import uuid4
 
 from .audit import JsonlAuditLog, create_audit_event
 from .policy import PolicyEngine
+
+
+_XDG_SECURITY_DIRECTORY = re.compile(
+    r'^XDG_(?:DOWNLOAD|DESKTOP)_DIR="([^"\x00]{1,1024})"$'
+)
+
+
+def security_quick_relative_paths(
+    home: Path,
+    user_dirs_text: str | None = None,
+) -> tuple[str, ...]:
+    """Resolve bounded XDG risk locations without allowing paths outside home."""
+
+    if user_dirs_text is None:
+        try:
+            user_dirs_text = (home / ".config" / "user-dirs.dirs").read_text(
+                encoding="utf-8"
+            )[:16_384]
+        except (OSError, UnicodeError):
+            user_dirs_text = ""
+    candidates = ["Downloads", "Desktop", ".config/autostart"]
+    for line in user_dirs_text.splitlines():
+        match = _XDG_SECURITY_DIRECTORY.fullmatch(line.strip())
+        if match is None:
+            continue
+        raw = match.group(1)
+        path = (
+            home / raw.removeprefix("$HOME/")
+            if raw.startswith("$HOME/")
+            else Path(raw)
+        )
+        try:
+            relative = path.expanduser().resolve(strict=False).relative_to(home)
+        except (OSError, ValueError):
+            continue
+        normalized = relative.as_posix()
+        if normalized not in {"", "."}:
+            candidates.append(normalized)
+    return tuple(dict.fromkeys(candidates))
+
+
+def security_scan_configuration(
+    home: Path | None = None,
+    temporary: Path | None = None,
+) -> tuple[dict[str, Path], tuple[tuple[str, str], ...]]:
+    """Return trusted roots and existing high-risk locations for panel scans."""
+
+    home_root = (home or Path.home()).expanduser().resolve(strict=True)
+    roots = {"home": home_root}
+    quick_targets: list[tuple[str, str]] = []
+    for relative in security_quick_relative_paths(home_root):
+        candidate = home_root / relative
+        try:
+            candidate.lstat()
+            candidate.resolve(strict=True).relative_to(home_root)
+        except (OSError, ValueError):
+            continue
+        if candidate.is_dir() and not candidate.is_symlink():
+            quick_targets.append(("home", relative))
+    temp_root = temporary
+    if temp_root is None and sys.platform.startswith("linux"):
+        temp_root = Path(os.environ.get("TMPDIR", "/tmp"))
+    if temp_root is not None:
+        try:
+            resolved_temp = temp_root.expanduser().resolve(strict=True)
+        except OSError:
+            resolved_temp = None
+        if resolved_temp is not None and resolved_temp.is_dir():
+            try:
+                resolved_temp.relative_to(home_root)
+            except ValueError:
+                roots["temporary"] = resolved_temp
+                quick_targets.append(("temporary", ""))
+    return roots, tuple(quick_targets)
+
+
+def combine_security_scans(
+    target: str,
+    mode: str,
+    results: list[dict[str, object]],
+) -> dict[str, object]:
+    """Combine bounded module results without exposing configured root paths."""
+
+    threats = sum(int(item.get("threat_files", 0)) for item in results)
+    unknown = sum(int(item.get("unknown_files", 0)) for item in results)
+    skipped = sum(int(item.get("skipped_files", 0)) for item in results)
+    scanned = sum(int(item.get("scanned_files", 0)) for item in results)
+    scanned_bytes = sum(int(item.get("scanned_bytes", 0)) for item in results)
+    partial = not results or any(
+        item.get("status") != "completed" for item in results
+    )
+    return {
+        "schema_version": 1,
+        "target": target,
+        "mode": mode,
+        "status": "partial" if partial else "completed",
+        "verdict": (
+            "malware_detected"
+            if threats
+            else "unknown"
+            if partial or unknown
+            else "no_threat_detected"
+        ),
+        "scanned_files": scanned,
+        "scanned_bytes": scanned_bytes,
+        "threat_files": threats,
+        "unknown_files": unknown,
+        "skipped_files": skipped,
+        "scopes_scanned": len(results),
+    }
 
 
 def demo_payload() -> dict[str, object]:
@@ -95,10 +207,12 @@ def main() -> int:
         report = registry.sync(roots)
         if report.issues:
             parser.error(f"module manifest errors: {report.issues}")
+        security_roots, security_quick_targets = security_scan_configuration()
         manager = ModuleProcessManager(
             registry,
             storage_database=args.storage_database,
             index_database=args.index_database,
+            security_scan_roots=security_roots,
         )
         server = None
         workspace_controller = None
@@ -204,6 +318,7 @@ def main() -> int:
                 software_control = None
                 software_restore = None
             security_snapshot = None
+            security_scan = None
             try:
                 security_module_id = manager.start_for_capability(
                     "security.module.status"
@@ -225,6 +340,64 @@ def main() -> int:
                             timeout=15,
                         ),
                     }
+
+                def security_scan(payload):
+                    target = payload["target"]
+                    if target == "file":
+                        result = manager.invoke(
+                            security_module_id,
+                            "scan",
+                            {
+                                "resource_id": "home",
+                                "relative_path": payload["relative_path"],
+                            },
+                            timeout=30,
+                        )
+                        return combine_security_scans(
+                            target,
+                            "single",
+                            [
+                                {
+                                    "status": result.get("status"),
+                                    "threat_files": int(
+                                        result.get("verdict") == "malware_detected"
+                                    ),
+                                    "unknown_files": int(
+                                        result.get("verdict") == "unknown"
+                                    ),
+                                    "skipped_files": int(
+                                        result.get("status") == "rejected"
+                                    ),
+                                    "scanned_files": int(
+                                        result.get("status") == "completed"
+                                    ),
+                                    "scanned_bytes": result.get("size_bytes", 0) or 0,
+                                }
+                            ],
+                        )
+                    if target == "folder":
+                        targets = [("home", payload["relative_path"])]
+                        mode = payload["mode"]
+                    elif target == "quick":
+                        targets = list(security_quick_targets)
+                        mode = "quick"
+                    else:
+                        targets = [(resource_id, "") for resource_id in security_roots]
+                        mode = "full"
+                    results = [
+                        manager.invoke(
+                            security_module_id,
+                            "scan_profile",
+                            {
+                                "resource_id": resource_id,
+                                "relative_path": relative_path,
+                                "mode": mode,
+                            },
+                            timeout=60,
+                        )
+                        for resource_id, relative_path in targets
+                    ]
+                    return combine_security_scans(target, mode, results)
             except ModuleProcessError:
                 print("Security Center: unavailable")
             if not args.no_intent_compiler:
@@ -369,6 +542,7 @@ def main() -> int:
                 software_control=software_control,
                 software_restore=software_restore,
                 security_snapshot=security_snapshot,
+                security_scan=security_scan,
             )
             transport = (
                 "unix"

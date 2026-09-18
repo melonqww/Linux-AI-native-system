@@ -14,7 +14,7 @@ class SecurityCenterManifestTests(unittest.TestCase):
 
         self.assertEqual(manifest["schema_version"], 2)
         self.assertEqual(manifest["module_id"], "security.center")
-        self.assertEqual(manifest["module_version"], "0.6.0")
+        self.assertEqual(manifest["module_version"], "0.7.0")
         self.assertEqual(manifest["lifecycle"], "on-demand")
         self.assertTrue(manifest["default_enabled"])
         self.assertEqual(
@@ -67,6 +67,7 @@ class SecurityCenterManifestTests(unittest.TestCase):
         profile = manifest["capabilities"][2]
         self.assertEqual(profile["id"], "security.scan.run")
         self.assertEqual(profile["input_schema"]["required"], ["resource_id", "mode"])
+        self.assertIn("relative_path", profile["input_schema"]["properties"])
         self.assertEqual(profile["input_schema"]["properties"]["mode"]["enum"], ["quick", "full"])
         self.assertFalse(profile["input_schema"]["additionalProperties"])
 

@@ -28,7 +28,7 @@ export class RuntimeClient {
             'ai-native-linux',
             'runtime.sock',
         ]);
-        this._timeoutMs = Math.max(1_000, Math.min(30_000, timeoutMs));
+        this._timeoutMs = Math.max(1_000, Math.min(130_000, timeoutMs));
         this._active = new Set();
         this._destroyed = false;
     }
@@ -84,6 +84,10 @@ export class RuntimeClient {
 
     securitySnapshot() {
         return this.request('POST', '/v1/security/snapshot');
+    }
+
+    securityScan(payload) {
+        return this.request('POST', '/v1/security/scan', payload, 130_000);
     }
 
     softwarePrepare(payload) {
@@ -162,10 +166,11 @@ export class RuntimeClient {
         });
     }
 
-    async request(method, path, body = {}) {
+    async request(method, path, body = {}, timeoutMs = this._timeoutMs) {
         if (this._destroyed)
             throw new RuntimeRequestError('runtime_client_destroyed');
         this._validateRequest(method, path, body);
+        timeoutMs = Math.max(1_000, Math.min(130_000, timeoutMs));
         const requestId = GLib.uuid_string_random();
         const frame = JSON.stringify({
             version: IPC_VERSION,
@@ -183,7 +188,7 @@ export class RuntimeClient {
         let timedOut = false;
         let timeoutId = GLib.timeout_add(
             GLib.PRIORITY_DEFAULT,
-            this._timeoutMs,
+            timeoutMs,
             () => {
                 timeoutId = 0;
                 timedOut = true;
@@ -194,7 +199,7 @@ export class RuntimeClient {
         let connection = null;
         try {
             const client = new Gio.SocketClient();
-            client.set_timeout(Math.ceil(this._timeoutMs / 1_000));
+            client.set_timeout(Math.ceil(timeoutMs / 1_000));
             const address = new Gio.UnixSocketAddress({path: this._socketPath});
             connection = await this._connect(client, address, cancellable);
             await this._write(connection.get_output_stream(), encoded, cancellable);

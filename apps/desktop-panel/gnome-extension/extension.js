@@ -16,6 +16,7 @@ import {
     monitorPresentation,
     runtimeErrorMessage,
     securityPresentation,
+    securityScanPresentation,
     systemPresentation,
     systemUpdatePresentation,
     taskDetailPresentation,
@@ -2402,6 +2403,65 @@ class SidebarView extends St.Widget {
         ));
         this._securityContent.add_child(summary);
 
+        const scan = this._card('Запуск проверки');
+        const profiles = new St.BoxLayout({style_class: 'ai-security-actions', x_expand: true});
+        this._securityQuickButton = new St.Button({
+            label: 'Быстрая',
+            style_class: 'ai-sidebar-action',
+            x_expand: true,
+        });
+        this._securityFullButton = new St.Button({
+            label: 'Полная',
+            style_class: 'ai-sidebar-action',
+            x_expand: true,
+        });
+        this._securityQuickButton.connect(
+            'clicked', () => this._runSecurityScan({target: 'quick'}),
+        );
+        this._securityFullButton.connect(
+            'clicked', () => this._runSecurityScan({target: 'full'}),
+        );
+        profiles.add_child(this._securityQuickButton);
+        profiles.add_child(this._securityFullButton);
+        scan.add_child(profiles);
+        this._securityPath = new St.Entry({
+            hint_text: 'Путь внутри домашней папки',
+            style_class: 'ai-security-path',
+            can_focus: true,
+            x_expand: true,
+        });
+        scan.add_child(this._securityPath);
+        const targetActions = new St.BoxLayout({
+            style_class: 'ai-security-actions',
+            x_expand: true,
+        });
+        this._securityFileButton = new St.Button({
+            label: 'Проверить файл',
+            style_class: 'ai-sidebar-action',
+            x_expand: true,
+        });
+        this._securityFolderButton = new St.Button({
+            label: 'Проверить папку',
+            style_class: 'ai-sidebar-action',
+            x_expand: true,
+        });
+        this._securityFileButton.connect(
+            'clicked', () => this._runSecurityTarget('file'),
+        );
+        this._securityFolderButton.connect(
+            'clicked', () => this._runSecurityTarget('folder'),
+        );
+        targetActions.add_child(this._securityFileButton);
+        targetActions.add_child(this._securityFolderButton);
+        scan.add_child(targetActions);
+        this._securityScanResult = sidebarLabel(
+            'Быстрая проверка охватывает типичные рискованные места. Полная — все разрешённые области.',
+            'ai-sidebar-caption',
+            {wrap: true},
+        );
+        scan.add_child(this._securityScanResult);
+        this._securityContent.add_child(scan);
+
         const checks = this._card('Проверки Ubuntu');
         this._securityChecks = new St.BoxLayout({vertical: true, x_expand: true});
         checks.add_child(this._securityChecks);
@@ -2419,6 +2479,49 @@ class SidebarView extends St.Widget {
         });
         refresh.connect('clicked', () => this._refreshSecurity());
         this._securityContent.add_child(refresh);
+    }
+
+    _runSecurityTarget(target) {
+        const relativePath = this._securityPath.get_text().trim();
+        if (!relativePath) {
+            this._securityScanResult.set_text(
+                'Укажите относительный путь, например Downloads/sample.bin.',
+            );
+            return;
+        }
+        const payload = {target, relative_path: relativePath};
+        if (target === 'folder')
+            payload.mode = 'full';
+        this._runSecurityScan(payload);
+    }
+
+    async _runSecurityScan(payload) {
+        if (this._securityScanInFlight)
+            return;
+        this._securityScanInFlight = true;
+        const buttons = [
+            this._securityQuickButton,
+            this._securityFullButton,
+            this._securityFileButton,
+            this._securityFolderButton,
+        ];
+        buttons.forEach(button => button.reactive = false);
+        this._securityScanResult.set_text('Проверка выполняется…');
+        try {
+            const result = await this._runtime.securityScan(payload);
+            if (this._disposed)
+                return;
+            const view = securityScanPresentation(result);
+            this._securityScanResult.set_text(`${view.title}. ${view.detail}`);
+            await this._refreshSecurity();
+        } catch (_error) {
+            if (!this._disposed)
+                this._securityScanResult.set_text('Не удалось выполнить проверку.');
+        } finally {
+            this._securityScanInFlight = false;
+            if (!this._disposed)
+                buttons.forEach(button => button.reactive = true);
+        }
     }
 
     _securityItem(item) {

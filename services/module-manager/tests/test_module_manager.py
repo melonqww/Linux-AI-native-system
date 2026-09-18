@@ -116,7 +116,7 @@ class ModuleManagerTests(unittest.TestCase):
             {
                 "schema_version": 1,
                 "module_id": "security.center",
-                "module_version": "0.6.0",
+                "module_version": "0.7.0",
                 "state": "ready",
                 "lifecycle": "on-demand",
                 "capabilities": [

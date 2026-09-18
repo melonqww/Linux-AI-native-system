@@ -211,6 +211,31 @@ export function securityPresentation(snapshot) {
     };
 }
 
+export function securityScanPresentation(result) {
+    const scanned = safeCount(result?.scanned_files);
+    const threats = safeCount(result?.threat_files);
+    const skipped = safeCount(result?.skipped_files);
+    if (result?.verdict === 'malware_detected') {
+        return {
+            title: 'Обнаружены угрозы',
+            detail: `Проверено: ${scanned} · угроз: ${threats} · пропущено: ${skipped}`,
+            style: 'error',
+        };
+    }
+    if (result?.status === 'completed' && result?.verdict === 'no_threat_detected') {
+        return {
+            title: 'Угроз не обнаружено',
+            detail: `Проверено файлов: ${scanned} · пропущено: ${skipped}`,
+            style: 'connected',
+        };
+    }
+    return {
+        title: 'Проверка завершена частично',
+        detail: `Проверено: ${scanned} · неизвестно: ${safeCount(result?.unknown_files)} · пропущено: ${skipped}`,
+        style: 'neutral',
+    };
+}
+
 export function monitorPresentation(snapshot) {
     if (snapshot?.supported !== true) {
         return {

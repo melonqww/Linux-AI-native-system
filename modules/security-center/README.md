@@ -1,7 +1,7 @@
 # Security Center
 
 `Security Center` — доверенный on-demand модуль защиты AI-native Linux.
-Текущий код `0.6.0` предоставляет status, безопасное сканирование одного файла,
+Текущий код `0.7.0` предоставляет status, безопасное сканирование одного файла,
 профили `quick`/`full`, Finding Store, optional локальный `clamd` и read-only
 аудит Ubuntu.
 
@@ -78,7 +78,7 @@ Fail-closed означает, что ошибка никогда не превр
 - `security.findings.list` — получить bounded список подтверждённых находок.
 
 Quick ограничен 128 файлами, 64 MiB, глубиной 3 и 15 секундами. Full расширяет
-границы до 2048 файлов, 512 MiB, глубины 32 и 60 секунд. Оба режима используют
+границы до 100 000 файлов, 64 GiB, глубины 64 и 60 секунд. Оба режима используют
 тот же scanner для каждого файла, не следуют symlink/junction и становятся
 `partial + unknown`, если проверка неполна.
 
@@ -104,9 +104,22 @@ Prepare повторно сверяет finding и digest, но не меняе�
 безвозвратное удаление запрещены. Restore не перезаписывает занятый путь и после
 каждого перемещения повторно проверяет SHA-256.
 
+## v0.7.0: пользовательские режимы проверки
+
+Панель запускает четыре безопасных сценария: конкретный файл, папку внутри
+домашнего trusted root, quick scan типичных рискованных мест и full scan всех
+настроенных roots. Quick включает существующие Downloads, Desktop,
+`.config/autostart` и временную область. Full проходит домашнюю и временную
+области целиком в пределах bounded профиля каждого root.
+
+Пользователь не передаёт абсолютный путь: файл или папка задаются относительным
+путём внутри home. `..`, абсолютные пути, symlink/junction и выход за root
+отклоняются. «Полная» означает всё, что разрешено Security Center, а не скрытое
+root-право на чтение всей ОС.
+
 ## Границы версии
 
-`0.6.0` сканирует один файл или bounded trusted root, выполняет read-only Ubuntu
+`0.7.0` сканирует файл, выбранную папку или все bounded trusted roots, выполняет read-only Ubuntu
 posture и возвращает JSON-safe
 результат: digest, размер, итог, код ошибки и нормализованные observations. В ответ не входят содержимое файла, абсолютный
 путь, секреты, произвольный detector output или traceback.
@@ -118,6 +131,8 @@ posture и возвращает JSON-safe
 
 ## Документация
 
+- [User Scan API v7](../../Architecture/api/security-center-user-scan-v7.md)
+- [ADR-036: пользовательские quick/full scan](../../Architecture/decisions/ADR-036-security-user-scan-modes.md)
 - [Panel API v1](../../Architecture/api/security-center-panel-v1.md)
 - [ADR-035: безопасная проекция в панели](../../Architecture/decisions/ADR-035-security-center-panel-projection.md)
 - [Reversible Quarantine API v6](../../Architecture/api/security-center-quarantine-v6.md)

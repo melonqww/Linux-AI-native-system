@@ -136,6 +136,8 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "this._runtime.softwareControl(",
             "this._runtime.softwareRestore(",
             "this._runtime.securitySnapshot()",
+            "this._runtime.securityScan(payload)",
+            "securityScanPresentation(result)",
             "securityPresentation(snapshot)",
             "Security Center",
             "_buildSectionSwitcher",
@@ -143,6 +145,10 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "_selectSection('security')",
             "Проверки Ubuntu",
             "Активные находки",
+            "Быстрая",
+            "Полная",
+            "Проверить файл",
+            "Проверить папку",
             "Вы точно хотите удалить",
             "Сохранить бэкап данных приложения",
             "Язык: системный",
@@ -269,6 +275,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "'/v1/software/control'",
             "'/v1/software/restore'",
             "'/v1/security/snapshot'",
+            "'/v1/security/scan'",
         ):
             self.assertIn(marker, source)
         self.assertNotIn("http://", source)

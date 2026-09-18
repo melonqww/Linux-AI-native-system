@@ -102,6 +102,7 @@ class QueryRuntimeApplication:
         software_restore: Callable[[dict[str, object]], dict[str, object]]
         | None = None,
         security_snapshot: Callable[[], dict[str, object]] | None = None,
+        security_scan: Callable[[dict[str, object]], dict[str, object]] | None = None,
     ) -> None:
         self.query_service = query_service
         self.scheduler_status = scheduler_status
@@ -124,6 +125,7 @@ class QueryRuntimeApplication:
         self.software_control_callback = software_control
         self.software_restore_callback = software_restore
         self.security_snapshot_callback = security_snapshot
+        self.security_scan_callback = security_scan
         if intent_pipeline is not None and task_context is None:
             raise ValueError("task_context is required with intent_pipeline")
         if (plan_store is None) != (plan_executor is None):
@@ -199,6 +201,8 @@ class QueryRuntimeApplication:
                     "security.posture.scan",
                 )
             )
+        if self.security_scan_callback is not None:
+            capabilities.extend(("security.files.scan", "security.scan.run"))
         return capabilities
 
     def security_snapshot(
@@ -213,6 +217,92 @@ class QueryRuntimeApplication:
         if not isinstance(result, dict):
             raise RuntimeError("security_center_invalid_response")
         return result
+
+    def security_scan(
+        self, payload: dict[str, object], *, transport_context: TransportContext
+    ) -> dict[str, object]:
+        if self.security_scan_callback is None:
+            raise RuntimeError("security_center_unavailable")
+        self._require_secure_transport(transport_context)
+        target = payload.get("target")
+        if target in {"quick", "full"}:
+            if set(payload) != {"target"}:
+                raise ValueError("security scan fields are invalid")
+            capability = "security.scan.run"
+            arguments = {
+                "resource_id": f"{target}-scope",
+                "mode": target,
+            }
+        elif target == "file":
+            if set(payload) != {"target", "relative_path"}:
+                raise ValueError("security scan fields are invalid")
+            relative_path = self._security_relative_path(payload.get("relative_path"))
+            capability = "security.files.scan"
+            arguments = {"resource_id": "home", "relative_path": relative_path}
+        elif target == "folder":
+            if set(payload) != {"target", "relative_path", "mode"}:
+                raise ValueError("security scan fields are invalid")
+            relative_path = self._security_relative_path(payload.get("relative_path"))
+            mode = payload.get("mode")
+            if mode not in {"quick", "full"}:
+                raise ValueError("invalid security scan mode")
+            capability = "security.scan.run"
+            arguments = {
+                "resource_id": "home",
+                "relative_path": relative_path,
+                "mode": mode,
+            }
+        else:
+            raise ValueError("invalid security scan target")
+        self._authorize_security(capability, arguments, transport_context)
+        result = self.security_scan_callback(payload)
+        if not isinstance(result, dict):
+            raise RuntimeError("security_center_invalid_response")
+        return result
+
+    @staticmethod
+    def _security_relative_path(value: object) -> str:
+        if (
+            type(value) is not str
+            or not 1 <= len(value) <= 1024
+            or value.startswith(("/", "\\"))
+            or "\\" in value
+            or any(part in {"", ".", ".."} for part in value.split("/"))
+        ):
+            raise ValueError("invalid security relative path")
+        return value
+
+    @staticmethod
+    def _authorize_security(
+        capability: str,
+        arguments: dict[str, object],
+        transport_context: TransportContext,
+    ) -> None:
+        gateway = PermissionGateway(
+            builtin_policies(), capability_source=lambda: (capability,)
+        )
+        policy = gateway.policy(capability)
+        rule = policy.rule_for(ExecutionPhase.EXECUTE)
+        if rule is None:
+            raise RuntimeError("security_policy_invalid")
+        invocation = CapabilityInvocation(
+            request_id=str(uuid4()),
+            plan_id=str(uuid4()),
+            step_id="step_security_scan",
+            capability_id=capability,
+            phase=ExecutionPhase.EXECUTE,
+            arguments=arguments,
+            declared_risk=policy.risk.value,
+            declared_approval_required=policy.plan_approval_required,
+            context=ExecutionContext(
+                transport_context,
+                rule.required_scopes,
+                False,
+            ),
+        )
+        decision = gateway.evaluate(invocation)
+        if not decision.allowed:
+            raise PermissionError(decision.reason_code)
 
     def software_snapshot(self, payload: dict[str, object]) -> dict[str, object]:
         if self.software_snapshot_callback is None:

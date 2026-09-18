@@ -169,7 +169,7 @@ on-demand worker и отдаёт панели только сводку. Уст�
 штатном Ubuntu update UI; контракт описан в
 [`Architecture/api/system-updates-v1.md`](Architecture/api/system-updates-v1.md).
 
-`modules/security-center` реализует first-party Security Center `0.6.0`. Помимо
+`modules/security-center` реализует first-party Security Center `0.7.0`. Помимо
 локальных SHA-256 и byte-сигнатур, capability `security.files.scan` может
 передать тот же bounded поток локальному `clamd` через peer-authenticated Unix
 socket. Scanner не использует AI, TCP или subprocess, не возвращает содержимое
@@ -272,6 +272,7 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [Security Center Ubuntu Posture API v5](Architecture/api/security-center-posture-v5.md)
 - [Security Center Reversible Quarantine API v6](Architecture/api/security-center-quarantine-v6.md)
 - [Security Center Panel API v1](Architecture/api/security-center-panel-v1.md)
+- [Security Center User Scan API v7](Architecture/api/security-center-user-scan-v7.md)
 - [Контракты Storage Catalog](Architecture/api/storage-catalog-contracts.md)
 - [File Search R1](Architecture/api/file-search-r1.md)
 - [Контракт статуса индекса](Architecture/api/runtime-index-status.md)
@@ -299,6 +300,7 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [Решение о bounded read-only Ubuntu posture](Architecture/decisions/ADR-033-security-ubuntu-posture.md)
 - [Решение об обратимом same-filesystem карантине](Architecture/decisions/ADR-034-security-reversible-quarantine.md)
 - [Решение о безопасной проекции Security Center в панели](Architecture/decisions/ADR-035-security-center-panel-projection.md)
+- [Решение о пользовательских quick/full scan](Architecture/decisions/ADR-036-security-user-scan-modes.md)
 - [Дискуссия о границах Security Center MVP](Architecture/discussions/security-center-mvp-options.md)
 - [Security Center: MVP, архитектура и план](modules/security-center/README.md)
 - [Решение о модульном жизненном цикле локальных моделей](Architecture/decisions/ADR-011-model-lifecycle-module.md)

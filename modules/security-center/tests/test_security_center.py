@@ -24,7 +24,7 @@ from ai_native_security.detectors import DetectorError
 EXPECTED_STATUS = {
     "schema_version": 1,
     "module_id": "security.center",
-    "module_version": "0.6.0",
+    "module_version": "0.7.0",
     "state": "ready",
     "lifecycle": "on-demand",
     "capabilities": [
@@ -480,6 +480,41 @@ class SecurityFileScannerTests(unittest.TestCase):
         self.assertEqual(full["verdict"], "malware_detected")
         self.assertTrue(full["finding_ids"])
         self.assertLessEqual(len(json.dumps(full)), 4096)
+
+    def test_profile_can_scan_one_bounded_subdirectory(self) -> None:
+        (self.root / "outside.txt").write_bytes(b"outside")
+        selected = self.root / "Downloads"
+        selected.mkdir()
+        (selected / "inside.txt").write_bytes(b"inside")
+        self._start()
+
+        result = security.worker_invoke(
+            "scan_profile",
+            {
+                "resource_id": "downloads",
+                "relative_path": "Downloads",
+                "mode": "full",
+            },
+        )
+
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["relative_path"], "Downloads")
+        self.assertEqual(result["scanned_files"], 1)
+
+    def test_profile_rejects_escaping_or_missing_subdirectory(self) -> None:
+        self._start()
+
+        for relative_path in ("../outside", "/etc", "missing"):
+            result = security.worker_invoke(
+                "scan_profile",
+                {
+                    "resource_id": "downloads",
+                    "relative_path": relative_path,
+                    "mode": "full",
+                },
+            )
+            self.assertEqual(result["status"], "rejected")
+            self.assertEqual(result["error_code"], "directory_not_available")
 
     def test_profile_limit_is_partial_not_clean(self) -> None:
         from ai_native_security import ScanProfile

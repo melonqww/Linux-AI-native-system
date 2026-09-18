@@ -1,6 +1,6 @@
 # Security Center MVP — план работ
 
-**Статус:** production MVP завершён в `0.6.0`; Security Campaign и обе части
+**Статус:** production MVP расширен до `0.7.0`; Security Campaign и обе части
 Linux integration реализованы, включая отдельный Ubuntu smoke с настоящим
 установленным `clamd`.
 
@@ -283,5 +283,5 @@ Linux integration разделён на две части:
 Панель показывает status, шесть Ubuntu posture checks и до 10 активных findings
 через отдельный read-only snapshot. Endpoint доступен только по authenticated
 Unix IPC; loopback fallback его не публикует. Следующий продуктовый этап —
-выбор trusted resource и запуск quick/full scan, затем отдельный approval-поток
-для карантина.
+выбор trusted resource и запуск quick/full scan реализованы. Следующий этап —
+отображение прогресса фоновой проверки и отдельный approval-поток для карантина.

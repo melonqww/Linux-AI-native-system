@@ -64,6 +64,9 @@ class RuntimeApplication(Protocol):
     def security_snapshot(
         self, payload: dict[str, object], *, transport_context: TransportContext
     ) -> dict[str, object]: ...
+    def security_scan(
+        self, payload: dict[str, object], *, transport_context: TransportContext
+    ) -> dict[str, object]: ...
 
 
 @dataclass(frozen=True)
@@ -153,6 +156,8 @@ class RuntimeRouter:
                     "security.module.status",
                     "security.findings.list",
                     "security.posture.scan",
+                    "security.files.scan",
+                    "security.scan.run",
                 }
                 capabilities = [item for item in capabilities if item not in restricted]
             return RuntimeResponse(200, {"capabilities": capabilities})
@@ -227,6 +232,15 @@ class RuntimeRouter:
             return RuntimeResponse(
                 200,
                 self.application.security_snapshot(
+                    payload, transport_context=transport_context
+                ),
+            )
+        if path == "/v1/security/scan":
+            if not self.allow_r1:
+                return self.error(403, "secure_transport_required", False, request_id)
+            return RuntimeResponse(
+                200,
+                self.application.security_scan(
                     payload, transport_context=transport_context
                 ),
             )

@@ -210,7 +210,7 @@ def builtin_policies() -> tuple[CapabilityPolicy, ...]:
             capability_id="security.scan.run",
             risk=RiskLevel.READ_ONLY,
             plan_approval_required=False,
-            allowed_arguments=frozenset({"resource_id", "mode"}),
+            allowed_arguments=frozenset({"resource_id", "relative_path", "mode"}),
             required_arguments=frozenset({"resource_id", "mode"}),
             phases=(
                 PhasePolicy(

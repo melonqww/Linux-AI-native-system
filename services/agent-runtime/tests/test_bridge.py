@@ -74,6 +74,8 @@ class App:
             "security.module.status",
             "security.findings.list",
             "security.posture.scan",
+            "security.files.scan",
+            "security.scan.run",
         ]
 
     def search(self, payload):
@@ -174,6 +176,14 @@ class App:
             raise ValueError("unexpected payload")
         return {"schema_version": 1, "module": {"state": "ready"}}
 
+    def security_scan(self, payload, *, transport_context):
+        return {
+            "schema_version": 1,
+            "target": payload["target"],
+            "status": "completed",
+            "verdict": "no_threat_detected",
+        }
+
 
 class BridgeTests(unittest.TestCase):
     def test_security_snapshot_is_available_to_secure_runtime(self):
@@ -183,6 +193,14 @@ class BridgeTests(unittest.TestCase):
 
         self.assertEqual(response.status, 200)
         self.assertEqual(response.payload["module"]["state"], "ready")
+
+    def test_security_scan_is_available_to_secure_runtime(self):
+        response = RuntimeRouter(App()).dispatch(
+            "POST", "/v1/security/scan", {"target": "quick"}
+        )
+
+        self.assertEqual(response.status, 200)
+        self.assertEqual(response.payload["target"], "quick")
 
     def test_rejects_non_loopback_binding(self):
         with self.assertRaises(ValueError):
@@ -315,6 +333,13 @@ class BridgeTests(unittest.TestCase):
             )
             with self.assertRaises(urllib.error.HTTPError) as security_error:
                 urllib.request.urlopen(security_request)
+            security_scan_request = urllib.request.Request(
+                base + "/v1/security/scan",
+                data=json.dumps({"target": "quick"}).encode(),
+                headers={"Content-Type": "application/json"},
+            )
+            with self.assertRaises(urllib.error.HTTPError) as security_scan_error:
+                urllib.request.urlopen(security_scan_request)
         finally:
             server.shutdown()
             server.server_close()
@@ -343,6 +368,8 @@ class BridgeTests(unittest.TestCase):
         self.assertNotIn("security.module.status", capabilities["capabilities"])
         self.assertNotIn("security.findings.list", capabilities["capabilities"])
         self.assertNotIn("security.posture.scan", capabilities["capabilities"])
+        self.assertNotIn("security.files.scan", capabilities["capabilities"])
+        self.assertNotIn("security.scan.run", capabilities["capabilities"])
         self.assertEqual(status["scheduler"]["state"], "idle")
         self.assertEqual(system_status["schema_version"], 1)
         self.assertTrue(system_status["supported"])
@@ -363,6 +390,7 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(software_error.exception.code, 403)
         self.assertEqual(software_prepare_error.exception.code, 403)
         self.assertEqual(security_error.exception.code, 403)
+        self.assertEqual(security_scan_error.exception.code, 403)
         self.assertEqual(workspace_error.exception.code, 403)
         self.assertEqual(submit_error.exception.code, 403)
         self.assertEqual(models_error.exception.code, 403)
