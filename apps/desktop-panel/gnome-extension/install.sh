@@ -51,4 +51,9 @@ if [[ "$(uname -s)" == "Linux" ]]; then
         echo "Внимание: панель установлена, но ядро не запущено."
         echo "Повторите установку панели: bash apps/desktop-panel/gnome-extension/install.sh"
     fi
+    if python3 -c "import gi; gi.require_version('Nautilus', '4.0'); from gi.repository import Nautilus" >/dev/null 2>&1; then
+        bash "${SCRIPT_DIR}/../nautilus/install.sh"
+    else
+        echo "Пункт контекстного меню Nautilus не установлен: нужен пакет python3-nautilus."
+    fi
 fi

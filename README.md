@@ -175,7 +175,10 @@ on-demand worker и отдаёт панели только сводку. Уст�
 socket. Scanner не использует AI, TCP или subprocess, не возвращает содержимое
 и при неполной проверке выдаёт `unknown`, а не ложный clean verdict. Доступны
 проверка конкретного файла, bounded `quick`/`full` для доверенного resource root
-и SQLite Finding Store без содержимого и абсолютных путей. Read-only Ubuntu
+и SQLite Finding Store без содержимого и абсолютных путей. GNOME-панель выбирает
+файл/папку через XDG Desktop Portal, уведомляет об итогах quick/full, а optional
+Nautilus MenuProvider добавляет безопасную проверку из контекстного меню.
+Read-only Ubuntu
 posture проверяет updates, UFW, AppArmor, TCP listeners, autostart и scanner
 rules. Подтверждённую находку можно обратимо переместить в закрытый карантин и
 восстановить без перезаписи существующего пути. План следующих этапов и

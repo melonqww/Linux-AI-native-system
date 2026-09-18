@@ -31,6 +31,23 @@ python3 apps/desktop-panel/gnome-extension/validate_extension.py --installed
 
 Расширение устанавливается в `~/.local/share/gnome-shell/extensions/ai-native-linux@melonqww`.
 
+В Security Center файл и папка выбираются штатным системным диалогом XDG
+Desktop Portal: абсолютный путь вводить не нужно. После quick/full scan GNOME
+показывает уведомление с числом проверенных файлов и угроз либо сообщает, что
+угрозы не обнаружены.
+
+Если установлен пакет `python3-nautilus`, основной установщик также добавляет
+пункт «Проверить с помощью Security Center» в контекстное меню одного локального
+файла или папки. Интеграцию можно установить отдельно:
+
+```bash
+bash apps/desktop-panel/nautilus/install.sh
+```
+
+После первой установки нужно перезапустить Nautilus или заново войти в сеанс.
+Проверка запускается отдельным процессом и не блокирует файловый менеджер.
+Объекты вне домашней папки отклоняются теми же границами runtime.
+
 Панель подключается к production runtime через пользовательский Unix socket
 `$XDG_RUNTIME_DIR/ai-native-linux/runtime.sock`. `RuntimeClient` создаёт одно
 соединение на один bounded JSON request; сервер проверяет UID/GID/PID клиента

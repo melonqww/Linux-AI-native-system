@@ -34,6 +34,10 @@ const PANEL_BOTTOM_MARGIN = 18;
 const TOGGLE_DURATION = 260;
 const TAB_HEIGHT = 43;
 const SOFTWARE_LAUNCH_TIMEOUT_SECONDS = 60;
+const PORTAL_BUS_NAME = 'org.freedesktop.portal.Desktop';
+const PORTAL_OBJECT_PATH = '/org/freedesktop/portal/desktop';
+const PORTAL_FILE_CHOOSER = 'org.freedesktop.portal.FileChooser';
+const PORTAL_REQUEST = 'org.freedesktop.portal.Request';
 // The runtime's real Ollama model is qwen3.5:2b. Keep the human-readable
 // name here in sync with that backend default; model switching is not exposed
 // until the runtime supports selecting a different model per run.
@@ -2189,6 +2193,94 @@ function notifyUser(title, message) {
         log(`AI-native Linux: ${title}: ${message}`);
 }
 
+function unpackPortalValue(value) {
+    return value instanceof GLib.Variant ? value.deep_unpack() : value;
+}
+
+function chooseLocalSecurityTarget(directory = false) {
+    return new Promise((resolve, reject) => {
+        const token = `security_${GLib.uuid_string_random().replaceAll('-', '_')}`;
+        const sender = Gio.DBus.session.get_unique_name()
+            .replace(/^:/, '')
+            .replaceAll('.', '_');
+        const expectedPath = `${PORTAL_OBJECT_PATH}/request/${sender}/${token}`;
+        let completed = false;
+        const finish = (callback, value) => {
+            if (completed)
+                return;
+            completed = true;
+            Gio.DBus.session.signal_unsubscribe(subscriptionId);
+            callback(value);
+        };
+        const subscriptionId = Gio.DBus.session.signal_subscribe(
+            PORTAL_BUS_NAME,
+            PORTAL_REQUEST,
+            'Response',
+            expectedPath,
+            null,
+            Gio.DBusSignalFlags.NONE,
+            (_connection, _senderName, _objectPath, _interfaceName, _signalName, parameters) => {
+                const [response, rawResults] = parameters.deep_unpack();
+                if (response !== 0) {
+                    finish(resolve, null);
+                    return;
+                }
+                const uris = unpackPortalValue(rawResults.uris);
+                const uri = Array.isArray(uris) ? uris[0] : null;
+                finish(resolve, typeof uri === 'string' ? uri : null);
+            },
+        );
+        const options = {
+            handle_token: new GLib.Variant('s', token),
+            multiple: new GLib.Variant('b', false),
+            directory: new GLib.Variant('b', directory),
+            modal: new GLib.Variant('b', false),
+            accept_label: new GLib.Variant('s', directory ? 'Выбрать папку' : 'Выбрать файл'),
+        };
+        Gio.DBus.session.call(
+            PORTAL_BUS_NAME,
+            PORTAL_OBJECT_PATH,
+            PORTAL_FILE_CHOOSER,
+            'OpenFile',
+            new GLib.Variant('(ssa{sv})', [
+                '',
+                directory ? 'Выберите папку для проверки' : 'Выберите файл для проверки',
+                options,
+            ]),
+            new GLib.VariantType('(o)'),
+            Gio.DBusCallFlags.NONE,
+            -1,
+            null,
+            (connection, result) => {
+                try {
+                    const [requestPath] = connection.call_finish(result).deep_unpack();
+                    if (requestPath !== expectedPath)
+                        finish(reject, new Error('unexpected_portal_request_path'));
+                } catch (error) {
+                    finish(reject, error);
+                }
+            },
+        );
+    });
+}
+
+function homeRelativePathFromUri(uri) {
+    if (typeof uri !== 'string' || !uri.startsWith('file://'))
+        throw new Error('unsupported_security_uri');
+    const selected = Gio.File.new_for_uri(uri).get_path();
+    if (!selected)
+        throw new Error('unsupported_security_uri');
+    const home = GLib.canonicalize_filename(GLib.get_home_dir(), null);
+    const path = GLib.canonicalize_filename(selected, null);
+    const prefix = home.endsWith('/') ? home : `${home}/`;
+    if (!path.startsWith(prefix))
+        throw new Error('security_target_outside_home');
+    const relative = path.slice(prefix.length);
+    if (!relative || relative.split('/').some(part => !part || part === '.' || part === '..'))
+        throw new Error('invalid_security_target');
+    return relative;
+}
+
 function launchSystemApp(argv) {
     try {
         Gio.Subprocess.new(argv, Gio.SubprocessFlags.NONE);
@@ -2424,32 +2516,31 @@ class SidebarView extends St.Widget {
         profiles.add_child(this._securityQuickButton);
         profiles.add_child(this._securityFullButton);
         scan.add_child(profiles);
-        this._securityPath = new St.Entry({
-            hint_text: 'Путь внутри домашней папки',
-            style_class: 'ai-security-path',
-            can_focus: true,
-            x_expand: true,
-        });
-        scan.add_child(this._securityPath);
+        this._securitySelection = sidebarLabel(
+            'Выберите файл или папку в системном проводнике.',
+            'ai-sidebar-caption',
+            {wrap: true},
+        );
+        scan.add_child(this._securitySelection);
         const targetActions = new St.BoxLayout({
             style_class: 'ai-security-actions',
             x_expand: true,
         });
         this._securityFileButton = new St.Button({
-            label: 'Проверить файл',
+            label: 'Выбрать файл',
             style_class: 'ai-sidebar-action',
             x_expand: true,
         });
         this._securityFolderButton = new St.Button({
-            label: 'Проверить папку',
+            label: 'Выбрать папку',
             style_class: 'ai-sidebar-action',
             x_expand: true,
         });
         this._securityFileButton.connect(
-            'clicked', () => this._runSecurityTarget('file'),
+            'clicked', () => this._chooseSecurityTarget('file'),
         );
         this._securityFolderButton.connect(
-            'clicked', () => this._runSecurityTarget('folder'),
+            'clicked', () => this._chooseSecurityTarget('folder'),
         );
         targetActions.add_child(this._securityFileButton);
         targetActions.add_child(this._securityFolderButton);
@@ -2481,18 +2572,26 @@ class SidebarView extends St.Widget {
         this._securityContent.add_child(refresh);
     }
 
-    _runSecurityTarget(target) {
-        const relativePath = this._securityPath.get_text().trim();
-        if (!relativePath) {
-            this._securityScanResult.set_text(
-                'Укажите относительный путь, например Downloads/sample.bin.',
-            );
+    async _chooseSecurityTarget(target) {
+        if (this._securityScanInFlight)
             return;
+        try {
+            const uri = await chooseLocalSecurityTarget(target === 'folder');
+            if (!uri || this._disposed)
+                return;
+            const relativePath = homeRelativePathFromUri(uri);
+            this._securitySelection.set_text(`Выбрано: ${relativePath}`);
+            const payload = {target, relative_path: relativePath};
+            if (target === 'folder')
+                payload.mode = 'full';
+            this._runSecurityScan(payload);
+        } catch (_error) {
+            if (!this._disposed) {
+                this._securityScanResult.set_text(
+                    'Можно выбрать только локальный объект внутри домашней папки.',
+                );
+            }
         }
-        const payload = {target, relative_path: relativePath};
-        if (target === 'folder')
-            payload.mode = 'full';
-        this._runSecurityScan(payload);
     }
 
     async _runSecurityScan(payload) {
@@ -2513,6 +2612,10 @@ class SidebarView extends St.Widget {
                 return;
             const view = securityScanPresentation(result);
             this._securityScanResult.set_text(`${view.title}. ${view.detail}`);
+            if (payload.target === 'quick' || payload.target === 'full') {
+                const mode = payload.target === 'quick' ? 'Быстрая' : 'Полная';
+                notifyUser(`${mode} проверка завершена`, `${view.title}. ${view.detail}`);
+            }
             await this._refreshSecurity();
         } catch (_error) {
             if (!this._disposed)
