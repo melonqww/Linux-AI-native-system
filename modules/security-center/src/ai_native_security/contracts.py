@@ -30,6 +30,7 @@ _ERROR_CODES = frozenset(
         "invalid_relative_path",
         "resource_not_available",
         "resource_not_accessible",
+        "protected_path",
         "not_regular_file",
         "file_too_large",
         "scan_timeout",

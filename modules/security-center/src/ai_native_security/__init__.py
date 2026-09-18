@@ -6,7 +6,7 @@ not perform I/O, allocate external resources, or start the worker.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 import json
 import os
 from pathlib import Path
@@ -23,6 +23,7 @@ from .findings import FindingStore, FindingStoreError
 from .posture import PostureObservation, UbuntuPostureCollector
 from .quarantine import QuarantineManager
 from .scanner import ByteSignature, FileScanner, HashSignature, SignatureDatabase
+from .scope import normalize_exclusions, storage_is_excluded
 
 
 _started = False
@@ -43,6 +44,7 @@ def worker_start(
     posture_collector: UbuntuPostureCollector | None = None,
     quarantine_root: str | os.PathLike[str] | None = None,
     quarantine_database: str | os.PathLike[str] | None = None,
+    excluded_paths: Mapping[str, Collection[str]] | None = None,
 ) -> None:
     """Start with roots supplied only by trusted bootstrap code."""
 
@@ -57,17 +59,26 @@ def worker_start(
         else external_detectors
     )
     signature_database = signatures or SignatureDatabase.builtin()
+    resolved_roots = {
+        key: Path(value).resolve(strict=True) for key, value in roots.items()
+    }
+    exclusions = (
+        _exclusions_from_environment(roots)
+        if excluded_paths is None
+        else normalize_exclusions(resolved_roots, excluded_paths)
+    )
     scanner = FileScanner(
         roots,
         signatures=signature_database,
         external_detectors=detectors,
+        excluded_paths=exclusions,
     )
     database = (
         os.environ.get("AI_NATIVE_SECURITY_FINDINGS_DATABASE", ":memory:")
         if finding_database is None
         else finding_database
     )
-    _validate_finding_database_boundary(database, roots)
+    _validate_finding_database_boundary(database, roots, exclusions)
     finding_store = FindingStore(database)
     campaign_options = {} if scan_profiles is None else {"profiles": scan_profiles}
     try:
@@ -75,6 +86,7 @@ def worker_start(
             roots,
             scanner.scan,
             finding_store.record,
+            excluded_paths=exclusions,
             **campaign_options,
         )
         configured_root = quarantine_root or os.environ.get(
@@ -94,6 +106,7 @@ def worker_start(
                 finding_store,
                 configured_root,
                 configured_database,
+                excluded_paths=exclusions,
             )
         )
     except Exception:
@@ -241,19 +254,35 @@ def _detectors_from_environment() -> tuple[StreamDetector, ...]:
     return (detector,)
 
 
+def _exclusions_from_environment(
+    roots: Mapping[str, str | os.PathLike[str]],
+) -> dict[str, tuple[str, ...]]:
+    encoded = os.environ.get("AI_NATIVE_SECURITY_EXCLUDED_PATHS", "{}")
+    if len(encoded) > 16 * 1024:
+        raise ValueError("invalid_scan_exclusions")
+    try:
+        parsed = json.loads(encoded)
+    except json.JSONDecodeError as error:
+        raise ValueError("invalid_scan_exclusions") from error
+    resolved_roots = {
+        key: Path(value).resolve(strict=True) for key, value in roots.items()
+    }
+    return normalize_exclusions(resolved_roots, parsed)
+
+
 def _validate_finding_database_boundary(
     database: str | os.PathLike[str],
     roots: Mapping[str, str | os.PathLike[str]],
+    exclusions: Mapping[str, tuple[str, ...]] | None = None,
 ) -> None:
     if str(database) == ":memory:":
         return
     database_path = Path(database).expanduser().absolute()
-    for raw_root in roots.values():
-        root = Path(raw_root).expanduser().resolve(strict=True)
-        try:
-            database_path.relative_to(root)
-        except ValueError:
-            continue
+    normalized = normalize_exclusions(
+        {key: Path(value).resolve(strict=True) for key, value in roots.items()},
+        exclusions,
+    )
+    if not storage_is_excluded(database_path, roots, normalized):
         raise ValueError("finding_database_inside_scan_root")
 
 

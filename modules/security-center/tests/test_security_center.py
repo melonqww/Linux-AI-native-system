@@ -557,6 +557,40 @@ class SecurityFileScannerTests(unittest.TestCase):
                 finding_database=self.root / "private" / "findings.sqlite3",
             )
 
+    def test_explicit_private_state_exclusion_is_never_scanned(self) -> None:
+        private = self.root / "private"
+        private.mkdir()
+        security.worker_start(
+            {"downloads": self.root},
+            finding_database=private / "findings.sqlite3",
+            excluded_paths={"downloads": ["private"]},
+        )
+
+        direct = self._scan("private/findings.sqlite3")
+        campaign = security.worker_invoke(
+            "scan_profile", {"resource_id": "downloads", "mode": "full"}
+        )
+
+        self.assertEqual(direct["status"], "rejected")
+        self.assertEqual(direct["error_code"], "protected_path")
+        self.assertEqual(campaign["status"], "completed")
+        self.assertEqual(campaign["scanned_files"], 0)
+
+    def test_scan_exclusions_are_closed_and_relative(self) -> None:
+        invalid = (
+            {"unknown": ["private"]},
+            {"downloads": ["../private"]},
+            {"downloads": ["/private"]},
+        )
+        for exclusions in invalid:
+            with self.subTest(exclusions=exclusions):
+                with self.assertRaisesRegex(ValueError, "invalid_scan_exclusions"):
+                    security.worker_start(
+                        {"downloads": self.root},
+                        finding_database=self.findings_database,
+                        excluded_paths=exclusions,
+                    )
+
     def test_symlink_makes_profile_partial_when_supported(self) -> None:
         outside = self.root.parent / f"{self.root.name}-campaign-outside.txt"
         outside.write_bytes(b"outside")

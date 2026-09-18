@@ -80,22 +80,16 @@ class ModuleProcessManager:
             resource_id: Path(root).expanduser().resolve(strict=True)
             for resource_id, root in (security_scan_roots or {}).items()
         }
-        for root in self.security_scan_roots.values():
+        self.security_scan_exclusions: dict[str, tuple[str, ...]] = {}
+        for resource_id, root in self.security_scan_roots.items():
             try:
-                self.security_findings_database.relative_to(root)
+                relative = self.runtime_directory.relative_to(root).as_posix()
             except ValueError:
-                continue
-            raise ValueError("security findings database must be outside scan roots")
-        for root in self.security_scan_roots.values():
-            for protected in (
-                self.security_quarantine_root,
-                self.security_quarantine_database,
-            ):
-                try:
-                    protected.relative_to(root)
-                except ValueError:
-                    continue
-                raise ValueError("security quarantine must be outside scan roots")
+                self.security_scan_exclusions[resource_id] = ()
+            else:
+                if relative in {"", "."}:
+                    raise ValueError("runtime directory cannot equal a scan root")
+                self.security_scan_exclusions[resource_id] = (relative,)
         self.security_clamd_socket = self._validate_security_clamd_socket(
             security_clamd_socket
         )
@@ -166,6 +160,10 @@ class ModuleProcessManager:
                     resource_id: str(root)
                     for resource_id, root in self.security_scan_roots.items()
                 },
+                separators=(",", ":"),
+            )
+            env["AI_NATIVE_SECURITY_EXCLUDED_PATHS"] = json.dumps(
+                self.security_scan_exclusions,
                 separators=(",", ":"),
             )
             env["AI_NATIVE_SECURITY_FINDINGS_DATABASE"] = str(

@@ -241,15 +241,39 @@ class ModuleManagerTests(unittest.TestCase):
                         **arguments,
                     )
 
-    def test_rejects_finding_database_inside_security_scan_root(self) -> None:
+    def test_excludes_private_runtime_when_it_is_inside_scan_root(self) -> None:
         runtime = self.root / "overlapping-runtime"
         runtime.mkdir()
 
-        with self.assertRaisesRegex(ValueError, "outside scan roots"):
+        manager = ModuleProcessManager(
+            self.registry,
+            runtime_directory=runtime,
+            security_scan_roots={"home": self.root},
+        )
+        self.addCleanup(manager.stop_all)
+
+        self.assertEqual(
+            manager.security_scan_exclusions,
+            {"home": ("overlapping-runtime",)},
+        )
+        provider = manager.start_for_capability("security.files.scan")
+        result = manager.invoke(
+            provider,
+            "scan",
+            {
+                "resource_id": "home",
+                "relative_path": "overlapping-runtime/security-findings.sqlite3",
+            },
+        )
+        self.assertEqual(result["status"], "rejected")
+        self.assertEqual(result["error_code"], "protected_path")
+
+    def test_rejects_runtime_directory_equal_to_scan_root(self) -> None:
+        with self.assertRaisesRegex(ValueError, "cannot equal"):
             ModuleProcessManager(
                 self.registry,
-                runtime_directory=runtime,
-                security_scan_roots={"runtime": self.root},
+                runtime_directory=self.root,
+                security_scan_roots={"home": self.root},
             )
 
     def test_builds_clean_clamd_environment_only_for_security_center(self) -> None:

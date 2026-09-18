@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from dataclasses import dataclass
 import os
 from pathlib import Path, PurePosixPath
@@ -11,6 +12,7 @@ from types import MappingProxyType
 from typing import Callable, Mapping
 
 from .contracts import ScanResult
+from .scope import is_excluded, normalize_exclusions
 
 
 CAMPAIGN_SCHEMA_VERSION = 1
@@ -63,6 +65,7 @@ class CampaignScanner:
         record_findings: Callable[[ScanResult], tuple[int, ...]],
         *,
         profiles: Mapping[str, ScanProfile] = DEFAULT_PROFILES,
+        excluded_paths: Mapping[str, Collection[str]] | None = None,
     ) -> None:
         self._roots = MappingProxyType(
             {
@@ -72,6 +75,9 @@ class CampaignScanner:
         )
         self._scan_file = scan_file
         self._record_findings = record_findings
+        self._exclusions = MappingProxyType(
+            normalize_exclusions(self._roots, excluded_paths)
+        )
         if set(profiles) != {"quick", "full"}:
             raise ValueError("invalid_scan_profiles")
         self._profiles = MappingProxyType(dict(profiles))
@@ -94,6 +100,8 @@ class CampaignScanner:
                 resource_id, mode, relative_path, "directory_not_available"
             )
         scan_root, prefix = normalized
+        if prefix and is_excluded(self._exclusions, resource_id, prefix):
+            return self._rejected(resource_id, mode, relative_path, "protected_path")
         profile = self._profiles[mode]
         started = time.monotonic()
         deadline = started + profile.timeout_seconds
@@ -106,6 +114,10 @@ class CampaignScanner:
             profile.max_depth,
             deadline,
             profile.max_files * 8,
+            tuple(
+                self._roots[resource_id].joinpath(*item.split("/"))
+                for item in self._exclusions[resource_id]
+            ),
         ):
             if relative_path is None:
                 if size_bytes < 0:
@@ -172,6 +184,7 @@ class CampaignScanner:
         max_depth: int,
         deadline: float,
         max_entries: int,
+        excluded_roots: tuple[Path, ...] = (),
     ):
         pending: list[tuple[Path, int]] = [(root, 0)]
         visited_entries = 0
@@ -207,6 +220,11 @@ class CampaignScanner:
                     yield None, 0
                     continue
                 path = Path(entry.path)
+                if any(
+                    path == excluded or excluded in path.parents
+                    for excluded in excluded_roots
+                ):
+                    continue
                 if _is_junction(path):
                     yield None, 0
                     continue

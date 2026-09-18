@@ -10,6 +10,7 @@ import re
 import stat
 import time
 from types import MappingProxyType
+from collections.abc import Collection
 from typing import Mapping
 
 from .contracts import (
@@ -19,6 +20,7 @@ from .contracts import (
     ScanResult,
 )
 from .detectors import DetectorError, StreamDetector, StreamDetectorSession
+from .scope import is_excluded, normalize_exclusions
 
 
 _RESOURCE_ID = re.compile(r"^[a-z][a-z0-9_.-]{0,63}$")
@@ -104,6 +106,7 @@ class FileScanner:
         *,
         signatures: SignatureDatabase | None = None,
         external_detectors: tuple[StreamDetector, ...] = (),
+        excluded_paths: Mapping[str, Collection[str]] | None = None,
         max_file_bytes: int = 8 * 1024 * 1024,
         chunk_bytes: int = 64 * 1024,
         timeout_seconds: float = 10.0,
@@ -126,6 +129,9 @@ class FileScanner:
                 raise ValueError("invalid_resource_root")
             roots[resource_id] = resolved
         self._roots = MappingProxyType(roots)
+        self._exclusions = MappingProxyType(
+            normalize_exclusions(roots, excluded_paths)
+        )
         self._signatures = signatures or SignatureDatabase.builtin()
         if type(external_detectors) is not tuple:
             raise TypeError("external_detectors_must_be_tuple")
@@ -146,6 +152,8 @@ class FileScanner:
             return _rejected("resource_not_available", resource_id, normalized)
         if not normalized:
             return _rejected("invalid_relative_path", resource_id, "")
+        if is_excluded(self._exclusions, resource_id, normalized):
+            return _rejected("protected_path", resource_id, normalized)
 
         lexical = root.joinpath(*normalized.split("/"))
         try:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from contextlib import contextmanager
 import errno
 import hashlib
@@ -15,6 +16,7 @@ from uuid import UUID, uuid4
 
 from .findings import FindingStore
 from .scanner import FileScanner, _is_junction, _normalize_relative_path, _reject_link_components
+from .scope import normalize_exclusions, storage_is_excluded
 
 
 QUARANTINE_SCHEMA_VERSION = 1
@@ -33,6 +35,7 @@ class QuarantineManager:
         findings: FindingStore,
         quarantine_root: str | os.PathLike[str],
         database: str | os.PathLike[str],
+        excluded_paths: Mapping[str, Collection[str]] | None = None,
     ) -> None:
         self._roots = {
             resource_id: Path(root).resolve(strict=True)
@@ -43,12 +46,9 @@ class QuarantineManager:
         self._root = Path(quarantine_root).expanduser().absolute()
         self._objects = self._root / "objects"
         self._database = Path(database).expanduser().absolute()
-        for scan_root in self._roots.values():
-            for protected in (self._root, self._database):
-                try:
-                    protected.relative_to(scan_root)
-                except ValueError:
-                    continue
+        exclusions = normalize_exclusions(self._roots, excluded_paths)
+        for protected in (self._root, self._database):
+            if not storage_is_excluded(protected, self._roots, exclusions):
                 raise ValueError("quarantine_inside_scan_root")
         self._objects.mkdir(parents=True, exist_ok=True)
         self._database.parent.mkdir(parents=True, exist_ok=True)
