@@ -239,6 +239,20 @@ Goal-driven User Journey Lab поверх этого контура воспро
 Linux-проверки и непокрытые случаи перечислены в отчёте. См.
 [`ADR-020`](Architecture/decisions/ADR-020-autonomous-foundation-validation.md).
 
+---
+
+## История лабораторных прогонов
+
+Лаборатория выросла от 5 contract-сценариев до автономной матрицы из 97
+проверок. Последний подтверждённый полный прогон: **81/95**, найдено 14 проблем,
+поэтому релиз не был объявлен готовым. После анализа добавлены точная диагностика
+и новый regression из реального пользовательского диалога; они ожидают
+повторной проверки.
+
+[Полная история прогонов](labs/ai-scenario-lab/LAB-HISTORY.md) ·
+[таблица результатов](labs/ai-scenario-lab/public-evidence/README.md) ·
+[очищенные JSON-доказательства](labs/ai-scenario-lab/public-evidence/index.json)
+
 ## Запуск нативной панели в Ubuntu
 
 В Ubuntu с GNOME из корня репозитория сначала установите и запустите
@@ -258,6 +272,8 @@ bash apps/desktop-panel/gnome-extension/install.sh
 
 ## Документация
 
+- [История AI Scenario Lab и доказательства прогонов](labs/ai-scenario-lab/LAB-HISTORY.md)
+- [Очищенные JSON-доказательства AI Scenario Lab](labs/ai-scenario-lab/public-evidence/README.md)
 - [Концепция и текущая матрица Beta 0.1](Architecture/AI-native-Linux-v0.1-концепция.md)
 - [Структура проекта и пути](Architecture/02-Структура-проекта-и-пути.md)
 - [Контракты намерений и инструментов](Architecture/api/intent-and-tool-contracts.md)

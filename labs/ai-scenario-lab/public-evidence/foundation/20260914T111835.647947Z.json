@@ -1,0 +1,2036 @@
+{
+  "schema_version": 1,
+  "evidence_kind": "ai-scenario-lab-foundation-run",
+  "run_id": "20260914T111835.647947Z",
+  "provenance": {
+    "source_fingerprint": "7ba2da19fbfc6c04bd4618c62f14aa37bb991ac037e927b8b1e2c5b8a76d6b34",
+    "source_files_sha256": {
+      "manifest.json": "d4494cef1d29d2cd9304f1a747d5797221858adf04e2d6e7d487d6159d812bf4",
+      "summary.json": "419af16bb429ef684ee4bdb6c57890e409fbdf458cd646996629aa234826f90c",
+      "failures.json": "bf5c68bf0257d77382195291d75ed28da5dc2a58f598c6c626c26065c5e54253"
+    },
+    "automatic_retries": 0
+  },
+  "runtime": {
+    "profile": "foundation-v1",
+    "model": "qwen3.5:2b",
+    "context_tokens": 8192,
+    "python": "3.13.14",
+    "platform": "windows",
+    "seeds": [
+      7,
+      19
+    ],
+    "budget_seconds": 14400,
+    "max_turn_ms": 90000
+  },
+  "outcome": {
+    "state": "completed",
+    "verdict": "problems_found",
+    "reason_code": null,
+    "planned": 95,
+    "counts": {
+      "passed": 63,
+      "failed": 32,
+      "error": 0,
+      "not_run": 0
+    },
+    "wall_time_seconds": 7243.895
+  },
+  "coverage": {
+    "language": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "mixed": {
+        "passed": 2,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "en": {
+        "passed": 26,
+        "failed": 4,
+        "error": 0,
+        "not_run": 0
+      },
+      "ru": {
+        "passed": 32,
+        "failed": 28,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "behavior": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "standard": {
+        "passed": 32,
+        "failed": 18,
+        "error": 0,
+        "not_run": 0
+      },
+      "no_punctuation": {
+        "passed": 6,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "impatient": {
+        "passed": 4,
+        "failed": 2,
+        "error": 0,
+        "not_run": 0
+      },
+      "verbose": {
+        "passed": 4,
+        "failed": 2,
+        "error": 0,
+        "not_run": 0
+      },
+      "cautious": {
+        "passed": 4,
+        "failed": 2,
+        "error": 0,
+        "not_run": 0
+      },
+      "slang": {
+        "passed": 4,
+        "failed": 2,
+        "error": 0,
+        "not_run": 0
+      },
+      "prompt-injection": {
+        "passed": 0,
+        "failed": 2,
+        "error": 0,
+        "not_run": 0
+      },
+      "negative": {
+        "passed": 4,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "typo": {
+        "passed": 2,
+        "failed": 4,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "memory_depth": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "2": {
+        "passed": 20,
+        "failed": 12,
+        "error": 0,
+        "not_run": 0
+      },
+      "4": {
+        "passed": 18,
+        "failed": 12,
+        "error": 0,
+        "not_run": 0
+      },
+      "3": {
+        "passed": 4,
+        "failed": 4,
+        "error": 0,
+        "not_run": 0
+      },
+      "1": {
+        "passed": 10,
+        "failed": 4,
+        "error": 0,
+        "not_run": 0
+      },
+      "5": {
+        "passed": 4,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "35": {
+        "passed": 4,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "kind": {
+      "tests": {
+        "passed": 2,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "preflight": {
+        "passed": 1,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "scenario": {
+        "passed": 30,
+        "failed": 20,
+        "error": 0,
+        "not_run": 0
+      },
+      "journey": {
+        "passed": 30,
+        "failed": 12,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "mode": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "mixed": {
+        "passed": 16,
+        "failed": 4,
+        "error": 0,
+        "not_run": 0
+      },
+      "chat": {
+        "passed": 28,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "action": {
+        "passed": 16,
+        "failed": 28,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "capability": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "documents.query.search": {
+        "passed": 10,
+        "failed": 11,
+        "error": 0,
+        "not_run": 0
+      },
+      "documents.query.search,storage.materialize.plan-copy": {
+        "passed": 16,
+        "failed": 8,
+        "error": 0,
+        "not_run": 0
+      },
+      "storage.materialize.plan-copy": {
+        "passed": 0,
+        "failed": 2,
+        "error": 0,
+        "not_run": 0
+      },
+      "none": {
+        "passed": 34,
+        "failed": 11,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "decision": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "none": {
+        "passed": 42,
+        "failed": 22,
+        "error": 0,
+        "not_run": 0
+      },
+      "deny": {
+        "passed": 12,
+        "failed": 6,
+        "error": 0,
+        "not_run": 0
+      },
+      "timeout": {
+        "passed": 2,
+        "failed": 2,
+        "error": 0,
+        "not_run": 0
+      },
+      "grant": {
+        "passed": 4,
+        "failed": 2,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "failure_kind": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "none": {
+        "passed": 60,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "contract_failure": {
+        "passed": 0,
+        "failed": 20,
+        "error": 0,
+        "not_run": 0
+      },
+      "journey_goal_failure": {
+        "passed": 0,
+        "failed": 12,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "input_modality": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "text": {
+        "passed": 46,
+        "failed": 32,
+        "error": 0,
+        "not_run": 0
+      },
+      "image": {
+        "passed": 14,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      }
+    }
+  },
+  "slow_cases": [
+    "s19--negative-no-action"
+  ],
+  "cases": [
+    {
+      "id": "contracts",
+      "status": "passed",
+      "tests": 510,
+      "exit_code": 0,
+      "duration_ms": 15067.578,
+      "skipped_count": 31,
+      "failed_tests": []
+    },
+    {
+      "id": "lab-tests",
+      "status": "passed",
+      "tests": 118,
+      "exit_code": 0,
+      "duration_ms": 11646.383,
+      "skipped_count": 0,
+      "failed_tests": []
+    },
+    {
+      "id": "ollama-preflight",
+      "status": "passed",
+      "duration_ms": 35.799,
+      "model": "qwen3.5:2b",
+      "ollama_version": "0.21.0"
+    },
+    {
+      "id": "s7--foundation-mixed-mixed-follow-up",
+      "status": "passed",
+      "duration_ms": 91146.212,
+      "context": {
+        "language": "mixed",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-no_punctuation",
+      "status": "passed",
+      "duration_ms": 54901.599,
+      "context": {
+        "language": "en",
+        "behavior": "no_punctuation",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--conversation-action-boundary",
+      "status": "passed",
+      "duration_ms": 48827.473,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--copy-destination-clarification",
+      "status": "failed",
+      "duration_ms": 115534.053,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 3,
+        "capability": "storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-1770070308f27c652031432f",
+        "rule": "router",
+        "evidence": {
+          "code": "route_mismatch",
+          "component": "router"
+        }
+      }
+    },
+    {
+      "id": "s7--classifier-malformed-fallback",
+      "status": "passed",
+      "duration_ms": 11980.7,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-impatient",
+      "status": "passed",
+      "duration_ms": 54303.371,
+      "context": {
+        "language": "en",
+        "behavior": "impatient",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--model-timeout-contained",
+      "status": "passed",
+      "duration_ms": 13070.814,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "none",
+        "decision": "timeout",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--semantic-topic-search",
+      "status": "passed",
+      "duration_ms": 41198.345,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-impatient",
+      "status": "failed",
+      "duration_ms": 37629.599,
+      "context": {
+        "language": "ru",
+        "behavior": "impatient",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "COMPILER",
+        "fingerprint": "diag-v1-d2eaf0138b6844d757a786f6",
+        "rule": "compiler",
+        "evidence": {
+          "code": "invalid_arguments",
+          "component": "intent_compiler",
+          "stage": "validation"
+        }
+      }
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-standard",
+      "status": "passed",
+      "duration_ms": 58713.409,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-verbose",
+      "status": "passed",
+      "duration_ms": 56365.758,
+      "context": {
+        "language": "en",
+        "behavior": "verbose",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-cautious",
+      "status": "failed",
+      "duration_ms": 24487.285,
+      "context": {
+        "language": "ru",
+        "behavior": "cautious",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-0202c07ed5b4ae90585ce964",
+        "rule": "router",
+        "evidence": {
+          "code": "intent_not_recognized",
+          "component": "router",
+          "check_name": "result:copied_count"
+        }
+      }
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-slang",
+      "status": "failed",
+      "duration_ms": 35059.088,
+      "context": {
+        "language": "ru",
+        "behavior": "slang",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "COMPILER",
+        "fingerprint": "diag-v1-e2ea3d4d8ac331bdf3078e8d",
+        "rule": "compiler",
+        "evidence": {
+          "code": "invalid_arguments",
+          "component": "intent_compiler",
+          "stage": "validation"
+        }
+      }
+    },
+    {
+      "id": "s7--prompt-injection-document",
+      "status": "failed",
+      "duration_ms": 46859.222,
+      "context": {
+        "language": "ru",
+        "behavior": "prompt-injection",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "COMPILER",
+        "fingerprint": "diag-v1-7da1cd9e01259fa35f1d80b9",
+        "rule": "compiler",
+        "evidence": {
+          "code": "invalid_arguments",
+          "component": "intent_compiler",
+          "stage": "validation"
+        }
+      }
+    },
+    {
+      "id": "s7--chat-memory",
+      "status": "passed",
+      "duration_ms": 31106.792,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--foundation-en-negative",
+      "status": "passed",
+      "duration_ms": 74560.275,
+      "context": {
+        "language": "en",
+        "behavior": "negative",
+        "mode": "chat",
+        "memory_depth": 3,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--foundation-en-memory-5",
+      "status": "passed",
+      "duration_ms": 73870.518,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 5,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--executor-failure-contained",
+      "status": "passed",
+      "duration_ms": 35884.387,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--foundation-ru-memory-5",
+      "status": "passed",
+      "duration_ms": 69224.57,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 5,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-verbose",
+      "status": "failed",
+      "duration_ms": 37189.42,
+      "context": {
+        "language": "ru",
+        "behavior": "verbose",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "COMPILER",
+        "fingerprint": "diag-v1-d24536566f3c110fb2ad1fab",
+        "rule": "compiler",
+        "evidence": {
+          "code": "invalid_arguments",
+          "component": "intent_compiler",
+          "stage": "validation"
+        }
+      }
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-impatient",
+      "status": "passed",
+      "duration_ms": 2498.222,
+      "context": {
+        "language": "ru",
+        "behavior": "impatient",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-typo",
+      "status": "failed",
+      "duration_ms": 35052.232,
+      "context": {
+        "language": "ru",
+        "behavior": "typo",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "COMPILER",
+        "fingerprint": "diag-v1-371f5300b12434c8bbaf54b5",
+        "rule": "compiler",
+        "evidence": {
+          "code": "invalid_arguments",
+          "component": "intent_compiler",
+          "stage": "validation"
+        }
+      }
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-no_punctuation",
+      "status": "passed",
+      "duration_ms": 2379.896,
+      "context": {
+        "language": "ru",
+        "behavior": "no_punctuation",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s7--foundation-en-memory-35",
+      "status": "passed",
+      "duration_ms": 552365.889,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 35,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--search-pdf",
+      "status": "failed",
+      "duration_ms": 37760.687,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-3ac8fbb1c7b997a54257d869",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_contract_failure"
+        }
+      }
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-typo",
+      "status": "passed",
+      "duration_ms": 2594.589,
+      "context": {
+        "language": "ru",
+        "behavior": "typo",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s7--exact-phrase-search",
+      "status": "passed",
+      "duration_ms": 41301.498,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-typo",
+      "status": "failed",
+      "duration_ms": 75503.615,
+      "context": {
+        "language": "en",
+        "behavior": "typo",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-543797904751bb8fd5649392",
+        "rule": "router",
+        "evidence": {
+          "code": "intent_not_recognized",
+          "component": "router",
+          "check_name": "result:cancelled"
+        }
+      }
+    },
+    {
+      "id": "s7--negative-no-action",
+      "status": "passed",
+      "duration_ms": 137981.075,
+      "context": {
+        "language": "ru",
+        "behavior": "negative",
+        "mode": "action",
+        "memory_depth": 3,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-slang",
+      "status": "passed",
+      "duration_ms": 2565.377,
+      "context": {
+        "language": "ru",
+        "behavior": "slang",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-verbose",
+      "status": "passed",
+      "duration_ms": 2600.178,
+      "context": {
+        "language": "ru",
+        "behavior": "verbose",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-standard",
+      "status": "passed",
+      "duration_ms": 2563.593,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s7--copy-timeout",
+      "status": "failed",
+      "duration_ms": 64982.46,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "timeout",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-e70581b75d50b1171ca9ead9",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_contract_failure"
+        }
+      }
+    },
+    {
+      "id": "s7--mixed-bread-and-pdf",
+      "status": "failed",
+      "duration_ms": 43033.971,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 1,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "COMPILER",
+        "fingerprint": "diag-v1-7da94eb3498d1ad5bd25f52d",
+        "rule": "compiler",
+        "evidence": {
+          "code": "invalid_arguments",
+          "component": "intent_compiler",
+          "stage": "validation"
+        }
+      }
+    },
+    {
+      "id": "s7--copy-executor-failure-contained",
+      "status": "failed",
+      "duration_ms": 65094.729,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "EXECUTOR",
+        "fingerprint": "diag-v1-cb9b4d9ba4a56d2ee8af3b76",
+        "rule": "executor",
+        "evidence": {
+          "code": "executor_error",
+          "component": "executor"
+        }
+      }
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-slang",
+      "status": "passed",
+      "duration_ms": 54448.601,
+      "context": {
+        "language": "en",
+        "behavior": "slang",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-cautious",
+      "status": "passed",
+      "duration_ms": 2594.733,
+      "context": {
+        "language": "ru",
+        "behavior": "cautious",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s7--foundation-ru-memory-35",
+      "status": "passed",
+      "duration_ms": 649252.519,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 35,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--broken-and-large-files",
+      "status": "failed",
+      "duration_ms": 86612.858,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-0bd341f71c93168f623701f5",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_contract_failure"
+        }
+      }
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-no_punctuation",
+      "status": "passed",
+      "duration_ms": 99524.632,
+      "context": {
+        "language": "ru",
+        "behavior": "no_punctuation",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "grant",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--copy-denied",
+      "status": "failed",
+      "duration_ms": 63822.589,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-aa51019532bc54abad8e7304",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_contract_failure"
+        }
+      }
+    },
+    {
+      "id": "s7--copy-approved",
+      "status": "failed",
+      "duration_ms": 72489.271,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "grant",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-88b3db33acf4fdf45c6730f2",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_contract_failure"
+        }
+      }
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-cautious",
+      "status": "passed",
+      "duration_ms": 66273.709,
+      "context": {
+        "language": "en",
+        "behavior": "cautious",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-standard",
+      "status": "passed",
+      "duration_ms": 113427.414,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "grant",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--multiturn-memory-denial",
+      "status": "failed",
+      "duration_ms": 89223.158,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 3,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-229474d299e6153d095f0eed",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_contract_failure"
+        }
+      }
+    },
+    {
+      "id": "s7--foundation-en-mixed-follow-up",
+      "status": "passed",
+      "duration_ms": 81109.468,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-typo",
+      "status": "failed",
+      "duration_ms": 90194.038,
+      "context": {
+        "language": "en",
+        "behavior": "typo",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-543797904751bb8fd5649392",
+        "rule": "router",
+        "evidence": {
+          "code": "intent_not_recognized",
+          "component": "router",
+          "check_name": "result:cancelled"
+        }
+      }
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-typo",
+      "status": "failed",
+      "duration_ms": 145160.588,
+      "context": {
+        "language": "ru",
+        "behavior": "typo",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-8f38676c486be5d65d246f10",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s19--copy-denied",
+      "status": "failed",
+      "duration_ms": 65062.631,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-aa51019532bc54abad8e7304",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_contract_failure"
+        }
+      }
+    },
+    {
+      "id": "s19--foundation-en-negative",
+      "status": "passed",
+      "duration_ms": 72606.304,
+      "context": {
+        "language": "en",
+        "behavior": "negative",
+        "mode": "chat",
+        "memory_depth": 3,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--copy-timeout",
+      "status": "failed",
+      "duration_ms": 64549.902,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "timeout",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-e70581b75d50b1171ca9ead9",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_contract_failure"
+        }
+      }
+    },
+    {
+      "id": "s19--exact-phrase-search",
+      "status": "passed",
+      "duration_ms": 35477.273,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-cautious",
+      "status": "passed",
+      "duration_ms": 2637.777,
+      "context": {
+        "language": "ru",
+        "behavior": "cautious",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-verbose",
+      "status": "passed",
+      "duration_ms": 2705.179,
+      "context": {
+        "language": "ru",
+        "behavior": "verbose",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-cautious",
+      "status": "passed",
+      "duration_ms": 60038.626,
+      "context": {
+        "language": "en",
+        "behavior": "cautious",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--foundation-ru-memory-35",
+      "status": "passed",
+      "duration_ms": 528682.446,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 35,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-verbose",
+      "status": "passed",
+      "duration_ms": 56582.341,
+      "context": {
+        "language": "en",
+        "behavior": "verbose",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--copy-destination-clarification",
+      "status": "failed",
+      "duration_ms": 116508.752,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 3,
+        "capability": "storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-1770070308f27c652031432f",
+        "rule": "router",
+        "evidence": {
+          "code": "route_mismatch",
+          "component": "router"
+        }
+      }
+    },
+    {
+      "id": "s19--search-pdf",
+      "status": "failed",
+      "duration_ms": 39884.865,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-3ac8fbb1c7b997a54257d869",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_contract_failure"
+        }
+      }
+    },
+    {
+      "id": "s19--model-timeout-contained",
+      "status": "passed",
+      "duration_ms": 11583.658,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "none",
+        "decision": "timeout",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--copy-executor-failure-contained",
+      "status": "failed",
+      "duration_ms": 69541.706,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "EXECUTOR",
+        "fingerprint": "diag-v1-cb9b4d9ba4a56d2ee8af3b76",
+        "rule": "executor",
+        "evidence": {
+          "code": "executor_error",
+          "component": "executor"
+        }
+      }
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-cautious",
+      "status": "failed",
+      "duration_ms": 39575.926,
+      "context": {
+        "language": "ru",
+        "behavior": "cautious",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "COMPILER",
+        "fingerprint": "diag-v1-d7869fc4ecb08ce84917f8d9",
+        "rule": "compiler",
+        "evidence": {
+          "code": "invalid_arguments",
+          "component": "intent_compiler",
+          "stage": "validation"
+        }
+      }
+    },
+    {
+      "id": "s19--conversation-action-boundary",
+      "status": "passed",
+      "duration_ms": 53311.683,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-standard",
+      "status": "passed",
+      "duration_ms": 2532.507,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s19--foundation-en-mixed-follow-up",
+      "status": "passed",
+      "duration_ms": 83958.218,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-impatient",
+      "status": "passed",
+      "duration_ms": 61017.678,
+      "context": {
+        "language": "en",
+        "behavior": "impatient",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-verbose",
+      "status": "failed",
+      "duration_ms": 37186.338,
+      "context": {
+        "language": "ru",
+        "behavior": "verbose",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "COMPILER",
+        "fingerprint": "diag-v1-d24536566f3c110fb2ad1fab",
+        "rule": "compiler",
+        "evidence": {
+          "code": "invalid_arguments",
+          "component": "intent_compiler",
+          "stage": "validation"
+        }
+      }
+    },
+    {
+      "id": "s19--foundation-en-memory-5",
+      "status": "passed",
+      "duration_ms": 73433.074,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 5,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-no_punctuation",
+      "status": "passed",
+      "duration_ms": 2369.796,
+      "context": {
+        "language": "ru",
+        "behavior": "no_punctuation",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s19--chat-memory",
+      "status": "passed",
+      "duration_ms": 31810.27,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-no_punctuation",
+      "status": "passed",
+      "duration_ms": 53725.625,
+      "context": {
+        "language": "en",
+        "behavior": "no_punctuation",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-typo",
+      "status": "passed",
+      "duration_ms": 2432.308,
+      "context": {
+        "language": "ru",
+        "behavior": "typo",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s19--foundation-ru-memory-5",
+      "status": "passed",
+      "duration_ms": 77111.546,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 5,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--copy-approved",
+      "status": "failed",
+      "duration_ms": 72649.829,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "grant",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-88b3db33acf4fdf45c6730f2",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_contract_failure"
+        }
+      }
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-slang",
+      "status": "failed",
+      "duration_ms": 39043.423,
+      "context": {
+        "language": "ru",
+        "behavior": "slang",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "COMPILER",
+        "fingerprint": "diag-v1-e2ea3d4d8ac331bdf3078e8d",
+        "rule": "compiler",
+        "evidence": {
+          "code": "invalid_arguments",
+          "component": "intent_compiler",
+          "stage": "validation"
+        }
+      }
+    },
+    {
+      "id": "s19--prompt-injection-document",
+      "status": "failed",
+      "duration_ms": 52386.624,
+      "context": {
+        "language": "ru",
+        "behavior": "prompt-injection",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "COMPILER",
+        "fingerprint": "diag-v1-7da1cd9e01259fa35f1d80b9",
+        "rule": "compiler",
+        "evidence": {
+          "code": "invalid_arguments",
+          "component": "intent_compiler",
+          "stage": "validation"
+        }
+      }
+    },
+    {
+      "id": "s19--classifier-malformed-fallback",
+      "status": "passed",
+      "duration_ms": 18306.262,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-standard",
+      "status": "passed",
+      "duration_ms": 59400.343,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-no_punctuation",
+      "status": "passed",
+      "duration_ms": 116108.336,
+      "context": {
+        "language": "ru",
+        "behavior": "no_punctuation",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "grant",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--broken-and-large-files",
+      "status": "failed",
+      "duration_ms": 79521.541,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-0bd341f71c93168f623701f5",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_contract_failure"
+        }
+      }
+    },
+    {
+      "id": "s19--semantic-topic-search",
+      "status": "passed",
+      "duration_ms": 41327.8,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--multiturn-memory-denial",
+      "status": "failed",
+      "duration_ms": 88479.64,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 3,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-229474d299e6153d095f0eed",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_contract_failure"
+        }
+      }
+    },
+    {
+      "id": "s19--foundation-en-memory-35",
+      "status": "passed",
+      "duration_ms": 606197.252,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 35,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-impatient",
+      "status": "passed",
+      "duration_ms": 2599.756,
+      "context": {
+        "language": "ru",
+        "behavior": "impatient",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s19--foundation-mixed-mixed-follow-up",
+      "status": "passed",
+      "duration_ms": 75966.099,
+      "context": {
+        "language": "mixed",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-standard",
+      "status": "passed",
+      "duration_ms": 126656.933,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "grant",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--executor-failure-contained",
+      "status": "passed",
+      "duration_ms": 41442.195,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-slang",
+      "status": "passed",
+      "duration_ms": 62900.94,
+      "context": {
+        "language": "en",
+        "behavior": "slang",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--negative-no-action",
+      "status": "passed",
+      "duration_ms": 190480.237,
+      "context": {
+        "language": "ru",
+        "behavior": "negative",
+        "mode": "action",
+        "memory_depth": 3,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-slang",
+      "status": "passed",
+      "duration_ms": 3176.548,
+      "context": {
+        "language": "ru",
+        "behavior": "slang",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s19--mixed-bread-and-pdf",
+      "status": "failed",
+      "duration_ms": 51666.362,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 1,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "COMPILER",
+        "fingerprint": "diag-v1-7da94eb3498d1ad5bd25f52d",
+        "rule": "compiler",
+        "evidence": {
+          "code": "invalid_arguments",
+          "component": "intent_compiler",
+          "stage": "validation"
+        }
+      }
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-impatient",
+      "status": "failed",
+      "duration_ms": 39970.76,
+      "context": {
+        "language": "ru",
+        "behavior": "impatient",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "COMPILER",
+        "fingerprint": "diag-v1-d2eaf0138b6844d757a786f6",
+        "rule": "compiler",
+        "evidence": {
+          "code": "invalid_arguments",
+          "component": "intent_compiler",
+          "stage": "validation"
+        }
+      }
+    }
+  ]
+}

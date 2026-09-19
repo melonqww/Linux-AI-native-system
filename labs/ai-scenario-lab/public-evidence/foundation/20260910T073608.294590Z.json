@@ -1,0 +1,2150 @@
+{
+  "schema_version": 1,
+  "evidence_kind": "ai-scenario-lab-foundation-run",
+  "run_id": "20260910T073608.294590Z",
+  "provenance": {
+    "source_fingerprint": "9669270c9a04e61e9b50b85b3d479feba9b2772d10227e0083c786ba8a4ac8e0",
+    "source_files_sha256": {
+      "manifest.json": "93807371aac1a8b661c64848ea9ea38f0fcbc51bda971cc4ef76a6abfb6ddc1f",
+      "summary.json": "68c55e5d925bd5f0403cbe2ebc877dbbbb21b71d6101a25898a8d24a0f6c9f8b",
+      "failures.json": "0dcbb2886d9cb7bcbe74891840dde520b1941b1cdfb1dc18284d806cc269fe5f"
+    },
+    "automatic_retries": 0
+  },
+  "runtime": {
+    "profile": "foundation-v1",
+    "model": "qwen3.5:2b",
+    "context_tokens": 8192,
+    "python": "3.13.14",
+    "platform": "windows",
+    "seeds": [
+      7,
+      19
+    ],
+    "budget_seconds": 14400,
+    "max_turn_ms": 90000
+  },
+  "outcome": {
+    "state": "completed",
+    "verdict": "problems_found",
+    "reason_code": null,
+    "planned": 91,
+    "counts": {
+      "passed": 39,
+      "failed": 52,
+      "error": 0,
+      "not_run": 0
+    },
+    "wall_time_seconds": 6581.291
+  },
+  "coverage": {
+    "language": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "ru": {
+        "passed": 28,
+        "failed": 32,
+        "error": 0,
+        "not_run": 0
+      },
+      "en": {
+        "passed": 8,
+        "failed": 18,
+        "error": 0,
+        "not_run": 0
+      },
+      "mixed": {
+        "passed": 0,
+        "failed": 2,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "behavior": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "standard": {
+        "passed": 16,
+        "failed": 30,
+        "error": 0,
+        "not_run": 0
+      },
+      "slang": {
+        "passed": 2,
+        "failed": 4,
+        "error": 0,
+        "not_run": 0
+      },
+      "impatient": {
+        "passed": 4,
+        "failed": 2,
+        "error": 0,
+        "not_run": 0
+      },
+      "verbose": {
+        "passed": 2,
+        "failed": 4,
+        "error": 0,
+        "not_run": 0
+      },
+      "cautious": {
+        "passed": 2,
+        "failed": 4,
+        "error": 0,
+        "not_run": 0
+      },
+      "typo": {
+        "passed": 2,
+        "failed": 4,
+        "error": 0,
+        "not_run": 0
+      },
+      "prompt-injection": {
+        "passed": 2,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "negative": {
+        "passed": 4,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "no_punctuation": {
+        "passed": 2,
+        "failed": 4,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "memory_depth": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "35": {
+        "passed": 4,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "2": {
+        "passed": 18,
+        "failed": 14,
+        "error": 0,
+        "not_run": 0
+      },
+      "4": {
+        "passed": 2,
+        "failed": 28,
+        "error": 0,
+        "not_run": 0
+      },
+      "3": {
+        "passed": 4,
+        "failed": 4,
+        "error": 0,
+        "not_run": 0
+      },
+      "1": {
+        "passed": 4,
+        "failed": 6,
+        "error": 0,
+        "not_run": 0
+      },
+      "5": {
+        "passed": 4,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "kind": {
+      "tests": {
+        "passed": 2,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "preflight": {
+        "passed": 1,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "scenario": {
+        "passed": 20,
+        "failed": 26,
+        "error": 0,
+        "not_run": 0
+      },
+      "journey": {
+        "passed": 16,
+        "failed": 26,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "mode": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "chat": {
+        "passed": 26,
+        "failed": 2,
+        "error": 0,
+        "not_run": 0
+      },
+      "action": {
+        "passed": 8,
+        "failed": 32,
+        "error": 0,
+        "not_run": 0
+      },
+      "mixed": {
+        "passed": 2,
+        "failed": 18,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "capability": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "none": {
+        "passed": 32,
+        "failed": 15,
+        "error": 0,
+        "not_run": 0
+      },
+      "documents.query.search": {
+        "passed": 2,
+        "failed": 17,
+        "error": 0,
+        "not_run": 0
+      },
+      "storage.materialize.plan-copy": {
+        "passed": 0,
+        "failed": 2,
+        "error": 0,
+        "not_run": 0
+      },
+      "documents.query.search,storage.materialize.plan-copy": {
+        "passed": 2,
+        "failed": 18,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "decision": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "none": {
+        "passed": 32,
+        "failed": 42,
+        "error": 0,
+        "not_run": 0
+      },
+      "deny": {
+        "passed": 2,
+        "failed": 6,
+        "error": 0,
+        "not_run": 0
+      },
+      "timeout": {
+        "passed": 2,
+        "failed": 2,
+        "error": 0,
+        "not_run": 0
+      },
+      "grant": {
+        "passed": 0,
+        "failed": 2,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "failure_kind": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "none": {
+        "passed": 36,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "contract_failure": {
+        "passed": 0,
+        "failed": 26,
+        "error": 0,
+        "not_run": 0
+      },
+      "journey_goal_failure": {
+        "passed": 0,
+        "failed": 26,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "input_modality": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "text": {
+        "passed": 22,
+        "failed": 52,
+        "error": 0,
+        "not_run": 0
+      },
+      "image": {
+        "passed": 14,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      }
+    }
+  },
+  "slow_cases": [],
+  "cases": [
+    {
+      "id": "contracts",
+      "status": "passed",
+      "tests": 436,
+      "exit_code": 0,
+      "duration_ms": 12796.015,
+      "skipped_count": 28,
+      "failed_tests": []
+    },
+    {
+      "id": "lab-tests",
+      "status": "passed",
+      "tests": 114,
+      "exit_code": 0,
+      "duration_ms": 10754.034,
+      "skipped_count": 0,
+      "failed_tests": []
+    },
+    {
+      "id": "ollama-preflight",
+      "status": "passed",
+      "duration_ms": 53.932,
+      "model": "qwen3.5:2b",
+      "ollama_version": "0.21.0"
+    },
+    {
+      "id": "s7--foundation-ru-memory-35",
+      "status": "passed",
+      "duration_ms": 598550.073,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 35,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-slang",
+      "status": "passed",
+      "duration_ms": 2585.176,
+      "context": {
+        "language": "ru",
+        "behavior": "slang",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s7--conversation-action-boundary",
+      "status": "failed",
+      "duration_ms": 46387.292,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-eb147aad57f05ff545976870",
+        "rule": "router",
+        "evidence": {
+          "code": "route_mismatch",
+          "component": "router"
+        }
+      }
+    },
+    {
+      "id": "s7--copy-destination-clarification",
+      "status": "failed",
+      "duration_ms": 56575.074,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 3,
+        "capability": "storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-1770070308f27c652031432f",
+        "rule": "router",
+        "evidence": {
+          "code": "route_mismatch",
+          "component": "router"
+        }
+      }
+    },
+    {
+      "id": "s7--classifier-malformed-fallback",
+      "status": "passed",
+      "duration_ms": 21391.471,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-impatient",
+      "status": "passed",
+      "duration_ms": 63109.337,
+      "context": {
+        "language": "en",
+        "behavior": "impatient",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--model-timeout-contained",
+      "status": "passed",
+      "duration_ms": 12782.263,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "none",
+        "decision": "timeout",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--foundation-en-memory-35",
+      "status": "passed",
+      "duration_ms": 584639.008,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 35,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-standard",
+      "status": "failed",
+      "duration_ms": 47138.362,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-87339e127db4a939ee3b237f",
+        "rule": "router",
+        "evidence": {
+          "code": "intent_not_recognized",
+          "component": "router",
+          "check_name": "result:cancelled"
+        }
+      }
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-impatient",
+      "status": "failed",
+      "duration_ms": 78240.19,
+      "context": {
+        "language": "ru",
+        "behavior": "impatient",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-bb7dacbd2fa317d23032d50d",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-verbose",
+      "status": "passed",
+      "duration_ms": 2586.135,
+      "context": {
+        "language": "ru",
+        "behavior": "verbose",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-cautious",
+      "status": "failed",
+      "duration_ms": 57672.403,
+      "context": {
+        "language": "en",
+        "behavior": "cautious",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-d1a1ac1214dcc9c2fe73df7b",
+        "rule": "router",
+        "evidence": {
+          "code": "intent_not_recognized",
+          "component": "router",
+          "check_name": "result:cancelled"
+        }
+      }
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-typo",
+      "status": "failed",
+      "duration_ms": 93981.396,
+      "context": {
+        "language": "ru",
+        "behavior": "typo",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-8f38676c486be5d65d246f10",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s7--prompt-injection-document",
+      "status": "passed",
+      "duration_ms": 35400.209,
+      "context": {
+        "language": "ru",
+        "behavior": "prompt-injection",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--chat-memory",
+      "status": "passed",
+      "duration_ms": 29727.228,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-impatient",
+      "status": "passed",
+      "duration_ms": 2628.94,
+      "context": {
+        "language": "ru",
+        "behavior": "impatient",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s7--foundation-en-negative",
+      "status": "passed",
+      "duration_ms": 59274.966,
+      "context": {
+        "language": "en",
+        "behavior": "negative",
+        "mode": "chat",
+        "memory_depth": 3,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--executor-failure-contained",
+      "status": "failed",
+      "duration_ms": 24917.432,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-0d13475e6c51b9c1baf06080",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_contract_failure"
+        }
+      }
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-verbose",
+      "status": "failed",
+      "duration_ms": 44750.717,
+      "context": {
+        "language": "en",
+        "behavior": "verbose",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-93d589096f2ae0d0a3e41a2a",
+        "rule": "router",
+        "evidence": {
+          "code": "intent_not_recognized",
+          "component": "router",
+          "check_name": "result:cancelled"
+        }
+      }
+    },
+    {
+      "id": "s7--foundation-ru-memory-5",
+      "status": "passed",
+      "duration_ms": 59978.054,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 5,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-typo",
+      "status": "failed",
+      "duration_ms": 45068.787,
+      "context": {
+        "language": "en",
+        "behavior": "typo",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-543797904751bb8fd5649392",
+        "rule": "router",
+        "evidence": {
+          "code": "intent_not_recognized",
+          "component": "router",
+          "check_name": "result:cancelled"
+        }
+      }
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-verbose",
+      "status": "failed",
+      "duration_ms": 78859.682,
+      "context": {
+        "language": "ru",
+        "behavior": "verbose",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-22658df9ddfa2ddc45d1e4a6",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s7--foundation-en-mixed-follow-up",
+      "status": "failed",
+      "duration_ms": 58007.391,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-40622ed850221f35935b6988",
+        "rule": "router",
+        "evidence": {
+          "code": "route_mismatch",
+          "component": "router"
+        }
+      }
+    },
+    {
+      "id": "s7--search-pdf",
+      "status": "failed",
+      "duration_ms": 30202.959,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-45ac2871478a17567534c4b6",
+        "rule": "router",
+        "evidence": {
+          "code": "route_mismatch",
+          "component": "router"
+        }
+      }
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-slang",
+      "status": "failed",
+      "duration_ms": 85558.311,
+      "context": {
+        "language": "ru",
+        "behavior": "slang",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-ed136160efa47dbdcb344ece",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s7--foundation-en-memory-5",
+      "status": "passed",
+      "duration_ms": 74842.756,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 5,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-typo",
+      "status": "passed",
+      "duration_ms": 2539.19,
+      "context": {
+        "language": "ru",
+        "behavior": "typo",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s7--negative-no-action",
+      "status": "passed",
+      "duration_ms": 117579.127,
+      "context": {
+        "language": "ru",
+        "behavior": "negative",
+        "mode": "action",
+        "memory_depth": 3,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-cautious",
+      "status": "failed",
+      "duration_ms": 20951.162,
+      "context": {
+        "language": "ru",
+        "behavior": "cautious",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-0202c07ed5b4ae90585ce964",
+        "rule": "router",
+        "evidence": {
+          "code": "intent_not_recognized",
+          "component": "router",
+          "check_name": "result:copied_count"
+        }
+      }
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-slang",
+      "status": "failed",
+      "duration_ms": 52304.839,
+      "context": {
+        "language": "en",
+        "behavior": "slang",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-6f3ee6a7b05b6a3d672a8318",
+        "rule": "router",
+        "evidence": {
+          "code": "intent_not_recognized",
+          "component": "router",
+          "check_name": "result:cancelled"
+        }
+      }
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-no_punctuation",
+      "status": "failed",
+      "duration_ms": 56760.541,
+      "context": {
+        "language": "en",
+        "behavior": "no_punctuation",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-b3a973f2dcfd8f1437321782",
+        "rule": "router",
+        "evidence": {
+          "code": "intent_not_recognized",
+          "component": "router",
+          "check_name": "result:cancelled"
+        }
+      }
+    },
+    {
+      "id": "s7--copy-timeout",
+      "status": "failed",
+      "duration_ms": 59019.863,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "timeout",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-6e99601e5b29d321a8a39fb2",
+        "rule": "router",
+        "evidence": {
+          "code": "route_mismatch",
+          "component": "router"
+        }
+      }
+    },
+    {
+      "id": "s7--mixed-bread-and-pdf",
+      "status": "failed",
+      "duration_ms": 42407.835,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 1,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-cedc6c2cb2f7e89fb0191037",
+        "rule": "router",
+        "evidence": {
+          "code": "route_mismatch",
+          "component": "router"
+        }
+      }
+    },
+    {
+      "id": "s7--copy-executor-failure-contained",
+      "status": "failed",
+      "duration_ms": 65913.709,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-17ce03c5e0e1ec4a9f4ef3ba",
+        "rule": "router",
+        "evidence": {
+          "code": "route_mismatch",
+          "component": "router"
+        }
+      }
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-no_punctuation",
+      "status": "failed",
+      "duration_ms": 81421.939,
+      "context": {
+        "language": "ru",
+        "behavior": "no_punctuation",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-601198449f85c3accfd8960f",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-cautious",
+      "status": "passed",
+      "duration_ms": 2641.99,
+      "context": {
+        "language": "ru",
+        "behavior": "cautious",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-standard",
+      "status": "failed",
+      "duration_ms": 81254.275,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-682514d70f02c98c80bb3dfc",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s7--broken-and-large-files",
+      "status": "failed",
+      "duration_ms": 58570.555,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-17ce03c5e0e1ec4a9f4ef3ba",
+        "rule": "router",
+        "evidence": {
+          "code": "route_mismatch",
+          "component": "router"
+        }
+      }
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-no_punctuation",
+      "status": "passed",
+      "duration_ms": 2486.77,
+      "context": {
+        "language": "ru",
+        "behavior": "no_punctuation",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s7--copy-denied",
+      "status": "failed",
+      "duration_ms": 67030.99,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-0705a19b8322e98ef9076770",
+        "rule": "router",
+        "evidence": {
+          "code": "route_mismatch",
+          "component": "router"
+        }
+      }
+    },
+    {
+      "id": "s7--copy-approved",
+      "status": "failed",
+      "duration_ms": 65080.525,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "grant",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-6b5179be14019252292dfb43",
+        "rule": "router",
+        "evidence": {
+          "code": "route_mismatch",
+          "component": "router"
+        }
+      }
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-standard",
+      "status": "passed",
+      "duration_ms": 2495.159,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s7--multiturn-memory-denial",
+      "status": "failed",
+      "duration_ms": 93900.74,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 3,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-a69d3fbbf6c77632b05642c2",
+        "rule": "router",
+        "evidence": {
+          "code": "route_mismatch",
+          "component": "router"
+        }
+      }
+    },
+    {
+      "id": "s7--foundation-mixed-mixed-follow-up",
+      "status": "failed",
+      "duration_ms": 62264.72,
+      "context": {
+        "language": "mixed",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-920c880533e61defec30a986",
+        "rule": "router",
+        "evidence": {
+          "code": "route_mismatch",
+          "component": "router"
+        }
+      }
+    },
+    {
+      "id": "s19--conversation-action-boundary",
+      "status": "failed",
+      "duration_ms": 41387.355,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-eb147aad57f05ff545976870",
+        "rule": "router",
+        "evidence": {
+          "code": "route_mismatch",
+          "component": "router"
+        }
+      }
+    },
+    {
+      "id": "s19--foundation-en-memory-5",
+      "status": "passed",
+      "duration_ms": 75558.431,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 5,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-verbose",
+      "status": "failed",
+      "duration_ms": 63792.203,
+      "context": {
+        "language": "en",
+        "behavior": "verbose",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-93d589096f2ae0d0a3e41a2a",
+        "rule": "router",
+        "evidence": {
+          "code": "intent_not_recognized",
+          "component": "router",
+          "check_name": "result:cancelled"
+        }
+      }
+    },
+    {
+      "id": "s19--copy-timeout",
+      "status": "failed",
+      "duration_ms": 65564.961,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "timeout",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-6e99601e5b29d321a8a39fb2",
+        "rule": "router",
+        "evidence": {
+          "code": "route_mismatch",
+          "component": "router"
+        }
+      }
+    },
+    {
+      "id": "s19--copy-destination-clarification",
+      "status": "failed",
+      "duration_ms": 50881.64,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 3,
+        "capability": "storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-1770070308f27c652031432f",
+        "rule": "router",
+        "evidence": {
+          "code": "route_mismatch",
+          "component": "router"
+        }
+      }
+    },
+    {
+      "id": "s19--copy-denied",
+      "status": "failed",
+      "duration_ms": 66613.875,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-0705a19b8322e98ef9076770",
+        "rule": "router",
+        "evidence": {
+          "code": "route_mismatch",
+          "component": "router"
+        }
+      }
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-slang",
+      "status": "failed",
+      "duration_ms": 83369.003,
+      "context": {
+        "language": "ru",
+        "behavior": "slang",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-ed136160efa47dbdcb344ece",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s19--foundation-ru-memory-35",
+      "status": "passed",
+      "duration_ms": 483000.034,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 35,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-cautious",
+      "status": "failed",
+      "duration_ms": 53777.835,
+      "context": {
+        "language": "ru",
+        "behavior": "cautious",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-38cdb16544d2fa303766a0ca",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-standard",
+      "status": "failed",
+      "duration_ms": 88022.259,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-682514d70f02c98c80bb3dfc",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s19--search-pdf",
+      "status": "failed",
+      "duration_ms": 28278.276,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-45ac2871478a17567534c4b6",
+        "rule": "router",
+        "evidence": {
+          "code": "route_mismatch",
+          "component": "router"
+        }
+      }
+    },
+    {
+      "id": "s19--model-timeout-contained",
+      "status": "passed",
+      "duration_ms": 11390.33,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "none",
+        "decision": "timeout",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-cautious",
+      "status": "failed",
+      "duration_ms": 53689.004,
+      "context": {
+        "language": "en",
+        "behavior": "cautious",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-d1a1ac1214dcc9c2fe73df7b",
+        "rule": "router",
+        "evidence": {
+          "code": "intent_not_recognized",
+          "component": "router",
+          "check_name": "result:cancelled"
+        }
+      }
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-cautious",
+      "status": "passed",
+      "duration_ms": 2338.634,
+      "context": {
+        "language": "ru",
+        "behavior": "cautious",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-typo",
+      "status": "failed",
+      "duration_ms": 56182.876,
+      "context": {
+        "language": "en",
+        "behavior": "typo",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-543797904751bb8fd5649392",
+        "rule": "router",
+        "evidence": {
+          "code": "intent_not_recognized",
+          "component": "router",
+          "check_name": "result:cancelled"
+        }
+      }
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-verbose",
+      "status": "passed",
+      "duration_ms": 2464.167,
+      "context": {
+        "language": "ru",
+        "behavior": "verbose",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s19--foundation-mixed-mixed-follow-up",
+      "status": "failed",
+      "duration_ms": 56695.504,
+      "context": {
+        "language": "mixed",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-920c880533e61defec30a986",
+        "rule": "router",
+        "evidence": {
+          "code": "route_mismatch",
+          "component": "router"
+        }
+      }
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-impatient",
+      "status": "passed",
+      "duration_ms": 55047.662,
+      "context": {
+        "language": "en",
+        "behavior": "impatient",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-slang",
+      "status": "passed",
+      "duration_ms": 2456.299,
+      "context": {
+        "language": "ru",
+        "behavior": "slang",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s19--foundation-en-negative",
+      "status": "passed",
+      "duration_ms": 71356.555,
+      "context": {
+        "language": "en",
+        "behavior": "negative",
+        "mode": "chat",
+        "memory_depth": 3,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-no_punctuation",
+      "status": "passed",
+      "duration_ms": 2241.38,
+      "context": {
+        "language": "ru",
+        "behavior": "no_punctuation",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s19--chat-memory",
+      "status": "passed",
+      "duration_ms": 29160.245,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-verbose",
+      "status": "failed",
+      "duration_ms": 87113.606,
+      "context": {
+        "language": "ru",
+        "behavior": "verbose",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-22658df9ddfa2ddc45d1e4a6",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-typo",
+      "status": "passed",
+      "duration_ms": 2548.35,
+      "context": {
+        "language": "ru",
+        "behavior": "typo",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-standard",
+      "status": "failed",
+      "duration_ms": 51024.786,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-87339e127db4a939ee3b237f",
+        "rule": "router",
+        "evidence": {
+          "code": "intent_not_recognized",
+          "component": "router",
+          "check_name": "result:cancelled"
+        }
+      }
+    },
+    {
+      "id": "s19--copy-approved",
+      "status": "failed",
+      "duration_ms": 59076.33,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "grant",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-6b5179be14019252292dfb43",
+        "rule": "router",
+        "evidence": {
+          "code": "route_mismatch",
+          "component": "router"
+        }
+      }
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-typo",
+      "status": "failed",
+      "duration_ms": 112616.785,
+      "context": {
+        "language": "ru",
+        "behavior": "typo",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-8f38676c486be5d65d246f10",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-slang",
+      "status": "failed",
+      "duration_ms": 50019.535,
+      "context": {
+        "language": "en",
+        "behavior": "slang",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-6f3ee6a7b05b6a3d672a8318",
+        "rule": "router",
+        "evidence": {
+          "code": "intent_not_recognized",
+          "component": "router",
+          "check_name": "result:cancelled"
+        }
+      }
+    },
+    {
+      "id": "s19--classifier-malformed-fallback",
+      "status": "passed",
+      "duration_ms": 13053.806,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--copy-executor-failure-contained",
+      "status": "failed",
+      "duration_ms": 62433.237,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-17ce03c5e0e1ec4a9f4ef3ba",
+        "rule": "router",
+        "evidence": {
+          "code": "route_mismatch",
+          "component": "router"
+        }
+      }
+    },
+    {
+      "id": "s19--prompt-injection-document",
+      "status": "passed",
+      "duration_ms": 38168.354,
+      "context": {
+        "language": "ru",
+        "behavior": "prompt-injection",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--broken-and-large-files",
+      "status": "failed",
+      "duration_ms": 54535.415,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-17ce03c5e0e1ec4a9f4ef3ba",
+        "rule": "router",
+        "evidence": {
+          "code": "route_mismatch",
+          "component": "router"
+        }
+      }
+    },
+    {
+      "id": "s19--foundation-en-memory-35",
+      "status": "passed",
+      "duration_ms": 573175.031,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 35,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--multiturn-memory-denial",
+      "status": "failed",
+      "duration_ms": 91306.666,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 3,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-a69d3fbbf6c77632b05642c2",
+        "rule": "router",
+        "evidence": {
+          "code": "route_mismatch",
+          "component": "router"
+        }
+      }
+    },
+    {
+      "id": "s19--foundation-en-mixed-follow-up",
+      "status": "failed",
+      "duration_ms": 69670.432,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-40622ed850221f35935b6988",
+        "rule": "router",
+        "evidence": {
+          "code": "route_mismatch",
+          "component": "router"
+        }
+      }
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-impatient",
+      "status": "failed",
+      "duration_ms": 82551.397,
+      "context": {
+        "language": "ru",
+        "behavior": "impatient",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-bb7dacbd2fa317d23032d50d",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s19--foundation-ru-memory-5",
+      "status": "passed",
+      "duration_ms": 74857.711,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 5,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-standard",
+      "status": "passed",
+      "duration_ms": 2492.825,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s19--executor-failure-contained",
+      "status": "failed",
+      "duration_ms": 28477.885,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-0d13475e6c51b9c1baf06080",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_contract_failure"
+        }
+      }
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-no_punctuation",
+      "status": "failed",
+      "duration_ms": 81779.157,
+      "context": {
+        "language": "ru",
+        "behavior": "no_punctuation",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-601198449f85c3accfd8960f",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s19--negative-no-action",
+      "status": "passed",
+      "duration_ms": 153289.726,
+      "context": {
+        "language": "ru",
+        "behavior": "negative",
+        "mode": "action",
+        "memory_depth": 3,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-no_punctuation",
+      "status": "failed",
+      "duration_ms": 49501.872,
+      "context": {
+        "language": "en",
+        "behavior": "no_punctuation",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-b3a973f2dcfd8f1437321782",
+        "rule": "router",
+        "evidence": {
+          "code": "intent_not_recognized",
+          "component": "router",
+          "check_name": "result:cancelled"
+        }
+      }
+    },
+    {
+      "id": "s19--mixed-bread-and-pdf",
+      "status": "failed",
+      "duration_ms": 39662.122,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 1,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "contract_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-cedc6c2cb2f7e89fb0191037",
+        "rule": "router",
+        "evidence": {
+          "code": "route_mismatch",
+          "component": "router"
+        }
+      }
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-impatient",
+      "status": "passed",
+      "duration_ms": 2483.931,
+      "context": {
+        "language": "ru",
+        "behavior": "impatient",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    }
+  ]
+}

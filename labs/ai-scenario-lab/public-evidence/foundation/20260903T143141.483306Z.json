@@ -1,0 +1,1908 @@
+{
+  "schema_version": 1,
+  "evidence_kind": "ai-scenario-lab-foundation-run",
+  "run_id": "20260903T143141.483306Z",
+  "provenance": {
+    "source_fingerprint": "6e18410c247dfe7ba21fe0105733ea1dc01694dab497c1fb2eb3cd8781b35529",
+    "source_files_sha256": {
+      "manifest.json": "81a639fc1f0b6b7ad8691e2bf196ab0889c7e75269bf96cde2eeaff849e0fdc5",
+      "summary.json": "746c699e50a78a7135f2610357fe7177974357d8176302c51ec5c80479f757d4",
+      "failures.json": "08c72a4bd1e683b3fffb60b52fdb79ff1aa0e4b7eabee65e3bc92a2971e3c6a1"
+    },
+    "automatic_retries": 0
+  },
+  "runtime": {
+    "profile": "foundation-v1",
+    "model": "qwen3.5:2b",
+    "context_tokens": 8192,
+    "python": "3.13.14",
+    "platform": "windows",
+    "seeds": [
+      7,
+      19
+    ],
+    "budget_seconds": 14400,
+    "max_turn_ms": 90000
+  },
+  "outcome": {
+    "state": "completed",
+    "verdict": "problems_found",
+    "reason_code": null,
+    "planned": 91,
+    "counts": {
+      "passed": 63,
+      "failed": 28,
+      "error": 0,
+      "not_run": 0
+    },
+    "wall_time_seconds": 7038.166
+  },
+  "coverage": {
+    "language": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "ru": {
+        "passed": 46,
+        "failed": 14,
+        "error": 0,
+        "not_run": 0
+      },
+      "en": {
+        "passed": 12,
+        "failed": 14,
+        "error": 0,
+        "not_run": 0
+      },
+      "mixed": {
+        "passed": 2,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "behavior": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "standard": {
+        "passed": 42,
+        "failed": 4,
+        "error": 0,
+        "not_run": 0
+      },
+      "slang": {
+        "passed": 2,
+        "failed": 4,
+        "error": 0,
+        "not_run": 0
+      },
+      "impatient": {
+        "passed": 2,
+        "failed": 4,
+        "error": 0,
+        "not_run": 0
+      },
+      "verbose": {
+        "passed": 2,
+        "failed": 4,
+        "error": 0,
+        "not_run": 0
+      },
+      "cautious": {
+        "passed": 2,
+        "failed": 4,
+        "error": 0,
+        "not_run": 0
+      },
+      "typo": {
+        "passed": 2,
+        "failed": 4,
+        "error": 0,
+        "not_run": 0
+      },
+      "prompt-injection": {
+        "passed": 2,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "negative": {
+        "passed": 4,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "no_punctuation": {
+        "passed": 2,
+        "failed": 4,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "memory_depth": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "35": {
+        "passed": 4,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "2": {
+        "passed": 32,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "4": {
+        "passed": 2,
+        "failed": 28,
+        "error": 0,
+        "not_run": 0
+      },
+      "3": {
+        "passed": 8,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "1": {
+        "passed": 10,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "5": {
+        "passed": 4,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "kind": {
+      "tests": {
+        "passed": 2,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "preflight": {
+        "passed": 1,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "scenario": {
+        "passed": 46,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "journey": {
+        "passed": 14,
+        "failed": 28,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "mode": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "chat": {
+        "passed": 28,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "action": {
+        "passed": 26,
+        "failed": 14,
+        "error": 0,
+        "not_run": 0
+      },
+      "mixed": {
+        "passed": 6,
+        "failed": 14,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "capability": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "none": {
+        "passed": 34,
+        "failed": 2,
+        "error": 0,
+        "not_run": 0
+      },
+      "documents.query.search": {
+        "passed": 16,
+        "failed": 26,
+        "error": 0,
+        "not_run": 0
+      },
+      "storage.materialize.plan-copy": {
+        "passed": 2,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "documents.query.search,storage.materialize.plan-copy": {
+        "passed": 8,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "decision": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "none": {
+        "passed": 48,
+        "failed": 28,
+        "error": 0,
+        "not_run": 0
+      },
+      "deny": {
+        "passed": 6,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "timeout": {
+        "passed": 4,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "grant": {
+        "passed": 2,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "failure_kind": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "none": {
+        "passed": 60,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "journey_goal_failure": {
+        "passed": 0,
+        "failed": 28,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "input_modality": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "text": {
+        "passed": 46,
+        "failed": 28,
+        "error": 0,
+        "not_run": 0
+      },
+      "image": {
+        "passed": 14,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      }
+    }
+  },
+  "slow_cases": [
+    "s19--negative-no-action"
+  ],
+  "cases": [
+    {
+      "id": "contracts",
+      "status": "passed",
+      "tests": 393,
+      "exit_code": 0,
+      "duration_ms": 13170.087,
+      "skipped_count": 27,
+      "failed_tests": []
+    },
+    {
+      "id": "lab-tests",
+      "status": "passed",
+      "tests": 110,
+      "exit_code": 0,
+      "duration_ms": 10074.254,
+      "skipped_count": 0,
+      "failed_tests": []
+    },
+    {
+      "id": "ollama-preflight",
+      "status": "passed",
+      "duration_ms": 51.855,
+      "model": "qwen3.5:2b",
+      "ollama_version": "0.21.0"
+    },
+    {
+      "id": "s7--foundation-ru-memory-35",
+      "status": "passed",
+      "duration_ms": 523876.651,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 35,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-slang",
+      "status": "passed",
+      "duration_ms": 799.357,
+      "context": {
+        "language": "ru",
+        "behavior": "slang",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s7--conversation-action-boundary",
+      "status": "passed",
+      "duration_ms": 37400.585,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--copy-destination-clarification",
+      "status": "passed",
+      "duration_ms": 73851.5,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 3,
+        "capability": "storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--classifier-malformed-fallback",
+      "status": "passed",
+      "duration_ms": 22908.021,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-impatient",
+      "status": "failed",
+      "duration_ms": 69028.09,
+      "context": {
+        "language": "en",
+        "behavior": "impatient",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-7d1bd1c0a9a5fd9a9a8bc2e2",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s7--model-timeout-contained",
+      "status": "passed",
+      "duration_ms": 9677.484,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "none",
+        "decision": "timeout",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--foundation-en-memory-35",
+      "status": "passed",
+      "duration_ms": 531452.66,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 35,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-standard",
+      "status": "failed",
+      "duration_ms": 79977.225,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-24c793f179903b637d4fa576",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-impatient",
+      "status": "failed",
+      "duration_ms": 100701.684,
+      "context": {
+        "language": "ru",
+        "behavior": "impatient",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-9cd11a5e54bef79aabe59a8f",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-verbose",
+      "status": "passed",
+      "duration_ms": 626.562,
+      "context": {
+        "language": "ru",
+        "behavior": "verbose",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-cautious",
+      "status": "failed",
+      "duration_ms": 76766.659,
+      "context": {
+        "language": "en",
+        "behavior": "cautious",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-58e238720c79967f79f05b71",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-typo",
+      "status": "failed",
+      "duration_ms": 101762.091,
+      "context": {
+        "language": "ru",
+        "behavior": "typo",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-8f38676c486be5d65d246f10",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s7--prompt-injection-document",
+      "status": "passed",
+      "duration_ms": 36086.537,
+      "context": {
+        "language": "ru",
+        "behavior": "prompt-injection",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--chat-memory",
+      "status": "passed",
+      "duration_ms": 27067.895,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-impatient",
+      "status": "passed",
+      "duration_ms": 664.1,
+      "context": {
+        "language": "ru",
+        "behavior": "impatient",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s7--foundation-en-negative",
+      "status": "passed",
+      "duration_ms": 78680.637,
+      "context": {
+        "language": "en",
+        "behavior": "negative",
+        "mode": "chat",
+        "memory_depth": 3,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--executor-failure-contained",
+      "status": "passed",
+      "duration_ms": 27025.197,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-verbose",
+      "status": "failed",
+      "duration_ms": 81253.52,
+      "context": {
+        "language": "en",
+        "behavior": "verbose",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-f9fff3c33a6e46fb92bde09f",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s7--foundation-ru-memory-5",
+      "status": "passed",
+      "duration_ms": 69494.043,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 5,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-typo",
+      "status": "failed",
+      "duration_ms": 73198.919,
+      "context": {
+        "language": "en",
+        "behavior": "typo",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-160fcd06922286ecee7e25e8",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-verbose",
+      "status": "failed",
+      "duration_ms": 92099.527,
+      "context": {
+        "language": "ru",
+        "behavior": "verbose",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-364e3332cbac526505aa5809",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s7--foundation-en-mixed-follow-up",
+      "status": "passed",
+      "duration_ms": 48571.02,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--search-pdf",
+      "status": "passed",
+      "duration_ms": 28017.657,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-slang",
+      "status": "failed",
+      "duration_ms": 104137.032,
+      "context": {
+        "language": "ru",
+        "behavior": "slang",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-200871cd32411983e7760fdc",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s7--foundation-en-memory-5",
+      "status": "passed",
+      "duration_ms": 66881.147,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 5,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-typo",
+      "status": "passed",
+      "duration_ms": 628.766,
+      "context": {
+        "language": "ru",
+        "behavior": "typo",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s7--negative-no-action",
+      "status": "passed",
+      "duration_ms": 179484.494,
+      "context": {
+        "language": "ru",
+        "behavior": "negative",
+        "mode": "action",
+        "memory_depth": 3,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-cautious",
+      "status": "failed",
+      "duration_ms": 17845.468,
+      "context": {
+        "language": "ru",
+        "behavior": "cautious",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-0202c07ed5b4ae90585ce964",
+        "rule": "router",
+        "evidence": {
+          "code": "intent_not_recognized",
+          "component": "router",
+          "check_name": "result:copied_count"
+        }
+      }
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-slang",
+      "status": "failed",
+      "duration_ms": 86449.161,
+      "context": {
+        "language": "en",
+        "behavior": "slang",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-89694640faae12d1bb707983",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-no_punctuation",
+      "status": "failed",
+      "duration_ms": 84722.832,
+      "context": {
+        "language": "en",
+        "behavior": "no_punctuation",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-64ab44c95a5b26e3876c01ba",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s7--copy-timeout",
+      "status": "passed",
+      "duration_ms": 60561.564,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "timeout",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--mixed-bread-and-pdf",
+      "status": "passed",
+      "duration_ms": 38258.024,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 1,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--copy-executor-failure-contained",
+      "status": "passed",
+      "duration_ms": 56944.428,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-no_punctuation",
+      "status": "failed",
+      "duration_ms": 98876.271,
+      "context": {
+        "language": "ru",
+        "behavior": "no_punctuation",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-6c0553f3b8206c033dc09f05",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-cautious",
+      "status": "passed",
+      "duration_ms": 687.414,
+      "context": {
+        "language": "ru",
+        "behavior": "cautious",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-standard",
+      "status": "failed",
+      "duration_ms": 99533.939,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-c1c6359d0b73ac00c3f6e225",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s7--broken-and-large-files",
+      "status": "passed",
+      "duration_ms": 55130.183,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-no_punctuation",
+      "status": "passed",
+      "duration_ms": 649.011,
+      "context": {
+        "language": "ru",
+        "behavior": "no_punctuation",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s7--copy-denied",
+      "status": "passed",
+      "duration_ms": 54490.781,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--copy-approved",
+      "status": "passed",
+      "duration_ms": 55074.649,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "grant",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-standard",
+      "status": "passed",
+      "duration_ms": 667.454,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s7--multiturn-memory-denial",
+      "status": "passed",
+      "duration_ms": 81164.779,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 3,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--foundation-mixed-mixed-follow-up",
+      "status": "passed",
+      "duration_ms": 61438.131,
+      "context": {
+        "language": "mixed",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--conversation-action-boundary",
+      "status": "passed",
+      "duration_ms": 39469.597,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--foundation-en-memory-5",
+      "status": "passed",
+      "duration_ms": 66874.032,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 5,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-verbose",
+      "status": "failed",
+      "duration_ms": 73179.071,
+      "context": {
+        "language": "en",
+        "behavior": "verbose",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-f9fff3c33a6e46fb92bde09f",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s19--copy-timeout",
+      "status": "passed",
+      "duration_ms": 60861.101,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "timeout",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--copy-destination-clarification",
+      "status": "passed",
+      "duration_ms": 74774.658,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 3,
+        "capability": "storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--copy-denied",
+      "status": "passed",
+      "duration_ms": 56583.997,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-slang",
+      "status": "failed",
+      "duration_ms": 99361.232,
+      "context": {
+        "language": "ru",
+        "behavior": "slang",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-200871cd32411983e7760fdc",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s19--foundation-ru-memory-35",
+      "status": "passed",
+      "duration_ms": 507938.708,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 35,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-cautious",
+      "status": "failed",
+      "duration_ms": 48926.19,
+      "context": {
+        "language": "ru",
+        "behavior": "cautious",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-38cdb16544d2fa303766a0ca",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-standard",
+      "status": "failed",
+      "duration_ms": 106060.542,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-c1c6359d0b73ac00c3f6e225",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s19--search-pdf",
+      "status": "passed",
+      "duration_ms": 26358.46,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--model-timeout-contained",
+      "status": "passed",
+      "duration_ms": 9730.971,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "none",
+        "decision": "timeout",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-cautious",
+      "status": "failed",
+      "duration_ms": 76018.582,
+      "context": {
+        "language": "en",
+        "behavior": "cautious",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-58e238720c79967f79f05b71",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-cautious",
+      "status": "passed",
+      "duration_ms": 702.479,
+      "context": {
+        "language": "ru",
+        "behavior": "cautious",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-typo",
+      "status": "failed",
+      "duration_ms": 31049.531,
+      "context": {
+        "language": "en",
+        "behavior": "typo",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "ROUTER",
+        "fingerprint": "diag-v1-543797904751bb8fd5649392",
+        "rule": "router",
+        "evidence": {
+          "code": "intent_not_recognized",
+          "component": "router",
+          "check_name": "result:cancelled"
+        }
+      }
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-verbose",
+      "status": "passed",
+      "duration_ms": 661.767,
+      "context": {
+        "language": "ru",
+        "behavior": "verbose",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s19--foundation-mixed-mixed-follow-up",
+      "status": "passed",
+      "duration_ms": 65756.823,
+      "context": {
+        "language": "mixed",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-impatient",
+      "status": "failed",
+      "duration_ms": 71637.969,
+      "context": {
+        "language": "en",
+        "behavior": "impatient",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-7d1bd1c0a9a5fd9a9a8bc2e2",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-slang",
+      "status": "passed",
+      "duration_ms": 655.08,
+      "context": {
+        "language": "ru",
+        "behavior": "slang",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s19--foundation-en-negative",
+      "status": "passed",
+      "duration_ms": 72991.526,
+      "context": {
+        "language": "en",
+        "behavior": "negative",
+        "mode": "chat",
+        "memory_depth": 3,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-no_punctuation",
+      "status": "passed",
+      "duration_ms": 656.02,
+      "context": {
+        "language": "ru",
+        "behavior": "no_punctuation",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s19--chat-memory",
+      "status": "passed",
+      "duration_ms": 28764.108,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-verbose",
+      "status": "failed",
+      "duration_ms": 93383.527,
+      "context": {
+        "language": "ru",
+        "behavior": "verbose",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-364e3332cbac526505aa5809",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-typo",
+      "status": "passed",
+      "duration_ms": 667.377,
+      "context": {
+        "language": "ru",
+        "behavior": "typo",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-standard",
+      "status": "failed",
+      "duration_ms": 94299.917,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-24c793f179903b637d4fa576",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s19--copy-approved",
+      "status": "passed",
+      "duration_ms": 61347.77,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "grant",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-typo",
+      "status": "failed",
+      "duration_ms": 112962.721,
+      "context": {
+        "language": "ru",
+        "behavior": "typo",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-8f38676c486be5d65d246f10",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-slang",
+      "status": "failed",
+      "duration_ms": 85386.503,
+      "context": {
+        "language": "en",
+        "behavior": "slang",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-89694640faae12d1bb707983",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s19--classifier-malformed-fallback",
+      "status": "passed",
+      "duration_ms": 11492.696,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--copy-executor-failure-contained",
+      "status": "passed",
+      "duration_ms": 63149.332,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--prompt-injection-document",
+      "status": "passed",
+      "duration_ms": 34037.601,
+      "context": {
+        "language": "ru",
+        "behavior": "prompt-injection",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--broken-and-large-files",
+      "status": "passed",
+      "duration_ms": 57120.014,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--foundation-en-memory-35",
+      "status": "passed",
+      "duration_ms": 594771.243,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 35,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--multiturn-memory-denial",
+      "status": "passed",
+      "duration_ms": 82736.738,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 3,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--foundation-en-mixed-follow-up",
+      "status": "passed",
+      "duration_ms": 66386.854,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-impatient",
+      "status": "failed",
+      "duration_ms": 89073.857,
+      "context": {
+        "language": "ru",
+        "behavior": "impatient",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-9cd11a5e54bef79aabe59a8f",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s19--foundation-ru-memory-5",
+      "status": "passed",
+      "duration_ms": 74323.031,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 5,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-standard",
+      "status": "passed",
+      "duration_ms": 682.819,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s19--executor-failure-contained",
+      "status": "passed",
+      "duration_ms": 29560.35,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-no_punctuation",
+      "status": "failed",
+      "duration_ms": 109749.463,
+      "context": {
+        "language": "ru",
+        "behavior": "no_punctuation",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-6c0553f3b8206c033dc09f05",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s19--negative-no-action",
+      "status": "passed",
+      "duration_ms": 196400.089,
+      "context": {
+        "language": "ru",
+        "behavior": "negative",
+        "mode": "action",
+        "memory_depth": 3,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-no_punctuation",
+      "status": "failed",
+      "duration_ms": 93330.547,
+      "context": {
+        "language": "en",
+        "behavior": "no_punctuation",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "UNKNOWN",
+        "fingerprint": "diag-v1-64ab44c95a5b26e3876c01ba",
+        "rule": "no_structured_rule_matched",
+        "evidence": {
+          "code": "unclassified_journey_failure"
+        }
+      }
+    },
+    {
+      "id": "s19--mixed-bread-and-pdf",
+      "status": "passed",
+      "duration_ms": 39408.06,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 1,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-impatient",
+      "status": "passed",
+      "duration_ms": 695.652,
+      "context": {
+        "language": "ru",
+        "behavior": "impatient",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    }
+  ]
+}
