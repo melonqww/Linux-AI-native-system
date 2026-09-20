@@ -32,9 +32,9 @@ python3 apps/desktop-panel/gnome-extension/validate_extension.py --installed
 Расширение устанавливается в `~/.local/share/gnome-shell/extensions/ai-native-linux@melonqww`.
 
 В Security Center файл и папка выбираются штатным системным диалогом XDG
-Desktop Portal: абсолютный путь вводить не нужно. После quick/full scan GNOME
-показывает уведомление с числом проверенных файлов и угроз либо сообщает, что
-угрозы не обнаружены.
+Desktop Portal: абсолютный путь вводить не нужно. После quick/full scan и
+проверки выбранного файла или папки GNOME показывает уведомление с числом
+проверенных и пропущенных файлов и угроз либо сообщает, что угрозы не обнаружены.
 
 Если установлен пакет `python3-nautilus`, основной установщик также добавляет
 пункт «Проверить с помощью Security Center» в контекстное меню одного локального

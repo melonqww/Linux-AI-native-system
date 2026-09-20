@@ -38,6 +38,12 @@ const PORTAL_BUS_NAME = 'org.freedesktop.portal.Desktop';
 const PORTAL_OBJECT_PATH = '/org/freedesktop/portal/desktop';
 const PORTAL_FILE_CHOOSER = 'org.freedesktop.portal.FileChooser';
 const PORTAL_REQUEST = 'org.freedesktop.portal.Request';
+const SECURITY_SCAN_TITLES = Object.freeze({
+    quick: 'Быстрая проверка',
+    full: 'Полная проверка',
+    file: 'Проверка файла',
+    folder: 'Проверка папки',
+});
 // The runtime's real Ollama model is qwen3.5:2b. Keep the human-readable
 // name here in sync with that backend default; model switching is not exposed
 // until the runtime supports selecting a different model per run.
@@ -2612,14 +2618,15 @@ class SidebarView extends St.Widget {
                 return;
             const view = securityScanPresentation(result);
             this._securityScanResult.set_text(`${view.title}. ${view.detail}`);
-            if (payload.target === 'quick' || payload.target === 'full') {
-                const mode = payload.target === 'quick' ? 'Быстрая' : 'Полная';
-                notifyUser(`${mode} проверка завершена`, `${view.title}. ${view.detail}`);
-            }
+            const scanTitle = SECURITY_SCAN_TITLES[payload.target] ?? 'Проверка';
+            notifyUser(`${scanTitle} завершена`, `${view.title}. ${view.detail}`);
             await this._refreshSecurity();
         } catch (_error) {
-            if (!this._disposed)
+            if (!this._disposed) {
                 this._securityScanResult.set_text('Не удалось выполнить проверку.');
+                const scanTitle = SECURITY_SCAN_TITLES[payload.target] ?? 'Проверка';
+                notifyUser(scanTitle, 'Не удалось выполнить проверку.');
+            }
         } finally {
             this._securityScanInFlight = false;
             if (!this._disposed)
