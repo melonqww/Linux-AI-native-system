@@ -23,7 +23,7 @@ import {
 
 test('security snapshot presents bounded posture checks and findings', () => {
     const view = securityPresentation({
-        module: {state: 'ready', module_version: '0.9.0'},
+        module: {state: 'ready', module_version: '1.0.0'},
         posture: {
             verdict: 'findings_detected',
             observations: [

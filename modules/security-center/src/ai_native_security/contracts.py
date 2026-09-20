@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 
 STATUS_SCHEMA_VERSION = 1
 MODULE_ID = "security.center"
-MODULE_VERSION = "0.9.0"
+MODULE_VERSION = "1.0.0"
 MODULE_LIFECYCLE = "on-demand"
 STATUS_CAPABILITIES = (
     "security.module.status",

@@ -1,7 +1,7 @@
 # Security Center
 
 `Security Center` — доверенный on-demand модуль защиты AI-native Linux.
-Текущий код `0.9.0` предоставляет status, безопасное сканирование одного файла,
+Текущий код `1.0.0` предоставляет завершённый портфолио-MVP: status, безопасное сканирование одного файла,
 профили `quick`/`full`, Finding Store, optional локальный `clamd` и read-only
 аудит Ubuntu.
 
@@ -135,13 +135,23 @@ job. Автоматический quick scan раз в 24 часа по умол
 восстанавливаются только после нового подтверждения, без перезаписи существующего
 файла. Отмена preview инвалидирует server-owned receipt.
 
+## v1.0.0: завершённый MVP
+
+MVP закрывает безопасный пользовательский цикл: ручная или фоновая bounded
+проверка, понятный verdict, metadata-only finding, отдельное подтверждение
+карантина и обратимое восстановление. Release gate включает unit/contract
+проверки, внешний `Security Campaign`, Python compile и проверку GNOME-panel
+JavaScript. Это не обещание полной endpoint-защиты: безвозвратное удаление,
+лечение файлов, cloud lookup, обновление signature database и постоянный
+real-time monitor остаются post-MVP задачами.
+
 Приватный каталог runtime с Finding Store и карантином явно исключён trusted
 bootstrap из home scan. UI не может добавлять исключения; попытка точечной
 проверки защищённого пути возвращает `protected_path`.
 
 ## Границы версии
 
-`0.9.0` сканирует файл, выбранную папку или все bounded trusted roots, выполняет read-only Ubuntu
+`1.0.0` сканирует файл, выбранную папку или все bounded trusted roots, выполняет read-only Ubuntu
 posture и возвращает JSON-safe
 результат: digest, размер, итог, код ошибки и нормализованные observations. В ответ не входят содержимое файла, абсолютный
 путь, секреты, произвольный detector output или traceback.

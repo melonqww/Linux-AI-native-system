@@ -169,7 +169,8 @@ on-demand worker и отдаёт панели только сводку. Уст�
 штатном Ubuntu update UI; контракт описан в
 [`Architecture/api/system-updates-v1.md`](Architecture/api/system-updates-v1.md).
 
-`modules/security-center` реализует first-party Security Center `0.9.0`. Помимо
+`modules/security-center` реализует first-party Security Center `1.0.0` —
+завершённый портфолио-MVP. Помимо
 локальных SHA-256 и byte-сигнатур, capability `security.files.scan` может
 передать тот же bounded поток локальному `clamd` через peer-authenticated Unix
 socket. Scanner не использует AI, TCP или subprocess, не возвращает содержимое

@@ -246,10 +246,18 @@ class ScenarioRunner:
                 if isinstance(output, dict):
                     found = max(found, int(output.get("result_count", 0)))
                     coverage = output.get("coverage")
-                    if isinstance(coverage, dict):
-                        inaccessible += max(
-                            0, int(coverage.get("inaccessible_items", 0))
-                        )
+                    reported_inaccessible = (
+                        max(0, int(coverage.get("inaccessible_items", 0)))
+                        if isinstance(coverage, dict)
+                        else 0
+                    )
+                    unavailable_results = sum(
+                        1
+                        for item in output.get("results", [])
+                        if isinstance(item, dict)
+                        and item.get("content_state") == "unavailable"
+                    )
+                    inaccessible += max(reported_inaccessible, unavailable_results)
                     copied = max(copied, int(output.get("copied_count", 0)))
                     for item in output.get("results", []):
                         if isinstance(item, dict) and isinstance(item.get("path"), str):

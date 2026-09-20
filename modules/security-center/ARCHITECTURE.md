@@ -3,7 +3,7 @@
 **Статус:** целевая архитектура; foundation, File Scanner, optional clamd,
 quick/full coordinator, Finding Store, read-only Ubuntu posture и обратимый
 карантин, пользовательские режимы, фоновые scan jobs и подтверждаемый quarantine
-UI реализованы в `security.center` `0.9.0`; первый внешний Security Campaign
+UI реализованы в `security.center` `1.0.0`; первый внешний Security Campaign
 реализован в AI Scenario Lab.
 
 ## 1. Решение

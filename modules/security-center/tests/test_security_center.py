@@ -24,7 +24,7 @@ from ai_native_security.detectors import DetectorError
 EXPECTED_STATUS = {
     "schema_version": 1,
     "module_id": "security.center",
-    "module_version": "0.9.0",
+    "module_version": "1.0.0",
     "state": "ready",
     "lifecycle": "on-demand",
     "capabilities": [

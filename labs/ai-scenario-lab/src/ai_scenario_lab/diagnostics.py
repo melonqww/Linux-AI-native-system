@@ -195,11 +195,11 @@ def _classify(evidence: Mapping[str, object]) -> tuple[ProblemLayer, str]:
         str(evidence.get(key, "")).strip().lower()
         for key in ("code", "stage", "component")
     }
-    fault_point = str(evidence.get("fault_point", "")).strip().lower()
+    fault_point = _stable_token(evidence.get("fault_point"), "_.")
     for layer, rule, codes, components in _RULES:
         if tokens.intersection(codes) or tokens.intersection(components):
             return layer, rule
-        if any(
+        if fault_point is not None and any(
             fault_point == item or fault_point.startswith(item + ".")
             for item in components
         ):
@@ -226,19 +226,25 @@ def _stable_evidence(evidence: Mapping[str, object]) -> dict[str, object]:
             continue
         if not isinstance(value, str):
             continue
-        token = value.strip().lower()
-        if (
-            token
-            and len(token) <= 96
-            and token.isascii()
-            and all(
-                character.isalnum() or character in punctuation
-                for character in token
-            )
-        ):
+        token = _stable_token(value, punctuation)
+        if token is not None:
             result[key] = token
     for key in ("containment_passed", "unauthorized_side_effect"):
         value = evidence.get(key)
         if isinstance(value, bool):
             result[key] = value
     return result
+
+
+def _stable_token(value: object, punctuation: str) -> str | None:
+    if not isinstance(value, str):
+        return None
+    token = value.strip().lower()
+    if (
+        token
+        and len(token) <= 96
+        and token.isascii()
+        and all(character.isalnum() or character in punctuation for character in token)
+    ):
+        return token
+    return None

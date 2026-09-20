@@ -153,6 +153,7 @@ MVP ничего не исправляет автоматически и не и
 | `security.scan.run` | Запустить bounded quick/full для trusted root | R0 |
 | `security.posture.scan` | Выполнить базовый read-only аудит Ubuntu | R0 |
 | `security.findings.list` | Показать сохранённые находки | R0 |
+| `security.quarantine.list` | Показать ограниченный список изолированных объектов | R0 |
 | `security.quarantine.prepare` | Подготовить обратимую изоляцию файла | R1 |
 | `security.quarantine.commit` | Выполнить подтверждённую изоляцию | R1 |
 | `security.quarantine.restore` | Восстановить выбранный объект | R1 |

@@ -1,6 +1,6 @@
 # Security Center MVP — план работ
 
-**Статус:** production MVP расширен до `0.9.0`; Security Campaign и обе части
+**Статус:** production MVP выпущен как `1.0.0`; Security Campaign и обе части
 Linux integration реализованы, включая отдельный Ubuntu smoke с настоящим
 установленным `clamd`.
 
@@ -284,5 +284,7 @@ Linux integration разделён на две части:
 через отдельный read-only snapshot. Endpoint доступен только по authenticated
 Unix IPC; loopback fallback его не публикует. Следующий продуктовый этап —
 выбор trusted resource, quick/full и фоновые jobs с прогрессом, отменой, историей,
-opt-in автоматическим quick scan и approval-поток карантина реализованы. Следующий
-этап — финальная стабилизация MVP `1.0.0`.
+opt-in автоматическим quick scan и approval-поток карантина реализованы. Release
+gate `1.0.0` закрыт: production tests, внешний Security Campaign, Python compile
+и JavaScript syntax/presenter tests проходят. Дальнейшее развитие относится к
+post-MVP возможностям из `SECURITY-LAB.md`.
