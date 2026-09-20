@@ -67,6 +67,18 @@ class RuntimeApplication(Protocol):
     def security_scan(
         self, payload: dict[str, object], *, transport_context: TransportContext
     ) -> dict[str, object]: ...
+    def security_quarantine_prepare(
+        self, payload: dict[str, object], *, transport_context: TransportContext
+    ) -> dict[str, object]: ...
+    def security_quarantine_commit(
+        self, payload: dict[str, object], *, transport_context: TransportContext
+    ) -> dict[str, object]: ...
+    def security_quarantine_restore(
+        self, payload: dict[str, object], *, transport_context: TransportContext
+    ) -> dict[str, object]: ...
+    def security_quarantine_cancel(
+        self, payload: dict[str, object], *, transport_context: TransportContext
+    ) -> dict[str, object]: ...
 
 
 @dataclass(frozen=True)
@@ -268,6 +280,31 @@ class RuntimeRouter:
             else:
                 result = operation(payload, transport_context=transport_context)
             return RuntimeResponse(200, result)
+        if path in {
+            "/v1/security/quarantine/prepare",
+            "/v1/security/quarantine/commit",
+            "/v1/security/quarantine/restore",
+            "/v1/security/quarantine/cancel",
+        }:
+            if not self.allow_r1:
+                return self.error(403, "secure_transport_required", False, request_id)
+            operation = {
+                "/v1/security/quarantine/prepare": (
+                    self.application.security_quarantine_prepare
+                ),
+                "/v1/security/quarantine/commit": (
+                    self.application.security_quarantine_commit
+                ),
+                "/v1/security/quarantine/restore": (
+                    self.application.security_quarantine_restore
+                ),
+                "/v1/security/quarantine/cancel": (
+                    self.application.security_quarantine_cancel
+                ),
+            }[path]
+            return RuntimeResponse(
+                200, operation(payload, transport_context=transport_context)
+            )
         if path in {
             "/v1/software/prepare",
             "/v1/software/respond",

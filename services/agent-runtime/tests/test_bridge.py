@@ -202,6 +202,18 @@ class App:
             "automatic_scans_enabled": payload.get("automatic_scans_enabled", False),
         }
 
+    def security_quarantine_prepare(self, payload, *, transport_context):
+        return {"schema_version": 1, "state": "awaiting_confirmation", **payload}
+
+    def security_quarantine_commit(self, payload, *, transport_context):
+        return {"schema_version": 1, "state": "quarantined", **payload}
+
+    def security_quarantine_restore(self, payload, *, transport_context):
+        return {"schema_version": 1, "state": "restored", **payload}
+
+    def security_quarantine_cancel(self, payload, *, transport_context):
+        return {"schema_version": 1, "state": "cancelled", **payload}
+
 
 class BridgeTests(unittest.TestCase):
     def test_security_snapshot_is_available_to_secure_runtime(self):
@@ -235,6 +247,21 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(started.status, 200)
         self.assertEqual(status.payload["state"], "running")
         self.assertTrue(settings.payload["automatic_scans_enabled"])
+
+    def test_security_quarantine_routes_are_available(self):
+        router = RuntimeRouter(App())
+        quarantine_id = "00000000-0000-0000-0000-000000000001"
+        prepared = router.dispatch(
+            "POST", "/v1/security/quarantine/prepare", {"finding_id": 7}
+        )
+        committed = router.dispatch(
+            "POST",
+            "/v1/security/quarantine/commit",
+            {"quarantine_id": quarantine_id, "confirmed": True},
+        )
+
+        self.assertEqual(prepared.payload["state"], "awaiting_confirmation")
+        self.assertEqual(committed.payload["state"], "quarantined")
 
     def test_rejects_non_loopback_binding(self):
         with self.assertRaises(ValueError):

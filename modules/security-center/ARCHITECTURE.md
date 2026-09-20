@@ -2,7 +2,8 @@
 
 **Статус:** целевая архитектура; foundation, File Scanner, optional clamd,
 quick/full coordinator, Finding Store, read-only Ubuntu posture и обратимый
-карантин, пользовательские режимы и фоновые scan jobs реализованы в `security.center` `0.8.0`; первый внешний Security Campaign
+карантин, пользовательские режимы, фоновые scan jobs и подтверждаемый quarantine
+UI реализованы в `security.center` `0.9.0`; первый внешний Security Campaign
 реализован в AI Scenario Lab.
 
 ## 1. Решение
@@ -109,6 +110,10 @@ coverage. Его отказ даёт `partial + unknown`, если другой 
 способом, проверяет его идентичность и перемещает в выделенное хранилище.
 Операция записывает receipt, необходимый для восстановления. Безопасное удаление
 из карантина откладывается за пределы MVP.
+
+GNOME-панель получает только bounded metadata. Prepare не меняет файл и создаёт
+одноразовый receipt; commit и restore проходят через secure transport, Permission
+Gateway и отдельное явное подтверждение пользователя.
 
 ## 4. Основные контракты данных
 

@@ -1,7 +1,7 @@
 # Security Center
 
 `Security Center` — доверенный on-demand модуль защиты AI-native Linux.
-Текущий код `0.8.0` предоставляет status, безопасное сканирование одного файла,
+Текущий код `0.9.0` предоставляет status, безопасное сканирование одного файла,
 профили `quick`/`full`, Finding Store, optional локальный `clamd` и read-only
 аудит Ubuntu.
 
@@ -127,13 +127,21 @@ Quick, full, file и folder scan запускаются как отдельны�
 job. Автоматический quick scan раз в 24 часа по умолчанию выключен и включается
 отдельным переключателем; ручные проверки от него не зависят.
 
+## v0.9.0: управление карантином в панели
+
+Активную подтверждённую находку можно подготовить к карантину прямо в GNOME-
+панели. Перед перемещением показывается отдельное подтверждение, а worker повторно
+проверяет digest. Изолированные объекты отображаются отдельным bounded-списком и
+восстанавливаются только после нового подтверждения, без перезаписи существующего
+файла. Отмена preview инвалидирует server-owned receipt.
+
 Приватный каталог runtime с Finding Store и карантином явно исключён trusted
 bootstrap из home scan. UI не может добавлять исключения; попытка точечной
 проверки защищённого пути возвращает `protected_path`.
 
 ## Границы версии
 
-`0.8.0` сканирует файл, выбранную папку или все bounded trusted roots, выполняет read-only Ubuntu
+`0.9.0` сканирует файл, выбранную папку или все bounded trusted roots, выполняет read-only Ubuntu
 posture и возвращает JSON-safe
 результат: digest, размер, итог, код ошибки и нормализованные observations. В ответ не входят содержимое файла, абсолютный
 путь, секреты, произвольный detector output или traceback.
@@ -147,6 +155,8 @@ posture и возвращает JSON-safe
 
 - [User Scan API v7](../../Architecture/api/security-center-user-scan-v7.md)
 - [Background Jobs API v8](../../Architecture/api/security-center-background-jobs-v8.md)
+- [Quarantine Panel API v9](../../Architecture/api/security-center-quarantine-panel-v9.md)
+- [ADR-038: подтверждение карантина в панели](../../Architecture/decisions/ADR-038-security-quarantine-panel-approval.md)
 - [ADR-037: фоновые scan jobs](../../Architecture/decisions/ADR-037-security-background-scan-jobs.md)
 - [ADR-036: пользовательские quick/full scan](../../Architecture/decisions/ADR-036-security-user-scan-modes.md)
 - [Panel API v1](../../Architecture/api/security-center-panel-v1.md)

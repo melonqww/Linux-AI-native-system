@@ -13,6 +13,7 @@ import {
     approvalPresentation,
     compilationMessage,
     executionPresentation,
+    formatBytes,
     monitorPresentation,
     runtimeErrorMessage,
     securityPresentation,
@@ -2378,6 +2379,7 @@ class SidebarView extends St.Widget {
         this._securityJobId = null;
         this._securityJobPollSourceId = 0;
         this._securityJobDiscoverySourceId = 0;
+        this._securityQuarantineReceipt = null;
         this._section = 'system';
         this._disposed = false;
         this.connect('destroy', () => {
@@ -2623,6 +2625,19 @@ class SidebarView extends St.Widget {
         findings.add_child(this._securityFindings);
         this._securityContent.add_child(findings);
 
+        this._securityConfirmation = new St.BoxLayout({
+            vertical: true,
+            style_class: 'ai-sidebar-card',
+            x_expand: true,
+        });
+        this._securityConfirmation.hide();
+        this._securityContent.add_child(this._securityConfirmation);
+
+        const quarantine = this._card('Карантин');
+        this._securityQuarantine = new St.BoxLayout({vertical: true, x_expand: true});
+        quarantine.add_child(this._securityQuarantine);
+        this._securityContent.add_child(quarantine);
+
         const refresh = new St.Button({
             label: 'Обновить Security Center',
             style_class: 'ai-sidebar-action ai-sidebar-action-wide',
@@ -2827,6 +2842,165 @@ class SidebarView extends St.Widget {
         row.add_child(metricRow(item.title, item.status));
         row.add_child(sidebarLabel(item.detail, 'ai-sidebar-caption', {wrap: true}));
         return row;
+    }
+
+    _securityFindingItem(item) {
+        const row = this._securityItem(item);
+        const action = new St.Button({
+            label: 'Поместить в карантин',
+            style_class: 'ai-sidebar-action',
+            x_align: Clutter.ActorAlign.START,
+            reactive: Number.isInteger(item.findingId),
+        });
+        action.connect('clicked', () => this._prepareSecurityQuarantine(item, action));
+        row.add_child(action);
+        return row;
+    }
+
+    _securityQuarantineItem(item) {
+        const row = this._securityItem(item);
+        const action = new St.Button({
+            label: 'Восстановить',
+            style_class: 'ai-sidebar-action',
+            x_align: Clutter.ActorAlign.START,
+            reactive: Boolean(item.quarantineId),
+        });
+        action.connect('clicked', () => this._confirmSecurityRestore(item));
+        row.add_child(action);
+        return row;
+    }
+
+    async _prepareSecurityQuarantine(item, button) {
+        if (this._securityQuarantineInFlight || this._securityQuarantineReceipt)
+            return;
+        this._securityQuarantineInFlight = true;
+        button.reactive = false;
+        try {
+            const receipt = await this._runtime.securityQuarantinePrepare(item.findingId);
+            if (this._disposed)
+                return;
+            this._securityQuarantineReceipt = receipt;
+            this._showSecurityConfirmation({
+                title: 'Поместить файл в карантин?',
+                details: [
+                    `Файл: ${item.relativePath}`,
+                    `Размер: ${formatBytes(item.sizeBytes)}`,
+                    'Файл будет перемещён в закрытое хранилище. Его можно восстановить.',
+                ],
+                confirmLabel: 'Поместить в карантин',
+                onCancel: async () => {
+                    try {
+                        await this._runtime.securityQuarantineCancel(receipt.quarantine_id);
+                    } catch (_error) {
+                        // Uncommitted receipts are invalidated when the worker restarts.
+                    }
+                    this._securityQuarantineReceipt = null;
+                    this._hideSecurityConfirmation();
+                },
+                onConfirm: () => this._commitSecurityQuarantine(receipt),
+            });
+        } catch (_error) {
+            if (!this._disposed)
+                this._securityScanResult.set_text('Не удалось подготовить карантин. Файл не изменён.');
+        } finally {
+            this._securityQuarantineInFlight = false;
+            if (!this._disposed)
+                button.reactive = !this._securityQuarantineReceipt;
+        }
+    }
+
+    _confirmSecurityRestore(item) {
+        if (this._securityConfirmation.visible)
+            return;
+        this._showSecurityConfirmation({
+            title: 'Восстановить файл из карантина?',
+            details: [
+                `Исходное место: ${item.relativePath}`,
+                `Размер: ${formatBytes(item.sizeBytes)}`,
+                'Существующий файл не будет перезаписан.',
+            ],
+            confirmLabel: 'Восстановить',
+            onCancel: () => this._hideSecurityConfirmation(),
+            onConfirm: () => this._restoreSecurityQuarantine(item),
+        });
+    }
+
+    _showSecurityConfirmation({title, details, confirmLabel, onCancel, onConfirm}) {
+        this._securityConfirmation.destroy_all_children();
+        this._securityConfirmation.add_child(sidebarLabel(title, 'ai-sidebar-title'));
+        for (const detail of details) {
+            this._securityConfirmation.add_child(sidebarLabel(
+                detail, 'ai-sidebar-caption', {wrap: true},
+            ));
+        }
+        const actions = new St.BoxLayout({style_class: 'ai-security-actions', x_expand: true});
+        const cancel = new St.Button({
+            label: 'Отмена',
+            style_class: 'ai-sidebar-action',
+            x_expand: true,
+        });
+        const confirm = new St.Button({
+            label: confirmLabel,
+            style_class: 'ai-sidebar-action',
+            x_expand: true,
+        });
+        cancel.connect('clicked', async () => {
+            cancel.reactive = false;
+            confirm.reactive = false;
+            await onCancel();
+        });
+        confirm.connect('clicked', async () => {
+            cancel.reactive = false;
+            confirm.reactive = false;
+            await onConfirm();
+        });
+        actions.add_child(cancel);
+        actions.add_child(confirm);
+        this._securityConfirmation.add_child(actions);
+        this._securityConfirmation.show();
+    }
+
+    _hideSecurityConfirmation() {
+        this._securityConfirmation.hide();
+        this._securityConfirmation.destroy_all_children();
+    }
+
+    async _commitSecurityQuarantine(receipt) {
+        try {
+            const result = await this._runtime.securityQuarantineCommit(
+                receipt.quarantine_id,
+            );
+            if (result.state !== 'quarantined')
+                throw new Error('quarantine_failed');
+            notifyUser('Security Center', 'Угроза помещена в карантин.');
+            this._hideSecurityConfirmation();
+            await this._refreshSecurity();
+        } catch (_error) {
+            if (!this._disposed)
+                this._securityScanResult.set_text('Не удалось поместить файл в карантин.');
+            this._hideSecurityConfirmation();
+        } finally {
+            this._securityQuarantineReceipt = null;
+        }
+    }
+
+    async _restoreSecurityQuarantine(item) {
+        try {
+            const result = await this._runtime.securityQuarantineRestore(
+                item.quarantineId,
+            );
+            if (result.state !== 'restored')
+                throw new Error('restore_failed');
+            notifyUser('Security Center', 'Файл восстановлен из карантина.');
+            this._hideSecurityConfirmation();
+            await this._refreshSecurity();
+        } catch (_error) {
+            if (!this._disposed)
+                this._securityScanResult.set_text(
+                    'Не удалось восстановить файл. Возможно, исходное место уже занято.',
+                );
+            this._hideSecurityConfirmation();
+        }
     }
 
     _card(title) {
@@ -3201,6 +3375,7 @@ class SidebarView extends St.Widget {
             this._securityVersion.set_text(view.moduleVersion);
             this._securityChecks.destroy_all_children();
             this._securityFindings.destroy_all_children();
+            this._securityQuarantine.destroy_all_children();
             if (view.checks.length === 0) {
                 this._securityChecks.add_child(sidebarLabel(
                     'Проверки недоступны.', 'ai-sidebar-caption',
@@ -3215,7 +3390,15 @@ class SidebarView extends St.Widget {
                 ));
             } else {
                 for (const item of view.findings)
-                    this._securityFindings.add_child(this._securityItem(item));
+                    this._securityFindings.add_child(this._securityFindingItem(item));
+            }
+            if (view.quarantine.length === 0) {
+                this._securityQuarantine.add_child(sidebarLabel(
+                    'Карантин пуст.', 'ai-sidebar-caption',
+                ));
+            } else {
+                for (const item of view.quarantine)
+                    this._securityQuarantine.add_child(this._securityQuarantineItem(item));
             }
         } catch (_error) {
             if (this._disposed)
@@ -3224,11 +3407,15 @@ class SidebarView extends St.Widget {
             this._securityVersion.set_text('—');
             this._securityChecks.destroy_all_children();
             this._securityFindings.destroy_all_children();
+            this._securityQuarantine.destroy_all_children();
             this._securityChecks.add_child(sidebarLabel(
                 'Модуль защиты сейчас недоступен.', 'ai-sidebar-caption',
             ));
             this._securityFindings.add_child(sidebarLabel(
                 'Данные о находках недоступны.', 'ai-sidebar-caption',
+            ));
+            this._securityQuarantine.add_child(sidebarLabel(
+                'Данные карантина недоступны.', 'ai-sidebar-caption',
             ));
         } finally {
             this._securityRefreshing = false;

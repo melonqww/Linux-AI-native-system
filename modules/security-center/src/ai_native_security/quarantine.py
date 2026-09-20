@@ -23,7 +23,15 @@ QUARANTINE_SCHEMA_VERSION = 1
 _MAX_HASH_BYTES = 128 * 1024 * 1024
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _STATES = frozenset(
-    {"awaiting_confirmation", "committing", "quarantined", "restoring", "restored", "failed"}
+    {
+        "awaiting_confirmation",
+        "cancelled",
+        "committing",
+        "quarantined",
+        "restoring",
+        "restored",
+        "failed",
+    }
 )
 
 
@@ -83,6 +91,11 @@ class QuarantineManager:
                     error_code TEXT
                 )
                 """
+            )
+            connection.execute(
+                "UPDATE quarantine_records SET state = 'cancelled', "
+                "error_code = 'confirmation_interrupted' "
+                "WHERE state = 'awaiting_confirmation'"
             )
         self._harden_storage()
 
@@ -151,6 +164,31 @@ class QuarantineManager:
                 source.chmod(record["original_mode"])
             return self._failed(record, "quarantine_verification_failed")
         return self._public(self._get(record["quarantine_id"]))
+
+    def cancel(self, quarantine_id: object) -> dict[str, object]:
+        record = self._claim(
+            quarantine_id, "awaiting_confirmation", "cancelled"
+        )
+        return self._public(self._get(record["quarantine_id"]))
+
+    def list(
+        self, *, state: object = "quarantined", limit: object = 10
+    ) -> dict[str, object]:
+        if state not in _STATES:
+            raise ValueError("invalid_quarantine_state")
+        if type(limit) is not int or not 1 <= limit <= 20:
+            raise ValueError("invalid_quarantine_limit")
+        with self._connection() as connection:
+            rows = connection.execute(
+                "SELECT quarantine_id FROM quarantine_records "
+                "WHERE state = ? ORDER BY rowid DESC LIMIT ?",
+                (state, limit),
+            ).fetchall()
+        return {
+            "schema_version": QUARANTINE_SCHEMA_VERSION,
+            "state": state,
+            "items": [self._public(self._get(str(row[0]))) for row in rows],
+        }
 
     def restore(self, quarantine_id: object) -> dict[str, object]:
         record = self._claim(quarantine_id, "quarantined", "restoring")

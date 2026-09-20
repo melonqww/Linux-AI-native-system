@@ -3,7 +3,7 @@
   "module_id": "security.center",
   "display_name": "Security Center",
   "description": "Provides bounded malware scanning, durable findings, Ubuntu posture, and reversible quarantine.",
-  "module_version": "0.8.0",
+  "module_version": "0.9.0",
   "core_api": "1",
   "capabilities": [
     {
@@ -70,6 +70,20 @@
         "additionalProperties": false
       },
       "requested_permissions": ["security.read-posture"]
+    },
+    {
+      "id": "security.quarantine.list",
+      "description": "List a bounded page of metadata-only quarantine records.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "state": {"type": "string", "enum": ["quarantined"]},
+          "limit": {"type": "integer", "minimum": 1, "maximum": 20}
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "requested_permissions": ["security.read-findings"]
     },
     {
       "id": "security.quarantine.prepare",

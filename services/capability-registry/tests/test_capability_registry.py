@@ -259,6 +259,7 @@ class CapabilityRegistryTests(RegistryTestCase):
             self.registry.available_capabilities(),
         )
         for capability_id in (
+            "security.quarantine.list",
             "security.quarantine.prepare",
             "security.quarantine.commit",
             "security.quarantine.restore",
@@ -325,6 +326,10 @@ class CapabilityRegistryTests(RegistryTestCase):
         self.assertEqual(security_posture.input_schema["properties"], {})
         self.assertEqual(security_posture.input_schema["required"], [])
         self.assertFalse(security_posture.input_schema["additionalProperties"])
+        self.assertEqual(
+            set(by_id["security.quarantine.list"].input_schema["properties"]),
+            {"state", "limit"},
+        )
         self.assertEqual(
             set(by_id["security.quarantine.prepare"].input_schema["required"]),
             {"finding_id"},

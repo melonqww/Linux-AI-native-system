@@ -12,7 +12,7 @@ POST /v1/security/snapshot
 ```json
 {
   "schema_version": 1,
-  "module": {"state": "ready", "module_version": "0.8.0"},
+  "module": {"state": "ready", "module_version": "0.9.0"},
   "posture": {"verdict": "no_findings", "observations": []},
   "findings": {"state": "active", "findings": []}
 }

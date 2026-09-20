@@ -44,7 +44,7 @@ operation как пользовательский tool.
 {
   "schema_version": 1,
   "module_id": "security.center",
-  "module_version": "0.8.0",
+  "module_version": "0.9.0",
   "state": "ready",
   "lifecycle": "on-demand",
   "capabilities": [

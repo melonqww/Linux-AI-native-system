@@ -261,6 +261,22 @@ def builtin_policies() -> tuple[CapabilityPolicy, ...]:
             timeout_seconds=30,
         ),
         CapabilityPolicy(
+            capability_id="security.quarantine.list",
+            risk=RiskLevel.READ_ONLY,
+            plan_approval_required=False,
+            allowed_arguments=frozenset({"state", "limit"}),
+            required_arguments=frozenset(),
+            phases=(
+                PhasePolicy(
+                    ExecutionPhase.EXECUTE,
+                    ALL_LOCAL_TRANSPORTS,
+                    frozenset({"security.read-findings"}),
+                ),
+            ),
+            max_concurrency=4,
+            timeout_seconds=15,
+        ),
+        CapabilityPolicy(
             capability_id="security.quarantine.prepare",
             risk=RiskLevel.REVERSIBLE_WRITE,
             plan_approval_required=True,

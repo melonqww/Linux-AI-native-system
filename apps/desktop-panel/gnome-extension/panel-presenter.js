@@ -197,17 +197,31 @@ export function securityPresentation(snapshot) {
         };
     });
     const findings = safeArray(snapshot?.findings?.findings).slice(0, 10).map(item => ({
+        findingId: Number.isInteger(item?.finding_id) ? item.finding_id : null,
         title: safeText(item?.classification, 'Подозрительный файл'),
         detail: safeText(item?.relative_path, 'Путь недоступен'),
+        relativePath: safeText(item?.relative_path, 'Путь недоступен'),
+        sizeBytes: safeCount(item?.size_bytes),
         status: safeText(item?.severity, 'unknown').toUpperCase(),
         style: ['high', 'critical'].includes(item?.severity) ? 'error' : 'neutral',
     }));
+    const quarantine = safeArray(snapshot?.quarantine?.items).slice(0, 10).map(item => ({
+        quarantineId: safeText(item?.quarantine_id, ''),
+        findingId: Number.isInteger(item?.finding_id) ? item.finding_id : null,
+        title: 'Изолированный объект',
+        detail: safeText(item?.relative_path, 'Путь недоступен'),
+        relativePath: safeText(item?.relative_path, 'Путь недоступен'),
+        sizeBytes: safeCount(item?.size_bytes),
+        status: 'В КАРАНТИНЕ',
+        style: 'neutral',
+    })).filter(item => item.quarantineId);
     return {
         available: ready,
         moduleVersion: safeText(module.module_version),
         summary,
         checks,
         findings,
+        quarantine,
     };
 }
 

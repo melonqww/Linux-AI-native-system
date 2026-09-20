@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import asdict, is_dataclass
 from typing import Callable, Protocol
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from .contracts import ContentMatch, DocumentQuery, QueryResult, SearchMode, SearchPage
 from .service import QueryService
@@ -104,6 +104,8 @@ class QueryRuntimeApplication:
         security_snapshot: Callable[[], dict[str, object]] | None = None,
         security_scan: Callable[[dict[str, object]], dict[str, object]] | None = None,
         security_jobs: Callable[[str, dict[str, object]], dict[str, object]] | None = None,
+        security_quarantine: Callable[[str, dict[str, object]], dict[str, object]]
+        | None = None,
     ) -> None:
         self.query_service = query_service
         self.scheduler_status = scheduler_status
@@ -128,6 +130,7 @@ class QueryRuntimeApplication:
         self.security_snapshot_callback = security_snapshot
         self.security_scan_callback = security_scan
         self.security_jobs_callback = security_jobs
+        self.security_quarantine_callback = security_quarantine
         if intent_pipeline is not None and task_context is None:
             raise ValueError("task_context is required with intent_pipeline")
         if (plan_store is None) != (plan_executor is None):
@@ -207,6 +210,15 @@ class QueryRuntimeApplication:
             capabilities.extend(("security.files.scan", "security.scan.run"))
         if self.security_jobs_callback is not None:
             capabilities.append("security.scan.jobs")
+        if self.security_quarantine_callback is not None:
+            capabilities.extend(
+                (
+                    "security.quarantine.list",
+                    "security.quarantine.prepare",
+                    "security.quarantine.commit",
+                    "security.quarantine.restore",
+                )
+            )
         return capabilities
 
     def security_snapshot(
@@ -328,6 +340,92 @@ class QueryRuntimeApplication:
             raise RuntimeError("security_center_invalid_response")
         return result
 
+    def security_quarantine_prepare(
+        self, payload: dict[str, object], *, transport_context: TransportContext
+    ) -> dict[str, object]:
+        self._require_secure_transport(transport_context)
+        if set(payload) != {"finding_id"}:
+            raise ValueError("invalid security quarantine fields")
+        finding_id = payload.get("finding_id")
+        if type(finding_id) is not int or finding_id < 1:
+            raise ValueError("invalid security finding id")
+        self._authorize_security_phase(
+            "security.quarantine.prepare",
+            ExecutionPhase.PREPARE,
+            {"finding_id": finding_id},
+            transport_context,
+            approval_granted=False,
+        )
+        return self._security_quarantine_result("prepare", payload)
+
+    def security_quarantine_commit(
+        self, payload: dict[str, object], *, transport_context: TransportContext
+    ) -> dict[str, object]:
+        return self._security_quarantine_write(
+            "commit", "security.quarantine.commit", payload, transport_context
+        )
+
+    def security_quarantine_restore(
+        self, payload: dict[str, object], *, transport_context: TransportContext
+    ) -> dict[str, object]:
+        return self._security_quarantine_write(
+            "restore", "security.quarantine.restore", payload, transport_context
+        )
+
+    def security_quarantine_cancel(
+        self, payload: dict[str, object], *, transport_context: TransportContext
+    ) -> dict[str, object]:
+        self._require_secure_transport(transport_context)
+        if set(payload) != {"quarantine_id"}:
+            raise ValueError("invalid security quarantine fields")
+        self._security_quarantine_id(payload.get("quarantine_id"))
+        return self._security_quarantine_result("cancel", payload)
+
+    def _security_quarantine_write(
+        self,
+        operation: str,
+        capability: str,
+        payload: dict[str, object],
+        transport_context: TransportContext,
+    ) -> dict[str, object]:
+        self._require_secure_transport(transport_context)
+        if set(payload) != {"quarantine_id", "confirmed"}:
+            raise ValueError("invalid security quarantine fields")
+        quarantine_id = self._security_quarantine_id(payload.get("quarantine_id"))
+        if payload.get("confirmed") is not True:
+            raise ValueError("security quarantine confirmation is required")
+        arguments = {"quarantine_id": quarantine_id}
+        self._authorize_security_phase(
+            capability,
+            ExecutionPhase.COMMIT,
+            arguments,
+            transport_context,
+            approval_granted=True,
+        )
+        return self._security_quarantine_result(operation, arguments)
+
+    def _security_quarantine_result(
+        self, operation: str, payload: dict[str, object]
+    ) -> dict[str, object]:
+        if self.security_quarantine_callback is None:
+            raise RuntimeError("security_quarantine_unavailable")
+        result = self.security_quarantine_callback(operation, payload)
+        if not isinstance(result, dict):
+            raise RuntimeError("security_center_invalid_response")
+        return result
+
+    @staticmethod
+    def _security_quarantine_id(value: object) -> str:
+        if type(value) is not str:
+            raise ValueError("invalid security quarantine id")
+        try:
+            parsed = UUID(value)
+        except (ValueError, AttributeError):
+            raise ValueError("invalid security quarantine id") from None
+        if str(parsed) != value:
+            raise ValueError("invalid security quarantine id")
+        return value
+
     def _validate_security_scan(
         self, payload: dict[str, object]
     ) -> tuple[str, dict[str, object]]:
@@ -379,11 +477,28 @@ class QueryRuntimeApplication:
         arguments: dict[str, object],
         transport_context: TransportContext,
     ) -> None:
+        QueryRuntimeApplication._authorize_security_phase(
+            capability,
+            ExecutionPhase.EXECUTE,
+            arguments,
+            transport_context,
+            approval_granted=False,
+        )
+
+    @staticmethod
+    def _authorize_security_phase(
+        capability: str,
+        phase: ExecutionPhase,
+        arguments: dict[str, object],
+        transport_context: TransportContext,
+        *,
+        approval_granted: bool,
+    ) -> None:
         gateway = PermissionGateway(
             builtin_policies(), capability_source=lambda: (capability,)
         )
         policy = gateway.policy(capability)
-        rule = policy.rule_for(ExecutionPhase.EXECUTE)
+        rule = policy.rule_for(phase)
         if rule is None:
             raise RuntimeError("security_policy_invalid")
         invocation = CapabilityInvocation(
@@ -391,14 +506,14 @@ class QueryRuntimeApplication:
             plan_id=str(uuid4()),
             step_id="step_security_scan",
             capability_id=capability,
-            phase=ExecutionPhase.EXECUTE,
+            phase=phase,
             arguments=arguments,
             declared_risk=policy.risk.value,
             declared_approval_required=policy.plan_approval_required,
             context=ExecutionContext(
                 transport_context,
                 rule.required_scopes,
-                False,
+                approval_granted,
             ),
         )
         decision = gateway.evaluate(invocation)

@@ -855,6 +855,46 @@ class QueryServiceTests(unittest.TestCase):
         )
         self.assertIn("security.scan.jobs", application.capabilities())
 
+    def test_runtime_requires_confirmation_for_security_quarantine(self) -> None:
+        calls: list[tuple[str, dict[str, object]]] = []
+        application = QueryRuntimeApplication(
+            self.service,
+            security_quarantine=lambda operation, payload: calls.append(
+                (operation, payload)
+            )
+            or {"schema_version": 1, "state": operation, **payload},
+        )
+        transport = TransportContext.internal()
+        quarantine_id = "00000000-0000-0000-0000-000000000001"
+
+        prepared = application.security_quarantine_prepare(
+            {"finding_id": 7}, transport_context=transport
+        )
+        committed = application.security_quarantine_commit(
+            {"quarantine_id": quarantine_id, "confirmed": True},
+            transport_context=transport,
+        )
+        application.security_quarantine_restore(
+            {"quarantine_id": quarantine_id, "confirmed": True},
+            transport_context=transport,
+        )
+        application.security_quarantine_cancel(
+            {"quarantine_id": quarantine_id}, transport_context=transport
+        )
+
+        self.assertEqual(prepared["finding_id"], 7)
+        self.assertEqual(committed["quarantine_id"], quarantine_id)
+        self.assertEqual(
+            [item[0] for item in calls],
+            ["prepare", "commit", "restore", "cancel"],
+        )
+        self.assertIn("security.quarantine.commit", application.capabilities())
+        with self.assertRaises(ValueError):
+            application.security_quarantine_commit(
+                {"quarantine_id": quarantine_id, "confirmed": False},
+                transport_context=transport,
+            )
+
     def test_runtime_exposes_validated_software_mutations(self) -> None:
         calls: list[tuple[str, dict[str, object]]] = []
 

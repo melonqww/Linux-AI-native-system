@@ -219,6 +219,17 @@ def worker_invoke(operation: str, payload: dict[str, object]) -> dict[str, objec
         if set(payload) != {"finding_id"}:
             raise ValueError("invalid_payload")
         return _require_quarantine().prepare(payload["finding_id"])
+    if operation == "quarantine_list":
+        if not set(payload).issubset({"state", "limit"}):
+            raise ValueError("invalid_payload")
+        return _require_quarantine().list(
+            state=payload.get("state", "quarantined"),
+            limit=payload.get("limit", 10),
+        )
+    if operation == "quarantine_cancel":
+        if set(payload) != {"quarantine_id"}:
+            raise ValueError("invalid_payload")
+        return _require_quarantine().cancel(payload["quarantine_id"])
     if operation == "quarantine_commit":
         if set(payload) != {"quarantine_id"}:
             raise ValueError("invalid_payload")

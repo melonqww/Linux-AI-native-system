@@ -23,7 +23,7 @@ import {
 
 test('security snapshot presents bounded posture checks and findings', () => {
     const view = securityPresentation({
-        module: {state: 'ready', module_version: '0.7.0'},
+        module: {state: 'ready', module_version: '0.9.0'},
         posture: {
             verdict: 'findings_detected',
             observations: [
@@ -32,9 +32,17 @@ test('security snapshot presents bounded posture checks and findings', () => {
             ],
         },
         findings: {findings: [{
+            finding_id: 7,
             classification: 'EICAR-Test',
             relative_path: 'Downloads/sample.txt',
+            size_bytes: 68,
             severity: 'high',
+        }]},
+        quarantine: {items: [{
+            quarantine_id: '00000000-0000-0000-0000-000000000001',
+            finding_id: 8,
+            relative_path: 'Downloads/isolated.bin',
+            size_bytes: 42,
         }]},
     });
     assert.equal(view.available, true);
@@ -42,11 +50,16 @@ test('security snapshot presents bounded posture checks and findings', () => {
     assert.equal(view.checks[0].title, 'Сетевой экран');
     assert.equal(view.checks[0].status, 'Внимание');
     assert.deepEqual(view.findings[0], {
+        findingId: 7,
         title: 'EICAR-Test',
         detail: 'Downloads/sample.txt',
+        relativePath: 'Downloads/sample.txt',
+        sizeBytes: 68,
         status: 'HIGH',
         style: 'error',
     });
+    assert.equal(view.quarantine[0].quarantineId, '00000000-0000-0000-0000-000000000001');
+    assert.equal(view.quarantine[0].detail, 'Downloads/isolated.bin');
 });
 
 test('security snapshot degrades safely on malformed data', () => {
@@ -55,6 +68,7 @@ test('security snapshot degrades safely on malformed data', () => {
     assert.deepEqual(view.summary, {label: 'Недоступен', style: 'neutral'});
     assert.deepEqual(view.checks, []);
     assert.deepEqual(view.findings, []);
+    assert.deepEqual(view.quarantine, []);
 });
 
 test('security scan result distinguishes clean, detected and partial outcomes', () => {

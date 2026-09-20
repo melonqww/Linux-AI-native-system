@@ -118,6 +118,36 @@ export class RuntimeClient {
         );
     }
 
+    securityQuarantinePrepare(findingId) {
+        return this.request(
+            'POST',
+            '/v1/security/quarantine/prepare',
+            {finding_id: findingId},
+        );
+    }
+
+    securityQuarantineCommit(quarantineId) {
+        return this.request('POST', '/v1/security/quarantine/commit', {
+            quarantine_id: quarantineId,
+            confirmed: true,
+        });
+    }
+
+    securityQuarantineRestore(quarantineId) {
+        return this.request('POST', '/v1/security/quarantine/restore', {
+            quarantine_id: quarantineId,
+            confirmed: true,
+        });
+    }
+
+    securityQuarantineCancel(quarantineId) {
+        return this.request(
+            'POST',
+            '/v1/security/quarantine/cancel',
+            {quarantine_id: quarantineId},
+        );
+    }
+
     softwarePrepare(payload) {
         return this.request('POST', '/v1/software/prepare', payload);
     }

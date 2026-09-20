@@ -152,6 +152,14 @@ class PolicyManifestAlignmentTests(unittest.TestCase):
             gateway.required_scopes("security.posture.scan"),
             {"security.read-posture"},
         )
+        quarantine_list = contracts["security.quarantine.list"]
+        self.assertEqual(
+            quarantine_list.requested_permissions, ("security.read-findings",)
+        )
+        self.assertEqual(
+            gateway.required_scopes("security.quarantine.list"),
+            {"security.read-findings"},
+        )
 
 
 if __name__ == "__main__":

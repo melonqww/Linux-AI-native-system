@@ -24,7 +24,7 @@ from ai_native_security.detectors import DetectorError
 EXPECTED_STATUS = {
     "schema_version": 1,
     "module_id": "security.center",
-    "module_version": "0.8.0",
+    "module_version": "0.9.0",
     "state": "ready",
     "lifecycle": "on-demand",
     "capabilities": [
@@ -33,6 +33,7 @@ EXPECTED_STATUS = {
         "security.scan.run",
         "security.findings.list",
         "security.posture.scan",
+        "security.quarantine.list",
         "security.quarantine.prepare",
         "security.quarantine.commit",
         "security.quarantine.restore",
@@ -704,6 +705,8 @@ class SecurityFileScannerTests(unittest.TestCase):
             "quarantine_commit", {"quarantine_id": prepared["quarantine_id"]}
         )
         self.assertEqual(quarantined["state"], "quarantined")
+        listed = security.worker_invoke("quarantine_list", {})
+        self.assertEqual(listed["items"][0]["quarantine_id"], prepared["quarantine_id"])
         self.assertFalse(target.exists())
         objects = list((self.quarantine_root / "objects").iterdir())
         self.assertEqual(len(objects), 1)
@@ -722,6 +725,32 @@ class SecurityFileScannerTests(unittest.TestCase):
         self.assertEqual(restored["state"], "restored")
         self.assertEqual(target.read_bytes(), content)
         self.assertEqual(security.worker_invoke("findings_list", {})["findings"][0]["state"], "active")
+
+    def test_quarantine_prepare_can_be_cancelled_without_moving_file(self) -> None:
+        content = b"cancel quarantine sample"
+        target = self.root / "cancel.bin"
+        target.write_bytes(content)
+        signatures = SignatureDatabase(
+            hashes=(
+                HashSignature(
+                    rule_id="quarantine-cancel-test",
+                    sha256=hashlib.sha256(content).hexdigest(),
+                    classification="test-malware",
+                ),
+            )
+        )
+        self._start(signatures=signatures)
+        self._scan("cancel.bin")
+        finding_id = security.worker_invoke("findings_list", {})["findings"][0]["finding_id"]
+        prepared = security.worker_invoke("quarantine_prepare", {"finding_id": finding_id})
+
+        cancelled = security.worker_invoke(
+            "quarantine_cancel", {"quarantine_id": prepared["quarantine_id"]}
+        )
+
+        self.assertEqual(cancelled["state"], "cancelled")
+        self.assertEqual(target.read_bytes(), content)
+        self.assertEqual(security.worker_invoke("quarantine_list", {})["items"], [])
 
     def test_quarantine_rejects_file_changed_after_prepare(self) -> None:
         original = b"original threat"

@@ -321,6 +321,7 @@ def main() -> int:
             security_snapshot = None
             security_scan = None
             security_jobs = None
+            security_quarantine = None
             try:
                 security_module_id = manager.start_for_capability(
                     "security.module.status"
@@ -339,6 +340,12 @@ def main() -> int:
                             security_module_id,
                             "findings_list",
                             {"state": "active", "limit": 10},
+                            timeout=15,
+                        ),
+                        "quarantine": manager.invoke(
+                            security_module_id,
+                            "quarantine_list",
+                            {"state": "quarantined", "limit": 10},
                             timeout=15,
                         ),
                     }
@@ -454,6 +461,20 @@ def main() -> int:
                     }[operation]
                     return manager.invoke(
                         security_module_id, worker_operation, payload, timeout=15
+                    )
+
+                def security_quarantine(operation, payload):
+                    worker_operation = {
+                        "prepare": "quarantine_prepare",
+                        "commit": "quarantine_commit",
+                        "restore": "quarantine_restore",
+                        "cancel": "quarantine_cancel",
+                    }[operation]
+                    return manager.invoke(
+                        security_module_id,
+                        worker_operation,
+                        payload,
+                        timeout=30,
                     )
             except ModuleProcessError:
                 print("Security Center: unavailable")
@@ -601,6 +622,7 @@ def main() -> int:
                 security_snapshot=security_snapshot,
                 security_scan=security_scan,
                 security_jobs=security_jobs,
+                security_quarantine=security_quarantine,
             )
             transport = (
                 "unix"
