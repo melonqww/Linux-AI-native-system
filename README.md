@@ -169,7 +169,7 @@ on-demand worker и отдаёт панели только сводку. Уст�
 штатном Ubuntu update UI; контракт описан в
 [`Architecture/api/system-updates-v1.md`](Architecture/api/system-updates-v1.md).
 
-`modules/security-center` реализует first-party Security Center `0.7.0`. Помимо
+`modules/security-center` реализует first-party Security Center `0.8.0`. Помимо
 локальных SHA-256 и byte-сигнатур, capability `security.files.scan` может
 передать тот же bounded поток локальному `clamd` через peer-authenticated Unix
 socket. Scanner не использует AI, TCP или subprocess, не возвращает содержимое
@@ -178,11 +178,12 @@ socket. Scanner не использует AI, TCP или subprocess, не воз
 и SQLite Finding Store без содержимого и абсолютных путей. GNOME-панель выбирает
 файл/папку через XDG Desktop Portal, уведомляет об итогах quick/full, а optional
 Nautilus MenuProvider добавляет безопасную проверку из контекстного меню.
-Read-only Ubuntu
-posture проверяет updates, UFW, AppArmor, TCP listeners, autostart и scanner
-rules. Подтверждённую находку можно обратимо переместить в закрытый карантин и
-восстановить без перезаписи существующего пути. План следующих этапов и
-реализованного третьего Security Campaign находятся в
+Проверки выполняются как фоновые jobs с реальным прогрессом, отменой, короткой
+историей и выключенной по умолчанию автоматикой quick scan раз в 24 часа.
+Read-only Ubuntu posture проверяет updates, UFW, AppArmor, TCP listeners,
+autostart и scanner rules. Подтверждённую находку можно обратимо переместить в
+закрытый карантин и восстановить без перезаписи существующего пути. План
+следующих этапов и реализованного третьего Security Campaign находятся в
 [`modules/security-center`](modules/security-center/README.md).
 
 Следующий background-слой реализован в `services/index-scheduler`: Linux
@@ -292,6 +293,7 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [Security Center Reversible Quarantine API v6](Architecture/api/security-center-quarantine-v6.md)
 - [Security Center Panel API v1](Architecture/api/security-center-panel-v1.md)
 - [Security Center User Scan API v7](Architecture/api/security-center-user-scan-v7.md)
+- [Security Center Background Jobs API v8](Architecture/api/security-center-background-jobs-v8.md)
 - [Контракты Storage Catalog](Architecture/api/storage-catalog-contracts.md)
 - [File Search R1](Architecture/api/file-search-r1.md)
 - [Контракт статуса индекса](Architecture/api/runtime-index-status.md)
@@ -320,6 +322,7 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [Решение об обратимом same-filesystem карантине](Architecture/decisions/ADR-034-security-reversible-quarantine.md)
 - [Решение о безопасной проекции Security Center в панели](Architecture/decisions/ADR-035-security-center-panel-projection.md)
 - [Решение о пользовательских quick/full scan](Architecture/decisions/ADR-036-security-user-scan-modes.md)
+- [Решение о фоновых scan jobs](Architecture/decisions/ADR-037-security-background-scan-jobs.md)
 - [Дискуссия о границах Security Center MVP](Architecture/discussions/security-center-mvp-options.md)
 - [Security Center: MVP, архитектура и план](modules/security-center/README.md)
 - [Решение о модульном жизненном цикле локальных моделей](Architecture/decisions/ADR-011-model-lifecycle-module.md)

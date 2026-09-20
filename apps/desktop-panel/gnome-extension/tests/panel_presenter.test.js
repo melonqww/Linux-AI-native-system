@@ -11,6 +11,7 @@ import {
     runtimeErrorMessage,
     schedulerLabel,
     securityPresentation,
+    securityJobPresentation,
     securityScanPresentation,
     systemPresentation,
     systemUpdatePresentation,
@@ -71,6 +72,24 @@ test('security scan result distinguishes clean, detected and partial outcomes', 
     assert.equal(securityScanPresentation({
         status: 'partial', verdict: 'unknown', unknown_files: 2,
     }).title, 'Проверка завершена частично');
+});
+
+test('security background job shows live progress and final states', () => {
+    assert.deepEqual(securityJobPresentation({
+        state: 'running', scanned_files: 7, scanned_bytes: 2048,
+        threat_files: 1, elapsed_seconds: 3,
+    }), {
+        final: false,
+        title: 'Проверка выполняется',
+        detail: 'Проверено: 7 · 2 КБ · угроз: 1 · 3 с',
+        style: 'neutral',
+    });
+    assert.equal(securityJobPresentation({
+        state: 'cancelled', scanned_files: 2,
+    }).title, 'Проверка отменена');
+    assert.equal(securityJobPresentation({
+        state: 'completed', verdict: 'no_threat_detected', scanned_files: 9,
+    }).final, true);
 });
 
 

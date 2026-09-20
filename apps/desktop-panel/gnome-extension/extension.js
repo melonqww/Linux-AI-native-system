@@ -16,7 +16,7 @@ import {
     monitorPresentation,
     runtimeErrorMessage,
     securityPresentation,
-    securityScanPresentation,
+    securityJobPresentation,
     systemPresentation,
     systemUpdatePresentation,
     taskDetailPresentation,
@@ -2375,6 +2375,9 @@ class SidebarView extends St.Widget {
         this._runtime = runtime;
         this._refreshing = false;
         this._securityRefreshing = false;
+        this._securityJobId = null;
+        this._securityJobPollSourceId = 0;
+        this._securityJobDiscoverySourceId = 0;
         this._section = 'system';
         this._disposed = false;
         this.connect('destroy', () => {
@@ -2384,6 +2387,14 @@ class SidebarView extends St.Widget {
                 this._refreshSourceId = 0;
             }
             this._stopProcessOverlayRefresh();
+            if (this._securityJobPollSourceId) {
+                GLib.Source.remove(this._securityJobPollSourceId);
+                this._securityJobPollSourceId = 0;
+            }
+            if (this._securityJobDiscoverySourceId) {
+                GLib.Source.remove(this._securityJobDiscoverySourceId);
+                this._securityJobDiscoverySourceId = 0;
+            }
         });
         this._refreshSourceId = GLib.timeout_add_seconds(
             GLib.PRIORITY_DEFAULT,
@@ -2434,6 +2445,16 @@ class SidebarView extends St.Widget {
         this._content.add_child(this._buildTaskCard());
         this._content.add_child(this._buildActionsCard());
         this._buildSecurityContent();
+        this._securityJobDiscoverySourceId = GLib.timeout_add_seconds(
+            GLib.PRIORITY_DEFAULT,
+            2,
+            () => {
+                if (this._disposed)
+                    return GLib.SOURCE_REMOVE;
+                this._discoverSecurityJob();
+                return GLib.SOURCE_CONTINUE;
+            },
+        );
         this._historyCard = this._buildHistoryCard();
         this._historyCard.hide();
         this._historyButton = this._buildHistoryButton();
@@ -2557,7 +2578,40 @@ class SidebarView extends St.Widget {
             {wrap: true},
         );
         scan.add_child(this._securityScanResult);
+        this._securityCancelButton = new St.Button({
+            label: 'Отменить проверку',
+            style_class: 'ai-sidebar-action ai-sidebar-action-wide',
+        });
+        this._securityCancelButton.hide();
+        this._securityCancelButton.connect('clicked', () => this._cancelSecurityJob());
+        scan.add_child(this._securityCancelButton);
         this._securityContent.add_child(scan);
+
+        const automation = this._card('Фоновая защита');
+        this._securityAutomaticButton = new St.Button({
+            label: 'Автоматические проверки: выкл',
+            style_class: 'ai-sidebar-action ai-sidebar-action-wide',
+            toggle_mode: true,
+        });
+        this._securityAutomaticButton.connect(
+            'clicked', () => this._setAutomaticSecurityScans(
+                this._securityAutomaticButton.checked,
+            ),
+        );
+        automation.add_child(this._securityAutomaticButton);
+        this._securityAutomaticDetail = sidebarLabel(
+            'Ручные проверки всегда доступны. Автоматический quick scan выключен.',
+            'ai-sidebar-caption',
+            {wrap: true},
+        );
+        automation.add_child(this._securityAutomaticDetail);
+        this._securityHistory = sidebarLabel(
+            'История проверок пока пуста.',
+            'ai-sidebar-caption',
+            {wrap: true},
+        );
+        automation.add_child(this._securityHistory);
+        this._securityContent.add_child(automation);
 
         const checks = this._card('Проверки Ubuntu');
         this._securityChecks = new St.BoxLayout({vertical: true, x_expand: true});
@@ -2604,34 +2658,164 @@ class SidebarView extends St.Widget {
         if (this._securityScanInFlight)
             return;
         this._securityScanInFlight = true;
-        const buttons = [
-            this._securityQuickButton,
-            this._securityFullButton,
-            this._securityFileButton,
-            this._securityFolderButton,
-        ];
-        buttons.forEach(button => button.reactive = false);
-        this._securityScanResult.set_text('Проверка выполняется…');
+        this._setSecurityScanBusy(true);
+        this._securityScanResult.set_text('Проверка ставится в очередь…');
         try {
-            const result = await this._runtime.securityScan(payload);
+            const job = await this._runtime.securityJobStart(payload);
             if (this._disposed)
                 return;
-            const view = securityScanPresentation(result);
-            this._securityScanResult.set_text(`${view.title}. ${view.detail}`);
-            const scanTitle = SECURITY_SCAN_TITLES[payload.target] ?? 'Проверка';
-            notifyUser(`${scanTitle} завершена`, `${view.title}. ${view.detail}`);
-            await this._refreshSecurity();
+            this._securityJobId = job.job_id;
+            this._securityCancelButton.show();
+            this._renderSecurityJob(job);
+            this._startSecurityJobPolling();
         } catch (_error) {
             if (!this._disposed) {
                 this._securityScanResult.set_text('Не удалось выполнить проверку.');
                 const scanTitle = SECURITY_SCAN_TITLES[payload.target] ?? 'Проверка';
                 notifyUser(scanTitle, 'Не удалось выполнить проверку.');
+                this._securityScanInFlight = false;
+                this._setSecurityScanBusy(false);
+            }
+        }
+    }
+
+    _setSecurityScanBusy(busy) {
+        [
+            this._securityQuickButton,
+            this._securityFullButton,
+            this._securityFileButton,
+            this._securityFolderButton,
+        ].forEach(button => button.reactive = !busy);
+    }
+
+    _startSecurityJobPolling() {
+        if (this._securityJobPollSourceId)
+            return;
+        this._securityJobPollSourceId = GLib.timeout_add_seconds(
+            GLib.PRIORITY_DEFAULT,
+            1,
+            () => {
+                this._pollSecurityJob();
+                return this._disposed || !this._securityJobId
+                    ? GLib.SOURCE_REMOVE
+                    : GLib.SOURCE_CONTINUE;
+            },
+        );
+        this._pollSecurityJob();
+    }
+
+    async _discoverSecurityJob() {
+        if (this._securityJobId || this._securityJobDiscoveryInFlight)
+            return;
+        this._securityJobDiscoveryInFlight = true;
+        try {
+            const job = await this._runtime.securityJobStatus();
+            if (this._disposed || !job?.job_id || this._securityJobId)
+                return;
+            this._securityJobId = job.job_id;
+            this._securityScanInFlight = true;
+            this._securityCancelButton.show();
+            this._setSecurityScanBusy(true);
+            this._renderSecurityJob(job);
+            this._startSecurityJobPolling();
+        } catch (_error) {
+            // Discovery is best-effort; the Security Center view reports hard failures.
+        } finally {
+            this._securityJobDiscoveryInFlight = false;
+        }
+    }
+
+    async _pollSecurityJob() {
+        const jobId = this._securityJobId;
+        if (!jobId || this._securityJobPollInFlight)
+            return;
+        this._securityJobPollInFlight = true;
+        try {
+            const job = await this._runtime.securityJobStatus(jobId);
+            if (this._disposed || this._securityJobId !== jobId)
+                return;
+            this._renderSecurityJob(job);
+            const view = securityJobPresentation(job);
+            if (view.final) {
+                const scanTitle = SECURITY_SCAN_TITLES[job.target] ?? 'Проверка';
+                notifyUser(`${scanTitle} завершена`, `${view.title}. ${view.detail}`);
+                this._securityJobId = null;
+                this._securityJobPollSourceId = 0;
+                this._securityScanInFlight = false;
+                this._securityCancelButton.hide();
+                this._setSecurityScanBusy(false);
+                await this._refreshSecurity();
+            }
+        } catch (_error) {
+            if (!this._disposed)
+                this._securityScanResult.set_text('Не удалось получить прогресс проверки.');
+        } finally {
+            this._securityJobPollInFlight = false;
+        }
+    }
+
+    _renderSecurityJob(job) {
+        const view = securityJobPresentation(job);
+        this._securityScanResult.set_text(`${view.title}. ${view.detail}`);
+    }
+
+    async _cancelSecurityJob() {
+        if (!this._securityJobId)
+            return;
+        this._securityCancelButton.reactive = false;
+        try {
+            const job = await this._runtime.securityJobCancel(this._securityJobId);
+            if (!this._disposed)
+                this._renderSecurityJob(job);
+        } catch (_error) {
+            if (!this._disposed)
+                this._securityScanResult.set_text('Не удалось отменить проверку.');
+        } finally {
+            if (!this._disposed)
+                this._securityCancelButton.reactive = true;
+        }
+    }
+
+    async _setAutomaticSecurityScans(enabled) {
+        this._securityAutomaticButton.reactive = false;
+        try {
+            const settings = await this._runtime.securityJobSettings(enabled);
+            if (!this._disposed)
+                this._renderSecuritySettings(settings);
+        } catch (_error) {
+            if (!this._disposed) {
+                this._securityAutomaticButton.checked = !enabled;
+                this._securityAutomaticDetail.set_text('Не удалось сохранить настройку.');
             }
         } finally {
-            this._securityScanInFlight = false;
             if (!this._disposed)
-                buttons.forEach(button => button.reactive = true);
+                this._securityAutomaticButton.reactive = true;
         }
+    }
+
+    _renderSecuritySettings(settings) {
+        const enabled = settings?.automatic_scans_enabled === true;
+        this._securityAutomaticButton.checked = enabled;
+        this._securityAutomaticButton.label = `Автоматические проверки: ${enabled ? 'вкл' : 'выкл'}`;
+        this._securityAutomaticDetail.set_text(
+            enabled
+                ? 'Quick scan запускается автоматически раз в 24 часа.'
+                : 'Ручные проверки всегда доступны. Автоматический quick scan выключен.',
+        );
+    }
+
+    _renderSecurityHistory(history) {
+        const jobs = Array.isArray(history?.jobs) ? history.jobs.slice(0, 3) : [];
+        if (!jobs.length) {
+            this._securityHistory.set_text('История проверок пока пуста.');
+            return;
+        }
+        const lines = jobs.map(job => {
+            const label = SECURITY_SCAN_TITLES[job.target] ?? 'Проверка';
+            const view = securityJobPresentation(job);
+            return `${label}: ${view.title.toLowerCase()} · файлов ${job.scanned_files ?? 0}`;
+        });
+        this._securityHistory.set_text(`Последние проверки:\n${lines.join('\n')}`);
     }
 
     _securityItem(item) {
@@ -2994,10 +3178,25 @@ class SidebarView extends St.Widget {
             return;
         this._securityRefreshing = true;
         try {
-            const snapshot = await this._runtime.securitySnapshot();
+            const [snapshot, settings, history, active] = await Promise.all([
+                this._runtime.securitySnapshot(),
+                this._runtime.securityJobSettings(),
+                this._runtime.securityJobHistory(5),
+                this._runtime.securityJobStatus(),
+            ]);
             if (this._disposed)
                 return;
             const view = securityPresentation(snapshot);
+            this._renderSecuritySettings(settings);
+            this._renderSecurityHistory(history);
+            if (active?.job_id && !this._securityJobId) {
+                this._securityJobId = active.job_id;
+                this._securityScanInFlight = true;
+                this._securityCancelButton.show();
+                this._setSecurityScanBusy(true);
+                this._renderSecurityJob(active);
+                this._startSecurityJobPolling();
+            }
             this._securityState.set_text(view.summary.label);
             this._securityVersion.set_text(view.moduleVersion);
             this._securityChecks.destroy_all_children();

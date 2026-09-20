@@ -821,6 +821,40 @@ class QueryServiceTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 application.security_scan(payload, transport_context=transport)
 
+    def test_runtime_exposes_background_security_jobs_and_settings(self) -> None:
+        calls: list[tuple[str, dict[str, object]]] = []
+        application = QueryRuntimeApplication(
+            self.service,
+            security_jobs=lambda operation, payload: calls.append(
+                (operation, payload)
+            )
+            or {"schema_version": 1, "operation": operation, **payload},
+        )
+        transport = TransportContext.internal()
+
+        started = application.security_job_start(
+            {"target": "quick"}, transport_context=transport
+        )
+        application.security_job_status({}, transport_context=transport)
+        application.security_job_cancel(
+            {"job_id": "00000000-0000-0000-0000-000000000001"},
+            transport_context=transport,
+        )
+        application.security_job_history({"limit": 5}, transport_context=transport)
+        settings = application.security_job_settings(
+            {"automatic_scans_enabled": True},
+            update=True,
+            transport_context=transport,
+        )
+
+        self.assertEqual(started["operation"], "start")
+        self.assertEqual(settings["automatic_scans_enabled"], True)
+        self.assertEqual(
+            [item[0] for item in calls],
+            ["start", "status", "cancel", "history", "settings_update"],
+        )
+        self.assertIn("security.scan.jobs", application.capabilities())
+
     def test_runtime_exposes_validated_software_mutations(self) -> None:
         calls: list[tuple[str, dict[str, object]]] = []
 

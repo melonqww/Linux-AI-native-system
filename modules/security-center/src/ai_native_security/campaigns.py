@@ -87,6 +87,9 @@ class CampaignScanner:
         resource_id: object,
         mode: object,
         relative_path: object = "",
+        *,
+        progress: Callable[[dict[str, int]], None] | None = None,
+        cancelled: Callable[[], bool] | None = None,
     ) -> dict[str, object]:
         if type(resource_id) is not str or resource_id not in self._roots:
             return self._rejected(
@@ -108,6 +111,7 @@ class CampaignScanner:
         scanned = threats = unknown = skipped = total_bytes = 0
         limited = False
         finding_ids: list[int] = []
+        was_cancelled = False
 
         for relative_path, size_bytes in self._candidates(
             scan_root,
@@ -119,6 +123,9 @@ class CampaignScanner:
                 for item in self._exclusions[resource_id]
             ),
         ):
+            if cancelled is not None and cancelled():
+                was_cancelled = True
+                break
             if relative_path is None:
                 if size_bytes < 0:
                     limited = True
@@ -147,13 +154,29 @@ class CampaignScanner:
                 unknown += 1
             if result.status == "rejected":
                 skipped += 1
+            if progress is not None:
+                progress(
+                    {
+                        "scanned_files": scanned,
+                        "scanned_bytes": total_bytes,
+                        "threat_files": threats,
+                        "unknown_files": unknown,
+                        "skipped_files": skipped,
+                    }
+                )
 
-        status = "partial" if limited or unknown else "completed"
+        status = (
+            "cancelled"
+            if was_cancelled
+            else "partial"
+            if limited or unknown
+            else "completed"
+        )
         verdict = (
             "malware_detected"
             if threats
             else "unknown"
-            if status == "partial"
+            if status in {"partial", "cancelled"}
             else "no_threat_detected"
         )
         return {
@@ -166,6 +189,8 @@ class CampaignScanner:
             "error_code": (
                 "profile_limit_reached"
                 if limited
+                else "scan_cancelled"
+                if was_cancelled
                 else "scan_incomplete"
                 if unknown
                 else None

@@ -103,6 +103,7 @@ class QueryRuntimeApplication:
         | None = None,
         security_snapshot: Callable[[], dict[str, object]] | None = None,
         security_scan: Callable[[dict[str, object]], dict[str, object]] | None = None,
+        security_jobs: Callable[[str, dict[str, object]], dict[str, object]] | None = None,
     ) -> None:
         self.query_service = query_service
         self.scheduler_status = scheduler_status
@@ -126,6 +127,7 @@ class QueryRuntimeApplication:
         self.software_restore_callback = software_restore
         self.security_snapshot_callback = security_snapshot
         self.security_scan_callback = security_scan
+        self.security_jobs_callback = security_jobs
         if intent_pipeline is not None and task_context is None:
             raise ValueError("task_context is required with intent_pipeline")
         if (plan_store is None) != (plan_executor is None):
@@ -203,6 +205,8 @@ class QueryRuntimeApplication:
             )
         if self.security_scan_callback is not None:
             capabilities.extend(("security.files.scan", "security.scan.run"))
+        if self.security_jobs_callback is not None:
+            capabilities.append("security.scan.jobs")
         return capabilities
 
     def security_snapshot(
@@ -259,6 +263,103 @@ class QueryRuntimeApplication:
         if not isinstance(result, dict):
             raise RuntimeError("security_center_invalid_response")
         return result
+
+    def security_job_start(
+        self, payload: dict[str, object], *, transport_context: TransportContext
+    ) -> dict[str, object]:
+        if self.security_jobs_callback is None:
+            raise RuntimeError("security_jobs_unavailable")
+        self._require_secure_transport(transport_context)
+        capability, arguments = self._validate_security_scan(payload)
+        self._authorize_security(capability, arguments, transport_context)
+        return self._security_job_result("start", payload)
+
+    def security_job_status(
+        self, payload: dict[str, object], *, transport_context: TransportContext
+    ) -> dict[str, object]:
+        self._require_secure_transport(transport_context)
+        if not set(payload).issubset({"job_id"}):
+            raise ValueError("invalid security job fields")
+        return self._security_job_result("status", payload)
+
+    def security_job_cancel(
+        self, payload: dict[str, object], *, transport_context: TransportContext
+    ) -> dict[str, object]:
+        self._require_secure_transport(transport_context)
+        if set(payload) != {"job_id"}:
+            raise ValueError("invalid security job fields")
+        return self._security_job_result("cancel", payload)
+
+    def security_job_history(
+        self, payload: dict[str, object], *, transport_context: TransportContext
+    ) -> dict[str, object]:
+        self._require_secure_transport(transport_context)
+        if not set(payload).issubset({"limit"}):
+            raise ValueError("invalid security job fields")
+        return self._security_job_result("history", payload)
+
+    def security_job_settings(
+        self,
+        payload: dict[str, object],
+        *,
+        update: bool,
+        transport_context: TransportContext,
+    ) -> dict[str, object]:
+        self._require_secure_transport(transport_context)
+        expected = {"automatic_scans_enabled"} if update else set()
+        if set(payload) != expected:
+            raise ValueError("invalid security job settings")
+        if update and payload["automatic_scans_enabled"] is True:
+            self._authorize_security(
+                "security.scan.run",
+                {"resource_id": "quick-scope", "mode": "quick"},
+                transport_context,
+            )
+        operation = "settings_update" if update else "settings_get"
+        return self._security_job_result(operation, payload)
+
+    def _security_job_result(
+        self, operation: str, payload: dict[str, object]
+    ) -> dict[str, object]:
+        if self.security_jobs_callback is None:
+            raise RuntimeError("security_jobs_unavailable")
+        result = self.security_jobs_callback(operation, payload)
+        if not isinstance(result, dict):
+            raise RuntimeError("security_center_invalid_response")
+        return result
+
+    def _validate_security_scan(
+        self, payload: dict[str, object]
+    ) -> tuple[str, dict[str, object]]:
+        target = payload.get("target")
+        if target in {"quick", "full"}:
+            if set(payload) != {"target"}:
+                raise ValueError("security scan fields are invalid")
+            return "security.scan.run", {
+                "resource_id": f"{target}-scope",
+                "mode": target,
+            }
+        if target == "file":
+            if set(payload) != {"target", "relative_path"}:
+                raise ValueError("security scan fields are invalid")
+            relative_path = self._security_relative_path(payload.get("relative_path"))
+            return "security.files.scan", {
+                "resource_id": "home",
+                "relative_path": relative_path,
+            }
+        if target == "folder":
+            if set(payload) != {"target", "relative_path", "mode"}:
+                raise ValueError("security scan fields are invalid")
+            relative_path = self._security_relative_path(payload.get("relative_path"))
+            mode = payload.get("mode")
+            if mode not in {"quick", "full"}:
+                raise ValueError("invalid security scan mode")
+            return "security.scan.run", {
+                "resource_id": "home",
+                "relative_path": relative_path,
+                "mode": mode,
+            }
+        raise ValueError("invalid security scan target")
 
     @staticmethod
     def _security_relative_path(value: object) -> str:

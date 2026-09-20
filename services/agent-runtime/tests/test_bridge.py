@@ -184,6 +184,24 @@ class App:
             "verdict": "no_threat_detected",
         }
 
+    def security_job_start(self, payload, *, transport_context):
+        return {"schema_version": 1, "job_id": "job", **payload}
+
+    def security_job_status(self, payload, *, transport_context):
+        return {"schema_version": 1, "state": "running", **payload}
+
+    def security_job_cancel(self, payload, *, transport_context):
+        return {"schema_version": 1, "state": "cancelling", **payload}
+
+    def security_job_history(self, payload, *, transport_context):
+        return {"schema_version": 1, "jobs": [], **payload}
+
+    def security_job_settings(self, payload, *, update, transport_context):
+        return {
+            "schema_version": 1,
+            "automatic_scans_enabled": payload.get("automatic_scans_enabled", False),
+        }
+
 
 class BridgeTests(unittest.TestCase):
     def test_security_snapshot_is_available_to_secure_runtime(self):
@@ -201,6 +219,22 @@ class BridgeTests(unittest.TestCase):
 
         self.assertEqual(response.status, 200)
         self.assertEqual(response.payload["target"], "quick")
+
+    def test_security_background_job_routes_are_available(self):
+        router = RuntimeRouter(App())
+        started = router.dispatch(
+            "POST", "/v1/security/jobs/start", {"target": "quick"}
+        )
+        status = router.dispatch("POST", "/v1/security/jobs/status", {})
+        settings = router.dispatch(
+            "POST",
+            "/v1/security/jobs/settings",
+            {"automatic_scans_enabled": True},
+        )
+
+        self.assertEqual(started.status, 200)
+        self.assertEqual(status.payload["state"], "running")
+        self.assertTrue(settings.payload["automatic_scans_enabled"])
 
     def test_rejects_non_loopback_binding(self):
         with self.assertRaises(ValueError):

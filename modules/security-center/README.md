@@ -1,7 +1,7 @@
 # Security Center
 
 `Security Center` — доверенный on-demand модуль защиты AI-native Linux.
-Текущий код `0.7.0` предоставляет status, безопасное сканирование одного файла,
+Текущий код `0.8.0` предоставляет status, безопасное сканирование одного файла,
 профили `quick`/`full`, Finding Store, optional локальный `clamd` и read-only
 аудит Ubuntu.
 
@@ -119,13 +119,21 @@ Prepare повторно сверяет finding и digest, но не меняе�
 отклоняются. «Полная» означает всё, что разрешено Security Center, а не скрытое
 root-право на чтение всей ОС.
 
+## v0.8.0: фоновые проверки
+
+Quick, full, file и folder scan запускаются как отдельные jobs. Панель показывает
+реальные счётчики файлов и байтов, угрозы и прошедшее время, позволяет отменить
+проверку и хранит короткую metadata-only историю. Одновременно выполняется одна
+job. Автоматический quick scan раз в 24 часа по умолчанию выключен и включается
+отдельным переключателем; ручные проверки от него не зависят.
+
 Приватный каталог runtime с Finding Store и карантином явно исключён trusted
 bootstrap из home scan. UI не может добавлять исключения; попытка точечной
 проверки защищённого пути возвращает `protected_path`.
 
 ## Границы версии
 
-`0.7.0` сканирует файл, выбранную папку или все bounded trusted roots, выполняет read-only Ubuntu
+`0.8.0` сканирует файл, выбранную папку или все bounded trusted roots, выполняет read-only Ubuntu
 posture и возвращает JSON-safe
 результат: digest, размер, итог, код ошибки и нормализованные observations. В ответ не входят содержимое файла, абсолютный
 путь, секреты, произвольный detector output или traceback.
@@ -138,6 +146,8 @@ posture и возвращает JSON-safe
 ## Документация
 
 - [User Scan API v7](../../Architecture/api/security-center-user-scan-v7.md)
+- [Background Jobs API v8](../../Architecture/api/security-center-background-jobs-v8.md)
+- [ADR-037: фоновые scan jobs](../../Architecture/decisions/ADR-037-security-background-scan-jobs.md)
 - [ADR-036: пользовательские quick/full scan](../../Architecture/decisions/ADR-036-security-user-scan-modes.md)
 - [Panel API v1](../../Architecture/api/security-center-panel-v1.md)
 - [ADR-035: безопасная проекция в панели](../../Architecture/decisions/ADR-035-security-center-panel-projection.md)

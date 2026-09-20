@@ -1,6 +1,7 @@
 import json
 import shutil
 import sys
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -116,7 +117,7 @@ class ModuleManagerTests(unittest.TestCase):
             {
                 "schema_version": 1,
                 "module_id": "security.center",
-                "module_version": "0.7.0",
+                "module_version": "0.8.0",
                 "state": "ready",
                 "lifecycle": "on-demand",
                 "capabilities": [
@@ -359,6 +360,39 @@ class ModuleManagerTests(unittest.TestCase):
         self.assertTrue(self.manager.security_findings_database.is_file())
         encoded = json.dumps({"scan": result, "findings": findings})
         self.assertNotIn(str(self.security_scan_root), encoded)
+
+    def test_runs_security_scan_as_pollable_background_job(self) -> None:
+        (self.security_scan_root / "one.txt").write_bytes(b"ordinary sample")
+        provider = self.manager.start_for_capability("security.scan.run")
+        started = self.manager.invoke(
+            provider,
+            "job_start",
+            {
+                "target": "full",
+                "mode": "full",
+                "scopes": [
+                    {"resource_id": "test-files", "relative_path": ""}
+                ],
+            },
+            timeout=5,
+        )
+
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            job = self.manager.invoke(
+                provider,
+                "job_status",
+                {"job_id": started["job_id"]},
+                timeout=5,
+            )
+            if job["state"] in {"completed", "partial", "failed"}:
+                break
+            time.sleep(0.01)
+        else:
+            self.fail("background security job did not finish")
+
+        self.assertEqual(job["state"], "completed")
+        self.assertEqual(job["scanned_files"], 1)
 
     def test_security_posture_is_bounded_in_isolated_worker(self) -> None:
         provider = self.manager.start_for_capability("security.posture.scan")

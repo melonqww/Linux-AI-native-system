@@ -213,6 +213,7 @@ def main() -> int:
             storage_database=args.storage_database,
             index_database=args.index_database,
             security_scan_roots=security_roots,
+            security_quick_targets=security_quick_targets,
         )
         server = None
         workspace_controller = None
@@ -319,6 +320,7 @@ def main() -> int:
                 software_restore = None
             security_snapshot = None
             security_scan = None
+            security_jobs = None
             try:
                 security_module_id = manager.start_for_capability(
                     "security.module.status"
@@ -398,6 +400,61 @@ def main() -> int:
                         for resource_id, relative_path in targets
                     ]
                     return combine_security_scans(target, mode, results)
+
+                def security_jobs(operation, payload):
+                    if operation == "start":
+                        target = payload["target"]
+                        if target == "file":
+                            job_payload = {
+                                "target": "file",
+                                "mode": "single",
+                                "resource_id": "home",
+                                "relative_path": payload["relative_path"],
+                            }
+                        elif target == "folder":
+                            job_payload = {
+                                "target": "folder",
+                                "mode": payload["mode"],
+                                "scopes": [
+                                    {
+                                        "resource_id": "home",
+                                        "relative_path": payload["relative_path"],
+                                    }
+                                ],
+                            }
+                        else:
+                            targets = (
+                                security_quick_targets
+                                if target == "quick"
+                                else tuple(
+                                    (resource_id, "")
+                                    for resource_id in security_roots
+                                )
+                            )
+                            job_payload = {
+                                "target": target,
+                                "mode": target,
+                                "scopes": [
+                                    {
+                                        "resource_id": resource_id,
+                                        "relative_path": relative_path,
+                                    }
+                                    for resource_id, relative_path in targets
+                                ],
+                            }
+                        return manager.invoke(
+                            security_module_id, "job_start", job_payload, timeout=15
+                        )
+                    worker_operation = {
+                        "status": "job_status",
+                        "cancel": "job_cancel",
+                        "history": "job_history",
+                        "settings_get": "job_settings_get",
+                        "settings_update": "job_settings_update",
+                    }[operation]
+                    return manager.invoke(
+                        security_module_id, worker_operation, payload, timeout=15
+                    )
             except ModuleProcessError:
                 print("Security Center: unavailable")
             if not args.no_intent_compiler:
@@ -543,6 +600,7 @@ def main() -> int:
                 software_restore=software_restore,
                 security_snapshot=security_snapshot,
                 security_scan=security_scan,
+                security_jobs=security_jobs,
             )
             transport = (
                 "unix"

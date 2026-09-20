@@ -48,6 +48,7 @@ class ModuleProcessManager:
         storage_database: Path | None = None,
         index_database: Path | None = None,
         security_scan_roots: Mapping[str, Path] | None = None,
+        security_quick_targets: Collection[tuple[str, str]] | None = None,
         security_clamd_socket: Path | None = None,
         security_clamd_peer_uids: Collection[int] | None = None,
     ) -> None:
@@ -90,6 +91,16 @@ class ModuleProcessManager:
                 if relative in {"", "."}:
                     raise ValueError("runtime directory cannot equal a scan root")
                 self.security_scan_exclusions[resource_id] = (relative,)
+        self.security_quick_targets = tuple(security_quick_targets or ())
+        if not self.security_quick_targets:
+            self.security_quick_targets = tuple(
+                (resource_id, "") for resource_id in self.security_scan_roots
+            )
+        for resource_id, relative_path in self.security_quick_targets:
+            if resource_id not in self.security_scan_roots or not isinstance(
+                relative_path, str
+            ):
+                raise ValueError("invalid security quick targets")
         self.security_clamd_socket = self._validate_security_clamd_socket(
             security_clamd_socket
         )
@@ -166,8 +177,18 @@ class ModuleProcessManager:
                 self.security_scan_exclusions,
                 separators=(",", ":"),
             )
+            env["AI_NATIVE_SECURITY_QUICK_SCOPES"] = json.dumps(
+                [
+                    {"resource_id": resource_id, "relative_path": relative_path}
+                    for resource_id, relative_path in self.security_quick_targets
+                ],
+                separators=(",", ":"),
+            )
             env["AI_NATIVE_SECURITY_FINDINGS_DATABASE"] = str(
                 self.security_findings_database
+            )
+            env["AI_NATIVE_SECURITY_JOBS_DATABASE"] = str(
+                self.runtime_directory / "security-jobs.sqlite3"
             )
             env["AI_NATIVE_SECURITY_USER_AUTOSTART"] = str(
                 Path.home() / ".config" / "autostart"

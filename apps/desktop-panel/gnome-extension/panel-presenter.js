@@ -236,6 +236,53 @@ export function securityScanPresentation(result) {
     };
 }
 
+export function securityJobPresentation(job) {
+    const state = typeof job?.state === 'string' ? job.state : 'failed';
+    const scanned = safeCount(job?.scanned_files);
+    const bytes = formatBytes(safeCount(job?.scanned_bytes));
+    const threats = safeCount(job?.threat_files);
+    const skipped = safeCount(job?.skipped_files);
+    const elapsed = safeCount(job?.elapsed_seconds);
+    if (['queued', 'running', 'cancelling'].includes(state)) {
+        const title = state === 'queued'
+            ? 'Проверка ожидает запуска'
+            : state === 'cancelling'
+                ? 'Проверка отменяется'
+                : 'Проверка выполняется';
+        return {
+            final: false,
+            title,
+            detail: `Проверено: ${scanned} · ${bytes} · угроз: ${threats} · ${elapsed} с`,
+            style: 'neutral',
+        };
+    }
+    const result = securityScanPresentation({
+        status: state,
+        verdict: job?.verdict,
+        scanned_files: scanned,
+        threat_files: threats,
+        unknown_files: job?.unknown_files,
+        skipped_files: skipped,
+    });
+    if (state === 'cancelled') {
+        return {
+            final: true,
+            title: 'Проверка отменена',
+            detail: `Проверено: ${scanned} · ${bytes} · пропущено: ${skipped}`,
+            style: 'neutral',
+        };
+    }
+    if (state === 'failed') {
+        return {
+            final: true,
+            title: 'Проверка завершилась ошибкой',
+            detail: `Проверено файлов: ${scanned}`,
+            style: 'error',
+        };
+    }
+    return {...result, final: true};
+}
+
 export function monitorPresentation(snapshot) {
     if (snapshot?.supported !== true) {
         return {

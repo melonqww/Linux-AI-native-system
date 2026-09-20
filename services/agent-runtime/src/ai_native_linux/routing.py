@@ -245,6 +245,30 @@ class RuntimeRouter:
                 ),
             )
         if path in {
+            "/v1/security/jobs/start",
+            "/v1/security/jobs/status",
+            "/v1/security/jobs/cancel",
+            "/v1/security/jobs/history",
+            "/v1/security/jobs/settings",
+        }:
+            if not self.allow_r1:
+                return self.error(403, "secure_transport_required", False, request_id)
+            operation = {
+                "/v1/security/jobs/start": self.application.security_job_start,
+                "/v1/security/jobs/status": self.application.security_job_status,
+                "/v1/security/jobs/cancel": self.application.security_job_cancel,
+                "/v1/security/jobs/history": self.application.security_job_history,
+            }.get(path)
+            if path == "/v1/security/jobs/settings":
+                result = self.application.security_job_settings(
+                    payload,
+                    update="automatic_scans_enabled" in payload,
+                    transport_context=transport_context,
+                )
+            else:
+                result = operation(payload, transport_context=transport_context)
+            return RuntimeResponse(200, result)
+        if path in {
             "/v1/software/prepare",
             "/v1/software/respond",
             "/v1/software/control",

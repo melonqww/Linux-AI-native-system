@@ -20,6 +20,7 @@ from .contracts import (
 from .campaigns import CampaignScanner, ScanProfile
 from .detectors import ClamdUnixSocketDetector, StreamDetector
 from .findings import FindingStore, FindingStoreError
+from .jobs import SecurityJobManager
 from .posture import PostureObservation, UbuntuPostureCollector
 from .quarantine import QuarantineManager
 from .scanner import ByteSignature, FileScanner, HashSignature, SignatureDatabase
@@ -32,6 +33,7 @@ _campaign_scanner: CampaignScanner | None = None
 _finding_store: FindingStore | None = None
 _posture_collector: UbuntuPostureCollector | None = None
 _quarantine_manager: QuarantineManager | None = None
+_job_manager: SecurityJobManager | None = None
 
 
 def worker_start(
@@ -49,7 +51,7 @@ def worker_start(
     """Start with roots supplied only by trusted bootstrap code."""
 
     global _campaign_scanner, _finding_store, _posture_collector
-    global _quarantine_manager, _scanner, _started
+    global _job_manager, _quarantine_manager, _scanner, _started
     if _started:
         return
     roots = _roots_from_environment() if allowed_roots is None else allowed_roots
@@ -121,6 +123,20 @@ def worker_start(
         clamd_configured=bool(detectors),
     )
     _quarantine_manager = quarantine_manager
+    jobs_database = os.environ.get("AI_NATIVE_SECURITY_JOBS_DATABASE")
+    _job_manager = (
+        None
+        if jobs_database is None
+        else SecurityJobManager(
+            jobs_database,
+            _run_scan_job,
+            automatic_payload={
+                "target": "quick",
+                "mode": "quick",
+                "scopes": _quick_scopes_from_environment(roots),
+            },
+        )
+    )
     _started = True
 
 
@@ -173,6 +189,32 @@ def worker_invoke(operation: str, payload: dict[str, object]) -> dict[str, objec
             raise ValueError("invalid_payload")
         assert _posture_collector is not None
         return _posture_collector.scan()
+    if operation == "job_start":
+        if not set(payload).issubset(
+            {"target", "mode", "resource_id", "relative_path", "scopes"}
+        ):
+            raise ValueError("invalid_payload")
+        return _require_jobs().start(payload)
+    if operation == "job_status":
+        if not set(payload).issubset({"job_id"}):
+            raise ValueError("invalid_payload")
+        return _require_jobs().status(payload.get("job_id"))
+    if operation == "job_cancel":
+        if set(payload) != {"job_id"}:
+            raise ValueError("invalid_payload")
+        return _require_jobs().cancel(payload["job_id"])
+    if operation == "job_history":
+        if not set(payload).issubset({"limit"}):
+            raise ValueError("invalid_payload")
+        return _require_jobs().history(payload.get("limit", 10))
+    if operation == "job_settings_get":
+        if payload:
+            raise ValueError("invalid_payload")
+        return _require_jobs().settings()
+    if operation == "job_settings_update":
+        if set(payload) != {"automatic_scans_enabled"}:
+            raise ValueError("invalid_payload")
+        return _require_jobs().update_settings(payload["automatic_scans_enabled"])
     if operation == "quarantine_prepare":
         if set(payload) != {"finding_id"}:
             raise ValueError("invalid_payload")
@@ -192,7 +234,10 @@ def worker_stop() -> None:
     """Stop the worker; repeated stops are harmless."""
 
     global _campaign_scanner, _finding_store, _posture_collector
-    global _quarantine_manager, _scanner, _started
+    global _job_manager, _quarantine_manager, _scanner, _started
+    if _job_manager is not None:
+        _job_manager.close()
+    _job_manager = None
     if _finding_store is not None:
         _finding_store.close()
     _finding_store = None
@@ -214,6 +259,104 @@ def _require_quarantine() -> QuarantineManager:
     if _quarantine_manager is None:
         raise RuntimeError("quarantine_not_configured")
     return _quarantine_manager
+
+
+def _require_jobs() -> SecurityJobManager:
+    if _job_manager is None:
+        raise RuntimeError("security_jobs_not_configured")
+    return _job_manager
+
+
+def _run_scan_job(
+    payload: dict[str, object],
+    progress,
+    cancelled,
+) -> dict[str, object]:
+    target = payload.get("target")
+    mode = payload.get("mode")
+    if target == "file":
+        if set(payload) != {"target", "mode", "resource_id", "relative_path"}:
+            raise ValueError("invalid_scan_job")
+        assert _scanner is not None and _finding_store is not None
+        result = _scanner.scan(payload["resource_id"], payload["relative_path"])
+        _finding_store.record(result)
+        was_cancelled = cancelled()
+        summary = {
+            "status": (
+                "cancelled"
+                if was_cancelled
+                else "completed"
+                if result.status == "completed"
+                else "partial"
+            ),
+            "verdict": result.verdict if not was_cancelled else "unknown",
+            "scanned_files": int(result.status == "completed"),
+            "scanned_bytes": result.size_bytes or 0,
+            "threat_files": int(result.verdict == "malware_detected"),
+            "unknown_files": int(result.verdict == "unknown"),
+            "skipped_files": int(result.status == "rejected"),
+            "error_code": "scan_cancelled" if was_cancelled else result.error_code,
+        }
+        progress(
+            {
+                key: int(value)
+                for key, value in summary.items()
+                if key.endswith("files") or key == "scanned_bytes"
+            }
+        )
+        return summary
+    if target not in {"quick", "full", "folder"} or mode not in {"quick", "full"}:
+        raise ValueError("invalid_scan_job")
+    scopes = payload.get("scopes")
+    if type(scopes) is not list or not 1 <= len(scopes) <= 32:
+        raise ValueError("invalid_scan_job")
+    totals = {
+        "scanned_files": 0,
+        "scanned_bytes": 0,
+        "threat_files": 0,
+        "unknown_files": 0,
+        "skipped_files": 0,
+    }
+    status = "completed"
+    error_code = None
+    assert _campaign_scanner is not None
+    for scope in scopes:
+        if type(scope) is not dict or set(scope) != {"resource_id", "relative_path"}:
+            raise ValueError("invalid_scan_job")
+        base = dict(totals)
+
+        def scoped_progress(values: dict[str, int]) -> None:
+            progress({key: base[key] + values.get(key, 0) for key in totals})
+
+        result = _campaign_scanner.run(
+            scope["resource_id"],
+            mode,
+            scope["relative_path"],
+            progress=scoped_progress,
+            cancelled=cancelled,
+        )
+        for key in totals:
+            totals[key] += int(result.get(key, 0))
+        progress(totals)
+        if result.get("status") == "cancelled":
+            status = "cancelled"
+            error_code = "scan_cancelled"
+            break
+        if result.get("status") != "completed":
+            status = "partial"
+            error_code = str(result.get("error_code") or "scan_incomplete")
+    return {
+        "status": status,
+        "verdict": (
+            "malware_detected"
+            if totals["threat_files"]
+            else "unknown"
+            if status != "completed" or totals["unknown_files"]
+            else "no_threat_detected"
+        ),
+        **totals,
+        "error_code": error_code,
+    }
 
 
 def _roots_from_environment() -> dict[str, str]:
@@ -268,6 +411,31 @@ def _exclusions_from_environment(
         key: Path(value).resolve(strict=True) for key, value in roots.items()
     }
     return normalize_exclusions(resolved_roots, parsed)
+
+
+def _quick_scopes_from_environment(
+    roots: Mapping[str, str | os.PathLike[str]],
+) -> list[dict[str, str]]:
+    encoded = os.environ.get("AI_NATIVE_SECURITY_QUICK_SCOPES", "[]")
+    if len(encoded) > 16 * 1024:
+        raise ValueError("invalid_quick_scan_scopes")
+    try:
+        parsed = json.loads(encoded)
+    except json.JSONDecodeError as error:
+        raise ValueError("invalid_quick_scan_scopes") from error
+    if type(parsed) is not list or not 1 <= len(parsed) <= 32:
+        raise ValueError("invalid_quick_scan_scopes")
+    result: list[dict[str, str]] = []
+    for item in parsed:
+        if (
+            type(item) is not dict
+            or set(item) != {"resource_id", "relative_path"}
+            or item["resource_id"] not in roots
+            or type(item["relative_path"]) is not str
+        ):
+            raise ValueError("invalid_quick_scan_scopes")
+        result.append(dict(item))
+    return result
 
 
 def _validate_finding_database_boundary(

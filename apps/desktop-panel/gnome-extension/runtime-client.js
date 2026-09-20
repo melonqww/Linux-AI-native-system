@@ -90,6 +90,34 @@ export class RuntimeClient {
         return this.request('POST', '/v1/security/scan', payload, 130_000);
     }
 
+    securityJobStart(payload) {
+        return this.request('POST', '/v1/security/jobs/start', payload);
+    }
+
+    securityJobStatus(jobId = null) {
+        return this.request(
+            'POST',
+            '/v1/security/jobs/status',
+            jobId ? {job_id: jobId} : {},
+        );
+    }
+
+    securityJobCancel(jobId) {
+        return this.request('POST', '/v1/security/jobs/cancel', {job_id: jobId});
+    }
+
+    securityJobHistory(limit = 5) {
+        return this.request('POST', '/v1/security/jobs/history', {limit});
+    }
+
+    securityJobSettings(enabled = null) {
+        return this.request(
+            'POST',
+            '/v1/security/jobs/settings',
+            typeof enabled === 'boolean' ? {automatic_scans_enabled: enabled} : {},
+        );
+    }
+
     softwarePrepare(payload) {
         return this.request('POST', '/v1/software/prepare', payload);
     }
