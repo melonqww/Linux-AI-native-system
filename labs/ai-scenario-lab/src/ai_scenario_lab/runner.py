@@ -205,6 +205,8 @@ class ScenarioRunner:
             "found",
             "inaccessible",
             "copied",
+            "affected",
+            "operation_actions",
             "result_paths",
             "copied_paths",
             "approval_required",
@@ -230,6 +232,8 @@ class ScenarioRunner:
         result_paths: list[str] = []
         copied_paths: list[str] = []
         approval_required = False
+        affected = 0
+        operation_actions: list[str] = []
         for record in records:
             result = record.get("result", {})
             if not isinstance(result, dict):
@@ -259,6 +263,10 @@ class ScenarioRunner:
                     )
                     inaccessible += max(reported_inaccessible, unavailable_results)
                     copied = max(copied, int(output.get("copied_count", 0)))
+                    action = output.get("action")
+                    if isinstance(action, str):
+                        operation_actions.append(action)
+                        affected = max(affected, int(output.get("item_count", 0)))
                     for item in output.get("results", []):
                         if isinstance(item, dict) and isinstance(item.get("path"), str):
                             result_paths.append(
@@ -279,6 +287,8 @@ class ScenarioRunner:
             "found": found,
             "inaccessible": inaccessible,
             "copied": copied,
+            "affected": affected,
+            "operation_actions": list(dict.fromkeys(operation_actions)),
             "result_paths": sorted(set(result_paths)),
             "copied_paths": sorted(set(copied_paths)),
             "approval_required": approval_required,
@@ -301,6 +311,8 @@ class ScenarioRunner:
             "found",
             "inaccessible",
             "copied",
+            "affected",
+            "operation_actions",
             "approval_required",
             "message_kinds",
             "no_operations",

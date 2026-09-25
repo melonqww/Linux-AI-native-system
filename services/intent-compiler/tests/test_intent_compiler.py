@@ -19,10 +19,16 @@ SEARCH = OperationDefinition(
         "type": "object",
         "properties": {
             "mode": {"type": "string", "enum": ["metadata", "content", "hybrid"]},
-            "text": {"type": "string"},
+            "text": {"type": "string", "semanticRole": "content_text"},
             "content_match": {
                 "type": "string",
                 "enum": ["semantic", "exact_phrase"],
+                "explicitValueCues": {
+                    "exact_phrase": [
+                        "exact phrase", "containing", "contains", "встреча", "фраз",
+                    ],
+                },
+                "uncuedFallback": "semantic",
                 "coRequiredWith": ["text"],
                 "reviewChoices": {
                     "semantic": ["semantic", "topic", "content_topic"],
@@ -32,11 +38,15 @@ SEARCH = OperationDefinition(
             },
             "extensions": {
                 "type": "array",
+                "semanticRole": "file_extensions",
                 "items": {"type": "string"},
                 "default": [],
             },
             "volume_ids": {"type": "array", "items": {"type": "string"}},
-            "name_terms": {"type": "array", "items": {"type": "string"}},
+            "name_terms": {
+                "type": "array", "items": {"type": "string"},
+                "semanticRole": "filename_terms",
+            },
         },
         "required": ["mode", "extensions"],
         "additionalProperties": False,
@@ -62,6 +72,22 @@ COPY = OperationDefinition(
             "directory_name": {"type": "string"},
         },
         "required": ["results_from", "destination"],
+        "additionalProperties": False,
+    },
+    risk=RiskClass.REVERSIBLE_WRITE,
+    approval_required=True,
+)
+CREATE_DIRECTORY = OperationDefinition(
+    "create_directory",
+    "files.directory.create",
+    "Create one folder.",
+    {
+        "type": "object",
+        "properties": {
+            "destination": {"type": "string", "enum": ["desktop"]},
+            "directory_name": {"type": "string"},
+        },
+        "required": ["destination", "directory_name"],
         "additionalProperties": False,
     },
     risk=RiskClass.REVERSIBLE_WRITE,
@@ -172,6 +198,149 @@ class IntentCompilerTests(unittest.TestCase):
 
         self.assertEqual(result.state, CompilationState.READY)
         self.assertEqual(result.intent.operations[0].arguments["mode"], "metadata")
+
+    def test_plain_named_file_is_metadata_not_exact_content(self):
+        text = "Найди файл notes.txt"
+        response = payload(text, [operation(
+            "search", "search_documents",
+            {"mode": "content", "text": "notes.txt", "content_match": "exact_phrase", "extensions": []},
+            text,
+        )])
+
+        result = self.compiler(response).compile_payload(response, text=text)
+
+        self.assertEqual(result.state, CompilationState.READY)
+        arguments = result.plan.steps[0].arguments
+        self.assertEqual(arguments["mode"], "metadata")
+        self.assertEqual(arguments["name_terms"], ("notes.txt",))
+        self.assertEqual(arguments["extensions"], ("txt",))
+        self.assertNotIn("text", arguments)
+        self.assertNotIn("semanticRole", SEARCH.model_input_schema["properties"]["text"])
+
+    def test_explicit_content_occurrence_of_filename_remains_content_search(self):
+        text = "Найди файл, в котором встречается notes.txt"
+        response = payload(text, [operation(
+            "search", "search_documents",
+            {"mode": "content", "text": "notes.txt", "content_match": "exact_phrase", "extensions": []},
+            text,
+        )])
+
+        result = self.compiler(response).compile_payload(response, text=text)
+
+        self.assertEqual(result.state, CompilationState.READY)
+        self.assertEqual(result.plan.steps[0].arguments["mode"], "content")
+        self.assertEqual(result.plan.steps[0].arguments["text"], "notes.txt")
+
+    def test_model_cannot_substitute_another_filename_for_named_file(self):
+        text = "Find the file named report.pdf"
+        response = payload(text, [operation(
+            "search", "search_documents",
+            {
+                "text": "report", "content_match": "exact_phrase",
+                "name_terms": ["other.pdf"], "extensions": ["txt"],
+            },
+            text,
+        )], language="en")
+
+        result = self.compiler(response).compile_payload(response, text=text)
+
+        self.assertEqual(result.state, CompilationState.READY)
+        self.assertEqual(result.plan.steps[0].arguments["name_terms"], ("report.pdf",))
+        self.assertEqual(result.plan.steps[0].arguments["extensions"], ("pdf",))
+
+    def test_topic_is_not_silently_compiled_as_an_exact_phrase(self):
+        text = "Find my text documents about the blue river launch code project"
+        response = payload(text, [operation(
+            "search", "search_documents",
+            {
+                "text": "blue river launch code project",
+                "content_match": "exact_phrase", "extensions": ["txt"],
+            }, text,
+        )], language="en")
+
+        result = self.compiler(response).compile_payload(response, text=text)
+
+        self.assertEqual(result.state, CompilationState.READY)
+        self.assertEqual(result.plan.steps[0].arguments["content_match"], "semantic")
+
+    def test_explicit_exact_phrase_remains_literal(self):
+        text = 'Find files containing the exact phrase "blue river launch"'
+        response = payload(text, [operation(
+            "search", "search_documents",
+            {
+                "text": "blue river launch", "content_match": "exact_phrase",
+                "extensions": [],
+            }, text,
+        )], language="en")
+
+        result = self.compiler(response).compile_payload(response, text=text)
+
+        self.assertEqual(result.state, CompilationState.READY)
+        self.assertEqual(result.plan.steps[0].arguments["content_match"], "exact_phrase")
+
+    def test_model_cannot_strip_path_traversal_from_named_folder(self):
+        text = "Создай на рабочем столе папку ../escape"
+        response = payload(
+            text,
+            [operation(
+                "create", "create_directory",
+                {
+                    "destination": "desktop",
+                    "directory_name": "escape",
+                },
+                text,
+            )],
+        )
+        compiler = IntentCompiler(
+            CallableIntentProvider(lambda _request: response),
+            operation_source=lambda: (CREATE_DIRECTORY,),
+        )
+        result = compiler.compile_payload(response, text=text)
+
+        self.assertNotEqual(result.state, CompilationState.READY)
+        self.assertIsNone(result.plan)
+
+    def test_named_folder_remains_grounded_when_standalone(self):
+        text = "Создай на рабочем столе папку Проекты"
+        response = payload(
+            text,
+            [operation(
+                "create", "create_directory",
+                {
+                    "destination": "desktop",
+                    "directory_name": "Проекты",
+                },
+                text,
+            )],
+        )
+        compiler = IntentCompiler(
+            CallableIntentProvider(lambda _request: response),
+            operation_source=lambda: (CREATE_DIRECTORY,),
+        )
+        result = compiler.compile_payload(response, text=text)
+
+        self.assertEqual(result.state, CompilationState.READY)
+
+    def test_approval_step_followed_by_another_step_is_not_ready(self):
+        text = "Создай папку Проекты и потом создай папку Архив на рабочем столе"
+        response = payload(text, [
+            operation("first", "create_directory", {
+                "destination": "desktop", "directory_name": "Проекты",
+            }, text),
+            operation("second", "create_directory", {
+                "destination": "desktop", "directory_name": "Архив",
+            }, text),
+        ])
+        compiler = IntentCompiler(
+            CallableIntentProvider(lambda _request: response),
+            operation_source=lambda: (CREATE_DIRECTORY,),
+        )
+
+        result = compiler.compile_payload(response, text=text)
+
+        self.assertEqual(result.state, CompilationState.NEEDS_CLARIFICATION)
+        self.assertEqual(len(result.plan.steps), 2)
+        self.assertIn("отдельные запросы", result.clarification_question)
 
     def test_search_mode_is_always_derived_from_factual_arguments(self):
         cases = (

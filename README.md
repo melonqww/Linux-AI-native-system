@@ -53,6 +53,17 @@ python -m unittest discover -s services/agent-runtime/tests -v
 текущие границы описаны в
 [`services/storage-catalog/README.md`](services/storage-catalog/README.md).
 
+## Файловые операции R1
+
+`modules/file-operations` фиксирует отдельный контракт для просмотра сведений,
+создания папок, перемещения, переименования и отправки выбранных объектов в
+корзину. Модуль подключён к runtime через общий реестр обработчиков: доступная
+операция должна одновременно присутствовать в manifest, trusted policy и
+executor. Ядро передаёт модулю только доверенные selection references, а все
+изменения проходят общий prepare/approval/commit цикл. Существующее копирование переиспользуется из
+`storage.catalog`, поэтому одинаковые команды не конкурируют в selector. Границы описаны в
+[`modules/file-operations/README.md`](modules/file-operations/README.md).
+
 ## Capability Registry
 
 `services/capability-registry` проверяет manifests модулей, вычисляет состояния
@@ -62,7 +73,7 @@ ID, описание, закрытую схему входа, запрашива
 находится в `packages/module-sdk`. Registry синхронизирует first-party manifests
 из `services/*` и `modules/*`, включая `storage.catalog`, `documents.index`,
 `documents.pdf`, `desktop.applications`, `browser.navigation`,
-`system.monitor`, `system.updates` и `security.center`;
+`system.monitor`, `system.updates`, `files.operations` и `security.center`;
 команды описаны в
 [`services/capability-registry/README.md`](services/capability-registry/README.md).
 
@@ -245,11 +256,13 @@ Linux-проверки и непокрытые случаи перечислен
 
 ## История лабораторных прогонов
 
-Лаборатория выросла от 5 contract-сценариев до автономной матрицы из 97
-проверок. Последний подтверждённый полный прогон: **81/95**, найдено 14 проблем,
-поэтому релиз не был объявлен готовым. После анализа добавлены точная диагностика
-и новый regression из реального пользовательского диалога; они ожидают
-повторной проверки.
+Лаборатория выросла от 5 contract-сценариев до автономной матрицы из 113
+проверок. Последний полный прогон на локальной Qwen 3.5 2B прошёл **113/113**
+без ошибок на двух seed: это подтверждает backend-фундамент в проверенной
+виртуальной среде, но не означает готовность Linux/GNOME beta и не покрывает
+любой возможный пользовательский запрос. Прежний полный прогон `93/113` с 20
+проблемами и адресные перепроверки также сохранены в истории, а не скрыты
+успешным результатом.
 
 [Полная история прогонов](labs/ai-scenario-lab/LAB-HISTORY.md) ·
 [таблица результатов](labs/ai-scenario-lab/public-evidence/README.md) ·
@@ -312,6 +325,7 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [Решение о сквозном runtime-каталоге операций](Architecture/decisions/ADR-024-runtime-operation-catalog.md)
 - [Решение о lossless-аргументах модульных операций](Architecture/decisions/ADR-029-lossless-operation-arguments.md)
 - [Решение о явном различении смысла content-поиска](Architecture/decisions/ADR-030-search-match-intent-contract.md)
+- [Решение о контракте файловых операций R1](Architecture/decisions/ADR-039-file-operations-r1-contract.md)
 - [Решение о долговечном модуле установки приложений](Architecture/decisions/ADR-015-durable-software-manager.md)
 - [Решение об изолированной лаборатории AI-сценариев](Architecture/decisions/ADR-017-isolated-ai-scenario-lab.md)
 - [Решение о goal-driven User Journey Lab](Architecture/decisions/ADR-018-goal-driven-user-journey-lab.md)

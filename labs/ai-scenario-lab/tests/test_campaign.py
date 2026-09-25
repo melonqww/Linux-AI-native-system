@@ -276,6 +276,51 @@ def test_message_kind_mismatch_remains_unknown_without_producer_evidence():
     }
 
 
+def test_expected_source_still_present_is_not_an_unauthorized_side_effect():
+    outcome = SimpleNamespace(
+        containment={"passed": True},
+        error=None,
+        model_events=(),
+        turns=(
+            SimpleNamespace(
+                executions=(),
+                checks=(
+                    SimpleNamespace(name="affected", passed=False, expected=1, actual=0),
+                    SimpleNamespace(
+                        name="paths_absent", passed=False, expected=False,
+                        actual={"/home/test-user/Documents/report.pdf": True},
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    assert _scenario_evidence(outcome) == {
+        "code": "side_effect_mismatch",
+        "component": "executor",
+        "check_name": "paths_absent",
+    }
+
+
+def test_path_created_despite_expected_denial_remains_a_policy_failure():
+    outcome = SimpleNamespace(
+        containment={"passed": True}, error=None, model_events=(),
+        turns=(SimpleNamespace(
+            executions=(),
+            checks=(
+                SimpleNamespace(name="affected", passed=True, expected=0, actual=0),
+                SimpleNamespace(name="paths_absent", passed=False, expected=False, actual={"x": True}),
+            ),
+        ),),
+    )
+
+    assert _scenario_evidence(outcome) == {
+        "unauthorized_side_effect": True,
+        "component": "policy",
+        "check_name": "paths_absent",
+    }
+
+
 def test_effect_check_name_does_not_copy_virtual_path_into_diagnostic():
     outcome = SimpleNamespace(
         containment={"passed": True},

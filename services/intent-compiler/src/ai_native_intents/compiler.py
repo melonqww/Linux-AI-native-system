@@ -123,7 +123,9 @@ class IntentCompiler:
                 if plan.state is CompilationState.UNAVAILABLE
                 else ()
             )
-            return CompilationResult(plan.state, intent, plan, question, diagnostics)
+            return CompilationResult(
+                plan.state, intent, plan, plan.clarification_question, diagnostics
+            )
         except IntentValidationError as error:
             return self._rejected(
                 context,

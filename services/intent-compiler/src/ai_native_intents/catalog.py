@@ -29,6 +29,10 @@ _SCHEMA_KEYS = frozenset(
         "coRequiredWith",
         "reviewChoices",
         "default",
+        "semanticRole",
+        "explicitValueCues",
+        "uncuedFallback",
+        "implicitOmissionValue",
     }
 )
 _SCALAR_TYPES = frozenset({"string", "integer", "number", "boolean"})
@@ -87,6 +91,11 @@ class OperationDefinition:
             or not set(preserved_values) <= set(schema["properties"])
         ):
             raise ValueError("preserved arguments must name operation input properties")
+        for name, property_schema in schema["properties"].items():
+            if "implicitOmissionValue" in property_schema and (
+                name in schema["required"] or name not in preserved_values
+            ):
+                raise ValueError("implicit omission requires an optional preserved argument")
         object.__setattr__(self, "operation", operation)
         object.__setattr__(self, "capability_id", capability_id)
         object.__setattr__(self, "description", description.strip())
@@ -117,6 +126,10 @@ class OperationDefinition:
             property_schema.pop("coRequiredWith", None)
             property_schema.pop("reviewChoices", None)
             property_schema.pop("default", None)
+            property_schema.pop("semanticRole", None)
+            property_schema.pop("explicitValueCues", None)
+            property_schema.pop("uncuedFallback", None)
+            property_schema.pop("implicitOmissionValue", None)
         return schema
 
     def normalize_arguments(self, value: object) -> dict[str, object]:
@@ -370,6 +383,49 @@ def _validated_property_schema(value: object, *, array_item: bool) -> dict[str, 
     ):
         raise ValueError("operation property enum is invalid")
     review_choices = value.get("reviewChoices")
+    semantic_role = value.get("semanticRole")
+    expected_type = {
+        "filename_terms": "array",
+        "content_text": "string",
+        "file_extensions": "array",
+        "destination_name": "string",
+    }.get(semantic_role)
+    if semantic_role is not None and (expected_type is None or kind != expected_type):
+        raise ValueError("semanticRole is invalid for operation property")
+    explicit_cues = value.get("explicitValueCues")
+    fallback = value.get("uncuedFallback")
+    if explicit_cues is not None:
+        if (
+            kind != "string"
+            or not isinstance(enum, list)
+            or not isinstance(explicit_cues, Mapping)
+            or not explicit_cues
+            or not set(explicit_cues) <= set(enum)
+            or any(
+                not isinstance(cues, list)
+                or not cues
+                or any(
+                    not isinstance(cue, str)
+                    or not cue.strip()
+                    or len(cue) > 80
+                    for cue in cues
+                )
+                for cues in explicit_cues.values()
+            )
+            or not isinstance(fallback, str)
+            or fallback not in enum
+            or fallback in explicit_cues
+        ):
+            raise ValueError("explicitValueCues require a distinct enum fallback")
+    elif fallback is not None:
+        raise ValueError("uncuedFallback requires explicitValueCues")
+    implicit_omission = value.get("implicitOmissionValue")
+    if implicit_omission is not None and (
+        kind != "string"
+        or not isinstance(enum, list)
+        or implicit_omission not in enum
+    ):
+        raise ValueError("implicitOmissionValue must be an enum item")
     if review_choices is not None and (
         not isinstance(review_choices, Mapping)
         or enum is None

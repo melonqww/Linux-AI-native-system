@@ -11,6 +11,8 @@ DESCRIPTORS = (
         (
             "найди все PDF файлы на компьютере",
             "покажи мои документы",
+            "посмотреть PDF-файлы на компьютере",
+            "нужны только PDF по математике",
             "find local documents",
         ),
     ),
@@ -81,6 +83,97 @@ class CapabilityCandidateRouterTests(unittest.TestCase):
         self.assertEqual(
             self.router.available_operations(),
             ("search_documents", "copy_results"),
+        )
+
+    def test_negation_does_not_cross_a_clause_boundary(self):
+        for text in (
+            "Ничего лишнего не делай: Найди мои учебные документы",
+            (
+                "Пожалуйста, будь внимателен и ничего лишнего не делай: "
+                "Нет, нужны только PDF по математике"
+            ),
+        ):
+            with self.subTest(text=text):
+                self.assertEqual(
+                    self.router.requested_operations(text),
+                    ("search_documents",),
+                )
+
+    def test_negation_in_the_same_clause_still_blocks_the_operation(self):
+        self.assertEqual(
+            self.router.requested_operations("Ничего не найди в документах"),
+            (),
+        )
+
+    def test_repeated_natural_request_uses_module_owned_cue(self):
+        self.assertEqual(
+            self.router.requested_operations(
+                "Жалко, но ты можешь снова посмотреть PDF-файлы, "
+                "а также сказать, при какой температуре печь хлеб?"
+            ),
+            ("search_documents",),
+        )
+
+    def test_required_operations_disambiguate_shared_imperatives(self):
+        file_actions = (
+            CapabilityDescriptor(
+                "files.directory.create", "create_directory", "Create a folder.",
+                ("создай папку Проекты на рабочем столе",),
+            ),
+            CapabilityDescriptor(
+                "storage.materialize.plan-copy", "copy_results", "Copy files.",
+                ("создай папку и скопируй туда найденные файлы",),
+            ),
+            CapabilityDescriptor(
+                "files.items.move", "move_results", "Move files.",
+                ("перемести найденные файлы в папку на рабочем столе",),
+            ),
+            CapabilityDescriptor(
+                "files.items.trash", "trash_results", "Trash files.",
+                ("перемести найденные файлы в корзину",),
+            ),
+        )
+        router = CapabilityCandidateRouter(file_actions)
+        self.assertEqual(
+            router.required_operations("Создай на рабочем столе папку Проекты"),
+            ("create_directory",),
+        )
+        self.assertEqual(
+            router.required_operations("Перемести найденный файл в папку Готово на рабочем столе"),
+            ("move_results",),
+        )
+        self.assertEqual(
+            router.required_operations("Перемести найденный файл в корзину"),
+            ("trash_results",),
+        )
+        self.assertEqual(
+            router.required_operations("Создай папку и скопируй туда найденные файлы"),
+            ("copy_results",),
+        )
+        self.assertEqual(
+            router.required_operations(
+                "Не перемещай файлы в корзину; перемести их в папку на рабочем столе"
+            ),
+            ("move_results",),
+        )
+
+    def test_incidental_question_word_does_not_require_file_inspection(self):
+        router = CapabilityCandidateRouter((
+            CapabilityDescriptor(
+                "files.items.inspect", "inspect_files", "Inspect file metadata.",
+                ("какой размер у этого файла",),
+            ),
+            CapabilityDescriptor(
+                "documents.query.search", "search_documents", "Search files.",
+                ("найди все PDF-файлы на моём компьютере",),
+            ),
+        ))
+
+        self.assertEqual(
+            router.required_operations(
+                "При какой температуре печь хлеб и найди все PDF-файлы на моём компьютере"
+            ),
+            ("search_documents",),
         )
 
 

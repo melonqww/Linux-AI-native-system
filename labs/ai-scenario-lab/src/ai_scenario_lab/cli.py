@@ -77,6 +77,10 @@ def parser() -> argparse.ArgumentParser:
     )
     foundation.add_argument("--seeds", type=int, nargs="+", default=[7, 19])
     foundation.add_argument("--budget-seconds", type=int, default=14400)
+    foundation.add_argument(
+        "--failed-from",
+        help="prepare only subjects that failed in a completed foundation run, on every selected seed",
+    )
     worker = sub.add_parser("foundation-worker", help=argparse.SUPPRESS)
     worker.add_argument("--run", required=True)
     worker.add_argument("--case", required=True)
@@ -134,6 +138,7 @@ def _foundation(arguments) -> int:
             PROJECT_ROOT,
             seeds=tuple(arguments.seeds),
             budget_seconds=arguments.budget_seconds,
+            failed_from=Path(arguments.failed_from) if arguments.failed_from else None,
         )
         print(f"PREPARED (not started): {run}")
         print(f"REPORT: {run / 'summary.md'}")

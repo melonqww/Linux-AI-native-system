@@ -14,6 +14,8 @@
   "runtime": {
     "profile": "foundation-v1",
     "model": "qwen3.5:2b",
+    "model_digest": null,
+    "ollama_version": null,
     "context_tokens": 8192,
     "python": "3.13.14",
     "platform": "windows",

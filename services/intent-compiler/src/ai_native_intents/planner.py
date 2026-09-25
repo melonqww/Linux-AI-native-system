@@ -56,6 +56,15 @@ class IntentPlanner:
             )
 
         required_capabilities = tuple(dict.fromkeys(required))
+        if any(step.approval_required for step in steps[:-1]):
+            # R1 execution is a single approval boundary. An untrusted model
+            # cannot chain a second operation after a write and rely on the
+            # executor to reject it only after the UI says execution started.
+            clarification_question = clarification_question or (
+                "Разделите действия с изменением файлов на отдельные запросы."
+                if intent.language.casefold().startswith("ru")
+                else "Please request file-changing actions one at a time."
+            )
         if clarification_question is not None:
             state = CompilationState.NEEDS_CLARIFICATION
         else:

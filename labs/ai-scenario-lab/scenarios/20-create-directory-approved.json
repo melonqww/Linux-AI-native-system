@@ -1,0 +1,27 @@
+{
+  "id": "create-directory-approved",
+  "title": "A folder is created only after explicit approval",
+  "locale": "ru",
+  "tags": ["file-operations", "r1", "approval", "focused"],
+  "fixture": "file-operations.json",
+  "turns": [
+    {
+      "user": "Создай на рабочем столе папку Проекты",
+      "approval": "grant",
+      "expect": {
+        "stage": "completed",
+        "capabilities": ["files.directory.create"],
+        "approval_required": true,
+        "affected": 1,
+        "operation_actions": ["create_directory"],
+        "plan_steps_include": [
+          {
+            "capability": "files.directory.create",
+            "arguments": {"destination": "desktop", "directory_name": "Проекты"}
+          }
+        ],
+        "paths_exist": ["/home/test-user/Desktop/Проекты"]
+      }
+    }
+  ]
+}

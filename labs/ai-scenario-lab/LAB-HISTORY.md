@@ -96,7 +96,12 @@ Targeted campaign нужен для быстрого подтверждения 
 | 2026-09-09 | `20260909T160441.419929Z` | `9669270c9a04…` | 91 позиция; тот же source fingerprint, что у следующего запуска | Windows, Python 3.13.14, Qwen 3.5 2B, 8k | `21 passed / 28 failed / 42 error`, `problems_found` | 23.1% passed | 58 мин 51 с | 42 случая отделены как инфраструктурные ошибки, а не смешаны с неверным поведением модели и не засчитаны как pass. |
 | 2026-09-10 | `20260910T073608.294590Z` | `9669270c9a04…` | Та же матрица и тот же fingerprint | Windows, Python 3.13.14, Qwen 3.5 2B, 8k | `39 passed / 52 failed`, `problems_found` | 42.9% | 1 ч 49 мин 41 с | Повтор без изменения source устранил класс `error`, но не сделал продукт зелёным. Пара запусков доказала влияние runtime-состояния и необходимость раздельно учитывать infrastructure и behavioral failures. |
 | 2026-09-14 | `20260914T111835.647947Z` | `7ba2da19fbfc…` | 95 позиций, 46 live-subjects; добавлены semantic-topic и exact-phrase E2E oracle | Windows, Python 3.13.14, Qwen 3.5 2B, 8k | `63 passed / 32 failed`, `problems_found` | 66.3% | 2 ч 00 мин 44 с | Лаборатория стала строже: одинаковое число найденных файлов больше не доказывает правильный смысл поиска; появились отдельные COMPILER и EXECUTOR группы. |
-| 2026-09-16 | `20260916T073344.244866Z` | `04c78469d62f…` | 95 позиций, два seeds, 18 committed + 7 generated contract-сценариев и 21 journey-case | Windows, Python 3.13.14, Qwen 3.5 2B, 8k | `81 passed / 14 failed`, `problems_found` | 85.3% | 2 ч 04 мин 53 с | Лучший сохранённый полный прогон: gates и 49/50 scenario attempts прошли, но 13 journey и один memory contract всё ещё заблокировали кандидат. Один ход превысил 90 секунд. |
+| 2026-09-16 | `20260916T073344.244866Z` | `04c78469d62f…` | 95 позиций, два seeds, 18 committed + 7 generated contract-сценариев и 21 journey-case | Windows, Python 3.13.14, Qwen 3.5 2B, 8k | `81 passed / 14 failed`, `problems_found` | 85.3% | 2 ч 04 мин 53 с | На тот момент лучший сохранённый полный прогон: gates и 49/50 scenario attempts прошли, но 13 journey и один memory contract ещё блокировали кандидат. Один ход превысил 90 секунд. |
+| 2026-09-21 | `20260921T082636.506678Z` | `bdd8ed5a5e59…` | 97 позиций, 47 live-subjects; новый четырёхходовой repeat mixed regression и typed failure evidence | Windows, Python 3.13.14, Qwen 3.5 2B, 8k | `91 passed / 6 failed`, `problems_found` | 93.8% | 2 ч 14 мин 44 с | Все позиции выполнены без infrastructure errors и automatic retry. Одиннадцать прежних failures исчезли; лаборатория воспроизвела устойчивые router-сбои в cautious/verbose формулировках и оба повтора нового mixed-сценария. |
+| 2026-09-23 | `20260923T084919.842465Z` | `1ff4db1cbf09…` | 113 позиций; добавлены File Operations R1, approve/deny и реальные файловые эффекты | Windows, Python 3.13.14, Qwen 3.5 2B, 8k | `93 passed / 20 failed`, `problems_found` | 82.3% | 2 ч 49 мин | Более строгая матрица обнаружила неверный поиск, лишние операции, потерю продолжения и ответы без подтверждённых файловых фактов. Снижение доли относительно 91/97 не является регрессией сопоставимой матрицы. |
+| 2026-09-24 | `20260924T091434.648761Z` | `aae7f172fb4a…` | Адресный профиль: 11 ранее упавших типов на обоих seeds + 3 gates | Windows, Python 3.13.14, Qwen 3.5 2B, 8k | `22 passed / 3 failed`, `problems_found` | 88.0% | 28 мин 50 с | Перепроверка показала, что 17 из прежних 20 провалов устранены, но перенос файла на обоих seeds и один длинный английский запрос ещё не проходили. Не является полным Foundation. |
+| 2026-09-25 | `20260925T080528.342605Z` | `6b30b8bc7d6e…` | Адресный профиль: два оставшихся типа на обоих seeds + 3 gates | Windows, Python 3.13.14, Qwen 3.5 2B, 8k | `7 passed / 0 failed`, `backend_candidate` в адресном профиле | 100% адресного профиля | 5 мин 38 с | Подтверждены перенос после поиска и длинная английская цепочка с уточнением назначения и отказом. Зелёный targeted run не заменяет полный. |
+| 2026-09-25 | `20260925T081344.764208Z` | `6b30b8bc7d6e…` | Полный Foundation v1: 113 позиций, 55 live-cases × seeds 7/19 + 3 gates | Windows, Python 3.13.14, Qwen 3.5 2B, 8k | `113 passed / 0 failed / 0 error`, `backend_candidate` | 100% проверенной матрицы | 2 ч 48 мин 25 с | Первый зелёный полный прогон расширенной матрицы: 68 scenario attempts, 42 journeys и 3 gates; нет unknown failures, slow cases или automatic retries. Это доказательство backend-кандидата в виртуальном ПК, не Linux release. |
 
 ### Почему строки нельзя свести к одному графику pass-rate
 
@@ -123,7 +128,8 @@ fingerprint одинаков: оно показывает влияние вне�
 | 2026-09-09 | Semantic capability selector | Ограниченный multilingual selector поверх Registry, lexical fallback и максимум кандидатов | [ADR-025](../../Architecture/decisions/ADR-025-bounded-semantic-capability-selector.md) | Опечатки и естественные формулировки проверяются без словаря пользовательских фраз в ядре. |
 | 2026-09-11–13 | Смысл document search | Разделены semantic topic и exact phrase; добавлены парные E2E oracle | [ADR-030](../../Architecture/decisions/ADR-030-search-match-intent-contract.md), [ADR-026: grounded retrieval](../../Architecture/decisions/ADR-026-grounded-retrieval-and-complete-operation-graphs.md) | Семантически похожий файл больше не считается доказательством наличия точной фразы. |
 | 2026-09-14–16 | Lossless arguments и память уточнений | Тип файла отделён от темы, module-owned conditional arguments сохраняются, intent drafts переживают clarification, destination typo обрабатывается безопасно | [ADR-029](../../Architecture/decisions/ADR-029-lossless-operation-arguments.md) | Green result требует корректного назначения, имени папки, выбранных файлов и полного графа операции. |
-| 2026-09-18 | Диагностика и реальный mixed regression | Безопасная классификация MODEL/ROUTER/COMPILER/POLICY/EXECUTOR/INDEX/CONTAINMENT; новый четырёхходовой повторный PDF + bread сценарий | [ADR-018](../../Architecture/decisions/ADR-018-goal-driven-user-journey-lab.md), [ADR-020](../../Architecture/decisions/ADR-020-autonomous-foundation-validation.md) | Ложное «у меня нет доступа» и смешение `0 найдено` с `1 недоступен` теперь имеют отдельный regression-контракт. Полный прогон новой версии ещё не выполнен. |
+| 2026-09-18–21 | Диагностика и реальный mixed regression | Безопасная классификация MODEL/ROUTER/COMPILER/POLICY/EXECUTOR/INDEX/CONTAINMENT; новый четырёхходовой повторный PDF + bread сценарий | [ADR-018](../../Architecture/decisions/ADR-018-goal-driven-user-journey-lab.md), [ADR-020](../../Architecture/decisions/ADR-020-autonomous-foundation-validation.md) | Полный run `91/97` подтвердил диагностику без UNKNOWN и воспроизвёл потерю повторного mixed search на обоих seeds. |
+| 2026-09-22–25 | File Operations R1 и повтор по прежним провалам | Новые файловые сценарии, проверка плана до approval, read-only inspect, классификация неверных аргументов и адресный профиль по failed subjects на обоих seeds | [ADR-039](../../Architecture/decisions/ADR-039-file-operations-r1-contract.md), [ADR-030](../../Architecture/decisions/ADR-030-search-match-intent-contract.md) | Расширение выявило 20 проблем на 113 позициях; адресные прогоны сузили их до 3 и затем до 0; полный `113/113` отдельно подтвердил отсутствие видимых регрессий в этой матрице. |
 
 ## Что лаборатория уже принесла проекту
 
@@ -131,47 +137,44 @@ fingerprint одинаков: оно показывает влияние вне�
 |---|---|---|---|
 | Prerequisite может сломаться до модели | Два запуска остановились после `lab-tests_failed`, оставив 85/89 случаев `not_run` | Foundation различает `blocked/incomplete` и `problems_found`; live-часть не стартует после провала обязательного gate | **verified** сохранёнными blocked runs |
 | Среда исполнения влияет на результат | Два запуска с fingerprint `9669270c9a04…` дали 42 infrastructure errors, а затем 0 errors | Infrastructure failure хранится отдельно от model/router/compiler failure; повтор не переписывает прошлый результат | **observed**, причина каждого error остаётся в локальных logs |
-| Идеальная фраза не покрывает пользователя | Journey failures концентрировались на typo, cautious, impatient, verbose и no-punctuation вариантах | Добавлены персональные мутации, semantic selector и многошаговые цели | **partially verified**; последний run всё ещё содержит 14 проблем |
+| Идеальная фраза не покрывает пользователя | Journey failures концентрировались на typo, cautious, impatient, verbose и no-punctuation вариантах | Добавлены персональные мутации, semantic selector и многошаговые цели | **verified в текущей матрице**: полный 113/113 прошёл все 42 journey attempts; произвольные формулировки вне матрицы не доказаны |
 | Правильное число файлов может скрывать неправильный смысл | Тематический и точный поиск раньше могли смешиваться | Добавлены разные intent-контракты и точные result paths для semantic/exact пары | **verified** в последнем сохранённом run для обоих seeds |
 | Безопасность нельзя усреднять | Deny, timeout, prompt injection и executor failure могут потеряться в общем pass-rate | Safety-теги требуют 100%, containment имеет приоритет, forbidden effects проверяются отдельно | **verified** в сохранённых traces, но не заменяет Linux smoke |
-| Ответ модели может противоречить системе | Ручной диалог показал `0 найдено / 1 недоступен`, после чего Qwen заявил об отсутствии доступа и потерял повторный mixed search | Добавлен scenario `repeat-mixed-search-grounding`, метрика `inaccessible`, запрет ложных access claims и performance bound | **implemented**, ожидает целевого и полного прогона |
-| UNKNOWN затрудняет исправление | В run 2026-09-16 семь failures остались без надёжного владельца | Evidence extractor теперь использует typed checks, compiler diagnostics, model events и executor error codes; prose и пути исключены | **implemented**, ожидает нового отчёта |
+| Ответ модели может противоречить системе | Ручной диалог показал `0 найдено / 1 недоступен`, после чего Qwen заявил об отсутствии доступа и потерял повторный mixed search | Добавлен scenario `repeat-mixed-search-grounding`, метрика `inaccessible`, запрет ложных access claims и performance bound | **verified fix в текущей матрице**: этот сценарий и весь полный 113/113 прошли на обоих seeds |
+| UNKNOWN затрудняет исправление | В run 2026-09-16 семь failures остались без надёжного владельца | Evidence extractor теперь использует typed checks, compiler diagnostics, model events и executor error codes; prose и пути исключены | **verified**: run 2026-09-23 разложил 20 failures без UNKNOWN, а текущий полный run не содержит failures |
 
 ## Последний подтверждённый полный прогон
 
-Run `20260916T073344.244866Z` — текущая историческая точка отсчёта, а не
-актуальное утверждение о HEAD:
+Run `20260925T081344.764208Z` — подтверждённая точка для проверенного
+backend-кандидата. Это не утверждение о готовности Linux UI или всех возможных
+пользовательских формулировок:
 
 | Измерение | Наблюдение |
 |---|---|
-| Итог | `problems_found`, 81 passed и 14 failed из 95 |
-| Contract/scenario | 49 passed, 1 failed |
-| Journeys | 29 passed, 13 failed |
-| Languages | mixed: 2/2; EN: 28 passed, 2 failed; RU: 48 passed, 12 failed |
-| Поведение | slang и negative прошли; typo, cautious, impatient, verbose и no-punctuation сохранили failures |
-| Memory | глубины 5 и 35 прошли; один двухходовой chat-memory contract упал на seed 19 |
-| Safety | deny, timeout, prompt-injection и controlled executor/model faults не дали скрытых файловых эффектов в зафиксированных сценариях |
-| Performance | один `negative-no-action` turn превысил верхний budget 90 секунд |
-| Известные границы | Нет доказательства GNOME/systemd/Unix IPC/реальных ACL, power-loss resume, disk removal и реального image understanding |
+| Итог | `backend_candidate`, 113 passed / 0 failed / 0 error / 0 not run |
+| Объём | 2 prerequisite gates + model preflight, 68 scenario attempts и 42 journey attempts; seeds 7 и 19, automatic retries = 0 |
+| Модель и среда | Qwen `qwen3.5:2b` с 8192 context tokens, Ollama 0.21.0, Windows, Python 3.13.14; проверка внутри изолированного виртуального ПК |
+| Языки | EN 36/36, RU 72/72, mixed 2/2; три gates без языковой метки |
+| Поведение | Все представленные standard, cautious, verbose, typo, slang, no-punctuation, impatient, negative и prompt-injection варианты прошли |
+| Memory | Сценарии недавней памяти на глубине 5 и 35 прошли; это не доказательство неограниченной памяти |
+| Safety | В матрице прошли deny, timeout, prompt-injection, controlled faults и проверки реальных файловых эффектов; containment failures нет |
+| Диагностика | `failures = 0`, `UNKNOWN = 0`, slow cases = 0; ни один неуспешный повтор не скрыт retry |
+| Performance | Полный wall time 2 ч 48 мин 25 с; ни один ход не отмечен как превышающий лабораторный лимит 90 секунд. Это не UX benchmark |
+| Известные границы | Нет end-to-end подтверждения GNOME/systemd/Unix IPC/реальных ACL, восстановления после отключения питания, извлечения диска и понимания реальных изображений |
 
-Локальный первичный источник:
-`reports/foundation/20260916T073344.244866Z/summary.md`. Папка намеренно не
-коммитится. После клонирования репозитория эта локальная ссылка отсутствует, но
-агрегаты выше сохраняют проверяемый run ID и source fingerprint.
+Публичный очищенный [JSON этого прогона](public-evidence/foundation/20260925T081344.764208Z.json)
+содержит 113 статусов, digest модели и SHA-256 четырёх первичных JSON. Сырые traces остаются
+локально в `reports/foundation/20260925T081344.764208Z/` и в Git не входят.
+Source fingerprint относится к состоянию кода **на момент запуска**, а не к
+последующему коммиту документации и публичного экспортёра.
 
-## Следующий запланированный прогон
+## Что остаётся проверить после зелёного Foundation
 
-Текущий HEAD после `e6c07fb` содержит 97 позиций: 19 committed contract-
-сценариев, 7 generated foundation-сценариев, 21 journey-case, два seeds и три
-обязательных gates. Добавлены:
-
-- `repeat-mixed-search-grounding` из реального пользовательского диалога;
-- отдельный oracle `inaccessible`;
-- более точная классификация failures;
-- безопасные UNKNOWN evidence в `failures.json` и `failures.md`.
-
-Статус: **implemented, not yet run**. До появления нового завершённого отчёта
-нельзя утверждать, что новый mixed regression или новая диагностика прошли.
+Полный прогон подтвердил только заявленную backend-матрицу. Перед решением о
+Linux beta нужны проверки реальной установки и обновления GNOME-панели,
+systemd-сервиса, Unix transport/прав, поведения на реальных томах и при
+неожиданном отключении. После изменения runtime-кода или матрицы потребуется
+новый прогон; `113/113` не переносится автоматически на будущую версию.
 
 После явной команды запуска сюда добавляется новая строка, даже если запуск:
 

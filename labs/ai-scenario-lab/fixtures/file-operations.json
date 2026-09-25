@@ -1,0 +1,31 @@
+{
+  "volumes": [
+    {
+      "id": "system",
+      "name": "File Operations Virtual Disk",
+      "virtual_root": "/",
+      "permission": "content",
+      "system": true
+    }
+  ],
+  "files": [
+    {
+      "volume": "system",
+      "path": "home/test-user/Documents/report.pdf",
+      "kind": "pdf",
+      "content": "Quarterly report for the file operations scenario"
+    },
+    {
+      "volume": "system",
+      "path": "home/test-user/Documents/notes.txt",
+      "kind": "text",
+      "content": "Disposable notes for a recoverable trash scenario"
+    },
+    {
+      "volume": "system",
+      "path": "home/test-user/Desktop/Conflict",
+      "kind": "text",
+      "content": "An existing object that must never be overwritten"
+    }
+  ]
+}

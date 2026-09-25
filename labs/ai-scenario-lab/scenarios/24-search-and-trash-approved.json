@@ -1,0 +1,33 @@
+{
+  "id": "search-and-trash-approved",
+  "title": "Deletion remains recoverable through the virtual desktop trash",
+  "locale": "ru",
+  "tags": ["file-operations", "r1", "trash", "multistep", "focused"],
+  "fixture": "file-operations.json",
+  "turns": [
+    {
+      "user": "Найди файл notes.txt",
+      "expect": {
+        "stage": "completed",
+        "capabilities": ["documents.query.search"],
+        "found": 1
+      }
+    },
+    {
+      "user": "Отправь найденный файл в корзину",
+      "approval": "grant",
+      "expect": {
+        "stage": "completed",
+        "capabilities": ["files.items.trash"],
+        "approval_required": true,
+        "affected": 1,
+        "operation_actions": ["trash_results"],
+        "paths_exist": [
+          "/home/test-user/.local/share/Trash/files/notes.txt",
+          "/home/test-user/.local/share/Trash/info/notes.txt.trashinfo"
+        ],
+        "paths_absent": ["/home/test-user/Documents/notes.txt"]
+      }
+    }
+  ]
+}

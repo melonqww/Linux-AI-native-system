@@ -90,7 +90,7 @@ def operation_definitions():
                         "context.last_destination",
                     ],
                 },
-                "directory_name": {"type": "string"},
+                "directory_name": {"type": "string", "semanticRole": "destination_name"},
             },
             ["results_from", "destination"],
         ),
@@ -134,6 +134,69 @@ def model_request(user_text="Найди PDF по математике"):
 
 
 class OllamaProviderTests(unittest.TestCase):
+    def test_implicit_omission_never_turns_into_an_unrequested_policy(self):
+        definition = OperationDefinition(
+            "move_results", "files.items.move", "Move selected files.",
+            {
+                "type": "object",
+                "properties": {
+                    "destination": {"type": "string"},
+                    "conflict_policy": {
+                        "type": "string", "enum": ["fail", "rename"],
+                        "implicitOmissionValue": "fail",
+                    },
+                },
+                "required": ["destination"],
+                "additionalProperties": False,
+            },
+            preserved_arguments=("conflict_policy",),
+        )
+        calls = [{"function": {"name": "move_results", "arguments": {
+            "destination": "desktop", "confidence": 0.9,
+        }}}]
+        response = {"reviews": [{
+            "call_index": 0, "argument": "conflict_policy", "status": "present",
+            "value": "fail", "evidence": "Fail safely on a name conflict.",
+        }]}
+
+        reviewed = OllamaModelProvider._apply_argument_reviews(
+            calls, response, {(0, "conflict_policy"): definition}, set(),
+            "Move the found file to my Desktop",
+        )
+
+        self.assertIsNotNone(reviewed)
+        self.assertNotIn("conflict_policy", reviewed[0]["function"]["arguments"])
+
+    def test_optional_argument_absent_review_accepts_null_and_explanation(self):
+        definition = OperationDefinition(
+            "rename_item", "files.items.rename", "Rename one file.",
+            {
+                "type": "object",
+                "properties": {
+                    "new_name": {"type": "string"},
+                    "conflict_policy": {"type": "string", "enum": ["fail", "rename"]},
+                },
+                "required": ["new_name"],
+                "additionalProperties": False,
+            },
+            preserved_arguments=("conflict_policy",),
+        )
+        calls = [{"function": {"name": "rename_item", "arguments": {
+            "new_name": "final-report.pdf", "confidence": 0.9,
+        }}}]
+        response = {"reviews": [{
+            "call_index": 0, "argument": "conflict_policy", "status": "absent",
+            "value": None, "evidence": "No conflict policy was requested.",
+        }]}
+
+        reviewed = OllamaModelProvider._apply_argument_reviews(
+            calls, response, {(0, "conflict_policy"): definition}, set(),
+            "Rename that file to final-report.pdf",
+        )
+
+        self.assertIsNotNone(reviewed)
+        self.assertNotIn("conflict_policy", reviewed[0]["function"]["arguments"])
+
     def test_classifies_mixed_turn_with_closed_schema_and_exact_fragments(self):
         response = FakeResponse(
             {
@@ -635,6 +698,75 @@ class OllamaProviderTests(unittest.TestCase):
         self.assertEqual(arguments["text"], "математике")
         self.assertEqual(arguments["content_match"], "semantic")
 
+    def test_invalid_dependent_is_rebuilt_when_valid_peer_is_already_present(self):
+        route = FakeResponse(
+            {
+                "message": {
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "search_documents",
+                                "arguments": {
+                                    "mode": "hybrid",
+                                    "text": "учебные документы",
+                                    "content_match": "учебные документы",
+                                    "extensions": ["pdf"],
+                                    "confidence": 0.9,
+                                },
+                            }
+                        }
+                    ],
+                }
+            }
+        )
+        review = FakeResponse(
+            {"message": {"content": json.dumps({"classification": "topic"})}}
+        )
+
+        with patch(
+            "ai_native_intents.ollama._open_loopback", side_effect=[route, review]
+        ):
+            turn = OllamaModelProvider().route(
+                model_request("Найди учебные документы PDF")
+            )
+
+        self.assertEqual(turn.kind, ModelTurnKind.ACTION)
+        arguments = turn.intent_payload["operations"][0]["arguments"]
+        self.assertEqual(arguments["text"], "учебные документы")
+        self.assertEqual(arguments["content_match"], "semantic")
+
+    def test_invalid_dependent_with_ungrounded_present_peer_fails_closed(self):
+        route = FakeResponse(
+            {
+                "message": {
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "search_documents",
+                                "arguments": {
+                                    "mode": "hybrid",
+                                    "text": "invented topic",
+                                    "content_match": "учебные документы",
+                                    "extensions": ["pdf"],
+                                    "confidence": 0.9,
+                                },
+                            }
+                        }
+                    ],
+                }
+            }
+        )
+
+        with patch("ai_native_intents.ollama._open_loopback", return_value=route):
+            turn = OllamaModelProvider().route(
+                model_request("Найди учебные документы PDF")
+            )
+
+        self.assertEqual(turn.kind, ModelTurnKind.CLARIFICATION)
+        self.assertIsNone(turn.intent_payload)
+
     def test_ungrounded_invalid_conditional_value_fails_closed(self):
         route = FakeResponse(
             {
@@ -722,7 +854,7 @@ class OllamaProviderTests(unittest.TestCase):
 
         with patch(
             "ai_native_intents.ollama._open_loopback", side_effect=[route, review]
-        ):
+        ) as open_loopback:
             turn = OllamaModelProvider().route(request)
 
         self.assertEqual(turn.kind, ModelTurnKind.ACTION)
@@ -730,6 +862,10 @@ class OllamaProviderTests(unittest.TestCase):
         self.assertNotIn("text", arguments)
         self.assertNotIn("content_match", arguments)
         self.assertEqual(arguments["extensions"], ["pdf"])
+        review_request = json.loads(open_loopback.call_args_list[1].args[0].data)
+        review_prompt = review_request["messages"][1]["content"]
+        self.assertIn("Other already separated arguments", review_prompt)
+        self.assertIn('"extensions": ["pdf"]', review_prompt)
 
     def test_present_conditional_enum_is_reaudited_against_trigger_role(self):
         route = FakeResponse(
@@ -764,6 +900,122 @@ class OllamaProviderTests(unittest.TestCase):
         arguments = turn.intent_payload["operations"][0]["arguments"]
         self.assertEqual(arguments["text"], "математика")
         self.assertEqual(arguments["content_match"], "semantic")
+
+    def test_unrelated_misplaced_label_does_not_erase_grounded_topic(self):
+        route = FakeResponse(
+            {
+                "message": {
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "search_documents",
+                                "arguments": {
+                                    "mode": "content",
+                                    "text": "математика",
+                                    "content_match": "semantic",
+                                    "extensions": ["pdf"],
+                                    "confidence": 0.9,
+                                },
+                            }
+                        }
+                    ],
+                }
+            }
+        )
+        review = FakeResponse(
+            {"message": {"content": json.dumps({"misplaced": "destination"})}}
+        )
+
+        with patch(
+            "ai_native_intents.ollama._open_loopback", side_effect=[route, review]
+        ):
+            turn = OllamaModelProvider().route(
+                model_request("Нет, нужны только PDF по математике")
+            )
+
+        self.assertEqual(turn.kind, ModelTurnKind.ACTION)
+        arguments = turn.intent_payload["operations"][0]["arguments"]
+        self.assertEqual(arguments["text"], "математика")
+        self.assertEqual(arguments["content_match"], "semantic")
+        self.assertEqual(arguments["extensions"], ["pdf"])
+
+    def test_missing_content_role_retries_without_unrelated_sibling_roles(self):
+        route = FakeResponse(
+            {
+                "message": {
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "search_documents",
+                                "arguments": {
+                                    "mode": "content",
+                                    "text": "математика",
+                                    "extensions": ["pdf"],
+                                    "confidence": 0.9,
+                                },
+                            }
+                        }
+                    ],
+                }
+            }
+        )
+        misplaced = FakeResponse(
+            {"message": {"content": json.dumps({"misplaced": "destination"})}}
+        )
+        corrected = FakeResponse(
+            {
+                "message": {
+                    "content": json.dumps(
+                        {"trigger_value": "математика", "role": "topic"}
+                    )
+                }
+            }
+        )
+
+        with patch(
+            "ai_native_intents.ollama._open_loopback",
+            side_effect=[route, misplaced, corrected],
+        ) as open_loopback:
+            turn = OllamaModelProvider().route(
+                model_request("Нет, нужны только PDF по математике")
+            )
+
+        self.assertEqual(turn.kind, ModelTurnKind.ACTION)
+        arguments = turn.intent_payload["operations"][0]["arguments"]
+        self.assertEqual(arguments["text"], "математика")
+        self.assertEqual(arguments["content_match"], "semantic")
+        retry_request = json.loads(open_loopback.call_args_list[2].args[0].data)
+        self.assertNotIn(
+            "destination",
+            retry_request["format"]["properties"]["choice"]["enum"],
+        )
+
+    def test_folder_name_is_not_forced_into_content_role(self):
+        route = FakeResponse({"message": {"content": "", "tool_calls": [{
+            "function": {"name": "search_documents", "arguments": {
+                "mode": "content", "extensions": ["pdf"], "text": "Private",
+                "confidence": 0.8,
+            }}
+        }]}})
+        review = FakeResponse(
+            {"message": {"content": json.dumps({"misplaced": "destination"})}}
+        )
+        request = model_request(
+            "Find the PDF files and copy them to a folder called Private"
+        )
+        with patch(
+            "ai_native_intents.ollama._open_loopback", side_effect=[route, review]
+        ) as open_loopback:
+            turn = OllamaModelProvider().route(request)
+
+        self.assertEqual(turn.kind, ModelTurnKind.ACTION)
+        arguments = turn.intent_payload["operations"][0]["arguments"]
+        self.assertNotIn("text", arguments)
+        self.assertNotIn("content_match", arguments)
+        self.assertEqual(arguments["extensions"], ["pdf"])
+        self.assertEqual(open_loopback.call_count, 2)
 
     def test_ungrounded_preserved_argument_review_fails_closed(self):
         route = FakeResponse(

@@ -250,13 +250,22 @@ def _scenario_evidence(outcome) -> dict[str, object]:
     if not bool(outcome.containment.get("passed")):
         return {"containment_passed": False, "component": "containment"}
     for turn in outcome.turns:
-        for check in turn.checks:
-            if not check.passed and check.name == "paths_absent":
-                return {
-                    "unauthorized_side_effect": True,
-                    "component": "policy",
-                    "check_name": "paths_absent",
-                }
+        expects_removal = any(
+            check.name in {"affected", "copied"}
+            and isinstance(check.expected, int)
+            and not isinstance(check.expected, bool)
+            and check.expected > 0
+            for check in turn.checks
+        )
+        if not expects_removal and any(
+            not check.passed and check.name == "paths_absent"
+            for check in turn.checks
+        ):
+            return {
+                "unauthorized_side_effect": True,
+                "component": "policy",
+                "check_name": "paths_absent",
+            }
     for turn in outcome.turns:
         for check in turn.checks:
             if (
@@ -454,8 +463,8 @@ def _scenario_check_evidence(check) -> dict[str, object] | None:
         }
     if name == "paths_absent":
         return {
-            "unauthorized_side_effect": True,
-            "component": "policy",
+            "code": "side_effect_mismatch",
+            "component": "executor",
             "check_name": stable_name,
         }
     if name == "approval_required":

@@ -13,6 +13,12 @@ from .contracts import IntentValue, OperationIntent, UserIntent
 _IDENTIFIER = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 _TOP_LEVEL_KEYS = {"schema_version", "language", "summary", "confidence", "operations"}
 _OPERATION_KEYS = {"id", "kind", "arguments", "depends_on", "evidence"}
+_NAMED_FILE = re.compile(
+    r"\b(?:файл(?:ы|а)?|file(?:s)?)\s+"
+    r"(?:(?:с\s+именем|по\s+имени|named|called)\s+)?"
+    r"(?P<name>[^\s/\\<>:\"|?*]+\.[a-z0-9]{1,12})\b",
+    re.IGNORECASE,
+)
 
 
 class IntentValidationError(ValueError):
@@ -84,6 +90,12 @@ class IntentValidator:
             normalized = definition.normalize_arguments(raw_arguments)
         except (TypeError, ValueError) as error:
             raise IntentValidationError(str(error), code="invalid_arguments") from error
+        normalized = self._ground_explicit_filename(
+            normalized, user_text, definition.input_schema["properties"]
+        )
+        normalized = self._ground_explicit_enums(
+            normalized, user_text, definition.input_schema["properties"]
+        )
         if kind == "search_documents":
             # Search mode is a derived execution detail, not model authority.
             # Always replace the model value so equivalent argument sets compile
@@ -126,6 +138,95 @@ class IntentValidator:
         return OperationIntent(operation_id, kind, arguments, depends_on, evidence)
 
     @staticmethod
+    def _ground_explicit_filename(
+        arguments: dict[str, IntentValue],
+        user_text: str,
+        properties: Mapping[str, object],
+    ) -> dict[str, IntentValue]:
+        """Keep a plainly named file out of the indexed-content predicate.
+
+        This only repairs the exact filename/stem emitted as content by a small
+        model. It does not guess filenames from document topics or rewrite a
+        request that explicitly asks where a phrase occurs in content.
+        """
+        fields = {
+            schema.get("semanticRole"): name
+            for name, schema in properties.items()
+            if isinstance(schema, Mapping) and schema.get("semanticRole")
+        }
+        content_field = fields.get("content_text")
+        filename_field = fields.get("filename_terms")
+        extension_field = fields.get("file_extensions")
+        if not all((content_field, filename_field, extension_field)):
+            return arguments
+        match = _NAMED_FILE.search(user_text)
+        explicit_content_cues = (
+            cue
+            for schema in properties.values()
+            if isinstance(schema, Mapping)
+            for cues in schema.get("explicitValueCues", {}).values()
+            for cue in cues
+        )
+        if match is None or any(
+            IntentValidator._has_cue(user_text, cue)
+            for cue in explicit_content_cues
+        ):
+            return arguments
+        filename = match.group("name").rstrip(".,;:!?")
+        stem, _, suffix = filename.rpartition(".")
+        text = arguments.get(content_field)
+        if not isinstance(text, str) or text.casefold() not in {
+            filename.casefold(), stem.casefold()
+        }:
+            return arguments
+        amended = dict(arguments)
+        amended.pop(content_field, None)
+        for name, schema in properties.items():
+            if isinstance(schema, Mapping) and content_field in schema.get("coRequiredWith", []):
+                amended.pop(name, None)
+        amended[filename_field] = [filename]
+        amended[extension_field] = [suffix.casefold()]
+        return amended
+
+    @staticmethod
+    def _ground_explicit_enums(
+        arguments: dict[str, IntentValue],
+        user_text: str,
+        properties: Mapping[str, object],
+    ) -> dict[str, IntentValue]:
+        amended = dict(arguments)
+        for name, schema in properties.items():
+            if not isinstance(schema, Mapping):
+                continue
+            choices = schema.get("explicitValueCues")
+            if not isinstance(choices, Mapping):
+                continue
+            proposed = amended.get(name)
+            cues = choices.get(proposed) if isinstance(proposed, str) else None
+            if not isinstance(cues, list):
+                continue
+            if any(IntentValidator._has_cue(user_text, cue) for cue in cues):
+                continue
+            peers = schema.get("coRequiredWith", [])
+            quoted_peer = any(
+                isinstance(amended.get(peer), str)
+                and any(
+                    quote + amended[peer] + end in user_text
+                    for quote, end in (("\"", "\""), ("«", "»"))
+                )
+                for peer in peers
+            )
+            if not quoted_peer:
+                amended[name] = schema["uncuedFallback"]
+        return amended
+
+    @staticmethod
+    def _has_cue(user_text: str, cue: str) -> bool:
+        return re.search(
+            rf"(?<!\w){re.escape(cue.casefold())}", user_text.casefold()
+        ) is not None
+
+    @staticmethod
     def _validate_special_semantics(
         kind: str, arguments: dict[str, IntentValue], user_text: str
     ) -> None:
@@ -142,13 +243,28 @@ class IntentValidator:
                 raise IntentValidationError(
                     "URL must be a credential-free HTTP(S) URL present in the message"
                 )
-        destination_name = arguments.get("directory_name")
-        if isinstance(destination_name, str) and (
-            destination_name in {".", ".."}
-            or "/" in destination_name
-            or "\\" in destination_name
-        ):
-            raise IntentValidationError("directory_name must be one directory name")
+        for field in ("directory_name", "new_name"):
+            item_name = arguments.get(field)
+            if not isinstance(item_name, str):
+                continue
+            if (
+                item_name in {".", ".."}
+                or "/" in item_name
+                or "\\" in item_name
+            ):
+                raise IntentValidationError(f"{field} must be one directory entry name")
+            # A model must not silently turn '../escape' into 'escape', or
+            # invent a different target. Only a standalone name in the
+            # current user request can authorize a named file operation.
+            if not re.search(
+                rf"(?<![\w./\\]){re.escape(item_name)}(?![\w/\\])",
+                user_text,
+                flags=re.IGNORECASE,
+            ):
+                raise IntentValidationError(
+                    f"{field} is not an independent name in the request",
+                    code="ungrounded_operation",
+                )
         extensions = arguments.get("extensions")
         if isinstance(extensions, tuple):
             if any(

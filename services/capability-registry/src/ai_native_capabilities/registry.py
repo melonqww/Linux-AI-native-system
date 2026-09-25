@@ -309,6 +309,10 @@ class CapabilityRegistry:
                     manifest_valid = 1,
                     module_version = excluded.module_version,
                     core_api = excluded.core_api,
+                    desired_enabled = CASE
+                        WHEN modules.user_configured = 0 THEN excluded.desired_enabled
+                        ELSE modules.desired_enabled
+                    END,
                     state_reason = NULL,
                     last_seen_at = excluded.last_seen_at
                 """,

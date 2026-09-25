@@ -100,36 +100,96 @@ class CapabilityCandidateRouter:
         Quoted examples do not authorize operations.
         """
         visible = re.sub(r'"[^"\n]*"|«[^»]*»|`[^`]*`', " ", text)
-        tokens = self._normalize(visible).split()
         result = []
+        # Negation is local to a clause. Without this boundary, a safety
+        # preface such as "ничего лишнего не делай: найди документы" wrongly
+        # suppresses the separate, explicit command after the colon.
+        clauses = tuple(
+            self._normalize(part).split()
+            for part in re.split(r"[.!?;:\r\n]+", visible)
+            if self._normalize(part)
+        )
         for descriptor in self.descriptors:
             cues = {
                 self._normalize(example).split()[0]
                 for example in descriptor.examples
                 if self._normalize(example)
             }
-            for index, token in enumerate(tokens):
-                if any(
-                    word in {"не", "not", "never", "without", "dont"}
-                    for word in tokens[max(0, index - 3) : index]
-                ):
-                    continue
-                if any(
-                    token == cue
-                    or (
-                        min(len(token), len(cue)) >= 4
-                        and token[0] == cue[0]
-                        and self._damerau_levenshtein(token, cue) <= 1
-                    )
-                    for cue in cues
-                ):
-                    result.append(descriptor.operation)
+            matched = False
+            for tokens in clauses:
+                for index, token in enumerate(tokens):
+                    if any(
+                        word in {"не", "not", "never", "without", "dont"}
+                        for word in tokens[max(0, index - 3) : index]
+                    ):
+                        continue
+                    if any(
+                        token == cue
+                        or (
+                            min(len(token), len(cue)) >= 4
+                            and token[0] == cue[0]
+                            and self._damerau_levenshtein(token, cue) <= 1
+                        )
+                        for cue in cues
+                    ):
+                        result.append(descriptor.operation)
+                        matched = True
+                        break
+                if matched:
                     break
         return tuple(dict.fromkeys(result))
 
     def required_operations(self, text: str) -> tuple[str, ...]:
-        """Operations explicitly grounded by conservative request cues."""
-        return self.requested_operations(text)
+        """Resolve competing module cues before requiring graph repair.
+
+        Different operations can share an imperative (for example, moving a
+        file and moving it to trash).  A shared verb alone cannot require both
+        operations.  Compare the module-owned examples for that cue and keep
+        only the best grounded operation; distinct imperatives still allow a
+        genuine multi-action request.
+        """
+        requested = self.requested_operations(text)
+        visible = re.sub(r'"[^"\n]*"|«[^»]*»|`[^`]*`', " ", text)
+        clauses = tuple(
+            self._normalize(part).split()
+            for part in re.split(r"[.!?;:\r\n]+", visible)
+            if self._normalize(part)
+        )
+        winners: dict[tuple[int, int], tuple[float, str]] = {}
+        for clause_index, tokens in enumerate(clauses):
+            clause = " ".join(tokens)
+            for index, word in enumerate(tokens):
+                if any(
+                    negator in {"не", "not", "never", "without", "dont"}
+                    for negator in tokens[max(0, index - 3) : index]
+                ):
+                    continue
+                for descriptor in self.descriptors:
+                    if descriptor.operation not in requested:
+                        continue
+                    for example in descriptor.examples:
+                        sample = self._normalize(example)
+                        cue = sample.split()[0] if sample else ""
+                        if not cue or not (
+                            word == cue
+                            or (
+                                min(len(word), len(cue)) >= 4
+                                and word[0] == cue[0]
+                                and self._damerau_levenshtein(word, cue) <= 1
+                            )
+                        ):
+                            continue
+                        score = self._similarity(clause, sample)
+                        key = (clause_index, index)
+                        if key not in winners or score > winners[key][0]:
+                            winners[key] = (score, descriptor.operation)
+        # A verb can be incidental to a different request ("какой температуре
+        # печь хлеб" is not a request for file metadata). A low-scoring cue
+        # remains a candidate, but never becomes a mandatory operation.
+        selected = {
+            operation for score, operation in winners.values() if score >= 0.45
+        }
+        return tuple(operation for operation in requested if operation in selected)
 
     @staticmethod
     def _normalize(value: str) -> str:

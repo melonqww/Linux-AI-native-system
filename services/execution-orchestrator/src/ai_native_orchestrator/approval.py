@@ -11,9 +11,7 @@ from threading import RLock
 from time import monotonic
 
 from ai_native_intents import PlanStep
-from ai_native_storage import MaterializePlan
-
-from .contracts import ApprovalRequest, StepExecution
+from .contracts import ApprovalRequest, PreparedOperation, StepExecution
 
 
 class ApprovalSessionError(ValueError):
@@ -26,7 +24,7 @@ class ApprovalSessionError(ValueError):
 class ApprovalSession:
     run_id: str
     request: ApprovalRequest
-    materialize_plan: MaterializePlan
+    prepared: PreparedOperation
     step: PlanStep
     prior_steps: tuple[StepExecution, ...]
     active_collection_id: str | None

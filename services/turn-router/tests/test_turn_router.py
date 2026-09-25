@@ -102,6 +102,23 @@ class TurnRouterTests(unittest.TestCase):
         )
         self.assertEqual(result.action_text, "найди все PDF")
 
+    def test_ignores_punctuation_only_tail_when_recovering_mixed_fragment(self):
+        text = (
+            "Жалко, но ты можешь снова посмотреть PDF-файлы, а также сказать, "
+            "при какой температуре печь хлеб?"
+        )
+        action = "при какой температуре печь хлеб"
+        result = TurnRouter(
+            Classifier(payload("mixed", conversation=text, action=action))
+        ).route(TurnRequest(text, "ru"))
+
+        self.assertEqual(result.kind, TurnKind.MIXED)
+        self.assertEqual(
+            result.conversation_text,
+            "Жалко, но ты можешь снова посмотреть PDF-файлы, а также сказать,",
+        )
+        self.assertEqual(result.action_text, action)
+
     def test_accepts_english_conversation_and_action_split(self):
         text = "What temperature should I bake bread at, and find my PDF files"
         result = TurnRouter(Classifier(payload(

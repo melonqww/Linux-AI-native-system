@@ -487,6 +487,18 @@ def test_chat_cannot_present_common_fabricated_completion_as_fact(reply):
     assert safe_chat_reply(reply, "ru") != reply
 
 
+def test_chat_contradiction_falls_back_to_verified_task_result():
+    verified = "Поиск завершён. Найдено файлов: 3."
+    assert (
+        safe_chat_reply(
+            "Нет, я не нашёл PDF-файлов.",
+            "ru",
+            verified_task_result=verified,
+        )
+        == verified
+    )
+
+
 def test_module_request_evidence_handles_typos_not_topics_or_quotes():
     routes = router()
     assert routes.requested_operations("fynd local files") == ("search_documents",)

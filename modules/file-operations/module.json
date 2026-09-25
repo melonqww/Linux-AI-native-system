@@ -1,0 +1,191 @@
+{
+  "schema_version": 2,
+  "module_id": "files.operations",
+  "display_name": "File Operations",
+  "description": "Provides bounded, approval-gated operations over trusted file selections and user destination roles.",
+  "module_version": "0.3.0",
+  "core_api": "1",
+  "capabilities": [
+    {
+      "id": "files.items.inspect",
+      "description": "Read metadata for a bounded, server-owned selection of files or directories.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "results_from": {
+            "type": "string",
+            "description": "Server-owned reference to a trusted selection or an earlier operation result."
+          }
+        },
+        "required": ["results_from"],
+        "additionalProperties": false
+      },
+      "requested_permissions": ["filesystem.read-metadata"],
+      "user_intent": {
+        "operation": "inspect_files",
+        "description": "Show trusted metadata for previously identified files or directories without reading or changing their contents.",
+        "examples": [
+          "покажи информацию о найденных файлах",
+          "покажи размер и сведения о найденном файле",
+          "какой размер у этого файла",
+          "show details for the selected files",
+          "when was this folder modified"
+        ]
+      }
+    },
+    {
+      "id": "files.directory.create",
+      "description": "Create one named child directory inside an allowed user destination after approval.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "destination": {
+            "type": "string",
+            "enum": ["desktop", "documents", "downloads", "context.last_destination"],
+            "description": "Explicit user destination role or a trusted previously confirmed destination."
+          },
+          "directory_name": {
+            "type": "string",
+            "description": "One user-supplied child directory name, never an absolute path or a path containing separators."
+          }
+        },
+        "required": ["destination", "directory_name"],
+        "additionalProperties": false
+      },
+      "requested_permissions": ["filesystem.read-metadata", "filesystem.write-content"],
+      "user_intent": {
+        "operation": "create_directory",
+        "description": "Create exactly one named folder in Desktop, Documents, Downloads, or a trusted prior destination. Never accept a raw filesystem path.",
+        "preserved_arguments": ["destination", "directory_name"],
+        "examples": [
+          "создай папку Проекты на рабочем столе",
+          "сделай в документах папку Архив",
+          "create a folder called Private on my desktop",
+          "make a Receipts folder in Documents"
+        ]
+      }
+    },
+    {
+      "id": "files.items.move",
+      "description": "Move a bounded, server-owned selection into an allowed user destination after approval.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "results_from": {
+            "type": "string",
+            "description": "Server-owned reference to trusted search results or an earlier operation result."
+          },
+          "destination": {
+            "type": "string",
+            "enum": ["desktop", "documents", "downloads", "context.last_destination"],
+            "description": "Explicit user destination role or a trusted previously confirmed destination."
+          },
+          "directory_name": {
+            "type": "string",
+            "semanticRole": "destination_name",
+            "description": "Optional single child directory name inside the destination, never a path."
+          },
+          "conflict_policy": {
+            "type": "string",
+            "enum": ["fail", "rename"],
+            "implicitOmissionValue": "fail",
+            "description": "Fail safely on a name conflict unless the user explicitly requests creation of a non-conflicting name."
+          }
+        },
+        "required": ["results_from", "destination"],
+        "additionalProperties": false
+      },
+      "requested_permissions": ["filesystem.read-metadata", "filesystem.read-content", "filesystem.write-content"],
+      "user_intent": {
+        "operation": "move_results",
+        "description": "Move previously found files to a bounded user destination. The selection is server-owned; destination, optional folder name, and conflict behavior remain explicit.",
+        "preserved_arguments": ["destination", "directory_name", "conflict_policy"],
+        "examples": [
+          "перемести найденные файлы на рабочий стол",
+          "перенеси эти PDF в папку Учёба в документах",
+          "move the selected files to Downloads",
+          "move these documents into a Work folder on my desktop"
+        ]
+      }
+    },
+    {
+      "id": "files.items.rename",
+      "description": "Rename exactly one item from a trusted selection after approval.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "results_from": {
+            "type": "string",
+            "description": "Server-owned reference that must resolve to exactly one file or directory."
+          },
+          "new_name": {
+            "type": "string",
+            "description": "One user-supplied file or directory name, never a path or path traversal."
+          },
+          "conflict_policy": {
+            "type": "string",
+            "enum": ["fail", "rename"],
+            "implicitOmissionValue": "fail",
+            "description": "Fail safely on a conflict unless the user explicitly requests a non-conflicting name."
+          }
+        },
+        "required": ["results_from", "new_name"],
+        "additionalProperties": false
+      },
+      "requested_permissions": ["filesystem.read-metadata", "filesystem.write-content"],
+      "user_intent": {
+        "operation": "rename_item",
+        "description": "Rename one previously identified file or directory. The trusted selection must contain exactly one item and new_name must be a plain name, not a path.",
+        "preserved_arguments": ["new_name", "conflict_policy"],
+        "examples": [
+          "переименуй найденный файл в отчёт.pdf",
+          "назови эту папку Архив",
+          "rename the selected file to report.pdf",
+          "rename this folder to Archive"
+        ]
+      }
+    },
+    {
+      "id": "files.items.trash",
+      "description": "Move a bounded, server-owned selection to the desktop trash after approval.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "results_from": {
+            "type": "string",
+            "description": "Server-owned reference to trusted files or directories selected for recoverable deletion."
+          }
+        },
+        "required": ["results_from"],
+        "additionalProperties": false
+      },
+      "requested_permissions": ["filesystem.read-metadata", "filesystem.write-content"],
+      "user_intent": {
+        "operation": "trash_results",
+        "description": "Send previously identified files or directories to the recoverable desktop trash. Permanent deletion is not supported.",
+        "examples": [
+          "перемести найденные файлы в корзину",
+          "отправь найденный файл в корзину",
+          "удали эту папку в корзину",
+          "move the selected files to trash",
+          "send this folder to the recycle bin"
+        ]
+      }
+    }
+  ],
+  "dependencies": ["storage.catalog"],
+  "optional_dependencies": ["documents.query"],
+  "requested_permissions": [
+    "filesystem.read-metadata",
+    "filesystem.read-content",
+    "filesystem.write-content"
+  ],
+  "lifecycle": "on-demand",
+  "resource_class": "tiny",
+  "default_enabled": true,
+  "entrypoint": {
+    "kind": "python-package",
+    "module": "ai_native_file_operations",
+    "python_path": "src"
+  }
+}

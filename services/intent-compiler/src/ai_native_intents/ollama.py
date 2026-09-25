@@ -17,7 +17,7 @@ from ai_native_turns import TurnRequest
 
 from .catalog import OperationCatalog, OperationDefinition
 from .contracts import ModelRequest, ModelTurn, ModelTurnKind
-from .destinations import destination_role
+from .destinations import destination_role, explicitly_named_destination
 from .provider import (
     IntentProviderError,
     IntentProviderResponseError,
@@ -131,6 +131,9 @@ marker is NOT an image. Never claim to see or describe an unseen image. Ask for 
 supported input or a textual description. No computer action executes in this chat call.
 Past task results are history, not proof of a new action. Never say you just filtered,
 found, copied, created or changed anything. Treat arithmetic as a knowledge question.
+An earlier assistant message prefixed SERVER-VERIFIED TASK RESULT contains an
+authoritative result produced by the local system. Use that result when answering a
+follow-up about the earlier operation; never contradict its counts or claim lack of access.
 Conversation messages are ordered from oldest to newest. The final user message is the current
 message; every earlier user message is from the past. If the user asks what they said before,
 answer from the latest earlier user message and never mistake the current question for it.
@@ -395,13 +398,15 @@ class OllamaModelProvider:
         request: ModelRequest,
         definitions: tuple[OperationDefinition, ...],
     ) -> list[object] | None:
-        """Move one grounded value from an invalid dependent into its missing peer.
+        """Recover one grounded value placed in an invalid conditional enum.
 
         Small models sometimes put a topic into the enum that describes how the
         topic must be matched.  The module schema already declares that relation
-        with ``coRequiredWith``.  Relocation is allowed only when the value is
-        invalid for its current property, valid for exactly one missing peer and
-        literally present in the current message.  Ambiguity still fails closed.
+        with ``coRequiredWith``.  If the peer is missing, relocation is allowed
+        only when the value is valid for exactly one peer.  If a valid, grounded
+        peer already contains the topic, the invalid enum is removed so the
+        module-owned semantic review can reconstruct it.  Values must be grounded
+        in the current message and every ambiguous case still fails closed.
         """
         amended = deepcopy(calls)
         catalog = OperationCatalog(definitions)
@@ -429,6 +434,37 @@ class OllamaModelProvider:
                     value, request.user_text
                 ):
                     return None
+                present_peers: list[str] = []
+                for peer in peers:
+                    if peer not in arguments or peer not in properties:
+                        continue
+                    try:
+                        definition.validate_argument(peer, arguments[peer])
+                    except (TypeError, ValueError):
+                        return None
+                    if not OllamaModelProvider._argument_value_is_in_message(
+                        arguments[peer], request.user_text
+                    ):
+                        return None
+                    present_peers.append(peer)
+                if present_peers:
+                    choices = schema.get("reviewChoices")
+                    required = set(definition.input_schema["required"])
+                    recoverable_choices = (
+                        isinstance(choices, Mapping)
+                        and any(
+                            choice != "$misplaced" and isinstance(labels, list) and labels
+                            for choice, labels in choices.items()
+                        )
+                    )
+                    if (
+                        len(present_peers) != 1
+                        or argument in required
+                        or not recoverable_choices
+                    ):
+                        return None
+                    arguments.pop(argument)
+                    continue
                 candidates: list[tuple[str, object]] = []
                 for peer in peers:
                     if peer in arguments or peer not in properties:
@@ -490,6 +526,11 @@ class OllamaModelProvider:
                     for peer in schema.get("coRequiredWith", [])
                     if peer in arguments
                 }
+                sibling_arguments = {
+                    name: arguments[name]
+                    for name in properties
+                    if name in arguments and name != argument and name not in peers
+                }
                 payload = {
                     "model": self.model,
                     "messages": [
@@ -507,7 +548,12 @@ class OllamaModelProvider:
                             "names an object category, not a content topic or literal phrase. "
                             "Exact occurrence of words in the request alone never makes them a "
                             "literal-content phrase: the user must explicitly require verbatim "
-                            "occurrence. Apply the same distinction in any language. "
+                            "occurrence. Apply the same distinction in any language. Classify "
+                            "only the exact proposed trigger value. Other already separated "
+                            "arguments are context, not the target: never copy a sibling's role "
+                            "to the trigger merely because both occur in the same message. A "
+                            "sibling role applies only when the trigger value is that sibling "
+                            "value or its obvious normalized form. "
                             "Choose exactly one allowed label. Return one JSON field only.",
                         },
                         {
@@ -517,6 +563,8 @@ class OllamaModelProvider:
                                 f"{json.dumps(request.user_text, ensure_ascii=False)}\n"
                                 "Proposed trigger (quoted data):\n"
                                 f"{json.dumps(triggers, ensure_ascii=False)}\n"
+                                "Other already separated arguments (quoted context):\n"
+                                f"{json.dumps(sibling_arguments, ensure_ascii=False)}\n"
                                 "Dependent argument description:\n"
                                 f"{schema.get('description', '')}\n"
                                 "Allowed label groups:\n"
@@ -552,15 +600,82 @@ class OllamaModelProvider:
                     )
                 except (OllamaProviderError, TypeError, ValueError):
                     return None
-                if len(response) != 1:
-                    return None
-                selected_label = next(iter(response.values()))
-                if not isinstance(selected_label, str) or selected_label not in labels:
+                selected_label = self._unique_allowed_label(response, labels)
+                if selected_label is None:
                     return None
                 selected = next(
                     key for key, values in choices.items() if selected_label in values
                 )
                 if selected == "$misplaced":
+                    sibling_overlap = self._argument_overlaps_siblings(
+                        triggers, sibling_arguments
+                    )
+                    named_destination = any(
+                        isinstance(trigger.get("value"), str)
+                        and explicitly_named_destination(
+                            trigger["value"], request.user_text
+                        )
+                        for trigger in triggers.values()
+                    ) and any(
+                        other.operation != definition.operation
+                        and any(
+                            item.get("semanticRole") == "destination_name"
+                            for item in other.input_schema["properties"].values()
+                        )
+                        for other in definitions
+                    )
+                    if (
+                        argument in arguments
+                        and sibling_arguments
+                        and not sibling_overlap
+                        and not named_destination
+                    ):
+                        # A small model can name an unrelated role (for example,
+                        # "destination") even though the grounded trigger is a
+                        # content topic and the only sibling is a file extension.
+                        # A destructive reclassification needs corroboration from
+                        # an already separated sibling; otherwise retain the
+                        # schema-valid primary value.
+                        continue
+                    if (
+                        argument not in arguments
+                        and sibling_arguments
+                        and not sibling_overlap
+                        and not named_destination
+                    ):
+                        role_labels = [
+                            label
+                            for choice, values in choices.items()
+                            if choice != "$misplaced"
+                            for label in values
+                        ]
+                        retry_payload = deepcopy(payload)
+                        retry_payload["messages"][1]["content"] += (
+                            "\nThe trigger does not overlap any separated sibling value, so "
+                            "a sibling role is not available. Choose its content role only."
+                        )
+                        retry_payload["format"]["properties"]["choice"]["enum"] = (
+                            role_labels
+                        )
+                        try:
+                            retry = self._structured_message(
+                                retry_payload, "conditional content-role review"
+                            )
+                        except (OllamaProviderError, TypeError, ValueError):
+                            return None
+                        retry_label = self._unique_allowed_label(retry, role_labels)
+                        if retry_label is None:
+                            return None
+                        selected = next(
+                            key
+                            for key, values in choices.items()
+                            if key != "$misplaced" and retry_label in values
+                        )
+                    if selected != "$misplaced":
+                        arguments[argument] = definition.validate_argument(
+                            argument, selected
+                        )
+                        continue
                     required = set(definition.input_schema["required"])
                     removable = [peer for peer in triggers if peer not in required]
                     if not removable or not all(
@@ -574,6 +689,48 @@ class OllamaModelProvider:
                 else:
                     arguments[argument] = definition.validate_argument(argument, selected)
         return amended
+
+    @staticmethod
+    def _unique_allowed_label(
+        response: Mapping[str, object], labels: list[object]
+    ) -> str | None:
+        """Accept one unambiguous allowed value despite harmless extra fields."""
+        matches = {
+            value
+            for value in response.values()
+            if isinstance(value, str) and value in labels
+        }
+        return next(iter(matches)) if len(matches) == 1 else None
+
+    @staticmethod
+    def _argument_overlaps_siblings(
+        triggers: Mapping[str, object], sibling_arguments: Mapping[str, object]
+    ) -> bool:
+        """Return whether a proposed trigger is corroborated by a sibling value."""
+
+        def tokens(value: object) -> set[str]:
+            if isinstance(value, Mapping):
+                if "value" in value:
+                    return tokens(value.get("value"))
+                return (
+                    set().union(*(tokens(item) for item in value.values()))
+                    if value
+                    else set()
+                )
+            if isinstance(value, (list, tuple)):
+                return set().union(*(tokens(item) for item in value)) if value else set()
+            if isinstance(value, str):
+                return {
+                    token.casefold()
+                    for token in re.findall(r"[^\W_]+", value, flags=re.UNICODE)
+                    if len(token) > 1
+                }
+            return set()
+
+        trigger_tokens = tokens(triggers)
+        return any(
+            bool(trigger_tokens & tokens(value)) for value in sibling_arguments.values()
+        )
 
     def _review_preserved_arguments(
         self,
@@ -826,9 +983,38 @@ class OllamaModelProvider:
                 for peer in removable:
                     arguments.pop(peer)
                 continue
-            if status == "absent" and set(raw) == {"call_index", "argument", "status"}:
+            if (
+                status == "absent"
+                and set(raw) <= {
+                    "call_index", "argument", "status", "value", "evidence"
+                }
+                and raw.get("value") is None
+                and (
+                    "evidence" not in raw
+                    or isinstance(raw["evidence"], str)
+                )
+            ):
                 if already_present or key in conditionally_required:
                     return None
+                continue
+            if (
+                status == "present"
+                and not already_present
+                and key not in conditionally_required
+                and set(raw) == {
+                    "call_index", "argument", "status", "value", "evidence"
+                }
+                and isinstance(raw.get("evidence"), str)
+                and len(raw["evidence"]) <= 300
+                and "implicitOmissionValue" in schema
+                and reviewed_value == schema.get("implicitOmissionValue")
+                and not OllamaModelProvider._argument_value_is_in_message(
+                    reviewed_value, user_text
+                )
+            ):
+                # The module's implementation supplies this conservative value
+                # when omitted. A model may explain the default as "present",
+                # but that explanation does not authorize adding an argument.
                 continue
             if status != "present" or set(raw) != {
                 "call_index",

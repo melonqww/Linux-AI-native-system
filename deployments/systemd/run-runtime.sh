@@ -46,6 +46,7 @@ source_paths=(
     "services/indexer/src"
     "services/index-scheduler/src"
     "modules/documents-pdf/src"
+    "modules/file-operations/src"
     "modules/system-monitor/src"
     "modules/software-manager/src"
 )

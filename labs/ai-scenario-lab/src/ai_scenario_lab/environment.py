@@ -8,6 +8,7 @@ from pathlib import Path
 from time import perf_counter
 
 from ai_native_capabilities import CapabilityRegistry
+from ai_native_file_operations import FileOperationsService, capability_handlers
 from ai_native_intents import (
     IntentCompiler,
     OllamaModelProvider,
@@ -24,6 +25,7 @@ from ai_native_storage import (
     MaterializeService,
     PermissionLevel,
     VolumeRegistry,
+    VirtualCollectionStore,
 )
 from ai_native_storage.contracts import DiscoveredVolume
 from ai_native_turns import (
@@ -317,9 +319,29 @@ class LabEnvironment:
                 "downloads": self.pc.home / "Downloads",
             },
         )
+        collections = VirtualCollectionStore(self.storage_db)
+
+        def resolve_file_selection(collection_id: str):
+            items = collections.resolve(collection_id)
+            if not items or any(not item.available for item in items):
+                raise KeyError("selection_is_empty_or_unavailable")
+            paths = tuple(Path(item.path).resolve(strict=True) for item in items)
+            if any(not path.is_relative_to(self.pc.root) for path in paths):
+                raise ValueError("selection_escaped_virtual_computer")
+            return paths
+
+        trash_root = self.pc.home / ".local" / "share" / "Trash"
+        trash_root.parent.mkdir(parents=True, exist_ok=True)
+        file_service = FileOperationsService(
+            destination_roots=resolver.roles,
+            trash_root=trash_root,
+            selection_resolver=resolve_file_selection,
+        )
+        file_handlers = capability_handlers(file_service)
         capabilities = (
             "documents.query.search",
             "storage.materialize.plan-copy",
+            *file_handlers,
         )
         missing_capabilities = set(capabilities).difference(
             self.capability_registry.available_capabilities()
@@ -337,6 +359,7 @@ class LabEnvironment:
             destination_resolver=resolver,
             capability_source=lambda: capabilities,
             task_ledger=self.ledger,
+            capability_handlers=file_handlers,
         )
         self.executor = RecordingExecutor(orchestrator, self.faults)
         raw_provider = provider or MeasuredOllamaModelProvider(

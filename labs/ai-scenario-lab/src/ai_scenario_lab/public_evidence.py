@@ -117,7 +117,8 @@ def render_public_results(
         "запускает модель, лабораторию или тесты.",
         "",
         "В таблицы входят результаты, покрытие, длительность и безопасная",
-        "структурированная диагностика. Сообщения пользователя, ответы модели,",
+        "структурированная диагностика. JSON также хранит digest модели и версию",
+        "Ollama, когда preflight успел их зафиксировать. Сообщения пользователя, ответы модели,",
         "traces, локальные пути, данные хоста, PID и сетевые адреса исключены",
         "строгим списком разрешённых полей.",
         "",
@@ -126,17 +127,18 @@ def render_public_results(
         "",
         "## Все Foundation-прогоны",
         "",
-        "| Run | Среда | Результат | Не запущено | Время | Verdict | JSON |",
-        "|---|---|---:|---:|---:|---|---|",
+        "| Run | Профиль | Среда | Результат | Не запущено | Время | Verdict | JSON |",
+        "|---|---|---|---:|---:|---:|---|---|",
     ]
     for item, run in zip(index["runs"], public_runs, strict=True):
         counts = item["counts"]
         runtime = run["runtime"]
         lines.append(
-            "| `{run_id}` | {platform}, {model}, {context} tokens | "
+            "| `{run_id}` | `{profile}` | {platform}, {model}, {context} tokens | "
             "{passed}/{planned} passed; {failed} failed; {error} error | "
             "{not_run} | {wall} | `{verdict}` | [открыть]({artifact}) |".format(
                 run_id=item["run_id"],
+                profile=runtime["profile"],
                 platform=runtime["platform"],
                 model=runtime["model"],
                 context=runtime["context_tokens"],
@@ -151,11 +153,26 @@ def render_public_results(
             )
         )
 
-    latest = public_runs[-1]
+    full_runs = [
+        run for run in public_runs
+        if run["runtime"]["profile"] == "foundation-v1"
+        and run["outcome"]["state"] == "completed"
+    ]
+    if not full_runs:
+        raise UnsafeEvidence("no completed full Foundation run for public tables")
+    latest = full_runs[-1]
     lines.extend(
         [
             "",
             f"## Последний полный прогон — `{latest['run_id']}`",
+            "",
+            "В этой зафиксированной матрице: "
+            f"**{latest['outcome']['counts']['passed']}/{latest['outcome']['planned']} passed**, "
+            f"{latest['outcome']['counts']['failed']} failed, "
+            f"{latest['outcome']['counts']['error']} error. "
+            "Зелёный результат подтверждает только охваченный backend-сценарий "
+            "в виртуальной среде; он не является Linux/GNOME release validation "
+            "или гарантией для произвольных запросов.",
             "",
             "### Покрытие",
             "",
@@ -220,7 +237,7 @@ def render_public_results(
             "## Границы доказательств",
             "",
             "Таблица облегчает чтение, но не заменяет JSON. SHA-256 исходных локальных",
-            "отчётов, точные агрегаты и полные структурированные поля находятся в",
+            "отчётов, digest модели, точные агрегаты и структурированные поля находятся в",
             "[`index.json`](index.json) и файлах [`foundation/`](foundation/).",
             "",
         ]
@@ -267,10 +284,14 @@ def build_public_run(run_directory: Path) -> dict[str, Any]:
     failures = _read_json(run_directory / "failures.json")
     launch = _read_json(run_directory / "launch.json")
     progress = _read_json(run_directory / "progress.json")
+    model_file = run_directory / "model.json"
+    model = _read_json(model_file) if model_file.is_file() else None
 
     if _safe_run_id(str(summary.get("run_id"))) != run_id:
         raise UnsafeEvidence("summary run_id does not match its directory")
     fingerprint = _safe_sha256(manifest.get("source_fingerprint"))
+    if model is not None and model.get("model") != manifest.get("model"):
+        raise UnsafeEvidence("model preflight tag does not match manifest")
     wall_time = max(
         0.0,
         float(progress.get("heartbeat_unix", 0.0))
@@ -301,7 +322,8 @@ def build_public_run(run_directory: Path) -> dict[str, Any]:
         "provenance": {
             "source_fingerprint": fingerprint,
             "source_files_sha256": {
-                name: _file_sha256(run_directory / name) for name in SOURCE_FILES
+                name: _file_sha256(run_directory / name)
+                for name in (*SOURCE_FILES, *(("model.json",) if model else ()))
             },
             "automatic_retries": _safe_nonnegative_int(
                 manifest.get("automatic_retries", 0), "automatic_retries"
@@ -310,6 +332,9 @@ def build_public_run(run_directory: Path) -> dict[str, Any]:
         "runtime": {
             "profile": _safe_token(manifest.get("profile"), "profile"),
             "model": _safe_token(manifest.get("model"), "model"),
+            "model_digest": _safe_sha256(model.get("digest")) if model else None,
+            "ollama_version": _safe_token(model.get("ollama_version"), "ollama_version")
+            if model else None,
             "context_tokens": _safe_nonnegative_int(
                 manifest.get("context_tokens"), "context_tokens"
             ),

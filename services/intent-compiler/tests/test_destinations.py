@@ -1,6 +1,21 @@
 import pytest
 
 from ai_native_intents import destination_role
+from ai_native_intents.destinations import explicitly_named_destination
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("Find PDFs and copy them to a folder called Private", True),
+        ("Перемести файл в папку Готово на рабочем столе", True),
+        ("Find files about Private", False),
+        ("Find files about Private and copy to a folder called Private", False),
+    ],
+)
+def test_explicit_folder_name_is_separate_from_content_topic(text, expected):
+    name = "Готово" if "Готово" in text else "Private"
+    assert explicitly_named_destination(name, text) is expected
 
 
 @pytest.mark.parametrize(
@@ -30,6 +45,10 @@ def test_command_destination_requires_direction(text, expected):
         ("On my Dekstop", "desktop"),
         ("На рабочем стлое", "desktop"),
         ("На рабчоем столе", "desktop"),
+        (
+            "Пожалуйста, будь внимателен и ничего лишнего не делай: На рабочем столе",
+            "desktop",
+        ),
         ("Положи в докмуенты", "documents"),
         ("not Desktop", None),
         ("not Dekstop", None),

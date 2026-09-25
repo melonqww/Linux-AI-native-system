@@ -75,6 +75,118 @@ def builtin_policies() -> tuple[CapabilityPolicy, ...]:
             timeout_seconds=300,
         ),
         CapabilityPolicy(
+            capability_id="files.items.inspect",
+            risk=RiskLevel.READ_ONLY,
+            plan_approval_required=False,
+            allowed_arguments=frozenset({"results_from"}),
+            required_arguments=frozenset({"results_from"}),
+            phases=(
+                PhasePolicy(
+                    ExecutionPhase.EXECUTE,
+                    ALL_LOCAL_TRANSPORTS,
+                    frozenset({"filesystem.read-metadata"}),
+                ),
+            ),
+            max_concurrency=4,
+            timeout_seconds=10,
+        ),
+        CapabilityPolicy(
+            capability_id="files.directory.create",
+            risk=RiskLevel.REVERSIBLE_WRITE,
+            plan_approval_required=True,
+            allowed_arguments=frozenset({"destination", "directory_name"}),
+            required_arguments=frozenset({"destination", "directory_name"}),
+            phases=(
+                PhasePolicy(
+                    ExecutionPhase.PREPARE,
+                    ALL_LOCAL_TRANSPORTS,
+                    frozenset({"filesystem.read-metadata"}),
+                ),
+                PhasePolicy(
+                    ExecutionPhase.COMMIT,
+                    SECURE_WRITE_TRANSPORTS,
+                    frozenset({"filesystem.write-content"}),
+                    approval_required=True,
+                ),
+            ),
+            max_concurrency=1,
+            timeout_seconds=30,
+        ),
+        CapabilityPolicy(
+            capability_id="files.items.move",
+            risk=RiskLevel.REVERSIBLE_WRITE,
+            plan_approval_required=True,
+            allowed_arguments=frozenset(
+                {"results_from", "destination", "directory_name", "conflict_policy"}
+            ),
+            required_arguments=frozenset({"results_from", "destination"}),
+            phases=(
+                PhasePolicy(
+                    ExecutionPhase.PREPARE,
+                    ALL_LOCAL_TRANSPORTS,
+                    frozenset(
+                        {"filesystem.read-metadata", "filesystem.read-content"}
+                    ),
+                ),
+                PhasePolicy(
+                    ExecutionPhase.COMMIT,
+                    SECURE_WRITE_TRANSPORTS,
+                    frozenset(
+                        {"filesystem.read-content", "filesystem.write-content"}
+                    ),
+                    approval_required=True,
+                ),
+            ),
+            max_concurrency=1,
+            timeout_seconds=300,
+        ),
+        CapabilityPolicy(
+            capability_id="files.items.rename",
+            risk=RiskLevel.REVERSIBLE_WRITE,
+            plan_approval_required=True,
+            allowed_arguments=frozenset(
+                {"results_from", "new_name", "conflict_policy"}
+            ),
+            required_arguments=frozenset({"results_from", "new_name"}),
+            phases=(
+                PhasePolicy(
+                    ExecutionPhase.PREPARE,
+                    ALL_LOCAL_TRANSPORTS,
+                    frozenset({"filesystem.read-metadata"}),
+                ),
+                PhasePolicy(
+                    ExecutionPhase.COMMIT,
+                    SECURE_WRITE_TRANSPORTS,
+                    frozenset({"filesystem.write-content"}),
+                    approval_required=True,
+                ),
+            ),
+            max_concurrency=1,
+            timeout_seconds=30,
+        ),
+        CapabilityPolicy(
+            capability_id="files.items.trash",
+            risk=RiskLevel.REVERSIBLE_WRITE,
+            plan_approval_required=True,
+            allowed_arguments=frozenset({"results_from"}),
+            required_arguments=frozenset({"results_from"}),
+            phases=(
+                PhasePolicy(
+                    ExecutionPhase.PREPARE,
+                    ALL_LOCAL_TRANSPORTS,
+                    frozenset({"filesystem.read-metadata"}),
+                ),
+                PhasePolicy(
+                    ExecutionPhase.COMMIT,
+                    SECURE_WRITE_TRANSPORTS,
+                    frozenset({"filesystem.write-content"}),
+                    approval_required=True,
+                ),
+            ),
+            max_concurrency=1,
+            timeout_seconds=60,
+        ),
+        CapabilityPolicy(
             capability_id="software.install.prepare",
             risk=RiskLevel.REVERSIBLE_WRITE,
             plan_approval_required=True,

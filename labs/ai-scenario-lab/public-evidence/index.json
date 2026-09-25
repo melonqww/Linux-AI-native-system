@@ -129,6 +129,90 @@
         "not_run": 0
       },
       "wall_time_seconds": 7492.525
+    },
+    {
+      "run_id": "20260921T082636.506678Z",
+      "artifact": "foundation/20260921T082636.506678Z.json",
+      "source_fingerprint": "bdd8ed5a5e591ca71f079705fd58cf12e2c9fb7fdf5c9a0fb918295d02a5b8c7",
+      "state": "completed",
+      "verdict": "problems_found",
+      "counts": {
+        "passed": 91,
+        "failed": 6,
+        "error": 0,
+        "not_run": 0
+      },
+      "wall_time_seconds": 8084.064
+    },
+    {
+      "run_id": "20260923T084815.943106Z",
+      "artifact": "foundation/20260923T084815.943106Z.json",
+      "source_fingerprint": "1ff4db1cbf0926370cb7e61e772120c5ce310330353e6c99a127fbe6073b1880",
+      "state": "blocked",
+      "verdict": "incomplete",
+      "counts": {
+        "passed": 0,
+        "failed": 1,
+        "error": 0,
+        "not_run": 112
+      },
+      "wall_time_seconds": 18.171
+    },
+    {
+      "run_id": "20260923T084919.842465Z",
+      "artifact": "foundation/20260923T084919.842465Z.json",
+      "source_fingerprint": "1ff4db1cbf0926370cb7e61e772120c5ce310330353e6c99a127fbe6073b1880",
+      "state": "completed",
+      "verdict": "problems_found",
+      "counts": {
+        "passed": 93,
+        "failed": 20,
+        "error": 0,
+        "not_run": 0
+      },
+      "wall_time_seconds": 10187.062
+    },
+    {
+      "run_id": "20260924T091434.648761Z",
+      "artifact": "foundation/20260924T091434.648761Z.json",
+      "source_fingerprint": "aae7f172fb4a7d5fba8de30dbc6de0d923b646376032f38b35cbeb09d5f78ca5",
+      "state": "completed",
+      "verdict": "problems_found",
+      "counts": {
+        "passed": 22,
+        "failed": 3,
+        "error": 0,
+        "not_run": 0
+      },
+      "wall_time_seconds": 1729.702
+    },
+    {
+      "run_id": "20260925T080528.342605Z",
+      "artifact": "foundation/20260925T080528.342605Z.json",
+      "source_fingerprint": "6b30b8bc7d6ed035bef7345e1dfdbc77c40108e92f41d15dd12981bfd7b24d9f",
+      "state": "completed",
+      "verdict": "backend_candidate",
+      "counts": {
+        "passed": 7,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "wall_time_seconds": 337.896
+    },
+    {
+      "run_id": "20260925T081344.764208Z",
+      "artifact": "foundation/20260925T081344.764208Z.json",
+      "source_fingerprint": "6b30b8bc7d6ed035bef7345e1dfdbc77c40108e92f41d15dd12981bfd7b24d9f",
+      "state": "completed",
+      "verdict": "backend_candidate",
+      "counts": {
+        "passed": 113,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "wall_time_seconds": 10105.218
     }
   ]
 }

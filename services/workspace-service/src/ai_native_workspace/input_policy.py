@@ -37,7 +37,12 @@ def input_notice(locale: str) -> str:
     )
 
 
-def safe_chat_reply(reply: str, locale: str) -> str:
+def safe_chat_reply(
+    reply: str,
+    locale: str,
+    *,
+    verified_task_result: str | None = None,
+) -> str:
     # An additional guard, not a claim of complete semantic verification. Task
     # result messages are never passed here and retain their trusted facts.
     if re.search(
@@ -45,6 +50,8 @@ def safe_chat_reply(reply: str, locale: str) -> str:
         reply,
         re.I,
     ):
+        if verified_task_result:
+            return verified_task_result
         return (
             "В этом ответе я не выполнял действий с файлами. Уточни, что нужно сделать."
             if locale.startswith("ru")

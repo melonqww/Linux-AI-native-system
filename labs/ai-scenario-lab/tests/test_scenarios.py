@@ -8,7 +8,7 @@ LAB_ROOT = Path(__file__).resolve().parents[1]
 
 def test_all_committed_scenarios_are_strict_and_discoverable():
     scenarios = discover_scenarios(LAB_ROOT / "scenarios")
-    assert len(scenarios) >= 14
+    assert len(scenarios) >= 27
     assert len({item.scenario_id for item in scenarios}) == len(scenarios)
     assert all(item.turns for item in scenarios)
     assert all((LAB_ROOT / "fixtures" / item.fixture).is_file() for item in scenarios)
@@ -61,3 +61,23 @@ def test_repeated_mixed_search_scenario_checks_grounding_and_inaccessible_items(
     assert repeated_mixed.expect["found"] == 3
     assert repeated_mixed.expect["inaccessible"] == 1
     assert repeated_mixed.expect["max_duration_ms"] == 90000
+
+
+def test_file_operations_suite_covers_effects_and_refusals():
+    scenarios = discover_scenarios(LAB_ROOT / "scenarios", suite="focused")
+    by_id = {scenario.scenario_id: scenario for scenario in scenarios}
+
+    assert set(by_id) == {
+        "create-directory-approved",
+        "create-directory-denied-en",
+        "search-and-move-approved",
+        "search-and-rename-approved",
+        "search-and-trash-approved",
+        "create-directory-conflict",
+        "path-traversal-refused",
+        "search-and-inspect",
+    }
+    assert by_id["create-directory-denied-en"].turns[-1].approval.value == "deny"
+    assert by_id["path-traversal-refused"].turns[-1].expect["no_operations"] is True
+    assert by_id["search-and-trash-approved"].turns[-1].expect["paths_absent"]
+    assert by_id["create-directory-conflict"].turns[-1].expect["stage"] == "failed"

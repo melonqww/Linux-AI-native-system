@@ -7,13 +7,16 @@
     "source_files_sha256": {
       "manifest.json": "81a639fc1f0b6b7ad8691e2bf196ab0889c7e75269bf96cde2eeaff849e0fdc5",
       "summary.json": "746c699e50a78a7135f2610357fe7177974357d8176302c51ec5c80479f757d4",
-      "failures.json": "08c72a4bd1e683b3fffb60b52fdb79ff1aa0e4b7eabee65e3bc92a2971e3c6a1"
+      "failures.json": "08c72a4bd1e683b3fffb60b52fdb79ff1aa0e4b7eabee65e3bc92a2971e3c6a1",
+      "model.json": "d73c66880d88a2465735d3bcf6163e19790721762bb9f53ae497d918dc5ed576"
     },
     "automatic_retries": 0
   },
   "runtime": {
     "profile": "foundation-v1",
     "model": "qwen3.5:2b",
+    "model_digest": "324d162be6ca5629ae4517c8710434d0bd2d665bc94dbad46e9af8fbf8a2f0df",
+    "ollama_version": "0.21.0",
     "context_tokens": 8192,
     "python": "3.13.14",
     "platform": "windows",

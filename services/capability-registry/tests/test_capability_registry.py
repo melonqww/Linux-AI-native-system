@@ -203,6 +203,7 @@ class CapabilityRegistryTests(RegistryTestCase):
             "documents.index",
             "documents.pdf",
             "documents.query",
+            "files.operations",
             "model.ollama",
             "provider.ollama",
             "security.center",
@@ -213,7 +214,7 @@ class CapabilityRegistryTests(RegistryTestCase):
             "system.updates",
         ]
 
-        self.assertEqual(report.scanned, 13)
+        self.assertEqual(report.scanned, 14)
         self.assertEqual(report.issues, ())
         self.assertEqual(
             [module.manifest.module_id for module in self.registry.list_modules()],
@@ -238,6 +239,7 @@ class CapabilityRegistryTests(RegistryTestCase):
         self.assertIn("software.remove.commit", self.registry.available_capabilities())
         self.assertIn("software.tasks.control", self.registry.available_capabilities())
         self.assertIn("documents.query.search", self.registry.available_capabilities())
+        self.assertIn("files.items.move", self.registry.available_capabilities())
         self.assertIn(
             "security.module.status",
             self.registry.available_capabilities(),
@@ -419,6 +421,33 @@ class CapabilityRegistryTests(RegistryTestCase):
 
         self.registry.set_enabled("test.optional", True)
         self.assertEqual(self.registry.get_module("test.optional").state, ModuleState.ENABLED)
+
+    def test_updated_default_applies_until_user_explicitly_configures_module(self) -> None:
+        path = self.write_manifest(
+            manifest_payload("test.default-change", default_enabled=False)
+        )
+        self.registry.sync([path])
+        self.assertEqual(
+            self.registry.get_module("test.default-change").state,
+            ModuleState.INSTALLED,
+        )
+
+        path.write_text(
+            json.dumps(manifest_payload("test.default-change", default_enabled=True)),
+            encoding="utf-8",
+        )
+        self.registry.sync([path])
+        self.assertEqual(
+            self.registry.get_module("test.default-change").state,
+            ModuleState.ENABLED,
+        )
+
+        self.registry.set_enabled("test.default-change", False)
+        self.registry.sync([path])
+        self.assertEqual(
+            self.registry.get_module("test.default-change").state,
+            ModuleState.DISABLED,
+        )
 
     def test_invalid_manifest_update_removes_old_capability(self) -> None:
         path = self.write_manifest(manifest_payload("test.mutable"))

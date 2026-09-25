@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from time import monotonic
 from uuid import UUID, uuid4
@@ -36,10 +36,14 @@ from .approval import (
 )
 from .contracts import (
     ApprovalRequest,
+    CapabilityExecutionError,
     CopyOutput,
+    ExecutionSnapshot,
+    OperationOutput,
     OrchestrationResult,
     OrchestrationState,
     SearchOutput,
+    PreparedOperation,
     StepExecution,
     StepState,
 )
@@ -53,18 +57,9 @@ class PlanValidationError(ValueError):
 
 
 @dataclass(frozen=True)
-class _CopyPreparePayload:
-    run_id: str
-    plan: ExecutionPlan
-    step: PlanStep
-    prior_steps: tuple[StepExecution, ...]
-    outputs: dict[str, SearchOutput]
-    active_collection_id: str | None
-
-
-@dataclass(frozen=True)
 class _CopyCommitPayload:
-    session: ApprovalSession
+    run_id: str
+    materialize_plan: object
 
 
 class ExecutionOrchestrator:
@@ -83,6 +78,9 @@ class ExecutionOrchestrator:
         granted_scopes: frozenset[str] | None = None,
         scope_source: Callable[[], Iterable[str]] | None = None,
         task_ledger: TaskLedger | None = None,
+        capability_handlers: Mapping[
+            str, Callable[[CapabilityInvocation], object]
+        ] | None = None,
     ) -> None:
         self._query_service = query_service
         self._context_store = context_store
@@ -110,6 +108,8 @@ class ExecutionOrchestrator:
         self.capabilities = CapabilityExecutionRegistry(self.permission_gateway)
         self.capabilities.register("documents.query.search", self._handle_search)
         self.capabilities.register("storage.materialize.plan-copy", self._handle_copy)
+        for capability_id, handler in (capability_handlers or {}).items():
+            self.capabilities.register(capability_id, handler)
 
     def available_capabilities(self) -> tuple[str, ...]:
         registered = set(self.capabilities.registered_capabilities())
@@ -138,8 +138,9 @@ class ExecutionOrchestrator:
             raise
         executions: list[StepExecution] = []
         completed: set[str] = set()
-        outputs_by_operation: dict[str, SearchOutput] = {}
+        selection_references: dict[str, str] = {}
         active_collection_id = self._context_store.snapshot().active_collection_id
+        last_destination = self._context_store.snapshot().last_destination
         transport = transport_context or TransportContext.internal()
         self._audit("orchestration.started", run_id, plan.plan_id)
         self._ledger_start(run_id, plan)
@@ -159,13 +160,11 @@ class ExecutionOrchestrator:
                         step,
                         ExecutionPhase.PREPARE,
                         transport,
-                        trusted_payload=_CopyPreparePayload(
+                        trusted_payload=ExecutionSnapshot(
                             run_id,
-                            plan,
-                            step,
-                            tuple(executions),
-                            dict(outputs_by_operation),
+                            dict(selection_references),
                             active_collection_id,
+                            last_destination,
                         ),
                     )
                     dispatch = self.capabilities.dispatch(
@@ -182,9 +181,26 @@ class ExecutionOrchestrator:
                             step,
                             f"policy_{dispatch.decision.reason_code}",
                         )
-                    if not isinstance(dispatch.output, ApprovalRequest):
+                    if not isinstance(dispatch.output, PreparedOperation):
                         raise TypeError("R1 prepare handler returned an invalid output")
-                    approval = dispatch.output
+                    prepared = dispatch.output
+                    approval = prepared.approval_request
+                    if (
+                        approval.plan_id != plan.plan_id
+                        or approval.step_id != step.step_id
+                    ):
+                        raise TypeError("R1 prepare handler returned mismatched approval data")
+                    evicted = self._approval_sessions.put(
+                        ApprovalSession(
+                            run_id,
+                            approval,
+                            prepared,
+                            step,
+                            tuple(executions),
+                            active_collection_id,
+                        )
+                    )
+                    self._discard_sessions(evicted)
                 except Exception as error:
                     return self._failure(
                         run_id, plan, executions, step, self._classify_error(error)
@@ -206,7 +222,16 @@ class ExecutionOrchestrator:
                 )
             try:
                 invocation = self._invocation(
-                    plan, step, ExecutionPhase.EXECUTE, transport
+                    plan,
+                    step,
+                    ExecutionPhase.EXECUTE,
+                    transport,
+                    trusted_payload=ExecutionSnapshot(
+                        run_id,
+                        dict(selection_references),
+                        active_collection_id,
+                        last_destination,
+                    ),
                 )
                 dispatch = self.capabilities.dispatch(
                     invocation,
@@ -222,11 +247,13 @@ class ExecutionOrchestrator:
                         step,
                         f"policy_{dispatch.decision.reason_code}",
                     )
-                if not isinstance(dispatch.output, SearchOutput):
+                if not isinstance(dispatch.output, (SearchOutput, OperationOutput)):
                     raise TypeError("R0 handler returned an invalid output")
                 output = dispatch.output
-                active_collection_id = output.collection_id
-                self._context_store.set_active_results(active_collection_id)
+                if isinstance(output, SearchOutput):
+                    active_collection_id = output.collection_id
+                    selection_references[step.operation_id] = output.collection_id
+                    self._context_store.set_active_results(active_collection_id)
             except Exception as error:
                 # This is the capability isolation boundary. Unexpected module
                 # failures become a stable, redacted result and never tear down
@@ -235,17 +262,21 @@ class ExecutionOrchestrator:
                     run_id, plan, executions, step, self._classify_error(error)
                 )
             completed.add(step.step_id)
-            outputs_by_operation[step.operation_id] = output
             executions.append(
                 StepExecution(step.step_id, step.capability, StepState.COMPLETED, output=output)
             )
-            self._ledger_search_results(run_id, plan, output)
+            if isinstance(output, SearchOutput):
+                self._ledger_search_results(run_id, plan, output)
             self._audit(
                 "orchestration.step_completed",
                 run_id,
                 plan.plan_id,
                 step.step_id,
-                result_count=output.result_count,
+                result_count=(
+                    output.result_count
+                    if isinstance(output, SearchOutput)
+                    else output.item_count
+                ),
             )
 
         self._audit("orchestration.completed", run_id, plan.plan_id)
@@ -273,10 +304,8 @@ class ExecutionOrchestrator:
             raise
         self._discard_sessions(expired)
         step = session.step
-        if self._materialize is None:
-            raise RuntimeError("materialize_service_unavailable")
         if not confirmed:
-            self._materialize.discard(session.materialize_plan.plan_id)
+            self._discard_prepared(session.prepared)
             execution = StepExecution(
                 step.step_id, step.capability, StepState.CANCELLED, error_code="user_declined"
             )
@@ -303,7 +332,7 @@ class ExecutionOrchestrator:
                 transport_context or TransportContext.internal(),
                 approval_granted=True,
                 plan_id=session.request.plan_id,
-                trusted_payload=_CopyCommitPayload(session),
+                trusted_payload=session.prepared.commit_payload,
             )
             dispatch = self.capabilities.dispatch(
                 invocation,
@@ -316,7 +345,7 @@ class ExecutionOrchestrator:
                 ),
             )
             if not dispatch.decision.allowed:
-                self._materialize.discard(session.materialize_plan.plan_id)
+                self._discard_prepared(session.prepared)
                 code = f"policy_{dispatch.decision.reason_code}"
                 execution = StepExecution(
                     step.step_id, step.capability, StepState.FAILED, error_code=code
@@ -338,11 +367,11 @@ class ExecutionOrchestrator:
                     active_collection_id=session.active_collection_id,
                     diagnostics=(code,),
                 )
-            if not isinstance(dispatch.output, CopyOutput):
+            if not isinstance(dispatch.output, (CopyOutput, OperationOutput)):
                 raise TypeError("R1 commit handler returned an invalid output")
             output = dispatch.output
         except Exception as error:
-            self._materialize.discard(session.materialize_plan.plan_id)
+            self._discard_prepared(session.prepared)
             code = self._classify_error(error)
             execution = StepExecution(
                 step.step_id, step.capability, StepState.FAILED, error_code=code
@@ -365,7 +394,7 @@ class ExecutionOrchestrator:
                 diagnostics=(code,),
             )
         execution = StepExecution(step.step_id, step.capability, StepState.COMPLETED, output)
-        if self._task_ledger is not None:
+        if self._task_ledger is not None and isinstance(output, CopyOutput):
             for copied_path in output.copied_paths:
                 self._task_ledger.record_item(
                     session.run_id,
@@ -378,7 +407,11 @@ class ExecutionOrchestrator:
             session.run_id,
             session.request.plan_id,
             step.step_id,
-            copied_count=output.copied_count,
+            item_count=(
+                output.copied_count
+                if isinstance(output, CopyOutput)
+                else output.item_count
+            ),
         )
         self._audit("orchestration.completed", session.run_id, session.request.plan_id)
         if self._task_ledger is not None:
@@ -430,19 +463,15 @@ class ExecutionOrchestrator:
             invocation.arguments, invocation.plan_id, invocation.deadline_monotonic
         )
 
-    def _handle_copy(self, invocation: CapabilityInvocation) -> ApprovalRequest | CopyOutput:
+    def _handle_copy(self, invocation: CapabilityInvocation) -> PreparedOperation | CopyOutput:
         self._ensure_deadline(invocation)
         if invocation.phase is ExecutionPhase.PREPARE:
             payload = invocation.trusted_payload
-            if not isinstance(payload, _CopyPreparePayload):
+            if not isinstance(payload, ExecutionSnapshot):
                 raise TypeError("copy prepare requires trusted orchestration state")
             return self._prepare_copy_approval(
-                payload.run_id,
-                payload.plan,
-                payload.step,
-                payload.prior_steps,
-                payload.outputs,
-                payload.active_collection_id,
+                invocation,
+                payload,
                 deadline_monotonic=invocation.deadline_monotonic,
             )
         if invocation.phase is ExecutionPhase.COMMIT:
@@ -451,19 +480,19 @@ class ExecutionOrchestrator:
                 raise TypeError("copy commit requires trusted approval state")
             if self._materialize is None:
                 raise RuntimeError("materialize_service_unavailable")
-            session = payload.session
+            materialize_plan = payload.materialize_plan
             grant = self._materialize.approval.approve(
-                session.materialize_plan.plan_id, user_confirmed=True
+                materialize_plan.plan_id, user_confirmed=True
             )
             copied = self._materialize.execute(
-                session.materialize_plan.plan_id,
+                materialize_plan.plan_id,
                 grant,
                 deadline_monotonic=invocation.deadline_monotonic,
-                cancellation_check=self._cancellation_check(session.run_id),
+                cancellation_check=self._cancellation_check(payload.run_id),
             )
-            self._context_store.set_last_destination(session.materialize_plan.destination)
+            self._context_store.set_last_destination(materialize_plan.destination)
             return CopyOutput(
-                session.materialize_plan.destination, len(copied), tuple(copied)
+                materialize_plan.destination, len(copied), tuple(copied)
             )
         raise ValueError("copy handler does not support this phase")
 
@@ -477,28 +506,19 @@ class ExecutionOrchestrator:
 
     def _prepare_copy_approval(
         self,
-        run_id: str,
-        plan: ExecutionPlan,
-        step: PlanStep,
-        prior_steps: tuple[StepExecution, ...],
-        outputs: dict[str, SearchOutput],
-        active_collection_id: str | None,
+        invocation: CapabilityInvocation,
+        snapshot: ExecutionSnapshot,
         *,
         deadline_monotonic: float | None = None,
-    ) -> ApprovalRequest:
+    ) -> PreparedOperation:
         if self._materialize is None:
             raise RuntimeError("materialize service is unavailable")
-        arguments = step.arguments
+        arguments = invocation.arguments
         unknown = set(arguments) - {"results_from", "destination", "directory_name"}
         if unknown:
             raise ValueError("copy has unsupported arguments")
         reference = self._string(arguments, "results_from")
-        if reference in outputs:
-            collection_id = outputs[reference].collection_id
-        elif reference == self._context_store.snapshot().active_collection_id:
-            collection_id = reference
-        else:
-            raise ValueError("copy results reference is not trusted")
+        collection_id = snapshot.resolve_selection(reference)
         destination_role = self._string(arguments, "destination")
         raw_name = arguments.get("directory_name")
         if raw_name is not None and not isinstance(raw_name, str):
@@ -513,12 +533,12 @@ class ExecutionOrchestrator:
             collection_id,
             destination,
             deadline_monotonic=deadline_monotonic,
-            cancellation_check=self._cancellation_check(run_id),
+            cancellation_check=self._cancellation_check(snapshot.run_id),
         )
         request = ApprovalRequest(
             approval_request_id=str(uuid4()),
-            plan_id=plan.plan_id,
-            step_id=step.step_id,
+            plan_id=invocation.plan_id,
+            step_id=invocation.step_id,
             action="copy_files",
             destination=materialize_plan.destination,
             item_count=len(materialize_plan.items),
@@ -526,26 +546,26 @@ class ExecutionOrchestrator:
             item_names=tuple(item.destination_name for item in materialize_plan.items),
             expires_in_seconds=int(self._approval_sessions.ttl_seconds),
         )
-        evicted = self._approval_sessions.put(
-            ApprovalSession(
-                run_id,
-                request,
-                materialize_plan,
-                step,
-                prior_steps,
-                active_collection_id,
-            )
+        return PreparedOperation(
+            request,
+            _CopyCommitPayload(snapshot.run_id, materialize_plan),
+            lambda payload: self._materialize.discard(payload.materialize_plan.plan_id),
         )
-        self._discard_sessions(evicted)
-        return request
 
     def _discard_sessions(self, sessions: tuple[ApprovalSession, ...]) -> None:
-        if self._materialize is None:
-            return
         for session in sessions:
-            self._materialize.discard(session.materialize_plan.plan_id)
+            self._discard_prepared(session.prepared)
             if self._task_ledger is not None:
                 self._task_ledger.fail(session.run_id)
+
+    @staticmethod
+    def _discard_prepared(prepared: PreparedOperation) -> None:
+        if prepared.discard is not None:
+            try:
+                prepared.discard(prepared.commit_payload)
+            except Exception:
+                # Cleanup is best-effort and must not replace the execution error.
+                pass
 
     def _execute_search(
         self,
@@ -763,6 +783,8 @@ class ExecutionOrchestrator:
 
     @staticmethod
     def _classify_error(error: Exception) -> str:
+        if isinstance(error, CapabilityExecutionError):
+            return error.code
         if isinstance(error, CancellationRequested):
             return "user_cancelled"
         if isinstance(error, TimeoutError):

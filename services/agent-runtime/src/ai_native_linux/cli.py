@@ -510,9 +510,31 @@ def main() -> int:
                     ExecutionOrchestrator,
                     OrchestrationAuditLog,
                 )
-                from ai_native_storage import ApprovalAuthority, MaterializeService
+                from ai_native_file_operations import (
+                    FileOperationsService,
+                    capability_handlers as file_operation_handlers,
+                )
+                from ai_native_storage import (
+                    ApprovalAuthority,
+                    MaterializeService,
+                    VirtualCollectionStore,
+                )
 
                 plan_store = CompiledPlanStore()
+                destination_resolver = DestinationResolver()
+                file_collections = VirtualCollectionStore(args.storage_database)
+
+                def resolve_file_selection(collection_id: str):
+                    items = file_collections.resolve(collection_id)
+                    if not items or any(not item.available for item in items):
+                        raise KeyError("selection_is_empty_or_unavailable")
+                    return tuple(item.path for item in items)
+
+                file_service = FileOperationsService(
+                    destination_roots=destination_resolver.roles,
+                    trash_root=Path.home() / ".local" / "share" / "Trash",
+                    selection_resolver=resolve_file_selection,
+                )
                 plan_executor = ExecutionOrchestrator(
                     query_service,
                     context_store,
@@ -520,12 +542,13 @@ def main() -> int:
                     materialize_service=MaterializeService(
                         args.storage_database, ApprovalAuthority()
                     ),
-                    destination_resolver=DestinationResolver(),
+                    destination_resolver=destination_resolver,
                     capability_source=lambda: (
                         *registry.available_capabilities(),
                         "documents.query.search",
                     ),
                     task_ledger=task_ledger,
+                    capability_handlers=file_operation_handlers(file_service),
                 )
 
                 def operation_source():

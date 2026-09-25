@@ -1,0 +1,36 @@
+{
+  "id": "search-and-rename-approved",
+  "title": "Exactly one trusted search result can be renamed",
+  "locale": "en",
+  "tags": ["file-operations", "r1", "rename", "multistep", "focused"],
+  "fixture": "file-operations.json",
+  "turns": [
+    {
+      "user": "Find the file named report.pdf",
+      "expect": {
+        "stage": "completed",
+        "capabilities": ["documents.query.search"],
+        "found": 1
+      }
+    },
+    {
+      "user": "Rename that file to final-report.pdf",
+      "approval": "grant",
+      "expect": {
+        "stage": "completed",
+        "capabilities": ["files.items.rename"],
+        "approval_required": true,
+        "affected": 1,
+        "operation_actions": ["rename_item"],
+        "plan_steps_include": [
+          {
+            "capability": "files.items.rename",
+            "arguments": {"new_name": "final-report.pdf"}
+          }
+        ],
+        "paths_exist": ["/home/test-user/Documents/final-report.pdf"],
+        "paths_absent": ["/home/test-user/Documents/report.pdf"]
+      }
+    }
+  ]
+}

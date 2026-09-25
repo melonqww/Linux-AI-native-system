@@ -88,13 +88,37 @@ def source_fingerprint(project: Path) -> str:
     return digest.hexdigest()
 
 
-def prepare(lab: Path, project: Path, *, seeds=(7, 19), budget_seconds=14400) -> Path:
+def prepare(
+    lab: Path,
+    project: Path,
+    *,
+    seeds=(7, 19),
+    budget_seconds=14400,
+    failed_from: Path | None = None,
+) -> Path:
     if len(seeds) < 2 or len(seeds) > 5 or len(set(seeds)) != len(seeds):
         raise ValueError("foundation requires 2..5 distinct seeds")
     if any(type(seed) is not int or not 0 <= seed <= 1_000_000 for seed in seeds):
         raise ValueError("invalid seed")
     if not 60 <= budget_seconds <= 86400:
         raise ValueError("budget must be 60..86400 seconds")
+    failed_subjects = None
+    if failed_from is not None:
+        baseline = resolve_run(lab, str(failed_from))
+        baseline_manifest = read_json(baseline / "manifest.json")
+        baseline_progress = read_json(baseline / "progress.json")
+        if baseline_progress.get("state") != "completed":
+            raise ValueError("failed-from baseline must be completed")
+        failed_subjects = {
+            case["subject"]
+            for case in baseline_manifest["cases"]
+            if case.get("kind") in {"scenario", "journey"}
+            and (baseline / "results" / f"{case['id']}.json").is_file()
+            and read_json(baseline / "results" / f"{case['id']}.json").get("status")
+            != "passed"
+        }
+        if not failed_subjects:
+            raise ValueError("failed-from baseline has no failed live subjects")
     run = (
         lab
         / "reports"
@@ -186,6 +210,11 @@ def prepare(lab: Path, project: Path, *, seeds=(7, 19), budget_seconds=14400) ->
                 }
             )
         random.Random(seed).shuffle(batch)
+        if failed_subjects is not None:
+            batch = [case for case in batch if case["subject"] in failed_subjects]
+            missing = failed_subjects - {case["subject"] for case in batch}
+            if missing:
+                raise ValueError(f"failed subjects absent from current matrix: {sorted(missing)}")
         cases.extend(batch)
     manifest = {
         "schema_version": 1,
@@ -208,6 +237,10 @@ def prepare(lab: Path, project: Path, *, seeds=(7, 19), budget_seconds=14400) ->
         "known_gaps": GAPS,
         "automatic_retries": 0,
     }
+    if failed_from is not None:
+        manifest["profile"] = "foundation-failed-subjects-v1"
+        manifest["failed_from"] = baseline.name
+        manifest["failed_subjects"] = sorted(failed_subjects)
     atomic_json(run / "manifest.json", manifest)
     publish(run, manifest, "prepared")
     atomic_json(

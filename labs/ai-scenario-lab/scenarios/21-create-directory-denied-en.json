@@ -1,0 +1,26 @@
+{
+  "id": "create-directory-denied-en",
+  "title": "An English folder request is harmless when denied",
+  "locale": "en",
+  "tags": ["file-operations", "r1", "denial", "english", "focused"],
+  "fixture": "file-operations.json",
+  "turns": [
+    {
+      "user": "Create a folder called Private on my desktop",
+      "approval": "deny",
+      "expect": {
+        "stage": "cancelled",
+        "capabilities": ["files.directory.create"],
+        "approval_required": true,
+        "affected": 0,
+        "plan_steps_include": [
+          {
+            "capability": "files.directory.create",
+            "arguments": {"destination": "desktop", "directory_name": "Private"}
+          }
+        ],
+        "paths_absent": ["/home/test-user/Desktop/Private"]
+      }
+    }
+  ]
+}

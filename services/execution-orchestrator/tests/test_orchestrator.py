@@ -109,6 +109,18 @@ def plan(*steps):
 
 
 class OrchestratorTests(unittest.TestCase):
+    def test_declared_module_failure_keeps_stable_code_without_exception_prose(self):
+        from ai_native_orchestrator import CapabilityExecutionError
+
+        self.assertEqual(
+            ExecutionOrchestrator._classify_error(
+                CapabilityExecutionError("selection_outside_allowed_roots")
+            ),
+            "selection_outside_allowed_roots",
+        )
+        with self.assertRaises(ValueError):
+            CapabilityExecutionError("/private/path")
+
     def setUp(self):
         self.root = Path(__file__).resolve().parents[3] / "tmp" / "orchestrator" / str(uuid4())
         self.desktop = self.root / "Desktop"

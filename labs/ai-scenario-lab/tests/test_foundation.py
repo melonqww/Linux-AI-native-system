@@ -110,8 +110,8 @@ def test_prepare_never_calls_model_or_starts_process(prepared, monkeypatch):
     )
     run = foundation.prepare(lab, project)
     manifest = foundation.read_json(run / "manifest.json")
-    assert len(manifest["cases"]) == 97  # 3 gates + 2 * (26 contracts + 21 journeys)
-    assert len({case["id"] for case in manifest["cases"]}) == 97
+    assert len(manifest["cases"]) == 113  # 3 gates + 2 * (34 contracts + 21 journeys)
+    assert len({case["id"] for case in manifest["cases"]}) == 113
     assert manifest["model"] == "qwen3.5:2b"
     assert manifest["context_tokens"] == 8192
     assert manifest["automatic_retries"] == 0
@@ -137,6 +137,36 @@ def test_prepare_never_calls_model_or_starts_process(prepared, monkeypatch):
             "cautious",
             "impatient",
         }
+
+
+def test_failed_subjects_rerun_keeps_both_seeds_and_all_gates(prepared):
+    lab, project, baseline = prepared
+    original = foundation.read_json(baseline / "manifest.json")
+    subjects = {"semantic-topic-search", "search-and-inspect"}
+    for case in original["cases"]:
+        if case.get("subject") in subjects and case["seed"] == 7:
+            foundation.atomic_json(
+                baseline / "results" / f"{case['id']}.json",
+                {"id": case["id"], "status": "failed"},
+            )
+    foundation.atomic_json(baseline / "progress.json", {"state": "completed"})
+
+    run = foundation.prepare(lab, project, failed_from=baseline)
+    manifest = foundation.read_json(run / "manifest.json")
+    assert manifest["profile"] == "foundation-failed-subjects-v1"
+    assert manifest["failed_from"] == baseline.name
+    assert manifest["failed_subjects"] == sorted(subjects)
+    assert len(manifest["cases"]) == 7
+    assert {case["id"] for case in manifest["cases"] if "seed" in case} == {
+        f"s{seed}--{subject}" for seed in (7, 19) for subject in subjects
+    }
+    assert {case["kind"] for case in manifest["cases"][:3]} == {"tests", "preflight"}
+
+
+def test_failed_subjects_rerun_rejects_unfinished_baseline(prepared):
+    lab, project, baseline = prepared
+    with pytest.raises(ValueError, match="must be completed"):
+        foundation.prepare(lab, project, failed_from=baseline)
 
 
 def test_snapshot_is_replayable_and_detects_tampering(prepared):

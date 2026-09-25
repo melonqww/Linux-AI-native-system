@@ -97,11 +97,15 @@ class TurnRouter:
                     return conversation
         prefix = original[:action_start].strip()
         suffix = original[action_start + len(action) :].strip()
+        prefix_has_content = any(character.isalnum() for character in prefix)
+        suffix_has_content = any(character.isalnum() for character in suffix)
         # A single TurnClassification fragment must stay contiguous. If the
-        # action sits in the middle, there is no safe one-fragment recovery.
-        if bool(prefix) == bool(suffix):
+        # action sits between two meaningful fragments, there is no safe
+        # one-fragment recovery. Punctuation left outside an otherwise exact
+        # action substring is not an independent conversation fragment.
+        if prefix_has_content == suffix_has_content:
             return conversation
-        return prefix or suffix
+        return prefix if prefix_has_content else suffix
 
     @staticmethod
     def _validate_fragments(

@@ -101,7 +101,7 @@ def _fuzzy_clarification_mentions(text: str) -> list[tuple[str, int]]:
 
 def _is_negated(text: str, start: int) -> bool:
     clause = re.split(
-        r"[,.;!?]|\bbut\b|\bа\b", text[:start].casefold(), flags=re.I
+        r"[,.:;!?]|\bbut\b|\bа\b", text[:start].casefold(), flags=re.I
     )[-1]
     nearby = re.findall(r"[\w']+", clause, re.UNICODE)[-8:]
     negators = {"не", "no", "not", "never", "without", "dont", "don't"}
@@ -147,3 +147,22 @@ def destination_role(
         if previous is not None and not _is_negated(text, previous.start()):
             return "context.last_destination"
     return None
+
+
+def explicitly_named_destination(value: str, text: str) -> bool:
+    """Corroborate a proposed folder name before removing it from search text.
+
+    A second occurrence may independently be a content topic, so that case is
+    deliberately left to clarification instead of silently dropping a filter.
+    """
+    if not value.strip() or len(value) > 120:
+        return False
+    name = re.escape(value.strip())
+    occurrences = list(re.finditer(rf"(?<!\w){name}(?!\w)", text, re.I))
+    if len(occurrences) != 1:
+        return False
+    patterns = (
+        rf"\b(?:folder|directory)\s+(?:called|named)\s+['\"«]?{name}(?!\w)",
+        rf"\bпапк\w*\s+(?:(?:с\s+именем|под\s+названием)\s+)?['\"«]?{name}(?!\w)",
+    )
+    return any(re.search(pattern, text, re.I) for pattern in patterns)

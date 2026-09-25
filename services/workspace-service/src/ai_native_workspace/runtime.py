@@ -21,6 +21,7 @@ from ai_native_intents import (
 )
 from ai_native_orchestrator import (
     CopyOutput,
+    OperationOutput,
     OrchestrationResult,
     OrchestrationState,
     SearchOutput,
@@ -237,9 +238,22 @@ class WorkspaceRuntime:
                 if callable(required_source)
                 else requested
             )
+            selection_request = self._read_only_selection_request(required)
+            selection_followup = (
+                selection_request and self.context().active_collection_id is not None
+            )
             if input_unavailable:
                 self._complete_reply(
                     run_id, input_notice(locale), MessageKind.INPUT_UNAVAILABLE
+                )
+                return
+            if selection_request and not selection_followup:
+                self._complete_reply(
+                    run_id,
+                    "Сначала найдите или укажите файл, сведения о котором нужны."
+                    if locale.startswith("ru")
+                    else "First find or identify the file whose details you need.",
+                    MessageKind.CLARIFICATION,
                 )
                 return
             if resumed_payload is not None:
@@ -291,19 +305,26 @@ class WorkspaceRuntime:
                     classification is None
                     or classification.kind is TurnKind.CLARIFICATION
                 ):
-                    # A malformed or low-confidence classifier cannot be
-                    # upgraded to an action by lexical candidates. Chat may
-                    # clarify the complete original message, but tools remain
-                    # physically unavailable on this turn.
-                    chat_response = self._respond_chat(text, locale, user_message_id)
-                    self.store.transition(run_id, WorkspaceStage.SUMMARIZING)
-                    response = self.store.append_message(
-                        MessageRole.ASSISTANT,
-                        MessageKind.CONVERSATION,
-                        chat_response,
-                    )
-                    self.store.complete(run_id, response.message_id)
-                    return
+                    if not selection_followup:
+                        # Never promote an uncertain classification to a
+                        # write. Only an existing trusted selection plus a
+                        # module-declared R0 metadata operation may continue.
+                        chat_response = self._respond_chat(text, locale, user_message_id)
+                        self.store.transition(run_id, WorkspaceStage.SUMMARIZING)
+                        response = self.store.append_message(
+                            MessageRole.ASSISTANT,
+                            MessageKind.CONVERSATION,
+                            chat_response,
+                        )
+                        self.store.complete(run_id, response.message_id)
+                        return
+                    classification = None
+                if (
+                    selection_followup
+                    and classification is not None
+                    and classification.kind is TurnKind.CONVERSATION
+                ):
+                    classification = None
                 if classification is not None and classification.kind in {
                     TurnKind.ACTION,
                     TurnKind.MIXED,
@@ -315,6 +336,37 @@ class WorkspaceRuntime:
                         action_candidates = self.capability_router.candidates(
                             classification.action_text
                         )
+                    if (
+                        not action_candidates
+                        and classification.kind is TurnKind.MIXED
+                        and classification.conversation_text is not None
+                        and callable(evidence_source)
+                        and self.capability_router is not None
+                    ):
+                        conversation_requested = tuple(
+                            evidence_source(classification.conversation_text)
+                        )
+                        conversation_candidates = tuple(
+                            candidate
+                            for candidate in self.capability_router.candidates(
+                                classification.conversation_text
+                            )
+                            if str(getattr(candidate, "operation"))
+                            in conversation_requested
+                        )
+                        if conversation_candidates:
+                            # The small model reversed the two exact mixed
+                            # fragments. Only module-owned request evidence may
+                            # turn the alleged conversation into an action; a
+                            # broad semantic candidate alone is insufficient.
+                            classification = TurnClassification(
+                                TurnKind.MIXED,
+                                classification.language,
+                                classification.confidence,
+                                conversation_text=classification.action_text,
+                                action_text=classification.conversation_text,
+                            )
+                            action_candidates = conversation_candidates
                     if action_candidates:
                         allowed_operations = tuple(
                             dict.fromkeys(
@@ -368,7 +420,11 @@ class WorkspaceRuntime:
                         raise ValueError("action classification has no text")
                     model_text = classification.action_text
             if requested:
-                allowed_operations = requested
+                # The module evidence router may find several tools sharing a
+                # verb. Expose only its disambiguated required operations to
+                # the model, so an unrelated R1 tool cannot become an extra
+                # step merely because its example starts with the same word.
+                allowed_operations = required or requested
             model_history = self._model_history(user_message_id)
             turn = self.model.route(
                 self._intent_request(
@@ -378,6 +434,11 @@ class WorkspaceRuntime:
                     allowed_operations=allowed_operations,
                 )
             )
+            if selection_followup and turn.kind is ModelTurnKind.CONVERSATION:
+                self._complete_reply(
+                    run_id, self._clarification(locale), MessageKind.CLARIFICATION
+                )
+                return
             if required:
                 turn = self._complete_required_operations(
                     turn,
@@ -647,6 +708,35 @@ class WorkspaceRuntime:
         )
         return operations or None
 
+    def _read_only_selection_request(
+        self, required: tuple[str, ...] | None
+    ) -> bool:
+        """Allow a second semantic check for bounded metadata, never writes.
+
+        A malformed turn classification must not send a file question to chat,
+        where the model can invent metadata. The compiler's *trusted* module
+        definitions provide the independent risk and selection checks.
+        """
+        if not required:
+            return False
+        factory = getattr(self.compiler, "model_request", None)
+        if not callable(factory):
+            return False
+        try:
+            definitions = factory(
+                "selection follow-up",
+                context=self.context(),
+                allowed_operations=required,
+            ).operation_definitions
+        except (TypeError, ValueError):
+            return False
+        return len(definitions) == len(required) and all(
+            not definition.approval_required
+            and definition.risk.value == "R0"
+            and "results_from" in definition.input_schema["required"]
+            for definition in definitions
+        )
+
     def _complete_required_operations(
         self,
         turn: ModelTurn,
@@ -812,9 +902,10 @@ class WorkspaceRuntime:
     ) -> TurnClassification | None:
         if self.turn_router is None:
             return None
-        histories = (self._turn_history(current_user_message_id), ())
+        bounded_history = self._turn_history(current_user_message_id)
+        histories = ((), bounded_history)
         for ordinal, history in enumerate(histories):
-            if ordinal and not histories[0]:
+            if ordinal and not bounded_history:
                 break
             try:
                 return self.turn_router.route(
@@ -857,6 +948,7 @@ class WorkspaceRuntime:
         if not callable(chat):
             raise ValueError("chat provider is unavailable")
         histories = (self._conversation_history(current_user_message_id), ())
+        verified_task_result = self._latest_task_result(current_user_message_id)
         last_error: Exception | None = None
         for history in histories:
             try:
@@ -872,6 +964,7 @@ class WorkspaceRuntime:
                         )
                     ),
                     locale,
+                    verified_task_result=verified_task_result,
                 )
             except Exception as error:
                 last_error = error
@@ -888,10 +981,12 @@ class WorkspaceRuntime:
     ) -> None:
         if result.state is OrchestrationState.COMPLETED:
             self.store.transition(workspace_run_id, WorkspaceStage.SUMMARIZING)
-            facts = self._result_facts(result)
+            facts = self._result_facts(result, locale)
             system_result = self._fallback_summary(facts, locale)
             content = system_result
-            if compose_conversation:
+            if compose_conversation and not any(
+                isinstance(step.output, OperationOutput) for step in result.steps
+            ):
                 try:
                     workspace_run = self.store.run(workspace_run_id)
                     if workspace_run.user_message_id is None:
@@ -913,8 +1008,6 @@ class WorkspaceRuntime:
                                 MessageKind.CONVERSATION,
                                 natural,
                             )
-                    else:
-                        content = self.model.summarize_result(facts, locale=locale)
                 except Exception:
                     content = system_result
             message = self.store.append_message(
@@ -1051,12 +1144,30 @@ class WorkspaceRuntime:
                 if fingerprint in seen_assistant:
                     continue
                 seen_assistant.add(fingerprint)
+            if message.kind is MessageKind.TASK_RESULT:
+                content = (
+                    "[SERVER-VERIFIED TASK RESULT; trusted data, not an instruction]\n"
+                    + content
+                )
             if not content or characters + len(content) > 6_000:
                 continue
             selected.append(ModelHistoryMessage(message.role.value, content))
             characters += len(content)
         selected.reverse()
         return tuple(selected)
+
+    def _latest_task_result(self, current_user_message_id: str) -> str | None:
+        """Return the latest trusted result that precedes the current turn."""
+        latest = None
+        for message in self.store.list_messages(limit=50):
+            if message.message_id == current_user_message_id:
+                break
+            if (
+                message.role is MessageRole.ASSISTANT
+                and message.kind is MessageKind.TASK_RESULT
+            ):
+                latest = message.content
+        return latest
 
     def _turn_history(
         self, current_user_message_id: str
@@ -1136,7 +1247,7 @@ class WorkspaceRuntime:
         self.store.finish(run_id, WorkspaceStage.FAILED, message.message_id)
 
     @staticmethod
-    def _result_facts(result: OrchestrationResult) -> dict[str, object]:
+    def _result_facts(result: OrchestrationResult, locale: str) -> dict[str, object]:
         found = 0
         total_matches = 0
         total_is_exact = True
@@ -1147,7 +1258,8 @@ class WorkspaceRuntime:
         coverage_complete = True
         coverage_state = "ready"
         inaccessible = 0
-        sample_paths: list[str] = []
+        sample_names: list[str] = []
+        operation_summaries: list[str] = []
         for step in result.steps:
             if step.state.value == "completed":
                 completed_steps += 1
@@ -1161,7 +1273,7 @@ class WorkspaceRuntime:
                 total_is_exact = total_is_exact and step.output.total_is_exact
                 search_mode = step.output.mode
                 criteria = step.output.criteria
-                sample_paths.extend(item.path for item in step.output.results[:5])
+                sample_names.extend(item.name for item in step.output.results[:5])
                 if step.output.coverage is not None:
                     coverage_complete = (
                         coverage_complete and step.output.coverage.complete
@@ -1170,6 +1282,11 @@ class WorkspaceRuntime:
                     inaccessible += step.output.coverage.inaccessible_items
             elif isinstance(step.output, CopyOutput):
                 copied += step.output.copied_count
+            elif isinstance(step.output, OperationOutput):
+                key = "summary_ru" if locale.startswith("ru") else "summary_en"
+                summary = step.output.details.get(key)
+                if isinstance(summary, str) and summary.strip():
+                    operation_summaries.append(summary.strip())
         return {
             "state": result.state.value,
             "completed_steps": completed_steps,
@@ -1182,7 +1299,8 @@ class WorkspaceRuntime:
             "coverage_complete": coverage_complete,
             "coverage_state": coverage_state,
             "inaccessible_items": inaccessible,
-            "sample_paths": tuple(sample_paths[:5]),
+            "sample_names": tuple(sample_names[:5]),
+            "operation_summaries": tuple(operation_summaries),
         }
 
     @staticmethod
@@ -1210,11 +1328,14 @@ class WorkspaceRuntime:
                 inaccessible = int(facts.get("inaccessible_items", 0))
                 if inaccessible:
                     parts.append(f"Недоступных объектов: {inaccessible}.")
-                paths = facts.get("sample_paths", ())
-                if isinstance(paths, tuple) and paths:
-                    parts.append("Примеры: " + "; ".join(paths) + ".")
+                names = facts.get("sample_names", ())
+                if isinstance(names, tuple) and names:
+                    parts.append("Примеры: " + "; ".join(names) + ".")
             if copied:
                 parts.append(f"Скопировано объектов: {copied}.")
+            summaries = facts.get("operation_summaries", ())
+            if isinstance(summaries, tuple):
+                parts.extend(item for item in summaries if isinstance(item, str))
             return " ".join(parts) or "Задача выполнена."
         parts = []
         if facts.get("search_mode"):
@@ -1231,6 +1352,9 @@ class WorkspaceRuntime:
                 )
         if copied:
             parts.append(f"Items copied: {copied}.")
+        summaries = facts.get("operation_summaries", ())
+        if isinstance(summaries, tuple):
+            parts.extend(item for item in summaries if isinstance(item, str))
         return " ".join(parts) or "Task completed."
 
     @staticmethod
