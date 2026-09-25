@@ -287,6 +287,8 @@ bash apps/desktop-panel/gnome-extension/install.sh
 
 ## Документация
 
+Собственный код и документация проекта распространяются по [лицензии MIT](LICENSE). Сторонние зависимости, модели и материалы сохраняют свои лицензии; условия для иконок указаны [отдельно](apps/desktop-panel/gnome-extension/assets/software-icons/LICENSE.md).
+
 - [История AI Scenario Lab и доказательства прогонов](labs/ai-scenario-lab/LAB-HISTORY.md)
 - [Очищенные JSON-доказательства AI Scenario Lab](labs/ai-scenario-lab/public-evidence/README.md)
 - [Концепция и текущая матрица Beta 0.1](Architecture/AI-native-Linux-v0.1-концепция.md)
