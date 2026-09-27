@@ -3,7 +3,7 @@
   "module_id": "storage.catalog",
   "display_name": "Storage Catalog",
   "description": "Discovers volumes, catalogs file metadata and manages virtual collections.",
-  "module_version": "0.2.1",
+  "module_version": "0.3.0",
   "core_api": "1",
   "capabilities": [
     {
@@ -27,7 +27,7 @@
     {
       "id": "storage.catalog.search",
       "description": "Search cataloged file metadata using bounded filters and result limits.",
-      "input_schema": {"type": "object", "properties": {"name_contains": {"type": "array", "items": {"type": "string"}}, "extensions": {"type": "array", "items": {"type": "string"}}, "roles": {"type": "array", "items": {"type": "string"}}, "volume_ids": {"type": "array", "items": {"type": "string"}}, "limit": {"type": "integer"}}, "required": [], "additionalProperties": false},
+      "input_schema": {"type": "object", "properties": {"name_contains": {"type": "array", "items": {"type": "string"}}, "extensions": {"type": "array", "items": {"type": "string"}}, "roles": {"type": "array", "items": {"type": "string"}}, "volume_ids": {"type": "array", "items": {"type": "string"}}, "entry_types": {"type": "array", "items": {"type": "string", "enum": ["file", "directory", "symlink"]}}, "sort_by": {"type": "string", "enum": ["name_asc", "size_desc"]}, "limit": {"type": "integer"}}, "required": [], "additionalProperties": false},
       "requested_permissions": ["filesystem.read-metadata"]
     },
     {

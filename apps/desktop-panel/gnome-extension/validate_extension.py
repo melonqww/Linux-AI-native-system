@@ -16,6 +16,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from xml.etree import ElementTree
 
 
 ROOT = Path(__file__).resolve().parent
@@ -62,6 +63,35 @@ def main() -> int:
     metadata = json.loads((ROOT / "metadata.json").read_text(encoding="utf-8"))
     ok &= check(metadata.get("uuid") == UUID, "metadata UUID is correct")
     ok &= check("46" in metadata.get("shell-version", []), "GNOME 46 is declared")
+    settings_schema = ROOT / "schemas" / "org.gnome.shell.extensions.ai-native-linux.gschema.xml"
+    ok &= check(settings_schema.is_file(), "persistent settings schema is present")
+    if settings_schema.is_file():
+        schema_xml = ElementTree.parse(settings_schema).getroot()
+        schema = schema_xml.find("schema")
+        setting_key = schema.find("key") if schema is not None else None
+        ok &= check(
+            metadata.get("settings-schema") == "org.gnome.shell.extensions.ai-native-linux"
+            and schema is not None
+            and schema.get("id") == metadata.get("settings-schema"),
+            "extension metadata points to its settings schema",
+        )
+        ok &= check(
+            setting_key is not None
+            and setting_key.get("name") == "notifications-enabled"
+            and setting_key.get("type") == "b"
+            and setting_key.findtext("default") == "true",
+            "notification preference defaults to enabled",
+        )
+        accent_key = next(
+            (key for key in schema.findall("key") if key.get("name") == "accent-color"),
+            None,
+        ) if schema is not None else None
+        ok &= check(
+            accent_key is not None
+            and accent_key.get("type") == "s"
+            and accent_key.findtext("default") == "'default'",
+            "accent color preference persists with the current theme as default",
+        )
 
     source = (ROOT / "extension.js").read_text(encoding="utf-8")
     runtime_source = (ROOT / "runtime-client.js").read_text(encoding="utf-8")
@@ -113,6 +143,17 @@ def main() -> int:
                     digest(ROOT / filename) == digest(installed_file),
                     f"installed {filename} matches repository",
                 )
+        installed_schema = installed / "schemas" / settings_schema.name
+        ok &= check(installed_schema.is_file(), "installed settings schema is present")
+        if installed_schema.is_file():
+            ok &= check(
+                digest(settings_schema) == digest(installed_schema),
+                "installed settings schema matches repository",
+            )
+        ok &= check(
+            (installed / "schemas" / "gschemas.compiled").is_file(),
+            "installed settings schema is compiled",
+        )
 
     print("\nRESULT: READY" if ok else "\nRESULT: FAILED")
     return 0 if ok else 1

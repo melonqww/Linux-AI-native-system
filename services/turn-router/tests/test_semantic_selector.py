@@ -136,12 +136,14 @@ class SemanticSelectorTests(unittest.TestCase):
             )
 
         provider = OllamaEmbeddingProvider(open_fn=open_request)
+        self.assertEqual(provider.timeout_seconds, 8.0)
         vectors = provider.embed(("один", "two"))
 
         body = json.loads(captured[0][0].data)
         self.assertEqual(captured[0][0].full_url, "http://127.0.0.1:11434/api/embed")
         self.assertEqual(body["model"], "qwen3-embedding:0.6b")
         self.assertEqual(body["input"], ["один", "two"])
+        self.assertEqual(body["options"], {"num_gpu": 0})
         self.assertEqual(vectors, ((0.25, 0.75), (0.75, 0.25)))
 
 

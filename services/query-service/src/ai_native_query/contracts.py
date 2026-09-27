@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from enum import StrEnum
 
+from ai_native_storage import SortOrder
+
 
 class SearchMode(StrEnum):
     METADATA = "metadata"
@@ -31,6 +33,7 @@ class DocumentQuery:
     name_contains: tuple[str, ...] = ()
     extensions: tuple[str, ...] = ()
     volume_ids: tuple[str, ...] = ()
+    sort_by: SortOrder = SortOrder.NAME_ASC
     limit: int = 20
     offset: int = 0
 
@@ -62,6 +65,7 @@ class SearchCoverage:
     warning: str | None = None
     covered_volume_ids: tuple[str, ...] = ()
     scanning_volume_ids: tuple[str, ...] = ()
+    excluded_volume_count: int = 0
 
 
 @dataclass(frozen=True)

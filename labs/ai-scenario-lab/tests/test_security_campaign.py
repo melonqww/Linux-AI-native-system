@@ -11,9 +11,11 @@ def test_security_campaign_exercises_production_module_and_writes_report():
     project_root = lab_root.parents[1]
     run_id = f"test-{uuid4()}"
     report = lab_root / "reports" / "security" / run_id
+    latest = lab_root / "reports" / "security-latest.txt"
+    previous_latest = latest.read_bytes() if latest.is_file() else None
     try:
         directory, results = SecurityCampaignRunner(project_root, lab_root).run(
-            run_id=run_id
+            run_id=run_id, update_latest=False
         )
         payload = json.loads((directory / "summary.json").read_text(encoding="utf-8"))
         assert payload["campaign"] == "security-center"
@@ -26,6 +28,7 @@ def test_security_campaign_exercises_production_module_and_writes_report():
         assert "Security Campaign report" in (directory / "summary.md").read_text(
             encoding="utf-8"
         )
+        assert (latest.read_bytes() if latest.is_file() else None) == previous_latest
     finally:
         shutil.rmtree(report, ignore_errors=True)
 

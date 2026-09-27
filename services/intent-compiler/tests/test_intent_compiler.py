@@ -43,6 +43,13 @@ SEARCH = OperationDefinition(
                 "default": [],
             },
             "volume_ids": {"type": "array", "items": {"type": "string"}},
+            "sort_by": {
+                "type": "string", "enum": ["name_asc", "size_desc"],
+                "explicitRequestReview": True,
+                "valueRequires": {"size_desc": {"mode": ["metadata"]}},
+            },
+            "limit": {"type": "integer", "minimum": 1, "maximum": 100,
+                      "explicitRequestReview": True},
             "name_terms": {
                 "type": "array", "items": {"type": "string"},
                 "semanticRole": "filename_terms",
@@ -199,6 +206,56 @@ class IntentCompilerTests(unittest.TestCase):
         self.assertEqual(result.state, CompilationState.READY)
         self.assertEqual(result.intent.operations[0].arguments["mode"], "metadata")
 
+    def test_format_name_cannot_be_silently_reused_as_indexed_content(self):
+        for suffix in ("pdf", "xyz"):
+            with self.subTest(suffix=suffix):
+                text = f"Жалко, но ты можешь снова посмотреть {suffix}-файлы"
+                response = payload(text, [operation(
+                    "search", "search_documents",
+                    {"mode": "hybrid", "extensions": [suffix],
+                     "text": f"{suffix}-файлы", "content_match": "exact_phrase"}, text,
+                )])
+
+                result = self.compiler(response).compile_payload(response, text=text)
+
+                self.assertEqual(result.state, CompilationState.NEEDS_CLARIFICATION)
+                self.assertIsNone(result.plan)
+
+    def test_empty_model_volume_placeholder_requires_clarification(self):
+        text = "Найди мои учебные документы"
+        response = payload(text, [operation(
+            "search", "search_documents",
+            {"mode": "hybrid", "extensions": ["pdf"], "text": "учебные",
+             "content_match": "semantic", "volume_ids": ""}, text,
+        )])
+        result = self.compiler(response).compile_payload(response, text=text)
+        self.assertEqual(result.state, CompilationState.NEEDS_CLARIFICATION)
+        self.assertIsNone(result.plan)
+
+    def test_literal_format_phrase_remains_content_search(self):
+        text = 'Найди документы, где встречается точная фраза "PDF-файлы"'
+        response = payload(text, [operation(
+            "search", "search_documents",
+            {"mode": "content", "extensions": [],
+             "text": "PDF-файлы", "content_match": "exact_phrase"}, text,
+        )])
+
+        result = self.compiler(response).compile_payload(response, text=text)
+
+        self.assertEqual(result.state, CompilationState.READY)
+        self.assertEqual(result.plan.steps[0].arguments["text"], "PDF-файлы")
+
+    def test_explicit_literal_format_phrase_can_coexist_with_type_filter(self):
+        text = 'Найди PDF, где встречается точная фраза "PDF-файлы"'
+        response = payload(text, [operation(
+            "search", "search_documents",
+            {"mode": "hybrid", "extensions": ["pdf"],
+             "text": "PDF-файлы", "content_match": "exact_phrase"}, text,
+        )])
+        result = self.compiler(response).compile_payload(response, text=text)
+        self.assertEqual(result.state, CompilationState.READY)
+        self.assertEqual(result.plan.steps[0].arguments["text"], "PDF-файлы")
+
     def test_plain_named_file_is_metadata_not_exact_content(self):
         text = "Найди файл notes.txt"
         response = payload(text, [operation(
@@ -247,6 +304,55 @@ class IntentCompilerTests(unittest.TestCase):
         self.assertEqual(result.state, CompilationState.READY)
         self.assertEqual(result.plan.steps[0].arguments["name_terms"], ("report.pdf",))
         self.assertEqual(result.plan.steps[0].arguments["extensions"], ("pdf",))
+
+    def test_generic_text_files_do_not_authorize_guessed_suffixes(self):
+        text = "Find my text files containing the exact phrase 'launch code is blue river'"
+        response = payload(text, [operation(
+            "search", "search_documents",
+            {
+                "text": "launch code is blue river",
+                "content_match": "exact_phrase",
+                "extensions": ["txt", "py", "c", "cpp"],
+            },
+            text,
+        )], language="en")
+
+        result = self.compiler(response).compile_payload(response, text=text)
+
+        self.assertEqual(result.state, CompilationState.READY)
+        self.assertEqual(result.plan.steps[0].arguments["extensions"], ())
+        self.assertEqual(result.plan.steps[0].arguments["mode"], "content")
+        self.assertEqual(result.plan.steps[0].arguments["content_match"], "exact_phrase")
+
+    def test_explicit_suffixes_survive_without_unrequested_additions(self):
+        text = "Find .TXT and PDF files containing the exact phrase blue river"
+        response = payload(text, [operation(
+            "search", "search_documents",
+            {
+                "text": "blue river", "content_match": "exact_phrase",
+                "extensions": ["txt", "pdf", "py"],
+            }, text,
+        )], language="en")
+
+        result = self.compiler(response).compile_payload(response, text=text)
+
+        self.assertEqual(result.state, CompilationState.READY)
+        self.assertEqual(result.plan.steps[0].arguments["extensions"], ("txt", "pdf"))
+
+    def test_russian_generic_category_is_not_an_explicit_txt_suffix(self):
+        text = "Найди текстовые файлы, где встречается фраза голубая река"
+        response = payload(text, [operation(
+            "search", "search_documents",
+            {
+                "text": "голубая река", "content_match": "exact_phrase",
+                "extensions": ["txt"],
+            }, text,
+        )])
+
+        result = self.compiler(response).compile_payload(response, text=text)
+
+        self.assertEqual(result.state, CompilationState.READY)
+        self.assertEqual(result.plan.steps[0].arguments["extensions"], ())
 
     def test_topic_is_not_silently_compiled_as_an_exact_phrase(self):
         text = "Find my text documents about the blue river launch code project"
@@ -341,6 +447,43 @@ class IntentCompilerTests(unittest.TestCase):
         self.assertEqual(result.state, CompilationState.NEEDS_CLARIFICATION)
         self.assertEqual(len(result.plan.steps), 2)
         self.assertIn("отдельные запросы", result.clarification_question)
+
+    def test_module_value_constraint_rejects_size_ordering_with_content_search(self):
+        text = "Find files about mathematics and rank them by size"
+        response = payload(
+            text,
+            [operation("search", "search_documents", {
+                "mode": "hybrid", "text": "mathematics", "content_match": "semantic",
+                "extensions": ["pdf"], "sort_by": "size_desc",
+            }, text)],
+            language="en",
+        )
+        result = self.compiler(response).compile_payload(response, text=text)
+        self.assertEqual(result.state, CompilationState.NEEDS_CLARIFICATION)
+        self.assertIn("invalid_arguments", result.diagnostics)
+
+    def test_size_ranked_metadata_search_needs_no_name_or_extension_filter(self):
+        text = "Найди пять самых больших файлов"
+        response = payload(text, [operation("search", "search_documents", {
+            "mode": "metadata", "extensions": [], "sort_by": "size_desc", "limit": 5,
+        }, text)])
+
+        result = self.compiler(response).compile_payload(response, text=text)
+
+        self.assertEqual(result.state, CompilationState.READY)
+        self.assertEqual(result.plan.steps[0].arguments["sort_by"], "size_desc")
+
+    def test_unfiltered_metadata_search_still_needs_clarification(self):
+        for extra in ({}, {"sort_by": "name_asc"}):
+            with self.subTest(extra=extra):
+                text = "Найди файлы"
+                response = payload(text, [operation("search", "search_documents", {
+                    "mode": "metadata", "extensions": [], **extra,
+                }, text)])
+
+                result = self.compiler(response).compile_payload(response, text=text)
+
+                self.assertEqual(result.state, CompilationState.NEEDS_CLARIFICATION)
 
     def test_search_mode_is_always_derived_from_factual_arguments(self):
         cases = (
@@ -502,16 +645,18 @@ class IntentCompilerTests(unittest.TestCase):
         self.assertNotIn("C:/private/path", repr(request))
         self.assertIn("additionalProperties", repr(request.output_schema))
 
-    def test_low_confidence_and_missing_context_request_clarification(self):
+    def test_read_only_confidence_is_advisory_but_writes_and_missing_context_clarify(self):
         low_text = "Найди что-нибудь"
         low = payload(
             low_text,
-            [operation("search", "search_documents", {"text": "что-нибудь"}, low_text)],
+            [operation("search", "search_documents", {
+                "text": "что-нибудь", "content_match": "semantic", "extensions": [],
+            }, low_text)],
             confidence=0.2,
         )
         self.assertEqual(
             self.compiler(low).compile_and_plan(low_text).state,
-            CompilationState.NEEDS_CLARIFICATION,
+            CompilationState.READY,
         )
 
         follow_up = "Copy them"
@@ -535,6 +680,24 @@ class IntentCompilerTests(unittest.TestCase):
         ).compile_and_plan(follow_up, context=TaskContext(locale="en"))
         self.assertEqual(result.state, CompilationState.NEEDS_CLARIFICATION)
         self.assertIn("Which results", result.clarification_question)
+        low_write = payload(
+            follow_up,
+            [
+                operation(
+                    "copy", "copy_results",
+                    {"results_from": "context.active_results", "destination": "desktop"},
+                    follow_up,
+                )
+            ],
+            confidence=0.2,
+            language="en",
+        )
+        result = self.compiler(
+            low_write, {"storage.materialize.plan-copy"}
+        ).compile_and_plan(
+            follow_up, context=TaskContext(active_collection_id="collection-1", locale="en")
+        )
+        self.assertEqual(result.state, CompilationState.NEEDS_CLARIFICATION)
 
     def test_complete_intent_at_confidence_boundary_is_ready(self):
         text = "Скопируй найденные файлы на рабочий стол"

@@ -7,9 +7,11 @@ from uuid import uuid4
 
 from ai_native_storage import (
     CollectionKind,
+    EntryType,
     FileCatalog,
     FileQuery,
     PermissionLevel,
+    SortOrder,
     StorageEnrollment,
     VirtualCollectionStore,
     VolumeRegistry,
@@ -170,6 +172,40 @@ class FileCatalogTests(StorageTestCase):
         )
         self.assertEqual(self.catalog.status()["by_volume"]["external-volume"], 1)
 
+    def test_catalog_sorts_regular_files_by_size_across_allowed_volumes(self) -> None:
+        (self.system_root / "small.bin").write_bytes(b"s" * 5)
+        (self.system_root / "middle.bin").write_bytes(b"m" * 25)
+        (self.system_root / "large.bin").write_bytes(b"l" * 50)
+        (self.system_root / "a-large.bin").write_bytes(b"a" * 60)
+        (self.system_root / "b-large.bin").write_bytes(b"b" * 60)
+        large_directory = self.system_root / "folder.bin"
+        large_directory.mkdir()
+        (large_directory / "payload").write_bytes(b"d" * 100)
+        (self.external_root / "largest.bin").write_bytes(b"x" * 75)
+        self.registry.set_permission("external-volume", PermissionLevel.METADATA)
+        self.catalog.scan_volume("system-volume")
+        self.catalog.scan_volume("external-volume")
+
+        query = FileQuery(
+            extensions=("bin",),
+            entry_types=(EntryType.FILE,),
+            sort_by=SortOrder.SIZE_DESC,
+            limit=3,
+        )
+        results = self.catalog.search(query)
+
+        self.assertEqual(
+            [(entry.name, entry.size_bytes) for entry in results],
+            [("largest.bin", 75), ("a-large.bin", 60), ("b-large.bin", 60)],
+        )
+        self.assertEqual(self.catalog.count(query), 6)
+
+    def test_catalog_sort_order_rejects_untrusted_sql_values(self) -> None:
+        self.catalog.scan_volume("system-volume")
+
+        with self.assertRaises(ValueError):
+            self.catalog.search(FileQuery(sort_by="size_desc; DROP TABLE volumes"))
+
 
 class VirtualCollectionTests(StorageTestCase):
     def setUp(self) -> None:
@@ -192,6 +228,22 @@ class VirtualCollectionTests(StorageTestCase):
         self.catalog.scan_volume("system-volume")
 
         self.assertEqual(len(self.collections.resolve(collection.collection_id)), 2)
+
+    def test_smart_collection_preserves_typed_size_sort_query(self) -> None:
+        collection = self.collections.create_smart(
+            "Largest files",
+            FileQuery(
+                entry_types=(EntryType.FILE,),
+                sort_by=SortOrder.SIZE_DESC,
+                limit=5,
+            ),
+        )
+
+        loaded = self.collections.get_collection(collection.collection_id)
+
+        self.assertEqual(loaded.query.entry_types, (EntryType.FILE,))
+        self.assertEqual(loaded.query.sort_by, SortOrder.SIZE_DESC)
+        self.assertEqual(loaded.query.limit, 5)
 
     def test_snapshot_keeps_reference_and_marks_deleted_file_unavailable(self) -> None:
         entries = self.catalog.search(FileQuery(extensions=("pdf",)))

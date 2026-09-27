@@ -228,6 +228,40 @@ class WorkspaceRuntimeTests(unittest.TestCase):
         self.assertIn("report.pdf", summary)
         self.assertNotIn("D:/private", summary)
 
+    def test_size_ranked_summary_shows_results_and_coverage_without_host_paths(self):
+        items = tuple(
+            QueryResult(
+                "system", f"/home/alex/Downloads/archive-{index}.bin",
+                f"archive-{index}.bin", ".bin", 1.0, None, None, None,
+                ("metadata",), size_bytes=1024 * (6 - index),
+            )
+            for index in range(1, 6)
+        )
+        output = SearchOutput(
+            str(uuid4()), 5, items, mode="metadata", sort_by="size_desc",
+            coverage=SearchCoverage(
+                False, "updating", ("system",), 100,
+                inaccessible_items=2, excluded_volume_count=1,
+            ),
+        )
+        result = OrchestrationResult(
+            str(uuid4()), str(uuid4()), OrchestrationState.COMPLETED,
+            (StepExecution("search", "documents.query.search", StepState.COMPLETED, output),),
+        )
+
+        summary = WorkspaceRuntime._fallback_summary(
+            WorkspaceRuntime._result_facts(result, "ru"), "ru"
+        )
+
+        self.assertIn("Самые большие файлы", summary)
+        self.assertIn("archive-1.bin", summary)
+        self.assertIn("5,0 КиБ", summary)
+        self.assertIn("Недоступных областей: 2", summary)
+        self.assertIn("Дисков без разрешения на поиск: 1", summary)
+        self.assertIn("Охват неполный", summary)
+        self.assertNotIn("/home/alex", summary)
+        self.assertNotIn("Примеры:", summary)
+
     def test_malformed_classifier_metadata_followup_uses_verified_module(self):
         descriptor = CapabilityDescriptor(
             "files.items.inspect", "inspect_files", "Inspect selected file metadata.",
@@ -397,6 +431,68 @@ class WorkspaceRuntimeTests(unittest.TestCase):
         self.assertEqual(model.chat_calls, 1)
         self.assertEqual(model.route_calls, 0)
         self.assertEqual(compiler.calls, 0)
+        self.assertFalse(executor.called.is_set())
+
+    def test_no_requested_operation_skips_classifier_but_keeps_qwen_chat(self):
+        text = "Привет, расскажи, кто ты"
+        model = SplitModel(
+            ModelTurn(ModelTurnKind.ACTION, intent_payload={"hallucinated": True}),
+            {"kind": "action", "language": "ru", "confidence": 0.99,
+             "conversation_text": None, "action_text": text},
+            "Привет! Я локальный помощник.",
+        )
+        compiler = Compiler(None)
+        executor = Executor(None)
+        runtime = WorkspaceRuntime(
+            self.store,
+            model,
+            compiler,
+            executor,
+            lambda: TaskContext(locale="ru"),
+            turn_router=TurnRouter(model),
+            capability_router=FragmentEvidenceRouter(),
+        )
+        try:
+            run = runtime.submit(text, transport_context=TransportContext.internal())
+            completed = self.wait_for(run.run_id, WorkspaceStage.COMPLETED)
+        finally:
+            runtime.close()
+
+        self.assertEqual(model.classify_calls, 0)
+        self.assertEqual(model.chat_calls, 1)
+        self.assertEqual(model.route_calls, 0)
+        self.assertEqual(compiler.calls, 0)
+        self.assertFalse(executor.called.is_set())
+        self.assertIsNone(completed.task_id)
+        self.assertEqual(self.store.list_messages()[-1].content, "Привет! Я локальный помощник.")
+
+    def test_related_capability_without_request_stays_chat_only(self):
+        model = SplitModel(
+            ModelTurn(ModelTurnKind.ACTION, intent_payload={"hallucinated": True}),
+            {},
+            "PDF — формат документов.",
+        )
+        executor = Executor(None)
+        runtime = WorkspaceRuntime(
+            self.store,
+            model,
+            Compiler(None),
+            executor,
+            lambda: TaskContext(locale="ru"),
+            turn_router=TurnRouter(model),
+            capability_router=FragmentEvidenceRouter(),
+        )
+        try:
+            run = runtime.submit(
+                "Мне нравятся PDF", transport_context=TransportContext.internal()
+            )
+            self.wait_for(run.run_id, WorkspaceStage.COMPLETED)
+        finally:
+            runtime.close()
+
+        self.assertEqual(model.classify_calls, 0)
+        self.assertEqual(model.chat_calls, 1)
+        self.assertEqual(model.route_calls, 0)
         self.assertFalse(executor.called.is_set())
 
     def test_capability_router_limits_qwen_and_uses_deterministic_result(self):
@@ -599,6 +695,86 @@ class WorkspaceRuntimeTests(unittest.TestCase):
                 for message in self.store.list_messages()
             )
         )
+
+    def test_negated_copy_does_not_hide_or_authorize_later_search(self):
+        text = "Не копируй файлы, а найди все PDF файлы"
+        model = SplitModel(
+            ModelTurn(ModelTurnKind.ACTION, intent_payload={
+                "operations": [{"kind": "search_documents"}],
+            }),
+            {
+                "kind": "mixed", "language": "ru", "confidence": 0.95,
+                "conversation_text": "Не копируй файлы, а",
+                "action_text": "найди все PDF файлы",
+            },
+        )
+        compiler = Compiler(SimpleNamespace(state=CompilationState.READY, plan=object()))
+        executor = Executor(completed_result(count=3))
+        capability_router = CapabilityCandidateRouter((
+            CapabilityDescriptor(
+                "documents.query.search", "search_documents", "Find files.",
+                ("найди все PDF файлы",),
+            ),
+            CapabilityDescriptor(
+                "storage.materialize.plan-copy", "copy_results", "Copy files.",
+                ("копируй найденные файлы",),
+            ),
+        ))
+        runtime = WorkspaceRuntime(
+            self.store, model, compiler, executor,
+            lambda: TaskContext(locale="ru"),
+            turn_router=TurnRouter(model), capability_router=capability_router,
+        )
+        try:
+            run = runtime.submit(text, transport_context=TransportContext.internal())
+            self.wait_for(run.run_id, WorkspaceStage.COMPLETED)
+        finally:
+            runtime.close()
+
+        self.assertEqual(model.classify_calls, 1)
+        self.assertEqual(model.requests[-1].user_text, "найди все PDF файлы")
+        self.assertEqual(model.requests[-1].allowed_operations, ("search_documents",))
+        self.assertEqual(compiler.calls, 1)
+        self.assertTrue(executor.called.is_set())
+
+    def test_split_cannot_promote_negated_copy_to_positive_action(self):
+        text = "Не копируй файлы, а найди все PDF файлы"
+        model = SplitModel(
+            ModelTurn(ModelTurnKind.ACTION, intent_payload={
+                "operations": [{"kind": "copy_results"}, {"kind": "search_documents"}],
+            }),
+            {
+                "kind": "mixed", "language": "ru", "confidence": 0.95,
+                "conversation_text": "Не",
+                "action_text": "копируй файлы, а найди все PDF файлы",
+            },
+        )
+        compiler = Compiler(SimpleNamespace(state=CompilationState.READY, plan=object()))
+        executor = Executor(completed_result())
+        capability_router = CapabilityCandidateRouter((
+            CapabilityDescriptor(
+                "documents.query.search", "search_documents", "Find files.",
+                ("найди все PDF файлы",),
+            ),
+            CapabilityDescriptor(
+                "storage.materialize.plan-copy", "copy_results", "Copy files.",
+                ("копируй найденные файлы",),
+            ),
+        ))
+        runtime = WorkspaceRuntime(
+            self.store, model, compiler, executor,
+            lambda: TaskContext(locale="ru"),
+            turn_router=TurnRouter(model), capability_router=capability_router,
+        )
+        try:
+            run = runtime.submit(text, transport_context=TransportContext.internal())
+            self.wait_for(run.run_id, WorkspaceStage.COMPLETED)
+        finally:
+            runtime.close()
+
+        self.assertEqual(model.route_calls, 0)
+        self.assertEqual(compiler.calls, 0)
+        self.assertFalse(executor.called.is_set())
 
     def test_reversed_mixed_fragments_are_swapped_only_with_request_evidence(self):
         text = (
@@ -945,7 +1121,7 @@ class WorkspaceRuntimeTests(unittest.TestCase):
             if item.kind is MessageKind.TASK_RESULT
         )
         self.assertIn("Найдено файлов: 0", message.content)
-        self.assertIn("результат неполный", message.content)
+        self.assertIn("Охват неполный", message.content)
         self.assertEqual(message.source.value, "tool")
         conversation = [
             item for item in self.store.list_messages()
@@ -1058,7 +1234,7 @@ class WorkspaceRuntimeTests(unittest.TestCase):
         )
 
     def test_false_chat_result_is_replaced_by_latest_verified_task_result(self):
-        verified = "Поиск завершён. Найдено файлов: 3. Недоступных объектов: 1."
+        verified = "Поиск завершён. Найдено файлов: 3. Недоступных областей: 1."
         self.store.append_message(
             MessageRole.USER,
             MessageKind.CONVERSATION,

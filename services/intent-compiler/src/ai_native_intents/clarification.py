@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
+
+from .catalog import OperationDefinition
 from .contracts import TaskContext, UserIntent
 
 
@@ -10,11 +13,16 @@ class ClarificationPolicy:
         self,
         intent: UserIntent,
         *,
+        operation_definitions: Iterable[OperationDefinition] = (),
         missing_context: tuple[str, ...],
         context: TaskContext,
+        requires_write_confidence: bool = True,
     ) -> str | None:
         russian = context.locale.casefold().startswith("ru")
-        if intent.grounded_confidence < 0.5:
+        # A small model's self-reported confidence is advisory for validated
+        # read-only operations. It must not veto a safe search by itself.
+        # Writes retain the stricter confidence gate.
+        if requires_write_confidence and intent.grounded_confidence < 0.5:
             return (
                 "Уточните, пожалуйста, что именно нужно найти или сделать."
                 if russian
@@ -32,10 +40,14 @@ class ClarificationPolicy:
                 if russian
                 else "Where should the results be saved or copied?"
             )
+        definitions = {item.operation: item for item in operation_definitions}
         for operation in intent.operations:
             arguments = operation.arguments
-            if operation.kind == "search_documents" and not any(
-                arguments.get(key) for key in ("text", "extensions", "name_terms")
+            if operation.kind == "search_documents" and not (
+                any(arguments.get(key) for key in ("text", "extensions", "name_terms"))
+                or self._has_constrained_selection(
+                    arguments, definitions.get(operation.kind)
+                )
             ):
                 return "Что именно нужно найти?" if russian else "What should be found?"
             if operation.kind == "find_application" and not arguments.get("query"):
@@ -77,3 +89,22 @@ class ClarificationPolicy:
                         else "Where should results be copied?"
                     )
         return None
+
+    @staticmethod
+    def _has_constrained_selection(
+        arguments: Mapping[str, object], definition: OperationDefinition | None
+    ) -> bool:
+        if definition is None:
+            return False
+        properties = definition.input_schema["properties"]
+        for name, schema in properties.items():
+            value = arguments.get(name)
+            if not schema.get("explicitRequestReview") or not isinstance(value, str):
+                continue
+            requirements = schema.get("valueRequires", {}).get(value)
+            if requirements and all(
+                arguments.get(peer) in allowed
+                for peer, allowed in requirements.items()
+            ):
+                return True
+        return False

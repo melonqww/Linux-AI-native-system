@@ -295,6 +295,17 @@ class CapabilityRegistryTests(RegistryTestCase):
         self.assertEqual(search.input_schema["type"], "object")
         self.assertFalse(search.input_schema["additionalProperties"])
         self.assertEqual(search.user_intent.operation, "search_documents")
+        self.assertEqual(
+            search.input_schema["properties"]["sort_by"]["enum"],
+            ["name_asc", "size_desc"],
+        )
+        self.assertNotIn("default", search.input_schema["properties"]["sort_by"])
+        storage_search = by_id["storage.catalog.search"]
+        self.assertNotIn(
+            "default", storage_search.input_schema["properties"]["sort_by"]
+        )
+        self.assertEqual(search.input_schema["properties"]["limit"]["maximum"], 100)
+        self.assertIn("sort_by=size_desc", search.user_intent.description)
         security_scan = by_id["security.files.scan"]
         self.assertEqual(
             set(security_scan.input_schema["properties"]),

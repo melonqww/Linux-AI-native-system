@@ -71,7 +71,12 @@ class JourneyProvider:
                         "extensions": ["pdf"],
                     }
                     if is_math
-                    else {"mode": "metadata", "extensions": ["pdf"]}
+                    else {
+                        "mode": "content",
+                        "text": "учебные",
+                        "content_match": "semantic",
+                        "extensions": [],
+                    }
                 ),
                 "depends_on": [],
                 "evidence": [request.user_text],

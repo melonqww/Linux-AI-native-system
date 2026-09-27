@@ -18,6 +18,11 @@ class EntryType(StrEnum):
     SYMLINK = "symlink"
 
 
+class SortOrder(StrEnum):
+    NAME_ASC = "name_asc"
+    SIZE_DESC = "size_desc"
+
+
 class CollectionKind(StrEnum):
     SMART = "smart"
     SNAPSHOT = "snapshot"
@@ -104,6 +109,8 @@ class FileQuery:
     extensions: tuple[str, ...] = ()
     roles: tuple[str, ...] = ()
     volume_ids: tuple[str, ...] = ()
+    entry_types: tuple[EntryType, ...] = ()
+    sort_by: SortOrder = SortOrder.NAME_ASC
     limit: int = 100
     offset: int = 0
 

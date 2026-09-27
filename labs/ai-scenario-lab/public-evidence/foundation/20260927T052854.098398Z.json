@@ -1,0 +1,488 @@
+{
+  "schema_version": 1,
+  "evidence_kind": "ai-scenario-lab-foundation-run",
+  "run_id": "20260927T052854.098398Z",
+  "provenance": {
+    "source_fingerprint": "1753f8b201c59150c50a9c48af37cb133de95e97d7eeec2e35666b8e9f5915c9",
+    "source_files_sha256": {
+      "manifest.json": "a5884ef7ea54b371660681423abf6c8a9b529c75dd0134f2f5d81bb5041ffcdc",
+      "summary.json": "d3fba4ee00a4f073965da96eb94d247a9e18d92cd0d6cfa5da50086833d32464",
+      "failures.json": "0d6da75b7bf42a3c25e0edc269e001b7acd692496b6d18d1cacef8c928d43d77",
+      "model.json": "1278321f38a211d3966ea47857a58e9e4395b4d1b8de293b64b1d8bdfee11a55"
+    },
+    "automatic_retries": 0
+  },
+  "runtime": {
+    "profile": "foundation-failed-subjects-v1",
+    "model": "qwen3.5:2b",
+    "model_digest": "324d162be6ca5629ae4517c8710434d0bd2d665bc94dbad46e9af8fbf8a2f0df",
+    "ollama_version": "0.34.4",
+    "context_tokens": 8192,
+    "python": "3.13.14",
+    "platform": "windows",
+    "seeds": [
+      7,
+      19
+    ],
+    "budget_seconds": 14400,
+    "max_turn_ms": 90000
+  },
+  "outcome": {
+    "state": "incomplete",
+    "verdict": "incomplete",
+    "reason_code": "source_changed",
+    "planned": 23,
+    "counts": {
+      "passed": 7,
+      "failed": 3,
+      "error": 0,
+      "not_run": 13
+    },
+    "wall_time_seconds": 252.008
+  },
+  "coverage": {
+    "language": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "ru": {
+        "passed": 4,
+        "failed": 3,
+        "error": 0,
+        "not_run": 13
+      }
+    },
+    "behavior": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "impatient": {
+        "passed": 0,
+        "failed": 1,
+        "error": 0,
+        "not_run": 1
+      },
+      "standard": {
+        "passed": 2,
+        "failed": 0,
+        "error": 0,
+        "not_run": 6
+      },
+      "verbose": {
+        "passed": 0,
+        "failed": 1,
+        "error": 0,
+        "not_run": 1
+      },
+      "no_punctuation": {
+        "passed": 0,
+        "failed": 1,
+        "error": 0,
+        "not_run": 1
+      },
+      "slang": {
+        "passed": 1,
+        "failed": 0,
+        "error": 0,
+        "not_run": 1
+      },
+      "cautious": {
+        "passed": 1,
+        "failed": 0,
+        "error": 0,
+        "not_run": 1
+      },
+      "typo": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 2
+      }
+    },
+    "memory_depth": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "4": {
+        "passed": 3,
+        "failed": 3,
+        "error": 0,
+        "not_run": 10
+      },
+      "1": {
+        "passed": 1,
+        "failed": 0,
+        "error": 0,
+        "not_run": 1
+      },
+      "35": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 2
+      }
+    },
+    "kind": {
+      "tests": {
+        "passed": 2,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "preflight": {
+        "passed": 1,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "journey": {
+        "passed": 2,
+        "failed": 3,
+        "error": 0,
+        "not_run": 9
+      },
+      "scenario": {
+        "passed": 2,
+        "failed": 0,
+        "error": 0,
+        "not_run": 4
+      }
+    },
+    "mode": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "action": {
+        "passed": 3,
+        "failed": 3,
+        "error": 0,
+        "not_run": 10
+      },
+      "mixed": {
+        "passed": 1,
+        "failed": 0,
+        "error": 0,
+        "not_run": 1
+      },
+      "chat": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 2
+      }
+    },
+    "capability": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 9
+      },
+      "documents.query.search": {
+        "passed": 1,
+        "failed": 3,
+        "error": 0,
+        "not_run": 1
+      },
+      "files.directory.create": {
+        "passed": 1,
+        "failed": 0,
+        "error": 0,
+        "not_run": 1
+      },
+      "documents.query.search,storage.materialize.plan-copy": {
+        "passed": 2,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "none": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 2
+      }
+    },
+    "decision": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 9
+      },
+      "none": {
+        "passed": 1,
+        "failed": 3,
+        "error": 0,
+        "not_run": 3
+      },
+      "grant": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 1
+      }
+    },
+    "failure_kind": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 13
+      },
+      "journey_goal_failure": {
+        "passed": 0,
+        "failed": 3,
+        "error": 0,
+        "not_run": 0
+      },
+      "none": {
+        "passed": 4,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "input_modality": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "text": {
+        "passed": 4,
+        "failed": 3,
+        "error": 0,
+        "not_run": 13
+      }
+    }
+  },
+  "slow_cases": [],
+  "cases": [
+    {
+      "id": "contracts",
+      "status": "passed",
+      "tests": 665,
+      "exit_code": 0,
+      "duration_ms": 23198.958,
+      "skipped_count": 37,
+      "failed_tests": []
+    },
+    {
+      "id": "lab-tests",
+      "status": "passed",
+      "tests": 146,
+      "exit_code": 0,
+      "duration_ms": 16243.84,
+      "skipped_count": 0,
+      "failed_tests": []
+    },
+    {
+      "id": "ollama-preflight",
+      "status": "passed",
+      "duration_ms": 52.705,
+      "model": "qwen3.5:2b",
+      "ollama_version": "0.34.4"
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-impatient",
+      "status": "failed",
+      "duration_ms": 75119.515,
+      "context": {
+        "language": "ru",
+        "behavior": "impatient",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "EXECUTOR",
+        "fingerprint": "diag-v1-d1efd50900aa4c4a5f9bf5bd",
+        "rule": "executor",
+        "evidence": {
+          "code": "capability_timeout",
+          "component": "executor",
+          "stage": "execution"
+        }
+      }
+    },
+    {
+      "id": "s7--create-directory-approved",
+      "status": "passed",
+      "duration_ms": 17584.891,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "files.directory.create",
+        "decision": "grant",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-verbose",
+      "status": "failed",
+      "duration_ms": 33462.46,
+      "context": {
+        "language": "ru",
+        "behavior": "verbose",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "EXECUTOR",
+        "fingerprint": "diag-v1-bfcc8e9fb20630c4aba3f4f0",
+        "rule": "executor",
+        "evidence": {
+          "code": "capability_timeout",
+          "component": "executor",
+          "stage": "execution"
+        }
+      }
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-no_punctuation",
+      "status": "failed",
+      "duration_ms": 33305.504,
+      "context": {
+        "language": "ru",
+        "behavior": "no_punctuation",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "journey_goal_failure",
+        "input_modality": "text"
+      },
+      "diagnostic": {
+        "layer": "EXECUTOR",
+        "fingerprint": "diag-v1-7b2d6d05859e9f17aaa99a0f",
+        "rule": "executor",
+        "evidence": {
+          "code": "capability_timeout",
+          "component": "executor",
+          "stage": "execution"
+        }
+      }
+    },
+    {
+      "id": "s7--repeat-mixed-search-grounding",
+      "status": "passed",
+      "duration_ms": 22020.376,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-slang",
+      "status": "passed",
+      "duration_ms": 8807.931,
+      "context": {
+        "language": "ru",
+        "behavior": "slang",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "grant",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-cautious",
+      "status": "passed",
+      "duration_ms": 10487.19,
+      "context": {
+        "language": "ru",
+        "behavior": "cautious",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "grant",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--foundation-ru-memory-35",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-typo",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-standard",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-impatient",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-verbose",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-standard",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-cautious",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--create-directory-approved",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-slang",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-typo",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--repeat-mixed-search-grounding",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--foundation-ru-memory-35",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-no_punctuation",
+      "status": "not_run"
+    }
+  ]
+}

@@ -60,6 +60,17 @@ def operation_definitions():
                     "items": {"type": "string"},
                     "description": "Terms in the file name, never content.",
                 },
+                "sort_by": {
+                    "type": "string", "enum": ["name_asc", "size_desc"],
+                    "explicitRequestReview": True,
+                    "valueRequires": {"size_desc": {"mode": ["metadata"]}},
+                    "description": "Rank returned files by size only when requested.",
+                },
+                "limit": {
+                    "type": "integer", "minimum": 1, "maximum": 100,
+                    "explicitRequestReview": True,
+                    "description": "Maximum count only when requested.",
+                },
             },
             ["mode"],
         ),
@@ -134,6 +145,80 @@ def model_request(user_text="Найди PDF по математике"):
 
 
 class OllamaProviderTests(unittest.TestCase):
+    def test_grounded_complete_filename_does_not_need_a_second_model_vote(self):
+        definition = OperationDefinition(
+            "search_documents", "documents.query.search", "Search files.",
+            {
+                "type": "object",
+                "properties": {
+                    "name_terms": {
+                        "type": "array", "items": {"type": "string"},
+                        "semanticRole": "filename_terms", "explicitRequestReview": True,
+                    },
+                    "text": {"type": "string", "semanticRole": "content_text"},
+                },
+                "required": [], "additionalProperties": False,
+            },
+        )
+        provider = OllamaModelProvider()
+        request = model_request("Find the file named report.pdf")
+        calls = [{"function": {"name": "search_documents", "arguments": {
+            "name_terms": ["report.pdf"],
+        }}}]
+        with patch.object(provider, "_structured_message") as reviewer:
+            result = provider._review_explicit_optional_arguments(
+                calls, request, (definition,)
+            )
+        reviewer.assert_not_called()
+        self.assertEqual(result[0]["function"]["arguments"]["name_terms"],
+                         ["report.pdf"])
+        self.assertFalse(provider._is_grounded_full_filename_filter(
+            "name_terms", definition.input_schema["properties"]["name_terms"],
+            {"name_terms": ["report.pdf"], "text": "report.pdf"}, definition,
+            request.user_text,
+        ))
+
+    def test_unrequested_optional_modifiers_are_removed_by_module_review(self):
+        provider = OllamaModelProvider()
+        request = model_request("Нет, нужны только PDF по математике")
+        calls = [{"function": {"name": "search_documents", "arguments": {
+            "mode": "hybrid", "extensions": ["pdf"], "text": "математика",
+            "sort_by": "size_desc", "limit": 5,
+        }}}]
+        with patch.object(provider, "_structured_message", side_effect=[
+            {"status": "not_requested", "evidence": "Нет, нужны только PDF"},
+            {"status": "not_requested", "evidence": ""},
+        ]) as review:
+            result = provider._review_explicit_optional_arguments(
+                calls, request, operation_definitions()
+            )
+        self.assertEqual(review.call_count, 2)
+        self.assertNotIn("sort_by", result[0]["function"]["arguments"])
+        self.assertNotIn("limit", result[0]["function"]["arguments"])
+        self.assertIn("sort_by", calls[0]["function"]["arguments"])
+
+    def test_optional_modifier_review_preserves_grounded_request_and_fails_uncertain(self):
+        provider = OllamaModelProvider()
+        request = model_request("Найди пять файлов, отсортируй по размеру")
+        calls = [{"function": {"name": "search_documents", "arguments": {
+            "mode": "metadata", "extensions": [], "sort_by": "size_desc", "limit": 5,
+        }}}]
+        with patch.object(provider, "_structured_message", side_effect=[
+            {"status": "requested", "evidence": "по размеру"},
+            {"status": "requested", "evidence": "пять"},
+        ]):
+            result = provider._review_explicit_optional_arguments(
+                calls, request, operation_definitions()
+            )
+        self.assertEqual(result[0]["function"]["arguments"]["sort_by"], "size_desc")
+        self.assertEqual(result[0]["function"]["arguments"]["limit"], 5)
+        with patch.object(provider, "_structured_message", return_value={
+            "status": "uncertain", "evidence": ""
+        }):
+            self.assertIsNone(provider._review_explicit_optional_arguments(
+                calls, request, operation_definitions()
+            ))
+
     def test_implicit_omission_never_turns_into_an_unrequested_policy(self):
         definition = OperationDefinition(
             "move_results", "files.items.move", "Move selected files.",
@@ -373,6 +458,57 @@ class OllamaProviderTests(unittest.TestCase):
             turn.intent_payload["operations"][0]["arguments"],
             {"mode": "metadata", "extensions": ["pdf"]},
         )
+
+    def test_empty_action_proposal_retries_once_before_any_execution(self):
+        empty = FakeResponse({"message": {"content": "", "tool_calls": None}})
+        recovered = FakeResponse({"message": {"content": "", "tool_calls": [
+            {"function": {"name": "search_documents", "arguments": {
+                "mode": "metadata", "extensions": ["pdf"], "confidence": 0.9,
+            }}}
+        ]}})
+        sent = []
+
+        def open_request(request, _timeout):
+            sent.append(json.loads(request.data))
+            return (empty, recovered)[len(sent) - 1]
+
+        with patch("ai_native_intents.ollama._open_loopback", side_effect=open_request):
+            turn = OllamaModelProvider().route(model_request("Найди все PDF"))
+        self.assertEqual(turn.kind, ModelTurnKind.ACTION)
+        self.assertEqual(len(sent), 2)
+        self.assertEqual(sent[0]["options"]["temperature"], 0)
+        self.assertEqual(sent[1]["options"]["temperature"], 0.2)
+
+    def test_two_empty_action_proposals_still_fail_closed(self):
+        responses = [
+            FakeResponse({"message": {"content": "", "tool_calls": None}})
+            for _ in range(2)
+        ]
+        with patch("ai_native_intents.ollama._open_loopback", side_effect=responses) as opened:
+            with self.assertRaisesRegex(OllamaProviderError, "response is empty"):
+                OllamaModelProvider().route(model_request("Найди все PDF"))
+        self.assertEqual(opened.call_count, 2)
+
+    def test_tool_confidence_percentage_is_normalized(self):
+        response = FakeResponse({"message": {"content": "", "tool_calls": [
+            {"function": {"name": "search_documents", "arguments": {
+                "mode": "metadata", "extensions": ["pdf"], "confidence": 95,
+            }}}
+        ]}})
+        with patch("ai_native_intents.ollama._open_loopback", return_value=response):
+            turn = OllamaModelProvider().route(model_request("Найди все PDF"))
+        self.assertEqual(turn.intent_payload["confidence"], 0.95)
+
+    def test_tool_confidence_outside_percentage_is_rejected(self):
+        for invalid in (-1, 101, True):
+            with self.subTest(invalid=invalid):
+                with self.assertRaisesRegex(OllamaProviderError, "confidence is invalid"):
+                    OllamaModelProvider._intent_payload(
+                        [{"function": {"name": "search_documents", "arguments": {
+                            "mode": "metadata", "extensions": ["pdf"], "confidence": invalid,
+                        }}}], model_request("Найди все PDF"),
+                        model_request("Найди все PDF").operation_definitions,
+                    )
 
     def test_candidate_operations_limit_tools_exposed_to_qwen(self):
         response = FakeResponse(
@@ -1206,7 +1342,7 @@ class OllamaProviderTests(unittest.TestCase):
             "Description owned by documents.query.search",
         )
         self.assertEqual(body["options"]["num_ctx"], 4096)
-        self.assertEqual(body["options"]["temperature"], 0.7)
+        self.assertEqual(body["options"]["temperature"], 0)
         self.assertEqual(body["options"]["top_p"], 0.8)
         self.assertEqual(body["options"]["top_k"], 20)
         self.assertNotIn("<think>", body["messages"][1]["content"])

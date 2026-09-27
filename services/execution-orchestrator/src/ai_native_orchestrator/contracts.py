@@ -43,6 +43,7 @@ class SearchOutput:
     coverage: SearchCoverage | None = None
     total_matches: int | None = None
     total_is_exact: bool = True
+    sort_by: str = "name_asc"
 
 
 @dataclass(frozen=True)

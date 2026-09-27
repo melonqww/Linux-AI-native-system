@@ -13,6 +13,7 @@ from .contracts import (
     ModelHistoryMessage,
     ModelRequest,
     TaskContext,
+    RiskClass,
 )
 from .planner import IntentPlanner
 from .provider import (
@@ -110,8 +111,16 @@ class IntentCompiler:
             intent, missing_context = self.context_resolver.resolve(intent, context)
             question = self.clarification_policy.question(
                 intent,
+                operation_definitions=definitions,
                 missing_context=missing_context,
                 context=context,
+                requires_write_confidence=any(
+                    next(
+                        definition for definition in definitions
+                        if definition.operation == operation.kind
+                    ).risk is not RiskClass.READ_ONLY
+                    for operation in intent.operations
+                ),
             )
             plan = self.planner.plan(
                 intent,

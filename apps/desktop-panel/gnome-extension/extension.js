@@ -35,6 +35,7 @@ const PANEL_BOTTOM_MARGIN = 18;
 const TOGGLE_DURATION = 260;
 const TAB_HEIGHT = 43;
 const SOFTWARE_LAUNCH_TIMEOUT_SECONDS = 60;
+let notificationSettings = null;
 const PORTAL_BUS_NAME = 'org.freedesktop.portal.Desktop';
 const PORTAL_OBJECT_PATH = '/org/freedesktop/portal/desktop';
 const PORTAL_FILE_CHOOSER = 'org.freedesktop.portal.FileChooser';
@@ -71,6 +72,16 @@ const SOFTWARE_ICON_ASSETS = Object.freeze({
     thunderbird: ['thunderbird.svg', 'thunderbird'],
     bitwarden: ['bitwarden.svg', 'bitwarden'],
 });
+const ACCENT_COLORS = Object.freeze([
+    {id: 'blue', color: '#3584e4', label: 'Синий'},
+    {id: 'purple', color: '#9141ac', label: 'Фиолетовый'},
+    {id: 'teal', color: '#2190a4', label: 'Бирюзовый'},
+    {id: 'green', color: '#3a944a', label: 'Зелёный'},
+    {id: 'yellow', color: '#c88800', label: 'Жёлтый'},
+    {id: 'orange', color: '#e66100', label: 'Оранжевый'},
+    {id: 'red', color: '#e01b24', label: 'Красный'},
+    {id: 'pink', color: '#d56199', label: 'Розовый'},
+]);
 const TabButton = GObject.registerClass(
 class TabButton extends St.Button {
     _init(label, icon) {
@@ -122,6 +133,10 @@ class TabButton extends St.Button {
     setActive(active) {
         this._active = active;
         this._animateHighlight(active || this._hovered);
+    }
+
+    setAccentColor(color) {
+        this._highlight.set_style(color ? `background-color: ${color};` : '');
     }
 
     _animateHighlight(visible) {
@@ -289,19 +304,16 @@ class ChatView extends St.BoxLayout {
         const isOllamaMissing = reason === 'ollama_not_installed';
         let body;
         if (isOllamaMissing) {
-            body = `Для загрузки ${displayName} нужна Ollama. Установите Ollama и повторите проверку.`;
+            body = `Для ${displayName} нужна Ollama. Откройте каталог приложений, чтобы установить её.`;
         } else if (isDownloading) {
             const progress = Number.isInteger(model.progress_percent)
                 ? ` ${model.progress_percent}%`
                 : '';
             body = `Загрузка модели ${displayName} выполняется в фоне.${progress}`;
         } else if (state === 'error') {
-            return this._errorNotice(
-                'Ошибка загрузки модели',
-                `Не удалось загрузить ${displayName}.\nПричина: ${this._dependencyReason(reason)}.`,
-            );
+            body = `Не удалось загрузить ${displayName}: ${this._dependencyReason(reason)}. Откройте каталог для повтора.`;
         } else {
-            body = `Модель ${displayName}${providerModel ? ` (${providerModel})` : ''} не установлена. Загрузить её автоматически?`;
+            body = `Модель ${displayName}${providerModel ? ` (${providerModel})` : ''} не установлена. Откройте каталог приложений для загрузки.`;
         }
         const card = new St.BoxLayout({
             vertical: true,
@@ -337,13 +349,13 @@ class ChatView extends St.BoxLayout {
             toggle_mode: true,
         });
         const install = new St.Button({
-            label: isOllamaMissing ? 'Нужна Ollama' : isDownloading ? 'Загрузка…' : 'Загрузить',
+            label: 'Открыть каталог приложений',
             style_class: 'ai-dependency-install',
         });
         const setBusy = busy => {
             hide.reactive = !busy;
             neverShow.reactive = !busy;
-            install.reactive = !busy && !isOllamaMissing;
+            install.reactive = Boolean(this._onOpenSettings);
         };
         const respond = async decision => {
             setBusy(true);
@@ -366,7 +378,7 @@ class ChatView extends St.BoxLayout {
             if (neverShow.checked)
                 respond('never');
         });
-        install.connect('clicked', () => respond('download'));
+        install.connect('clicked', () => this._onOpenSettings?.());
         if (isDownloading)
             setBusy(true);
         actions.add_child(hide);
@@ -381,7 +393,7 @@ class ChatView extends St.BoxLayout {
         const state = typeof status.state === 'string' ? status.state : 'consent_required';
         const reason = typeof status.reason === 'string' ? status.reason : '';
         const isInstalling = ['starting', 'downloading', 'installing'].includes(state);
-        if (state === 'error' || state === 'unsupported') {
+        if (state === 'unsupported') {
             return this._errorNotice(
                 'Ошибка установки Ollama',
                 `Не удалось подготовить Ollama.\nПричина: ${this._dependencyReason(reason)}.`,
@@ -393,8 +405,10 @@ class ChatView extends St.BoxLayout {
                 ? ` ${status.progress_percent}%`
                 : '';
             body = `Установка Ollama выполняется в фоне.${progress}`;
+        } else if (state === 'error') {
+            body = `Не удалось подготовить Ollama: ${this._dependencyReason(reason)}. Откройте каталог для повтора.`;
         } else {
-            body = 'Ollama не установлена. Установить её автоматически для загрузки локальных моделей?';
+            body = 'Ollama не установлена. Откройте каталог приложений, чтобы начать установку.';
         }
         const card = new St.BoxLayout({
             vertical: true,
@@ -426,13 +440,13 @@ class ChatView extends St.BoxLayout {
             toggle_mode: true,
         });
         const install = new St.Button({
-            label: isInstalling ? 'Установка…' : 'Установить Ollama',
+            label: isInstalling ? 'Показать установку' : 'Открыть каталог приложений',
             style_class: 'ai-dependency-install',
         });
         const setBusy = busy => {
             hide.reactive = !busy;
             neverShow.reactive = !busy;
-            install.reactive = !busy;
+            install.reactive = Boolean(this._onOpenSettings);
         };
         const respond = async decision => {
             setBusy(true);
@@ -453,7 +467,7 @@ class ChatView extends St.BoxLayout {
             if (neverShow.checked)
                 respond('never');
         });
-        install.connect('clicked', () => respond('install'));
+        install.connect('clicked', () => this._onOpenSettings?.());
         if (isInstalling)
             setBusy(true);
         actions.add_child(hide);
@@ -1120,7 +1134,7 @@ class ChatView extends St.BoxLayout {
         card.add_child(label);
         if (this._onOpenSettings) {
             const open = new St.Button({
-                label: 'Открыть настройки',
+                label: 'Открыть каталог приложений',
                 style_class: 'ai-workspace-model-note-action',
                 x_align: Clutter.ActorAlign.START,
             });
@@ -1168,7 +1182,7 @@ class ChatView extends St.BoxLayout {
 
 const SettingsView = GObject.registerClass(
 class SettingsView extends St.Widget {
-    _init(runtime, extensionDir) {
+    _init(runtime, extensionDir, settings) {
         super._init({
             style_class: 'ai-settings-view',
             layout_manager: new Clutter.BinLayout(),
@@ -1177,9 +1191,16 @@ class SettingsView extends St.Widget {
         });
         this._runtime = runtime;
         this._extensionDir = extensionDir;
+        this._settings = settings;
         this._softwareGeneration = 0;
         this._softwarePollSourceId = 0;
         this._softwarePollInFlight = false;
+        this._modelSetupPollSourceId = 0;
+        this._modelSetupPollInFlight = false;
+        this._modelSetupActionInFlight = false;
+        this._modelSetupActionError = null;
+        this._modelSetupStatus = null;
+        this._modelSetupContainer = null;
         this._softwareLaunchRequests = new Map();
         this.connect('destroy', () => this._stopSoftwarePolling());
         this._scroll = new St.ScrollView({
@@ -1251,7 +1272,7 @@ class SettingsView extends St.Widget {
         header.add_child(softwareShortcut);
         header.add_child(this._sectionHeading(
             'Настройки',
-            'Модели, приложения и поведение локальной системы.',
+            'Приложения и поведение панели.',
             'AI-NATIVE LINUX',
         ));
         this._content.add_child(header);
@@ -1265,33 +1286,79 @@ class SettingsView extends St.Widget {
         ));
         this._content.add_child(software);
 
-        const models = this._card('Модели и провайдер');
-        models.add_child(this._row('Qwen 3.5 2B', 'Базовая модель рабочей области', 'Загружена', 'connected'));
-        models.add_child(this._row('Ollama', 'Локальный провайдер моделей', 'Подключён', 'connected'));
-        this._content.add_child(models);
+        const notifications = this._card('Уведомления');
+        notifications.add_child(this._switchRow(
+            'Показывать уведомления',
+            'События проверок, карантина и системных действий',
+            'notifications-enabled',
+        ));
+        this._content.add_child(notifications);
 
-        const behavior = this._card('Поведение системы');
-        behavior.add_child(this._row('Запуск вместе с Linux', 'Автоматически открывать панель', 'Включён', 'connected'));
-        behavior.add_child(this._row('Уведомления', 'Показывать события и завершение задач', 'Включены', 'connected'));
-        behavior.add_child(this._row('История рабочей области', 'Срок хранения сообщений', '24 часа', 'neutral'));
-        this._content.add_child(behavior);
+        const accent = this._card('Акцентный цвет');
+        const accentDescription = new St.Label({
+            text: 'Цвет активных элементов панели',
+            style_class: 'ai-settings-row-detail',
+            x_expand: true,
+        });
+        accentDescription.clutter_text.line_wrap = true;
+        accent.add_child(accentDescription);
+        this._accentSwatches = {};
+        for (let index = 0; index < ACCENT_COLORS.length; index += 4) {
+            const colorRow = new St.BoxLayout({style_class: 'ai-accent-color-row', x_expand: true});
+            ACCENT_COLORS.slice(index, index + 4).forEach(option => {
+                const swatch = new St.Button({
+                    style_class: 'ai-accent-swatch',
+                    can_focus: true,
+                    accessible_name: option.label,
+                    x_align: Clutter.ActorAlign.CENTER,
+                    y_align: Clutter.ActorAlign.CENTER,
+                });
+                swatch.connect('clicked', () => this._setAccentColor(option.id));
+                colorRow.add_child(swatch);
+                this._accentSwatches[option.id] = swatch;
+            });
+            accent.add_child(colorRow);
+        }
+        const defaultColor = new St.Button({
+            label: 'По умолчанию',
+            style_class: 'ai-accent-default',
+            can_focus: true,
+            x_align: Clutter.ActorAlign.START,
+        });
+        defaultColor.connect('clicked', () => this._setAccentColor('default'));
+        accent.add_child(defaultColor);
+        this._accentDefaultButton = defaultColor;
+        this._updateAccentSelection();
+        this._content.add_child(accent);
+    }
 
-        const plugins = this._card('Разные плагины');
-        plugins.add_child(this._row('Системный монитор', 'CPU, RAM, батарея и диски', 'Подключён', 'connected'));
-        plugins.add_child(this._row('Документы PDF', 'Поиск и чтение PDF-файлов', 'Не подключён', 'offline', 'Подключить'));
-        plugins.add_child(this._row('Навигация браузера', 'Открытие ссылок и страниц', 'Ошибка', 'error', 'Повторить'));
-        plugins.add_child(this._row('Журнал действий', 'История операций системы', 'Подключён', 'connected'));
-        this._content.add_child(plugins);
+    _setAccentColor(colorId) {
+        this._settings.set_string('accent-color', colorId);
+        this._updateAccentSelection();
+    }
 
-        const security = this._card('Безопасность');
-        security.add_child(this._row('Подтверждение опасных действий', 'Запрашивать подтверждение перед изменениями', 'Включено', 'connected'));
-        this._content.add_child(security);
+    _updateAccentSelection() {
+        if (!this._accentSwatches)
+            return;
+        const selected = this._settings.get_string('accent-color');
+        for (const option of ACCENT_COLORS) {
+            const isSelected = selected === option.id;
+            this._accentSwatches[option.id].set_style(
+                `background-color: ${option.color}; border: 2px solid ${isSelected ? '#ffffff' : 'rgba(255, 255, 255, 0.2)'};`,
+            );
+        }
+        this._accentDefaultButton?.remove_style_pseudo_class('checked');
+        if (selected === 'default' || !ACCENT_COLORS.some(option => option.id === selected))
+            this._accentDefaultButton?.add_style_pseudo_class('checked');
     }
 
     _openSoftware(initialSection = 'catalog') {
         this._stopSoftwarePolling();
         const generation = ++this._softwareGeneration;
         this._lastSoftwareSnapshotSignature = null;
+        this._modelSetupContainer = null;
+        this._modelSetupStatus = null;
+        this._modelSetupActionError = null;
         this._clearContent();
         this._content.opacity = 0;
 
@@ -1357,6 +1424,25 @@ class SettingsView extends St.Widget {
                 return GLib.SOURCE_CONTINUE;
             },
         );
+        if (initialSection === 'catalog') {
+            this._refreshModelSetupStatus(generation);
+            this._modelSetupPollSourceId = GLib.timeout_add_seconds(
+                GLib.PRIORITY_DEFAULT,
+                4,
+                () => {
+                    if (generation !== this._softwareGeneration) {
+                        this._modelSetupPollSourceId = 0;
+                        return GLib.SOURCE_REMOVE;
+                    }
+                    this._refreshModelSetupStatus(generation);
+                    return GLib.SOURCE_CONTINUE;
+                },
+            );
+        }
+    }
+
+    openSoftwareCatalog() {
+        this._openSoftware('catalog');
     }
 
     _stopSoftwarePolling() {
@@ -1364,7 +1450,34 @@ class SettingsView extends St.Widget {
             GLib.Source.remove(this._softwarePollSourceId);
             this._softwarePollSourceId = 0;
         }
+        if (this._modelSetupPollSourceId) {
+            GLib.Source.remove(this._modelSetupPollSourceId);
+            this._modelSetupPollSourceId = 0;
+        }
         this._softwarePollInFlight = false;
+        this._modelSetupPollInFlight = false;
+    }
+
+    async _refreshModelSetupStatus(generation) {
+        if (this._modelSetupPollInFlight || generation !== this._softwareGeneration)
+            return;
+        this._modelSetupPollInFlight = true;
+        try {
+            const status = typeof this._runtime.inferenceStatus === 'function'
+                ? await this._runtime.inferenceStatus()
+                : await this._runtime.request('POST', '/v1/inference/status');
+            if (generation !== this._softwareGeneration)
+                return;
+            this._modelSetupStatus = status;
+            this._renderModelSetupCard(this._modelSetupContainer, status);
+        } catch (_error) {
+            if (generation !== this._softwareGeneration)
+                return;
+            this._modelSetupStatus = null;
+            this._renderModelSetupCard(this._modelSetupContainer, null);
+        } finally {
+            this._modelSetupPollInFlight = false;
+        }
     }
 
     async _loadSoftwareSnapshot(body, section, generation) {
@@ -1373,14 +1486,23 @@ class SettingsView extends St.Widget {
             if (generation !== this._softwareGeneration)
                 return;
             const signature = `${JSON.stringify(snapshot)}:${this._softwareShellSignature(snapshot)}`;
-            if (signature === this._lastSoftwareSnapshotSignature)
-                return;
-            this._lastSoftwareSnapshotSignature = signature;
-            this._renderSoftwareSnapshot(body, section, snapshot);
+            if (signature !== this._lastSoftwareSnapshotSignature) {
+                this._lastSoftwareSnapshotSignature = signature;
+                this._renderSoftwareSnapshot(body, section, snapshot);
+            }
         } catch (error) {
             if (generation !== this._softwareGeneration)
                 return;
             body.get_children().forEach(child => child.destroy());
+            if (section === 'catalog') {
+                this._modelSetupContainer = new St.BoxLayout({
+                    vertical: true,
+                    style_class: 'ai-model-setup-container',
+                    x_expand: true,
+                });
+                body.add_child(this._modelSetupContainer);
+                this._renderModelSetupCard(this._modelSetupContainer, this._modelSetupStatus);
+            }
             const message = error instanceof RuntimeRequestError
                 ? 'Модуль приложений сейчас недоступен. Остальная панель продолжает работать.'
                 : 'Не удалось прочитать каталог приложений.';
@@ -1419,6 +1541,15 @@ class SettingsView extends St.Widget {
                 return task?.action === 'install' && task?.state === 'completed';
             })
             : catalog;
+        if (section === 'catalog') {
+            this._modelSetupContainer = new St.BoxLayout({
+                vertical: true,
+                style_class: 'ai-model-setup-container',
+                x_expand: true,
+            });
+            body.add_child(this._modelSetupContainer);
+            this._renderModelSetupCard(this._modelSetupContainer, this._modelSetupStatus);
+        }
         if (applications.length === 0) {
             const empty = new St.Button({
                 label: section === 'library'
@@ -1439,6 +1570,128 @@ class SettingsView extends St.Widget {
             ));
         });
         this._queueViewportRedraw();
+    }
+
+    _renderModelSetupCard(container, status) {
+        if (!container)
+            return;
+        container.destroy_all_children();
+        const card = new St.BoxLayout({
+            vertical: true,
+            style_class: 'ai-model-setup-card',
+            x_expand: true,
+        });
+        card.add_child(new St.Label({
+            text: 'Локальный ИИ',
+            style_class: 'ai-software-app-name',
+        }));
+
+        const provider = status?.provider;
+        const qwen = Array.isArray(status?.models)
+            ? status.models.find(model => model?.model_id === 'workspace.qwen')
+            : null;
+        let detail = 'Проверяем Ollama и модель Qwen…';
+        let action = null;
+        if (!status || !provider) {
+            detail = 'Не удалось получить состояние локального ИИ. Повторите проверку.';
+            action = {label: 'Повторить проверку', kind: 'refresh'};
+        } else if (provider.state !== 'ready') {
+            const providerBusy = ['checking', 'starting', 'downloading', 'installing']
+                .includes(provider.state);
+            if (providerBusy) {
+                const progress = Number.isInteger(provider.progress_percent)
+                    ? ` · ${provider.progress_percent}%`
+                    : '';
+                detail = `Устанавливаем Ollama${progress}…`;
+            } else if (provider.installed === true) {
+                detail = 'Ollama найдена, но её локальная служба пока не отвечает.';
+                action = {label: 'Проверить снова', kind: 'refresh'};
+            } else if (provider.state === 'unsupported') {
+                detail = 'Установка Ollama не поддерживается на этой системе.';
+            } else {
+                detail = provider.state === 'error'
+                    ? 'Не удалось установить Ollama. Можно повторить попытку.'
+                    : 'Для чата сначала установите Ollama.';
+                action = {label: 'Установить Ollama', kind: 'provider'};
+            }
+        } else if (!qwen) {
+            detail = 'Ollama готова, но состояние Qwen получить не удалось.';
+            action = {label: 'Повторить проверку', kind: 'refresh'};
+        } else if (qwen.effective_state === 'ready' || qwen.state === 'ready' ||
+            qwen.installed === true) {
+            detail = 'Ollama и Qwen 3.5 2B готовы к работе в чате.';
+        } else if (['starting', 'downloading'].includes(qwen.effective_state ?? qwen.state)) {
+            const progress = Number.isInteger(qwen.progress_percent)
+                ? ` · ${qwen.progress_percent}%`
+                : '';
+            detail = `Загружаем Qwen 3.5 2B${progress}…`;
+        } else {
+            detail = qwen.state === 'error'
+                ? 'Не удалось загрузить Qwen. Можно повторить попытку.'
+                : 'Ollama готова. Теперь установите базовую модель Qwen 3.5 2B.';
+            action = {label: 'Установить Qwen 3.5 2B', kind: 'model'};
+        }
+
+        const description = new St.Label({
+            text: this._modelSetupActionError ?? detail,
+            style_class: 'ai-software-app-description',
+            x_expand: true,
+        });
+        description.clutter_text.line_wrap = true;
+        description.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
+        card.add_child(description);
+
+        if (action) {
+            const button = new St.Button({
+                label: this._modelSetupActionInFlight
+                    ? 'Запускаем…'
+                    : action.label,
+                style_class: 'ai-software-install',
+                x_align: Clutter.ActorAlign.START,
+                reactive: !this._modelSetupActionInFlight,
+            });
+            button.connect('clicked', () => this._runModelSetupAction(action.kind, button));
+            card.add_child(button);
+        }
+        container.add_child(card);
+    }
+
+    async _runModelSetupAction(kind, button) {
+        if (this._modelSetupActionInFlight)
+            return;
+        const generation = this._softwareGeneration;
+        this._modelSetupActionInFlight = true;
+        this._modelSetupActionError = null;
+        button.reactive = false;
+        button.label = 'Запускаем…';
+        try {
+            if (kind === 'provider') {
+                const provider = await this._runtime.respondToOllamaProvider('install');
+                this._modelSetupStatus = {
+                    ...(this._modelSetupStatus ?? {}),
+                    provider,
+                };
+            } else if (kind === 'model') {
+                const model = await this._runtime.respondToModel('workspace.qwen', 'download');
+                const models = Array.isArray(this._modelSetupStatus?.models)
+                    ? this._modelSetupStatus.models.filter(item => item?.model_id !== 'workspace.qwen')
+                    : [];
+                this._modelSetupStatus = {
+                    ...(this._modelSetupStatus ?? {}),
+                    models: [...models, model],
+                };
+            }
+        } catch (_error) {
+            this._modelSetupActionError = kind === 'provider'
+                ? 'Не удалось запустить установку Ollama. Проверьте соединение и повторите.'
+                : 'Не удалось запустить загрузку Qwen. Проверьте соединение и повторите.';
+        } finally {
+            this._modelSetupActionInFlight = false;
+            if (generation === this._softwareGeneration) {
+                this._renderModelSetupCard(this._modelSetupContainer, this._modelSetupStatus);
+                this._refreshModelSetupStatus(generation);
+            }
+        }
     }
 
     _applicationRow(application, task, section) {
@@ -2131,6 +2384,32 @@ class SettingsView extends St.Widget {
         }
         return row;
     }
+
+    _switchRow(title, detail, key) {
+        const row = new St.BoxLayout({style_class: 'ai-settings-row', x_expand: true});
+        const info = new St.BoxLayout({
+            vertical: true,
+            style_class: 'ai-settings-row-info',
+            x_expand: true,
+        });
+        info.add_child(new St.Label({text: title, style_class: 'ai-settings-row-title'}));
+        const detailLabel = new St.Label({
+            text: detail,
+            style_class: 'ai-settings-row-detail',
+            x_expand: true,
+        });
+        detailLabel.clutter_text.line_wrap = true;
+        info.add_child(detailLabel);
+        row.add_child(info);
+
+        const toggle = new St.Switch({style_class: 'toggle-switch ai-settings-switch'});
+        toggle.setToggleState(this._settings.get_boolean(key));
+        toggle.connect('notify::toggle-state', () => {
+            this._settings.set_boolean(key, toggle.getToggleState());
+        });
+        row.add_child(toggle);
+        return row;
+    }
 });
 
 function sidebarLabel(text, styleClass, options = {}) {
@@ -2194,6 +2473,8 @@ function metricBlock(title, value, detail, extraClass = '') {
 }
 
 function notifyUser(title, message) {
+    if (notificationSettings && !notificationSettings.get_boolean('notifications-enabled'))
+        return;
     if (typeof Main.notify === 'function')
         Main.notify(title, message);
     else
@@ -3517,7 +3798,7 @@ class SidebarView extends St.Widget {
 
 const Panel = GObject.registerClass(
 class Panel extends St.Widget {
-    _init(runtime, extensionDir) {
+    _init(runtime, extensionDir, preferences) {
         super._init({
             style_class: 'ai-native-shell',
             reactive: true,
@@ -3525,6 +3806,8 @@ class Panel extends St.Widget {
         });
         this._runtime = runtime;
         this._extensionDir = extensionDir;
+        this._preferences = preferences;
+        this._accentChangedId = 0;
         this.set_size(SHELL_WIDTH, DEFAULT_PANEL_HEIGHT);
         this._collapsed = false;
         this._collapsedTranslation = PANEL_WIDTH + PANEL_HORIZONTAL_MARGIN;
@@ -3552,6 +3835,10 @@ class Panel extends St.Widget {
         this._toggle.connect('clicked', () => this._togglePanel());
         this.add_child(this._toggle);
         this._buildTabs();
+        this._applyAccentColor();
+        this._accentChangedId = this._preferences.connect('changed::accent-color', () => {
+            this._applyAccentColor();
+        });
     }
 
     setPanelHeight(height) {
@@ -3586,13 +3873,13 @@ class Panel extends St.Widget {
         this._workspace = new ChatView(
             this._runtime,
             taskId => this._openTaskLedger(taskId),
-            () => this._selectTab(2),
+            () => this._openSoftwareCatalog(),
         );
         this._workspace.set_position(0, 0);
         this._workspace.set_size(PANEL_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
         this._workspace.hide();
         this._views.add_child(this._workspace);
-        this._settings = new SettingsView(this._runtime, this._extensionDir);
+        this._settings = new SettingsView(this._runtime, this._extensionDir, this._preferences);
         this._settings.set_position(0, 0);
         this._settings.set_size(PANEL_WIDTH, DEFAULT_PANEL_HEIGHT - TAB_HEIGHT);
         this._settings.hide();
@@ -3610,8 +3897,20 @@ class Panel extends St.Widget {
             button.connect('clicked', () => this._selectTab(index));
             this._tabs.add_child(button);
         });
+        this._tabButtons.forEach(button => button.setAccentColor(this._currentAccentColor()));
         this._selectTab(1);
         this.setPanelHeight(DEFAULT_PANEL_HEIGHT);
+    }
+
+    _currentAccentColor() {
+        const selected = this._preferences.get_string('accent-color');
+        return ACCENT_COLORS.find(option => option.id === selected)?.color ?? null;
+    }
+
+    _applyAccentColor() {
+        const color = this._currentAccentColor();
+        this._toggle.set_style(color ? `background-color: ${color};` : '');
+        this._tabButtons?.forEach(button => button.setAccentColor(color));
     }
 
     _selectTab(index) {
@@ -3625,6 +3924,11 @@ class Panel extends St.Widget {
     _openTaskLedger(taskId) {
         this._selectTab(0);
         this._sidebar.openTaskLedger(taskId);
+    }
+
+    _openSoftwareCatalog() {
+        this._selectTab(2);
+        this._settings.openSoftwareCatalog();
     }
 
     _togglePanel() {
@@ -3655,7 +3959,7 @@ class Panel extends St.Widget {
 
 export default class AiNativeLinuxExtension extends Extension {
     _attachPanel() {
-        this._panel = new Panel(this._runtime, this.dir);
+        this._panel = new Panel(this._runtime, this.dir, this._preferences);
         Main.layoutManager.addChrome(this._panel, {trackFullscreen: false, affectsStruts: false});
         this._monitorChangedId = Main.layoutManager.connect('monitors-changed', () => this._positionPanel());
         this._positionPanel();
@@ -3696,6 +4000,8 @@ export default class AiNativeLinuxExtension extends Extension {
             this._theme = null;
         }
         this._runtime = new RuntimeClient();
+        this._preferences = this.getSettings();
+        notificationSettings = this._preferences;
         try {
             this._attachPanel();
         } catch (error) {
@@ -3729,6 +4035,10 @@ export default class AiNativeLinuxExtension extends Extension {
             Main.layoutManager.disconnect(this._monitorChangedId);
             this._monitorChangedId = 0;
         }
+        if (this._panel?._accentChangedId) {
+            this._preferences.disconnect(this._panel._accentChangedId);
+            this._panel._accentChangedId = 0;
+        }
         this._panel?.destroy();
         this._runtime?.destroy();
         if (this._stylesheetLoaded && this._stylesheet) {
@@ -3739,5 +4049,8 @@ export default class AiNativeLinuxExtension extends Extension {
         this._theme = null;
         this._panel = null;
         this._runtime = null;
+        if (notificationSettings === this._preferences)
+            notificationSettings = null;
+        this._preferences = null;
     }
 }

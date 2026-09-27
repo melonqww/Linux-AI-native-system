@@ -30,6 +30,7 @@ from ai_native_storage import (
     ApprovalAuthority,
     CollectionItem,
     MaterializeService,
+    SortOrder,
     VolumeRegistry,
 )
 from ai_native_storage.contracts import DiscoveredVolume
@@ -159,7 +160,39 @@ class OrchestratorTests(unittest.TestCase):
         self.assertEqual(result.active_collection_id, "collection-trusted-1")
         self.assertEqual(self.context.snapshot().active_collection_id, "collection-trusted-1")
         self.assertEqual(self.query.queries[0].limit, 50)
+        self.assertEqual(self.query.queries[0].sort_by, SortOrder.NAME_ASC)
         self.assertEqual(len(self.query.snapshots), 1)
+
+    def test_size_ranked_search_defaults_to_five_and_preserves_explicit_limit(self):
+        output = self.orchestrator._execute_search(
+            {"mode": "metadata", "sort_by": "size_desc"}, "plan-id", None
+        )
+
+        self.assertEqual(self.query.queries[-1].sort_by, SortOrder.SIZE_DESC)
+        self.assertEqual(self.query.queries[-1].limit, 5)
+        self.assertEqual(output.sort_by, "size_desc")
+
+        self.orchestrator._execute_search(
+            {"mode": "metadata", "sort_by": "size_desc", "limit": 3},
+            "plan-id",
+            None,
+        )
+        self.assertEqual(self.query.queries[-1].limit, 3)
+
+    def test_size_ranked_search_rejects_content_mode_and_invalid_limit(self):
+        with self.assertRaisesRegex(ValueError, "metadata search"):
+            self.orchestrator._execute_search(
+                {"mode": "content", "text": "virus", "content_match": "semantic",
+                 "sort_by": "size_desc"},
+                "plan-id",
+                None,
+            )
+        with self.assertRaisesRegex(ValueError, "limit"):
+            self.orchestrator._execute_search(
+                {"mode": "metadata", "sort_by": "size_desc", "limit": 0},
+                "plan-id",
+                None,
+            )
 
     def test_stops_after_search_before_r1_copy(self):
         search = step()

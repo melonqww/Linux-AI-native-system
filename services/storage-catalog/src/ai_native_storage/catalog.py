@@ -16,6 +16,7 @@ from .contracts import (
     EntryType,
     FileQuery,
     PermissionLevel,
+    SortOrder,
 )
 from .database import StorageDatabase
 from .registry import VolumeRegistry
@@ -334,6 +335,10 @@ class FileCatalog:
             raise ValueError("query limit must be from 1 to 1000")
         if not isinstance(query.offset, int) or isinstance(query.offset, bool) or query.offset < 0:
             raise ValueError("query offset must be a non-negative integer")
+        if not isinstance(query.sort_by, SortOrder):
+            raise ValueError("query sort_by must use SortOrder")
+        if any(not isinstance(entry_type, EntryType) for entry_type in query.entry_types):
+            raise ValueError("query entry_types must use EntryType")
 
         clauses = ["v.is_available = 1", "v.permission != 'none'"]
         parameters: list[object] = []
@@ -351,16 +356,23 @@ class FileCatalog:
         if query.volume_ids:
             clauses.append(f"e.volume_id IN ({','.join('?' for _ in query.volume_ids)})")
             parameters.extend(query.volume_ids)
+        if query.entry_types:
+            clauses.append(f"e.entry_type IN ({','.join('?' for _ in query.entry_types)})")
+            parameters.extend(entry_type.value for entry_type in query.entry_types)
         if not allow_sensitive_metadata:
             clauses.append("e.sensitive = 0")
 
+        order_by = {
+            SortOrder.NAME_ASC: "e.name COLLATE NOCASE ASC, e.volume_id ASC, e.path ASC",
+            SortOrder.SIZE_DESC: "e.size_bytes DESC, e.name COLLATE NOCASE ASC, e.volume_id ASC, e.path ASC",
+        }[query.sort_by]
         parameters.extend((query.limit, query.offset))
         sql = f"""
             SELECT e.*
             FROM catalog_entries AS e
             JOIN volumes AS v ON v.volume_id = e.volume_id
             WHERE {' AND '.join(clauses)}
-            ORDER BY e.name COLLATE NOCASE, e.path
+            ORDER BY {order_by}
             LIMIT ? OFFSET ?
         """
         with self.database.connect() as connection:
@@ -374,6 +386,8 @@ class FileCatalog:
         allow_sensitive_metadata: bool = False,
     ) -> int:
         """Count metadata matches without materializing paths or file contents."""
+        if any(not isinstance(entry_type, EntryType) for entry_type in query.entry_types):
+            raise ValueError("query entry_types must use EntryType")
         clauses = ["v.is_available = 1", "v.permission != 'none'"]
         parameters: list[object] = []
         for term in query.name_contains:
@@ -393,6 +407,9 @@ class FileCatalog:
         if query.volume_ids:
             clauses.append(f"e.volume_id IN ({','.join('?' for _ in query.volume_ids)})")
             parameters.extend(query.volume_ids)
+        if query.entry_types:
+            clauses.append(f"e.entry_type IN ({','.join('?' for _ in query.entry_types)})")
+            parameters.extend(entry_type.value for entry_type in query.entry_types)
         if not allow_sensitive_metadata:
             clauses.append("e.sensitive = 0")
         with self.database.connect() as connection:

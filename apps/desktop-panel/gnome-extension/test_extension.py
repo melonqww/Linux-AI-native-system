@@ -21,7 +21,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
     def test_metadata_is_valid(self):
         metadata = json.loads((ROOT / "metadata.json").read_text(encoding="utf-8"))
         self.assertEqual(metadata["uuid"], "ai-native-linux@melonqww")
-        self.assertEqual(metadata["version"], 6)
+        self.assertEqual(metadata["version"], 8)
         self.assertIn("46", metadata["shell-version"])
 
     def test_runtime_files_exist(self):
@@ -43,6 +43,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
         self.assertIn('gnome-extensions enable "${EXTENSION_UUID}"', script)
         self.assertIn("panel_files=(metadata.json extension.js runtime-client.js", script)
         self.assertIn("panel-presenter.js stylesheet.css)", script)
+        self.assertIn('glib-compile-schemas "${TARGET_DIR}/schemas"', script)
         self.assertIn("install-user-service.sh", script)
 
     def test_native_panel_contract_is_present(self):
@@ -79,8 +80,15 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "const SettingsView = GObject.registerClass",
             "class SettingsView extends St.Widget",
             "ai-settings-content",
-            "Разные плагины",
-            "Открыть настройки",
+            "notifications-enabled",
+            "accent-color",
+            "const ACCENT_COLORS = Object.freeze([",
+            "this._settings.set_string('accent-color', colorId)",
+            "this._preferences.connect('changed::accent-color'",
+            "label: 'По умолчанию'",
+            "toggle.setToggleState(this._settings.get_boolean(key))",
+            "this._settings.set_boolean(key, toggle.getToggleState())",
+            "Открыть каталог приложений",
             "_workspaceErrorNotice",
             "ai-workspace-error-note",
             "ai-workspace-error-action",
@@ -200,7 +208,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "Ошибка установки Ollama",
             "Хорошо",
             "Не показывать",
-            "Загрузить",
+            "Открыть каталог приложений",
             "Открыть Task Ledger",
             "_renderWorkspaceMessages",
             "this._runtime.respondToApproval",

@@ -562,6 +562,38 @@ def publish(
         "## Performance",
         "",
         f"Turn budget: {manifest['max_turn_ms']} ms. Slow cases: {slow or 'none observed'}.",
+        "The table lists the slowest observed turns. Stage times are disjoint; model, embedding and executor components overlap their containing stages.",
+        "Ollama timings come from its completed response and may be absent on failed calls.",
+        "",
+        "| Case / turn | Total | Understanding | Planning | Executing | Model | Embedding | Ollama load / prompt / generation |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|",
+        *[
+            "| " + str(case_id) + " / " + str(turn["turn"]) + " | "
+            + " | ".join(
+                f"{value:.0f} ms" for value in (
+                    turn["elapsed_ms"],
+                    turn.get("stages_ms", {}).get("understanding", 0),
+                    turn.get("stages_ms", {}).get("planning", 0),
+                    turn.get("stages_ms", {}).get("executing", 0),
+                    sum(value for key, value in turn.get("components_ms", {}).items() if key.startswith("model_")),
+                    sum(value for key, value in turn.get("components_ms", {}).items() if key.startswith("embedding_")),
+                )
+            )
+            + " | "
+            + " / ".join(
+                f"{turn.get('ollama_ms', {}).get(key, 0):.0f} ms"
+                for key in ("load_ms", "prompt_eval_ms", "eval_ms")
+            )
+            + " |"
+            for case_id, turn in sorted(
+                (
+                    (result["id"], turn)
+                    for result in results
+                    for turn in result.get("turn_performance", ())
+                ),
+                key=lambda item: -item[1]["elapsed_ms"],
+            )[:20]
+        ],
         "",
         "## Known gaps",
         "",

@@ -2,7 +2,7 @@
   "id": "chat-memory",
   "title": "Conversation stays conversational and remembers the prior turn",
   "locale": "ru",
-  "tags": ["smoke", "chat", "memory"],
+  "tags": ["performance", "smoke", "chat", "memory"],
   "fixture": "base-desktop.json",
   "turns": [
     {

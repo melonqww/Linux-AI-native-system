@@ -105,6 +105,10 @@ class CapabilityCandidateRouterTests(unittest.TestCase):
             (),
         )
 
+    def test_required_operation_excludes_negated_command_but_keeps_search(self):
+        text = "Не копируй файлы, а найди все PDF файлы"
+        self.assertEqual(self.router.required_operations(text), ("search_documents",))
+
     def test_repeated_natural_request_uses_module_owned_cue(self):
         self.assertEqual(
             self.router.requested_operations(

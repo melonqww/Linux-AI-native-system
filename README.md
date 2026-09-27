@@ -257,7 +257,8 @@ Linux-проверки и непокрытые случаи перечислен
 ## История лабораторных прогонов
 
 Лаборатория выросла от 5 contract-сценариев до автономной матрицы из 113
-проверок. Последний полный прогон на локальной Qwen 3.5 2B прошёл **113/113**
+позиций. Последний полный прогон `20260927T113342.838423Z` на локальной Qwen
+3.5 2B прошёл **113/113**
 без ошибок на двух seed: это подтверждает backend-фундамент в проверенной
 виртуальной среде, но не означает готовность Linux/GNOME beta и не покрывает
 любой возможный пользовательский запрос. Прежний полный прогон `93/113` с 20
@@ -328,6 +329,9 @@ bash apps/desktop-panel/gnome-extension/install.sh
 - [Решение о lossless-аргументах модульных операций](Architecture/decisions/ADR-029-lossless-operation-arguments.md)
 - [Решение о явном различении смысла content-поиска](Architecture/decisions/ADR-030-search-match-intent-contract.md)
 - [Решение о контракте файловых операций R1](Architecture/decisions/ADR-039-file-operations-r1-contract.md)
+- [Решение об ускоренном chat-only ходе](Architecture/decisions/ADR-040-chat-only-fast-path.md)
+- [Исследование задержки построения действия](Architecture/decisions/ADR-041-action-construction-latency-boundary.md)
+- [Ранжирование файлов по размеру в File Search](Architecture/decisions/ADR-042-size-ranked-file-search.md)
 - [Решение о долговечном модуле установки приложений](Architecture/decisions/ADR-015-durable-software-manager.md)
 - [Решение об изолированной лаборатории AI-сценариев](Architecture/decisions/ADR-017-isolated-ai-scenario-lab.md)
 - [Решение о goal-driven User Journey Lab](Architecture/decisions/ADR-018-goal-driven-user-journey-lab.md)

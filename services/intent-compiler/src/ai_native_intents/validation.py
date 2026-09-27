@@ -93,6 +93,12 @@ class IntentValidator:
         normalized = self._ground_explicit_filename(
             normalized, user_text, definition.input_schema["properties"]
         )
+        normalized = self._ground_explicit_extensions(
+            normalized, user_text, definition.input_schema["properties"]
+        )
+        self._reject_ambiguous_role_overlap(
+            normalized, user_text, definition.input_schema["properties"]
+        )
         normalized = self._ground_explicit_enums(
             normalized, user_text, definition.input_schema["properties"]
         )
@@ -219,6 +225,87 @@ class IntentValidator:
             if not quoted_peer:
                 amended[name] = schema["uncuedFallback"]
         return amended
+
+    @staticmethod
+    def _ground_explicit_extensions(
+        arguments: dict[str, IntentValue],
+        user_text: str,
+        properties: Mapping[str, object],
+    ) -> dict[str, IntentValue]:
+        """Do not narrow a file search to suffixes absent from this user turn.
+
+        The module marks its extension field with a semantic role; the core
+        does not maintain a list of file types or infer suffixes from generic
+        categories such as "text files". A suffix may appear with a dot or as
+        a standalone format name, with an optional English plural ``s``.
+        """
+        field = next(
+            (
+                name
+                for name, schema in properties.items()
+                if isinstance(schema, Mapping)
+                and schema.get("semanticRole") == "file_extensions"
+            ),
+            None,
+        )
+        if field is None or field not in arguments:
+            return arguments
+        proposed = arguments[field]
+        if not isinstance(proposed, (list, tuple)) or any(
+            not isinstance(suffix, str) for suffix in proposed
+        ):
+            return arguments  # Normal schema validation will reject malformed values.
+        message = user_text.casefold()
+        grounded = [
+            suffix
+            for suffix in proposed
+            if re.search(
+                rf"(?<!\w)\.?{re.escape(suffix.casefold())}s?(?!\w)",
+                message,
+            )
+        ]
+        return {**arguments, field: grounded}
+
+    @staticmethod
+    def _reject_ambiguous_role_overlap(
+        arguments: Mapping[str, IntentValue],
+        user_text: str,
+        properties: Mapping[str, object],
+    ) -> None:
+        """Do not execute a model proposal that gives one token two roles.
+
+        The module, not a core vocabulary, declares which fields mean indexed
+        content and file extensions. Explicit literal-content requests remain
+        valid even when the quoted phrase happens to name a format.
+        """
+        roles = {
+            schema.get("semanticRole"): name
+            for name, schema in properties.items()
+            if isinstance(schema, Mapping) and schema.get("semanticRole")
+        }
+        content = arguments.get(roles.get("content_text", ""))
+        extensions = arguments.get(roles.get("file_extensions", ""))
+        if not isinstance(content, str) or not isinstance(extensions, (list, tuple)):
+            return
+        if not any(
+            isinstance(extension, str)
+            and extension.casefold() in re.findall(r"\w+", content.casefold())
+            for extension in extensions
+        ):
+            return
+        literal_cues = (
+            cue
+            for schema in properties.values()
+            if isinstance(schema, Mapping)
+            and roles.get("content_text") in schema.get("coRequiredWith", [])
+            for cues in schema.get("explicitValueCues", {}).values()
+            for cue in cues
+        )
+        if not any(IntentValidator._has_cue(user_text, cue) for cue in literal_cues):
+            raise IntentValidationError(
+                "model mixed file format with indexed content",
+                code="ambiguous_arguments",
+            )
 
     @staticmethod
     def _has_cue(user_text: str, cue: str) -> bool:

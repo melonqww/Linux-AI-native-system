@@ -586,6 +586,14 @@
     spacing: 10px;
 }
 
+.ai-model-setup-card {
+    background-color: #30382f;
+    border: 1px solid rgba(183, 216, 174, 0.3);
+    border-radius: 13px;
+    padding: 11px;
+    spacing: 7px;
+}
+
 .ai-software-icon {
     border-radius: 11px;
     height: 42px;
@@ -815,6 +823,39 @@
     font-size: 12px;
     font-weight: 700;
     padding-bottom: 4px;
+}
+
+.ai-accent-color-row {
+    spacing: 10px;
+    padding-top: 4px;
+}
+
+.ai-accent-swatch {
+    border-radius: 8px;
+    min-width: 30px;
+    min-height: 30px;
+    padding: 0;
+}
+
+.ai-accent-swatch:hover,
+.ai-accent-swatch:focus {
+    border: 2px solid #ffffff;
+}
+
+.ai-accent-default {
+    background-color: #3d3d3d;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 9px;
+    color: #f2f2f2;
+    font-size: 12px;
+    padding: 7px 11px;
+}
+
+.ai-accent-default:hover,
+.ai-accent-default:focus,
+.ai-accent-default:checked {
+    background-color: #535353;
+    border-color: rgba(255, 255, 255, 0.55);
 }
 
 .ai-settings-row {

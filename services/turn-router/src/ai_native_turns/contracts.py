@@ -22,6 +22,7 @@ class TurnRequest:
     user_text: str
     locale: str
     history: tuple[TurnHistoryMessage, ...] = ()
+    positive_action_evidence: bool = False
 
 
 @dataclass(frozen=True)

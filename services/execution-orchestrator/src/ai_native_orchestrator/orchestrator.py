@@ -9,7 +9,7 @@ from uuid import UUID, uuid4
 
 from ai_native_intents import CompilationState, ExecutionPlan, PlanStep, TaskContextStore
 from ai_native_ledger import CancellationRequested, ItemOutcome, TaskLedger
-from ai_native_query import ContentMatch, DocumentQuery, QueryService
+from ai_native_query import ContentMatch, DocumentQuery, QueryService, SearchMode
 from ai_native_permissions import (
     CapabilityExecutionRegistry,
     CapabilityInvocation,
@@ -26,6 +26,7 @@ from ai_native_storage import (
     MaterializeRollbackError,
     MaterializeService,
     MaterializeSpaceError,
+    SortOrder,
 )
 
 from .approval import (
@@ -580,6 +581,8 @@ class ExecutionOrchestrator:
             "name_terms",
             "extensions",
             "volume_ids",
+            "sort_by",
+            "limit",
         }
         unknown = set(arguments) - allowed
         if unknown:
@@ -601,6 +604,13 @@ class ExecutionOrchestrator:
         name_terms = self._strings(arguments, "name_terms")
         extensions = self._strings(arguments, "extensions")
         volume_ids = self._strings(arguments, "volume_ids")
+        raw_sort_by = arguments.get("sort_by", SortOrder.NAME_ASC.value)
+        if not isinstance(raw_sort_by, str):
+            raise ValueError("search sort order is invalid")
+        try:
+            sort_by = SortOrder(raw_sort_by)
+        except ValueError as error:
+            raise ValueError("search sort order is invalid") from error
         if not mode:
             mode = "hybrid" if text and (name_terms or extensions) else "content" if text else "metadata"
         if mode not in {"metadata", "content", "hybrid"}:
@@ -609,9 +619,14 @@ class ExecutionOrchestrator:
             raise ValueError("metadata search cannot contain text")
         if mode in {"content", "hybrid"} and not text.strip():
             raise ValueError("content search requires text")
-        if not any((text.strip(), name_terms, extensions, volume_ids)):
+        if sort_by is SortOrder.SIZE_DESC and mode != SearchMode.METADATA.value:
+            raise ValueError("file-size ordering requires metadata search")
+        if not any((text.strip(), name_terms, extensions, volume_ids)) and sort_by is not SortOrder.SIZE_DESC:
             raise ValueError("search requires at least one criterion")
-        from ai_native_query import SearchMode
+        default_limit = 5 if sort_by is SortOrder.SIZE_DESC else 50
+        limit = arguments.get("limit", default_limit)
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 100:
+            raise ValueError("search limit must be an integer from 1 to 100")
         document_query = DocumentQuery(
             mode=SearchMode(mode),
             text=text,
@@ -619,7 +634,8 @@ class ExecutionOrchestrator:
             name_contains=name_terms,
             extensions=extensions,
             volume_ids=volume_ids,
-            limit=50,
+            sort_by=sort_by,
+            limit=limit,
         )
         page_method = getattr(self._query_service, "search_page", None)
         page = page_method(document_query) if callable(page_method) else None
@@ -659,6 +675,7 @@ class ExecutionOrchestrator:
             coverage,
             total_matches,
             total_is_exact,
+            sort_by.value,
         )
 
     def _validate(self, plan: ExecutionPlan) -> None:

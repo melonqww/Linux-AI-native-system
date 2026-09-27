@@ -26,7 +26,7 @@ from ai_native_query import (
     QueryService,
     SearchMode,
 )
-from ai_native_storage import PermissionLevel, VolumeRegistry
+from ai_native_storage import PermissionLevel, SortOrder, VolumeRegistry
 from ai_native_storage.contracts import DiscoveredVolume
 
 
@@ -350,6 +350,53 @@ class QueryServiceTests(unittest.TestCase):
         self.assertEqual({item.name for item in results}, {"study.pdf", "cooking.pdf"})
         self.assertTrue(all(item.sources == ("metadata",) for item in results))
 
+    def test_metadata_size_sort_returns_top_files_and_excludes_directories(self) -> None:
+        for name, size in (
+            ("one.dat", 10),
+            ("two.dat", 30),
+            ("three.dat", 50),
+            ("four.dat", 70),
+            ("five.dat", 90),
+            ("six.dat", 110),
+        ):
+            (self.documents / name).write_bytes(b"x" * size)
+        misleading_directory = self.documents / "directory.dat"
+        misleading_directory.mkdir()
+        (misleading_directory / "large-child").write_bytes(b"y" * 1000)
+        self.service.catalog.scan_volume("test-volume")
+
+        page = self.service.search_page(
+            DocumentQuery(
+                mode=SearchMode.METADATA,
+                extensions=("dat",),
+                sort_by=SortOrder.SIZE_DESC,
+                limit=5,
+            )
+        )
+
+        self.assertEqual(
+            [(item.name, item.size_bytes) for item in page.results],
+            [("six.dat", 110), ("five.dat", 90), ("four.dat", 70), ("three.dat", 50), ("two.dat", 30)],
+        )
+        self.assertEqual(page.total_matches, 6)
+
+    def test_runtime_validates_metadata_sort_option(self) -> None:
+        application = QueryRuntimeApplication(self.service)
+        (self.documents / "small.dat").write_bytes(b"s")
+        (self.documents / "large.dat").write_bytes(b"l" * 4)
+        self.service.catalog.scan_volume("test-volume")
+
+        page = application.search_page(
+            {"mode": "metadata", "extensions": ["dat"], "sort_by": "size_desc", "limit": 5}
+        )
+        self.assertEqual([item.name for item in page.results], ["large.dat", "small.dat"])
+        for invalid in (
+            {"mode": "metadata", "extensions": [], "sort_by": "arbitrary_sql"},
+            {"mode": "content", "text": "hello", "content_match": "semantic", "sort_by": "size_desc"},
+        ):
+            with self.subTest(payload=invalid), self.assertRaises(ValueError):
+                application.search(invalid)
+
     def test_metadata_results_explain_broken_pdf_content_state(self) -> None:
         self.make_pdf("Mathematics algebra geometry")
         broken = self.documents / "broken.pdf"
@@ -466,6 +513,11 @@ class QueryServiceTests(unittest.TestCase):
         self.assertEqual(coverage.covered_volume_ids, ("external-volume",))
         self.assertEqual(coverage.scanning_volume_ids, ())
         self.assertIsNone(coverage.warning)
+
+        self.service.volumes.set_permission("external-volume", PermissionLevel.NONE)
+        unpermitted_coverage = self.service.coverage()
+        self.assertEqual(unpermitted_coverage.excluded_volume_count, 1)
+        self.assertNotIn("external-volume", unpermitted_coverage.volume_ids)
 
     def test_runtime_exposes_optional_system_monitor_snapshot(self) -> None:
         snapshot = {"schema_version": 1, "supported": True, "processes": []}

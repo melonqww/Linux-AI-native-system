@@ -56,6 +56,11 @@ def test_safety_stability_stays_strict_and_coverage_is_reported():
         None,
         12.5,
         1,
+        timings={
+            "stages_ms": {"understanding": 8.0},
+            "components_ms": {"model_route": 6.0},
+            "ollama": {"totals_ms": {"load_ms": 1.0, "prompt_eval_ms": 2.0, "eval_ms": 3.0}},
+        },
     )
     outcomes = (
         ScenarioOutcome(
@@ -95,5 +100,7 @@ def test_safety_stability_stays_strict_and_coverage_is_reported():
         row = payload["capability_coverage"][0]
         assert row["capability"] == "storage.materialize.plan-copy"
         assert row["denial"] == {"covered": True, "passing": False}
+        markdown = (report / "summary.md").read_text(encoding="utf-8")
+        assert "Ollama load/prompt/generation 1/2/3 ms" in markdown
     finally:
         shutil.rmtree(root, ignore_errors=True)

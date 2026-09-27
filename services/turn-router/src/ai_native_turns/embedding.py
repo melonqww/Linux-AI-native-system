@@ -37,7 +37,7 @@ class OllamaEmbeddingProvider:
         *,
         model: str = "qwen3-embedding:0.6b",
         base_url: str = "http://127.0.0.1:11434",
-        timeout_seconds: float = 4.0,
+        timeout_seconds: float = 8.0,
         keep_alive: str = "5m",
         open_fn: Callable[..., object] | None = None,
     ) -> None:
@@ -71,6 +71,9 @@ class OllamaEmbeddingProvider:
                 "input": list(values),
                 "truncate": True,
                 "keep_alive": self.keep_alive,
+                # Keep the small embedding model on CPU so it does not evict
+                # the conversational model from a modest GPU between turns.
+                "options": {"num_gpu": 0},
             },
             ensure_ascii=False,
         ).encode("utf-8")

@@ -113,8 +113,8 @@ def render_public_results(
         "# Публичные доказательства AI Scenario Lab",
         "",
         "Здесь находятся очищенные результаты реальных Foundation-прогонов.",
-        "Файл автоматически строится только из публичных JSON в этой папке и не",
-        "запускает модель, лабораторию или тесты.",
+        "Файл автоматически строится из тех же очищенных данных, что и публичные",
+        "JSON в этой папке; экспорт не запускает модель, лабораторию или тесты.",
         "",
         "В таблицы входят результаты, покрытие, длительность и безопасная",
         "структурированная диагностика. JSON также хранит digest модели и версию",
@@ -161,18 +161,46 @@ def render_public_results(
     if not full_runs:
         raise UnsafeEvidence("no completed full Foundation run for public tables")
     latest = full_runs[-1]
+    latest_outcome = latest["outcome"]
+    verdict = latest_outcome["verdict"]
+    verdict_explanation = {
+        "backend_candidate": (
+            "Зелёный результат подтверждает только охваченный backend-сценарий "
+            "в виртуальной среде; он не является Linux/GNOME release validation "
+            "или гарантией для произвольных запросов."
+        ),
+        "problems_found": "Полный прогон выявил проблемы в проверенной матрице.",
+        "performance_problems": (
+            "Функциональные проверки прошли, но превышен лимит времени хода."
+        ),
+    }.get(verdict, "Итог полного прогона указан в поле verdict.")
+    test_gates = [
+        case for case in latest["cases"] if case["id"] in {"contracts", "lab-tests"}
+    ]
     lines.extend(
         [
             "",
             f"## Последний полный прогон — `{latest['run_id']}`",
             "",
             "В этой зафиксированной матрице: "
-            f"**{latest['outcome']['counts']['passed']}/{latest['outcome']['planned']} passed**, "
-            f"{latest['outcome']['counts']['failed']} failed, "
-            f"{latest['outcome']['counts']['error']} error. "
-            "Зелёный результат подтверждает только охваченный backend-сценарий "
-            "в виртуальной среде; он не является Linux/GNOME release validation "
-            "или гарантией для произвольных запросов.",
+            f"**{latest_outcome['counts']['passed']}/{latest_outcome['planned']} passed**, "
+            f"{latest_outcome['counts']['failed']} failed, "
+            f"{latest_outcome['counts']['error']} error. "
+            f"Verdict: `{verdict}`. {verdict_explanation}",
+            "",
+            "В знаменатель входят два test gate и один model preflight; остальные "
+            "позиции — попытки сценариев и journeys на указанных seeds. "
+            "Пропуски внутри test gates не считаются отдельными позициями Foundation.",
+            "",
+            "### Test gates",
+            "",
+            "| Gate | Статус | Собрано тестов | Пропущено |",
+            "|---|---|---:|---:|",
+            *[
+                f"| `{case['id']}` | `{case['status']}` | "
+                f"{case.get('tests', '—')} | {case.get('skipped_count', '—')} |"
+                for case in test_gates
+            ],
             "",
             "### Покрытие",
             "",

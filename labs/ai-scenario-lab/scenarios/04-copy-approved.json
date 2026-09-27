@@ -2,7 +2,7 @@
   "id": "copy-approved",
   "title": "A follow-up copy runs only after explicit approval",
   "locale": "ru",
-  "tags": ["smoke", "files", "r1", "approval"],
+  "tags": ["performance", "smoke", "files", "r1", "approval"],
   "fixture": "base-desktop.json",
   "turns": [
     {

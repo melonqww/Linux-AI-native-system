@@ -33,6 +33,8 @@ _SCHEMA_KEYS = frozenset(
         "explicitValueCues",
         "uncuedFallback",
         "implicitOmissionValue",
+        "explicitRequestReview",
+        "valueRequires",
     }
 )
 _SCALAR_TYPES = frozenset({"string", "integer", "number", "boolean"})
@@ -130,6 +132,8 @@ class OperationDefinition:
             property_schema.pop("explicitValueCues", None)
             property_schema.pop("uncuedFallback", None)
             property_schema.pop("implicitOmissionValue", None)
+            property_schema.pop("explicitRequestReview", None)
+            property_schema.pop("valueRequires", None)
         return schema
 
     def normalize_arguments(self, value: object) -> dict[str, object]:
@@ -194,10 +198,21 @@ class OperationDefinition:
                 peer in normalized for peer in peers
             ):
                 raise ValueError(f"{name} requires one of {sorted(peers)}")
-        return {
+        result = {
             key: _validated_value(raw, properties[key], key)
             for key, raw in normalized.items()
         }
+        for name, property_schema in properties.items():
+            requirements = property_schema.get("valueRequires", {})
+            proposed = result.get(name)
+            if proposed not in requirements:
+                continue
+            if any(
+                result.get(peer) not in allowed
+                for peer, allowed in requirements[proposed].items()
+            ):
+                raise ValueError(f"{name} is incompatible with another argument")
+        return result
 
     def validate_argument(self, name: str, value: object) -> IntentValue:
         """Validate one reviewed optional argument against its module schema."""
@@ -339,6 +354,27 @@ def _validated_object_schema(value: Mapping[str, object]) -> dict[str, object]:
             or name in peers
         ):
             raise ValueError("coRequiredWith must name other operation properties")
+        value_requires = schema.get("valueRequires")
+        if value_requires is not None and (
+            not isinstance(value_requires, Mapping)
+            or not isinstance(schema.get("enum"), list)
+            or not set(value_requires) <= set(schema["enum"])
+            or any(
+                not isinstance(requirements, Mapping)
+                or not requirements
+                or any(
+                    peer == name
+                    or peer not in normalized
+                    or not isinstance(allowed, list)
+                    or not allowed
+                    or not isinstance(normalized.get(peer, {}).get("enum"), list)
+                    or not set(allowed) <= set(normalized[peer]["enum"])
+                    for peer, allowed in requirements.items()
+                )
+                for requirements in value_requires.values()
+            )
+        ):
+            raise ValueError("valueRequires must reference enum values of peer properties")
     if (
         not isinstance(required, list)
         or len(required) != len(set(required))
@@ -346,6 +382,11 @@ def _validated_object_schema(value: Mapping[str, object]) -> dict[str, object]:
         or not set(required) <= set(normalized)
     ):
         raise ValueError("operation required arguments are invalid")
+    if any(
+        schema.get("explicitRequestReview") and name in required
+        for name, schema in normalized.items()
+    ):
+        raise ValueError("explicitRequestReview requires an optional property")
     return {
         "type": "object",
         "properties": normalized,
@@ -426,6 +467,15 @@ def _validated_property_schema(value: object, *, array_item: bool) -> dict[str, 
         or implicit_omission not in enum
     ):
         raise ValueError("implicitOmissionValue must be an enum item")
+    explicit_review = value.get("explicitRequestReview")
+    if explicit_review is not None and not isinstance(explicit_review, bool):
+        raise ValueError("explicitRequestReview must be boolean")
+    value_requires = value.get("valueRequires")
+    if value_requires is not None and (
+        kind != "string"
+        or not isinstance(value_requires, Mapping)
+    ):
+        raise ValueError("valueRequires requires an enum string property")
     if review_choices is not None and (
         not isinstance(review_choices, Mapping)
         or enum is None

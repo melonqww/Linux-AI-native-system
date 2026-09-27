@@ -14,6 +14,7 @@ from ai_native_workspace import MessageKind, MessageRole, WorkspaceStage, Worksp
 
 from ai_scenario_lab.containment import ContainmentGuard
 from ai_scenario_lab.environment import LabEnvironment
+from ai_scenario_lab.timing import model_usage
 
 from .contracts import (
     ActionKind,
@@ -41,6 +42,7 @@ class JourneyTurnOutcome:
     action: JourneyAction
     observation: Observation
     duration_ms: float
+    timings: dict[str, object] | None = None
 
 
 @dataclass(frozen=True)
@@ -245,6 +247,7 @@ class JourneyRunner:
                 turn_started = perf_counter()
                 before_messages = len(environment.store.list_messages())
                 before_records = len(environment.executor.records)
+                before_model = len(environment.model.events)
                 if decision.action.kind in {
                     ActionKind.FOLLOW_UP,
                     ActionKind.CORRECT,
@@ -275,13 +278,21 @@ class JourneyRunner:
                 final_observation = WorkspaceObservationAdapter.adapt(
                     workspace_run, messages, records
                 )
+                turn_ended = perf_counter()
+                timings = environment.timings.snapshot(
+                    workspace_run.run_id, started=turn_started, ended=turn_ended
+                )
+                timings["ollama"] = model_usage(
+                    tuple(environment.model.events[before_model:])
+                )
                 turns.append(
                     JourneyTurnOutcome(
                         len(turns) + 1,
                         decision.state_id,
                         decision.action,
                         final_observation,
-                        round((perf_counter() - turn_started) * 1_000, 3),
+                        round((turn_ended - turn_started) * 1_000, 3),
+                        timings,
                     )
                 )
                 pending_run = (

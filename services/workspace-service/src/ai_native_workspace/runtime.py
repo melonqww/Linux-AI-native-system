@@ -6,6 +6,7 @@ from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 import re
+from pathlib import PurePosixPath
 from threading import BoundedSemaphore
 from typing import Protocol
 
@@ -296,11 +297,18 @@ class WorkspaceRuntime:
                     or None
                 )
             if self.turn_router is not None:
-                classification = self._classify_turn(text, locale, user_message_id)
                 if requested == ():
+                    # This trusted module-evidence result already selected the
+                    # chat-only branch before classification in the previous
+                    # pipeline. Skip the classifier call; it could not change
+                    # the branch or authorize an operation here.
                     reply = self._respond_chat(text, locale, user_message_id)
                     self._complete_reply(run_id, reply)
                     return
+                classification = self._classify_turn(
+                    text, locale, user_message_id,
+                    positive_action_evidence=bool(required),
+                )
                 if (
                     classification is None
                     or classification.kind is TurnKind.CLARIFICATION
@@ -325,6 +333,20 @@ class WorkspaceRuntime:
                     and classification.kind is TurnKind.CONVERSATION
                 ):
                     classification = None
+                if (
+                    classification is not None
+                    and classification.kind is TurnKind.MIXED
+                    and classification.action_text is not None
+                    and callable(required_source)
+                    and required is not None
+                    and not set(required_source(classification.action_text)).issubset(required)
+                ):
+                    # Splitting may remove a negation from the action fragment.
+                    # That must not make a previously forbidden operation required.
+                    self._complete_reply(
+                        run_id, self._clarification(locale), MessageKind.CLARIFICATION
+                    )
+                    return
                 if classification is not None and classification.kind in {
                     TurnKind.ACTION,
                     TurnKind.MIXED,
@@ -898,7 +920,8 @@ class WorkspaceRuntime:
         }
 
     def _classify_turn(
-        self, text: str, locale: str, current_user_message_id: str
+        self, text: str, locale: str, current_user_message_id: str,
+        *, positive_action_evidence: bool = False,
     ) -> TurnClassification | None:
         if self.turn_router is None:
             return None
@@ -909,7 +932,10 @@ class WorkspaceRuntime:
                 break
             try:
                 return self.turn_router.route(
-                    TurnRequest(text, locale, history=history)
+                    TurnRequest(
+                        text, locale, history=history,
+                        positive_action_evidence=positive_action_evidence,
+                    )
                 )
             except Exception:
                 continue
@@ -1254,11 +1280,14 @@ class WorkspaceRuntime:
         copied = 0
         completed_steps = 0
         search_mode = ""
+        sort_by = "name_asc"
         criteria = ""
         coverage_complete = True
         coverage_state = "ready"
         inaccessible = 0
+        excluded_volumes = 0
         sample_names: list[str] = []
+        largest_files: list[tuple[str, str, int]] = []
         operation_summaries: list[str] = []
         for step in result.steps:
             if step.state.value == "completed":
@@ -1272,14 +1301,23 @@ class WorkspaceRuntime:
                 )
                 total_is_exact = total_is_exact and step.output.total_is_exact
                 search_mode = step.output.mode
+                sort_by = step.output.sort_by
                 criteria = step.output.criteria
                 sample_names.extend(item.name for item in step.output.results[:5])
+                if step.output.sort_by == "size_desc":
+                    for item in step.output.results[:5]:
+                        parent = PurePosixPath(item.path.replace("\\", "/")).parent.name
+                        largest_files.append((item.name, parent, item.size_bytes))
                 if step.output.coverage is not None:
                     coverage_complete = (
                         coverage_complete and step.output.coverage.complete
                     )
                     coverage_state = step.output.coverage.state
                     inaccessible += step.output.coverage.inaccessible_items
+                    excluded_volumes = max(
+                        excluded_volumes,
+                        step.output.coverage.excluded_volume_count,
+                    )
             elif isinstance(step.output, CopyOutput):
                 copied += step.output.copied_count
             elif isinstance(step.output, OperationOutput):
@@ -1295,10 +1333,13 @@ class WorkspaceRuntime:
             "total_is_exact": total_is_exact,
             "copied_items": copied,
             "search_mode": search_mode,
+            "sort_by": sort_by,
             "criteria": criteria,
             "coverage_complete": coverage_complete,
             "coverage_state": coverage_state,
             "inaccessible_items": inaccessible,
+            "excluded_volumes": excluded_volumes,
+            "largest_files": tuple(largest_files[:5]),
             "sample_names": tuple(sample_names[:5]),
             "operation_summaries": tuple(operation_summaries),
         }
@@ -1311,25 +1352,48 @@ class WorkspaceRuntime:
         if locale.startswith("ru"):
             parts = []
             if facts.get("search_mode"):
-                if total > found:
-                    qualifier = (
-                        "не менее " if not facts.get("total_is_exact", True) else ""
-                    )
+                if facts.get("sort_by") == "size_desc":
+                    files = facts.get("largest_files", ())
+                    if isinstance(files, tuple) and files:
+                        entries = [
+                            f"{index}. {name} — {WorkspaceRuntime._format_file_size(size, locale)}"
+                            + (f" (папка: {parent})" if parent else "")
+                            for index, (name, parent, size) in enumerate(files, start=1)
+                        ]
+                        parts.append(
+                            "Самые большие файлы среди разрешённых каталогизированных мест:\n"
+                            + "\n".join(entries)
+                        )
+                    else:
+                        parts.append("В разрешённых каталогизированных местах файлы не найдены.")
+                elif total > found:
+                    qualifier = "не менее " if not facts.get("total_is_exact", True) else ""
                     parts.append(
                         f"Поиск завершён. Показано файлов: {found}; "
                         f"всего совпадений: {qualifier}{total}."
                     )
                 else:
                     parts.append(f"Поиск завершён. Найдено файлов: {found}.")
-                if not bool(facts.get("coverage_complete", False)):
+                if facts.get("coverage_state") == "no_allowed_volumes":
+                    parts.append("Нет доступных разрешённых дисков для поиска.")
+                elif not bool(facts.get("coverage_complete", False)):
                     parts.append(
-                        "Индекс разрешённых дисков ещё формируется, поэтому результат неполный."
+                        "Охват неполный: часть разрешённых расположений ещё индексируется или недоступна."
                     )
                 inaccessible = int(facts.get("inaccessible_items", 0))
                 if inaccessible:
-                    parts.append(f"Недоступных объектов: {inaccessible}.")
+                    parts.append(f"Недоступных областей: {inaccessible}.")
+                excluded = int(facts.get("excluded_volumes", 0))
+                if excluded:
+                    parts.append(
+                        f"Дисков без разрешения на поиск: {excluded}; их содержимое не проверялось."
+                    )
                 names = facts.get("sample_names", ())
-                if isinstance(names, tuple) and names:
+                if (
+                    facts.get("sort_by") != "size_desc"
+                    and isinstance(names, tuple)
+                    and names
+                ):
                     parts.append("Примеры: " + "; ".join(names) + ".")
             if copied:
                 parts.append(f"Скопировано объектов: {copied}.")
@@ -1339,16 +1403,37 @@ class WorkspaceRuntime:
             return " ".join(parts) or "Задача выполнена."
         parts = []
         if facts.get("search_mode"):
-            if total > found:
+            if facts.get("sort_by") == "size_desc":
+                files = facts.get("largest_files", ())
+                if isinstance(files, tuple) and files:
+                    entries = [
+                        f"{index}. {name} — {WorkspaceRuntime._format_file_size(size, locale)}"
+                        + (f" (folder: {parent})" if parent else "")
+                        for index, (name, parent, size) in enumerate(files, start=1)
+                    ]
+                    parts.append(
+                        "Largest files across allowed cataloged locations:\n"
+                        + "\n".join(entries)
+                    )
+                else:
+                    parts.append("No files were found in allowed cataloged locations.")
+            elif total > found:
                 qualifier = "at least " if not facts.get("total_is_exact", True) else ""
                 parts.append(
                     f"Search completed. Files shown: {found}; total matches: {qualifier}{total}."
                 )
             else:
                 parts.append(f"Search completed. Files found: {found}.")
-            if not bool(facts.get("coverage_complete", False)):
+            if facts.get("coverage_state") == "no_allowed_volumes":
+                parts.append("No available, permitted drives are ready to search.")
+            elif not bool(facts.get("coverage_complete", False)):
                 parts.append(
-                    "The allowed-drive index is still being built, so this result is incomplete."
+                    "Coverage is incomplete: some permitted locations are still being indexed or are inaccessible."
+                )
+            excluded = int(facts.get("excluded_volumes", 0))
+            if excluded:
+                parts.append(
+                    f"Drives without search permission: {excluded}; their contents were not searched."
                 )
         if copied:
             parts.append(f"Items copied: {copied}.")
@@ -1356,6 +1441,24 @@ class WorkspaceRuntime:
         if isinstance(summaries, tuple):
             parts.extend(item for item in summaries if isinstance(item, str))
         return " ".join(parts) or "Task completed."
+
+    @staticmethod
+    def _format_file_size(size_bytes: int, locale: str) -> str:
+        size = max(0, int(size_bytes))
+        units = (
+            ("Б", "КиБ", "МиБ", "ГиБ", "ТиБ")
+            if locale.startswith("ru")
+            else ("B", "KiB", "MiB", "GiB", "TiB")
+        )
+        value = float(size)
+        unit_index = 0
+        while value >= 1024 and unit_index < len(units) - 1:
+            value /= 1024
+            unit_index += 1
+        number = f"{value:.1f}" if unit_index else str(size)
+        if unit_index and locale.startswith("ru"):
+            number = number.replace(".", ",")
+        return f"{number} {units[unit_index]}"
 
     @staticmethod
     def _clarification(locale: str) -> str:

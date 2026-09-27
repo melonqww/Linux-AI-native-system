@@ -163,6 +163,17 @@ def run_case(lab: Path, project: Path, run: Path, identifier: str) -> int:
                 trace=trace,
                 diagnostic=diagnostic,
                 context=_json_value(context),
+                turn_performance=[
+                    {
+                        "turn": turn.ordinal,
+                        "elapsed_ms": turn.duration_ms,
+                        "stages_ms": turn.timings.get("stages_ms", {}),
+                        "components_ms": turn.timings.get("components_ms", {}),
+                        "ollama_ms": turn.timings.get("ollama", {}).get("totals_ms", {}),
+                        "ollama_calls": len(turn.timings.get("ollama", {}).get("calls", [])),
+                    }
+                    for turn in outcome.turns
+                ],
                 slow_turns=[
                     turn.ordinal
                     for turn in outcome.turns

@@ -31,6 +31,8 @@ def builtin_policies() -> tuple[CapabilityPolicy, ...]:
                     "name_terms",
                     "extensions",
                     "volume_ids",
+                    "sort_by",
+                    "limit",
                 }
             ),
             required_arguments=frozenset(),

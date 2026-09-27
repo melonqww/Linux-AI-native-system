@@ -1,0 +1,817 @@
+{
+  "schema_version": 1,
+  "evidence_kind": "ai-scenario-lab-foundation-run",
+  "run_id": "20260927T042809.020107Z",
+  "provenance": {
+    "source_fingerprint": "23c85469a5a6a0197d3b345f47ba980410b1abed8ef6869aca6cf8d9da51c357",
+    "source_files_sha256": {
+      "manifest.json": "8c16187849b1594df3af487d8e39d1186f7f96b878ffad757044bb1669e54a4c",
+      "summary.json": "1e371dd72cc6800d3ba65e5e51bd7b017854a7e059a765c33038e0f5bb8a8a0c",
+      "failures.json": "be745a04ea359e7bcba4d34e75c60808bcd86b72284163123f012aa5408ac887"
+    },
+    "automatic_retries": 0
+  },
+  "runtime": {
+    "profile": "foundation-v1",
+    "model": "qwen3.5:2b",
+    "model_digest": null,
+    "ollama_version": null,
+    "context_tokens": 8192,
+    "python": "3.13.14",
+    "platform": "windows",
+    "seeds": [
+      7,
+      19
+    ],
+    "budget_seconds": 14400,
+    "max_turn_ms": 90000
+  },
+  "outcome": {
+    "state": "blocked",
+    "verdict": "incomplete",
+    "reason_code": "lab-tests_failed",
+    "planned": 113,
+    "counts": {
+      "passed": 1,
+      "failed": 1,
+      "error": 0,
+      "not_run": 111
+    },
+    "wall_time_seconds": 42.432
+  },
+  "coverage": {
+    "language": {
+      "unobserved": {
+        "passed": 1,
+        "failed": 1,
+        "error": 0,
+        "not_run": 1
+      },
+      "mixed": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 2
+      },
+      "en": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 36
+      },
+      "ru": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 72
+      }
+    },
+    "behavior": {
+      "unobserved": {
+        "passed": 1,
+        "failed": 1,
+        "error": 0,
+        "not_run": 1
+      },
+      "standard": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 68
+      },
+      "verbose": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 6
+      },
+      "cautious": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 6
+      },
+      "prompt-injection": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 2
+      },
+      "impatient": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 6
+      },
+      "slang": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 6
+      },
+      "no_punctuation": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 6
+      },
+      "typo": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 6
+      },
+      "negative": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 4
+      }
+    },
+    "memory_depth": {
+      "unobserved": {
+        "passed": 1,
+        "failed": 1,
+        "error": 0,
+        "not_run": 1
+      },
+      "2": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 40
+      },
+      "1": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 22
+      },
+      "4": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 32
+      },
+      "5": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 4
+      },
+      "3": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 8
+      },
+      "35": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 4
+      }
+    },
+    "kind": {
+      "tests": {
+        "passed": 1,
+        "failed": 1,
+        "error": 0,
+        "not_run": 0
+      },
+      "preflight": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 1
+      },
+      "scenario": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 68
+      },
+      "journey": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 42
+      }
+    },
+    "mode": {
+      "unobserved": {
+        "passed": 1,
+        "failed": 1,
+        "error": 0,
+        "not_run": 1
+      },
+      "mixed": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 22
+      },
+      "action": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 60
+      },
+      "chat": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 28
+      }
+    },
+    "capability": {
+      "unobserved": {
+        "passed": 1,
+        "failed": 1,
+        "error": 0,
+        "not_run": 43
+      },
+      "documents.query.search": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 22
+      },
+      "files.directory.create": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 6
+      },
+      "none": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 22
+      },
+      "documents.query.search,files.items.rename": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 2
+      },
+      "documents.query.search,files.items.move": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 2
+      },
+      "storage.materialize.plan-copy": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 2
+      },
+      "documents.query.search,files.items.inspect": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 2
+      },
+      "documents.query.search,storage.materialize.plan-copy": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 8
+      },
+      "documents.query.search,files.items.trash": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 2
+      }
+    },
+    "decision": {
+      "unobserved": {
+        "passed": 1,
+        "failed": 1,
+        "error": 0,
+        "not_run": 43
+      },
+      "none": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 46
+      },
+      "grant": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 12
+      },
+      "deny": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 8
+      },
+      "timeout": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 2
+      }
+    },
+    "failure_kind": {
+      "unobserved": {
+        "passed": 1,
+        "failed": 1,
+        "error": 0,
+        "not_run": 111
+      }
+    },
+    "input_modality": {
+      "unobserved": {
+        "passed": 1,
+        "failed": 1,
+        "error": 0,
+        "not_run": 1
+      },
+      "text": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 96
+      },
+      "image": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "not_run": 14
+      }
+    }
+  },
+  "slow_cases": [],
+  "cases": [
+    {
+      "id": "contracts",
+      "status": "passed",
+      "tests": 661,
+      "exit_code": 0,
+      "duration_ms": 22297.558,
+      "skipped_count": 37,
+      "failed_tests": []
+    },
+    {
+      "id": "lab-tests",
+      "status": "failed",
+      "tests": 146,
+      "exit_code": 1,
+      "duration_ms": 17015.591,
+      "skipped_count": 0,
+      "failed_tests": [
+        "test_journey_runner_drives_real_workspace_runtime_and_collects_trusted_effects"
+      ]
+    },
+    {
+      "id": "ollama-preflight",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--foundation-mixed-mixed-follow-up",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--create-directory-conflict",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--model-timeout-contained",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--search-and-rename-approved",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-verbose",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--foundation-en-mixed-follow-up",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--chat-memory",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-standard",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-standard",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--search-and-move-approved",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-cautious",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--classifier-malformed-fallback",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--prompt-injection-document",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--semantic-topic-search",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-impatient",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--foundation-ru-memory-5",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--create-directory-approved",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-slang",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-impatient",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-no_punctuation",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--exact-phrase-search",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-verbose",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-no_punctuation",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-verbose",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--executor-failure-contained",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-typo",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--foundation-en-memory-5",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--search-pdf",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--repeat-mixed-search-grounding",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--foundation-en-negative",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-impatient",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--conversation-action-boundary",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--negative-no-action",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-no_punctuation",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-typo",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-slang",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--copy-destination-clarification",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-cautious",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--search-and-inspect",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--foundation-en-memory-35",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--copy-timeout",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--mixed-bread-and-pdf",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--copy-executor-failure-contained",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--foundation-ru-memory-35",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-cautious",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-typo",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--search-and-trash-approved",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--broken-and-large-files",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-standard",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--copy-denied",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--copy-approved",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-slang",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--path-traversal-refused",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--multiturn-memory-denial",
+      "status": "not_run"
+    },
+    {
+      "id": "s7--create-directory-denied-en",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--model-timeout-contained",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--foundation-mixed-mixed-follow-up",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--search-and-trash-approved",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--foundation-en-negative",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--copy-timeout",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--copy-destination-clarification",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-slang",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--create-directory-conflict",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-impatient",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--search-and-move-approved",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--prompt-injection-document",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-slang",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--copy-denied",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--classifier-malformed-fallback",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-impatient",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-verbose",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--foundation-en-mixed-follow-up",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-no_punctuation",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--chat-memory",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--copy-executor-failure-contained",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-verbose",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--foundation-en-memory-35",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-verbose",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--conversation-action-boundary",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-standard",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--copy-approved",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--foundation-en-memory-5",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-impatient",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-standard",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-cautious",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-no_punctuation",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--search-pdf",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--create-directory-approved",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-standard",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-typo",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--exact-phrase-search",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--create-directory-denied-en",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--search-and-inspect",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-slang",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--broken-and-large-files",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--semantic-topic-search",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-typo",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--multiturn-memory-denial",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-typo",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--repeat-mixed-search-grounding",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-cautious",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--search-and-rename-approved",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--path-traversal-refused",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--executor-failure-contained",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--foundation-ru-memory-35",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--negative-no-action",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--foundation-ru-memory-5",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-cautious",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--mixed-bread-and-pdf",
+      "status": "not_run"
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-no_punctuation",
+      "status": "not_run"
+    }
+  ]
+}

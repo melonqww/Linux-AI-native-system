@@ -29,6 +29,19 @@ for panel_file in "${panel_files[@]}"; do
     fi
 done
 
+mkdir -p "${TARGET_DIR}/schemas"
+schema_file="org.gnome.shell.extensions.ai-native-linux.gschema.xml"
+cp "${SCRIPT_DIR}/schemas/${schema_file}" "${TARGET_DIR}/schemas/${schema_file}"
+if ! cmp -s "${SCRIPT_DIR}/schemas/${schema_file}" "${TARGET_DIR}/schemas/${schema_file}"; then
+    echo "Ошибка: схема настроек расширения не совпадает" >&2
+    exit 1
+fi
+if ! command -v glib-compile-schemas >/dev/null 2>&1; then
+    echo "Ошибка: для установки настроек нужен glib-compile-schemas" >&2
+    exit 1
+fi
+glib-compile-schemas "${TARGET_DIR}/schemas"
+
 rm -rf "${TARGET_DIR}/assets"
 cp -R "${SCRIPT_DIR}/assets" "${TARGET_DIR}/assets"
 if ! diff -qr "${SCRIPT_DIR}/assets" "${TARGET_DIR}/assets" >/dev/null; then

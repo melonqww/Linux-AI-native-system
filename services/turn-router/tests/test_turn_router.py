@@ -44,6 +44,24 @@ class TurnRouterTests(unittest.TestCase):
 
         self.assertEqual(result.kind, TurnKind.ACTION)
 
+    def test_leading_negation_keeps_later_positive_action_when_evidenced(self):
+        text = "Не удаляй файлы, а найди PDF"
+        result = TurnRouter(Classifier(payload(
+            "mixed", conversation="Не удаляй файлы, а", action="найди PDF"
+        ))).route(TurnRequest(text, "ru", positive_action_evidence=True))
+
+        self.assertEqual(result.kind, TurnKind.MIXED)
+        self.assertEqual(result.action_text, "найди PDF")
+
+    def test_leading_negation_rejects_unsplit_action_even_with_evidence(self):
+        text = "Не удаляй файлы, а найди PDF"
+        result = TurnRouter(Classifier(payload("action", action=text))).route(
+            TurnRequest(text, "ru", positive_action_evidence=True)
+        )
+
+        self.assertEqual(result.kind, TurnKind.CLARIFICATION)
+        self.assertIsNone(result.action_text)
+
     def test_pure_conversation_uses_original_text_when_small_model_paraphrases(self):
         text = "А при какой температуре печь хлеб"
         result = TurnRouter(Classifier(payload(

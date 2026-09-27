@@ -2,7 +2,7 @@
   "id": "copy-denied",
   "title": "A denied R1 operation has no filesystem effect",
   "locale": "ru",
-  "tags": ["smoke", "files", "r1", "denial"],
+  "tags": ["performance", "smoke", "files", "r1", "denial"],
   "fixture": "base-desktop.json",
   "turns": [
     {

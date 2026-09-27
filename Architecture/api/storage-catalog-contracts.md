@@ -66,6 +66,8 @@ runtime: `POST /v1/storage/volumes`. Поле `permission_required` показы
   "extensions": ["pdf"],
   "roles": ["document"],
   "volume_ids": [],
+  "entry_types": ["file"],
+  "sort_by": "size_desc",
   "limit": 100,
   "offset": 0
 }
@@ -74,6 +76,13 @@ runtime: `POST /v1/storage/volumes`. Поле `permission_required` показы
 Пустой `volume_ids` означает все доступные и разрешённые хранилища. Запрос не
 содержит флага доступа к чувствительным данным. Обычный результат исключает их
 независимо от текста модели.
+
+`entry_types` — необязательное перечисление `file`, `directory`, `symlink`.
+`sort_by` принимает только `name_asc` или `size_desc`; сортировка выполняется
+SQLite до применения `limit`, поэтому выборка глобальна для разрешённых томов,
+а не сортирует только уже ограниченную страницу. Для пяти крупнейших файлов
+вызывающая сторона задаёт `entry_types: ["file"]` и `limit: 5`. Используются
+только каталогизированные метаданные; запрос не обходит диск заново.
 
 ### Результат каталога
 
@@ -111,6 +120,8 @@ runtime: `POST /v1/storage/volumes`. Поле `permission_required` показы
     "extensions": ["pdf"],
     "roles": ["document"],
     "volume_ids": [],
+    "entry_types": [],
+    "sort_by": "name_asc",
     "limit": 100,
     "offset": 0
   },

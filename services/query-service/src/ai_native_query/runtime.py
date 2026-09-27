@@ -17,7 +17,7 @@ from ai_native_permissions import (
     TransportContext,
     builtin_policies,
 )
-from ai_native_storage import PermissionLevel
+from ai_native_storage import PermissionLevel, SortOrder
 
 
 class IntentPipeline(Protocol):
@@ -1133,6 +1133,7 @@ class QueryRuntimeApplication:
             "name_contains",
             "extensions",
             "volume_ids",
+            "sort_by",
             "limit",
             "offset",
         }
@@ -1162,6 +1163,13 @@ class QueryRuntimeApplication:
         name_contains = self._strings(payload, "name_contains")
         extensions = self._strings(payload, "extensions")
         volume_ids = self._strings(payload, "volume_ids")
+        raw_sort_by = payload.get("sort_by", SortOrder.NAME_ASC.value)
+        if not isinstance(raw_sort_by, str):
+            raise ValueError("sort_by must be a string")
+        try:
+            sort_by = SortOrder(raw_sort_by)
+        except ValueError as error:
+            raise ValueError("unsupported sort order") from error
         limit = payload.get("limit", 20)
         if isinstance(limit, bool) or not isinstance(limit, int):
             raise ValueError("limit must be an integer")
@@ -1175,6 +1183,7 @@ class QueryRuntimeApplication:
             name_contains=name_contains,
             extensions=extensions,
             volume_ids=volume_ids,
+            sort_by=sort_by,
             limit=limit,
             offset=offset,
         )

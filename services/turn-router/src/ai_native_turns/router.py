@@ -25,7 +25,10 @@ class TurnRouter:
         self.minimum_confidence = minimum_confidence
 
     def route(self, request: TurnRequest) -> TurnClassification:
-        if self._is_negative_guard(request.user_text):
+        # Module-owned positive evidence allows a later clause to be split,
+        # but the entire negated message must never become one action.
+        leading_negation = self._is_negative_guard(request.user_text)
+        if leading_negation and not request.positive_action_evidence:
             return TurnClassification(
                 TurnKind.CONVERSATION,
                 request.locale,
@@ -69,6 +72,8 @@ class TurnRouter:
                 request.user_text, conversation, action
             )
         self._validate_fragments(request.user_text, kind, conversation, action)
+        if leading_negation and kind is TurnKind.ACTION:
+            return TurnClassification(TurnKind.CLARIFICATION, language, float(confidence))
         if float(confidence) < self.minimum_confidence:
             return TurnClassification(
                 TurnKind.CLARIFICATION, language, float(confidence)

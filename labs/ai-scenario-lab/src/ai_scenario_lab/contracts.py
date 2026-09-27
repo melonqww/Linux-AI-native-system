@@ -66,6 +66,7 @@ class TurnOutcome:
     duration_ms: float = 0.0
     model_calls: int = 0
     faults: tuple[dict[str, object], ...] = ()
+    timings: dict[str, object] = field(default_factory=dict)
 
     @property
     def passed(self) -> bool:

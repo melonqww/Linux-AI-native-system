@@ -104,6 +104,18 @@ def write_report(
             lines.append(
                 f"Turn {turn.ordinal}: `{turn.user}` — {'PASS' if turn.passed else 'FAIL'}"
             )
+            if turn.timings:
+                stages = turn.timings.get("stages_ms", {})
+                components = turn.timings.get("components_ms", {})
+                ollama = turn.timings.get("ollama", {}).get("totals_ms", {})
+                lines.append(
+                    f"- Timing: {turn.duration_ms:.0f} ms total; "
+                    f"stages {stages}; components {components}; "
+                    f"Ollama load/prompt/generation "
+                    f"{ollama.get('load_ms', 0):.0f}/"
+                    f"{ollama.get('prompt_eval_ms', 0):.0f}/"
+                    f"{ollama.get('eval_ms', 0):.0f} ms"
+                )
             for check in turn.checks:
                 if not check.passed:
                     lines.append(

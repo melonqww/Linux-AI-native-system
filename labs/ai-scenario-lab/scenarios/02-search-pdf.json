@@ -2,7 +2,7 @@
   "id": "search-pdf",
   "title": "Metadata search finds PDFs only on enrolled disks",
   "locale": "ru",
-  "tags": ["smoke", "files", "r0"],
+  "tags": ["performance", "smoke", "files", "r0"],
   "fixture": "base-desktop.json",
   "turns": [
     {

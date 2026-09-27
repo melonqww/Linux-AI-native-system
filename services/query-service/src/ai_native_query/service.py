@@ -14,6 +14,7 @@ from ai_native_storage import (
     FileCatalog,
     FileQuery,
     PermissionLevel,
+    SortOrder,
     StorageEnrollment,
 )
 from ai_native_storage.collections import VirtualCollectionStore
@@ -58,6 +59,12 @@ class QueryService:
     def coverage(self, volume_ids: tuple[str, ...] = ()) -> SearchCoverage:
         catalog = self.catalog.status()
         available = self.volumes.list_volumes(available_only=True)
+        excluded_volume_count = sum(
+            1
+            for volume in available
+            if volume.permission is PermissionLevel.NONE
+            and (not volume_ids or volume.volume_id in volume_ids)
+        )
         selected = tuple(
             volume.volume_id
             for volume in available
@@ -113,6 +120,7 @@ class QueryService:
             scanning_volume_ids=tuple(
                 volume_id for volume_id in scanning if volume_id in selected_set
             ),
+            excluded_volume_count=excluded_volume_count,
         )
 
     def ingest_pdfs(self, *, volume_ids: tuple[str, ...] = ()) -> PdfIngestReport:
@@ -184,10 +192,16 @@ class QueryService:
             raise ValueError("content_match requires non-empty text")
         if query.content_match is not None and not isinstance(query.content_match, ContentMatch):
             raise ValueError("content_match must use ContentMatch")
+        if not isinstance(query.sort_by, SortOrder):
+            raise ValueError("sort_by must use SortOrder")
+        if query.sort_by is not SortOrder.NAME_ASC and mode is not SearchMode.METADATA:
+            raise ValueError("sorting by file metadata requires metadata search mode")
         metadata_query = FileQuery(
             name_contains=query.name_contains,
             extensions=query.extensions,
             volume_ids=query.volume_ids,
+            entry_types=(EntryType.FILE,) if query.sort_by is SortOrder.SIZE_DESC else (),
+            sort_by=query.sort_by,
             limit=query.limit,
             offset=query.offset,
         )

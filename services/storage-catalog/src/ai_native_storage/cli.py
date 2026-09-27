@@ -11,7 +11,7 @@ from pathlib import Path
 
 from .catalog import FileCatalog
 from .collections import VirtualCollectionStore
-from .contracts import FileQuery, PermissionLevel
+from .contracts import EntryType, FileQuery, PermissionLevel, SortOrder
 from .registry import VolumeRegistry
 
 
@@ -30,6 +30,8 @@ def _add_query_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--extension", action="append", default=[], help="extension, for example pdf")
     parser.add_argument("--role", action="append", default=[])
     parser.add_argument("--volume", action="append", default=[])
+    parser.add_argument("--entry-type", action="append", choices=[item.value for item in EntryType], default=[])
+    parser.add_argument("--sort-by", choices=[item.value for item in SortOrder], default=SortOrder.NAME_ASC.value)
     parser.add_argument("--limit", type=int, default=100)
 
 
@@ -39,6 +41,8 @@ def _query_from_args(args: argparse.Namespace) -> FileQuery:
         extensions=tuple(args.extension),
         roles=tuple(args.role),
         volume_ids=tuple(args.volume),
+        entry_types=tuple(EntryType(value) for value in args.entry_type),
+        sort_by=SortOrder(args.sort_by),
         limit=args.limit,
     )
 

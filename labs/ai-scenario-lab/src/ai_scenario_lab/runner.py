@@ -20,6 +20,7 @@ from .contracts import (
 )
 from .environment import LabEnvironment
 from .containment import ContainmentGuard
+from .timing import model_usage
 
 
 _TERMINAL = {
@@ -154,7 +155,12 @@ class ScenarioRunner:
         records = environment.executor.records[before_records:]
         model_events = environment.model.events[before_model:]
         faults = environment.faults.events[before_faults:]
-        duration_ms = round((perf_counter() - started) * 1_000, 3)
+        ended = perf_counter()
+        duration_ms = round((ended - started) * 1_000, 3)
+        timings = environment.timings.snapshot(
+            run.run_id, started=started, ended=ended
+        )
+        timings["ollama"] = model_usage(tuple(model_events))
         checks = self._checks(
             environment,
             turn,
@@ -176,6 +182,7 @@ class ScenarioRunner:
             duration_ms,
             len(model_events),
             tuple(faults),
+            timings,
         )
 
     @staticmethod

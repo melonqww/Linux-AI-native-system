@@ -2,7 +2,7 @@
   "id": "mixed-bread-and-pdf",
   "title": "One turn combines a useful answer with a trusted file search",
   "locale": "ru",
-  "tags": ["smoke", "mixed", "files"],
+  "tags": ["performance", "smoke", "mixed", "files"],
   "fixture": "base-desktop.json",
   "turns": [
     {

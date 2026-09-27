@@ -2,7 +2,7 @@
   "id": "exact-phrase-search",
   "title": "A literal phrase request excludes documents with reordered words",
   "locale": "en",
-  "tags": ["foundation", "files", "search-match", "exact-phrase"],
+  "tags": ["performance", "foundation", "files", "search-match", "exact-phrase"],
   "fixture": "search-match.json",
   "turns": [
     {
@@ -20,7 +20,7 @@
             "arguments": {
               "text": "launch code is blue river",
               "content_match": "exact_phrase",
-              "extensions": ["txt"]
+              "extensions": []
             }
           }
         ],

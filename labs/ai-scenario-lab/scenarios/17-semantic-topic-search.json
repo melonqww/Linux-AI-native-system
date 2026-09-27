@@ -2,7 +2,7 @@
   "id": "semantic-topic-search",
   "title": "A topic request selects semantic search and returns related documents",
   "locale": "en",
-  "tags": ["foundation", "files", "search-match", "semantic"],
+  "tags": ["performance", "foundation", "files", "search-match", "semantic"],
   "fixture": "search-match.json",
   "turns": [
     {

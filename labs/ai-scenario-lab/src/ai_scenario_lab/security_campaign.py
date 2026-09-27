@@ -48,7 +48,9 @@ class SecurityCampaignRunner:
         self.lab_root = lab_root.resolve(strict=True)
         self.fixture = self._load_fixture()
 
-    def run(self, *, run_id: str) -> tuple[Path, tuple[SecurityCaseResult, ...]]:
+    def run(
+        self, *, run_id: str, update_latest: bool = True
+    ) -> tuple[Path, tuple[SecurityCaseResult, ...]]:
         report_dir = self.lab_root / "reports" / "security" / run_id
         report_dir.mkdir(parents=True, exist_ok=False)
         host = report_dir / "virtual-security-host"
@@ -74,8 +76,9 @@ class SecurityCampaignRunner:
             for case_id, operation in cases
         )
         self._write_report(report_dir, run_id, results, canary_hash == _digest(canary))
-        latest = self.lab_root / "reports" / "security-latest.txt"
-        latest.write_text(f"security/{run_id}", encoding="utf-8")
+        if update_latest:
+            latest = self.lab_root / "reports" / "security-latest.txt"
+            latest.write_text(f"security/{run_id}", encoding="utf-8")
         return report_dir, results
 
     def _run_case(

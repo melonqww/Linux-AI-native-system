@@ -335,6 +335,33 @@ def test_gate_distinguishes_speed_from_function_and_never_releases_beta(prepared
     assert foundation.publish(run, manifest, "interrupted")["verdict"] == "incomplete"
 
 
+def test_performance_table_uses_numeric_turn_metrics_only(prepared):
+    _, _, run = prepared
+    manifest = reduce_plan(run)
+    foundation.atomic_json(
+        run / "results/case-0.json",
+        {
+            "id": "case-0",
+            "status": "passed",
+            "turn_performance": [{
+                "turn": 1,
+                "elapsed_ms": 20000.0,
+                "stages_ms": {"understanding": 15000.0},
+                "components_ms": {"model_classify_turn": 7000.0, "embedding_capabilities": 1000.0},
+                "ollama_ms": {"load_ms": 500.0, "prompt_eval_ms": 2000.0, "eval_ms": 4000.0},
+                "ollama_calls": 1,
+            }],
+        },
+    )
+    foundation.atomic_json(
+        run / "results/case-1.json", {"id": "case-1", "status": "passed"}
+    )
+    foundation.publish(run, manifest, "completed")
+    markdown = (run / "summary.md").read_text(encoding="utf-8")
+    assert "case-0 / 1 | 20000 ms | 15000 ms" in markdown
+    assert "500 ms / 2000 ms / 4000 ms" in markdown
+
+
 def test_foundation_failure_report_keeps_bounded_unknown_evidence(prepared):
     _, _, run = prepared
     manifest = reduce_plan(run)

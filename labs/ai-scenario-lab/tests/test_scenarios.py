@@ -21,6 +21,20 @@ def test_smoke_suite_is_a_real_subset():
     assert all("smoke" in item.tags for item in smoke)
 
 
+def test_performance_suite_covers_key_user_paths_without_full_campaign():
+    scenarios = discover_scenarios(LAB_ROOT / "scenarios", suite="performance")
+    assert {item.scenario_id for item in scenarios} == {
+        "chat-memory",
+        "search-pdf",
+        "mixed-bread-and-pdf",
+        "copy-approved",
+        "copy-denied",
+        "conversation-action-boundary",
+        "semantic-topic-search",
+        "exact-phrase-search",
+    }
+
+
 def test_denial_scenario_explicitly_checks_no_filesystem_effect():
     scenario = load_scenario(LAB_ROOT / "scenarios" / "05-copy-denied.json")
     denied = scenario.turns[-1]

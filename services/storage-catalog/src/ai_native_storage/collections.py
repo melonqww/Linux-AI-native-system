@@ -14,7 +14,9 @@ from .contracts import (
     CatalogEntry,
     CollectionItem,
     CollectionKind,
+    EntryType,
     FileQuery,
+    SortOrder,
     VirtualCollection,
 )
 from .database import StorageDatabase
@@ -197,7 +199,10 @@ class VirtualCollectionStore:
                 extensions=tuple(payload.get("extensions", ())),
                 roles=tuple(payload.get("roles", ())),
                 volume_ids=tuple(payload.get("volume_ids", ())),
+                entry_types=tuple(EntryType(value) for value in payload.get("entry_types", ())),
+                sort_by=SortOrder(payload.get("sort_by", SortOrder.NAME_ASC.value)),
                 limit=int(payload.get("limit", 100)),
+                offset=int(payload.get("offset", 0)),
             )
         return VirtualCollection(
             collection_id=str(row["collection_id"]),

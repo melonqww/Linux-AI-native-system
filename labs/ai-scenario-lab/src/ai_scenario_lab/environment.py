@@ -36,11 +36,17 @@ from ai_native_turns import (
     SemanticCapabilitySelector,
     TurnRouter,
 )
-from ai_native_workspace import WorkspaceRuntime, WorkspaceStore
+from ai_native_workspace import WorkspaceRuntime
 
 from .virtual_pc import VirtualComputer
 from .contracts import FaultSpec
 from .faults import FaultController
+from .timing import (
+    LabTimings,
+    TimingCapabilityRouter,
+    TimingEmbeddingProvider,
+    TimingWorkspaceStore,
+)
 
 
 class _Discovery:
@@ -49,6 +55,26 @@ class _Discovery:
 
     def discover(self) -> list[DiscoveredVolume]:
         return list(self.volumes)
+
+
+def _ollama_action_phase(payload: object) -> str | None:
+    """Label action-construction requests by wire shape, never prompt contents."""
+    if not isinstance(payload, Mapping):
+        return None
+    if isinstance(payload.get("tools"), list):
+        return "action_proposal"
+    output_format = payload.get("format")
+    if not isinstance(output_format, Mapping):
+        return None
+    properties = output_format.get("properties")
+    if not isinstance(properties, Mapping):
+        return None
+    if "reviews" in properties:
+        return "preserved_argument_review"
+    choice = properties.get("choice")
+    if isinstance(choice, Mapping) and choice.get("type") == "string":
+        return "conditional_argument_review"
+    return None
 
 
 class MeasuredOllamaModelProvider(OllamaModelProvider):
@@ -60,16 +86,35 @@ class MeasuredOllamaModelProvider(OllamaModelProvider):
 
     def _json_request(self, method, path, payload=None, *, timeout=None):
         started = perf_counter()
-        result = super()._json_request(method, path, payload, timeout=timeout)
+        phase = _ollama_action_phase(payload)
+        try:
+            result = super()._json_request(method, path, payload, timeout=timeout)
+        except Exception as error:
+            if method == "POST":
+                self._usage.append({
+                    "path": path,
+                    "action_phase": phase,
+                    "status": "error",
+                    "error_type": type(error).__name__,
+                    "wall_ms": round((perf_counter() - started) * 1_000, 3),
+                })
+            raise
         if method == "POST":
             message = result.get("message") if isinstance(result, Mapping) else None
             self._usage.append(
                 {
                     "path": path,
+                    "action_phase": phase,
+                    "status": "ok",
                     "wall_ms": round((perf_counter() - started) * 1_000, 3),
                     "prompt_tokens": _counter(result, "prompt_eval_count"),
+                    "cached_prompt_tokens": _counter(result, "prompt_eval_cached_count"),
                     "output_tokens": _counter(result, "eval_count"),
                     "ollama_total_ns": _counter(result, "total_duration"),
+                    "total_ms": _nanoseconds_ms(result, "total_duration"),
+                    "load_ms": _nanoseconds_ms(result, "load_duration"),
+                    "prompt_eval_ms": _nanoseconds_ms(result, "prompt_eval_duration"),
+                    "eval_ms": _nanoseconds_ms(result, "eval_duration"),
                     "response_message": _wire_message(message),
                 }
             )
@@ -84,9 +129,12 @@ class MeasuredOllamaModelProvider(OllamaModelProvider):
 class TracingModel:
     """Records model boundaries while preserving the exact production provider."""
 
-    def __init__(self, provider: object, faults: FaultController) -> None:
+    def __init__(
+        self, provider: object, faults: FaultController, timings: LabTimings
+    ) -> None:
         self.provider = provider
         self.faults = faults
+        self.timings = timings
         self.events: list[dict[str, object]] = []
 
     def health(self):
@@ -159,7 +207,10 @@ class TracingModel:
         if callable(drain):
             drain()
         try:
-            response = self.faults.call(f"model.{kind}", callback)
+            response = self.timings.call(
+                f"model_{kind}",
+                lambda: self.faults.call(f"model.{kind}", callback),
+            )
             event["response"] = _json_value(response)
             event["status"] = "ok"
             return response
@@ -177,10 +228,14 @@ class TracingModel:
 
 class RecordingExecutor:
     def __init__(
-        self, executor: ExecutionOrchestrator, faults: FaultController
+        self,
+        executor: ExecutionOrchestrator,
+        faults: FaultController,
+        timings: LabTimings,
     ) -> None:
         self.executor = executor
         self.faults = faults
+        self.timings = timings
         self.records: list[dict[str, object]] = []
 
     def available_capabilities(self) -> tuple[str, ...]:
@@ -190,10 +245,13 @@ class RecordingExecutor:
         started = perf_counter()
         record = {"event": "execute", "plan": _json_value(plan)}
         try:
-            result = self.faults.call(
-                "executor.execute",
-                lambda: self.executor.execute(
-                    plan, transport_context=transport_context
+            result = self.timings.call(
+                "executor_execute",
+                lambda: self.faults.call(
+                    "executor.execute",
+                    lambda: self.executor.execute(
+                        plan, transport_context=transport_context
+                    ),
                 ),
             )
             record["result"] = _json_value(result)
@@ -215,12 +273,15 @@ class RecordingExecutor:
             "confirmed": confirmed,
         }
         try:
-            result = self.faults.call(
-                "executor.approval_response",
-                lambda: self.executor.respond_to_approval(
-                    approval_request_id,
-                    confirmed=confirmed,
-                    transport_context=transport_context,
+            result = self.timings.call(
+                "executor_approval_response",
+                lambda: self.faults.call(
+                    "executor.approval_response",
+                    lambda: self.executor.respond_to_approval(
+                        approval_request_id,
+                        confirmed=confirmed,
+                        transport_context=transport_context,
+                    ),
                 ),
             )
             record["result"] = _json_value(result)
@@ -236,9 +297,12 @@ class RecordingExecutor:
 class TracingIntentCompiler:
     """Lab-only observer around the production compiler contract."""
 
-    def __init__(self, compiler: IntentCompiler, model: TracingModel) -> None:
+    def __init__(
+        self, compiler: IntentCompiler, model: TracingModel, timings: LabTimings
+    ) -> None:
         self.compiler = compiler
         self.model = model
+        self.timings = timings
 
     def model_request(self, *args, **kwargs):
         return self.compiler.model_request(*args, **kwargs)
@@ -249,7 +313,9 @@ class TracingIntentCompiler:
         return result
 
     def compile_payload(self, *args, **kwargs):
-        result = self.compiler.compile_payload(*args, **kwargs)
+        result = self.timings.call(
+            "compile_payload", lambda: self.compiler.compile_payload(*args, **kwargs)
+        )
         self.model.annotate_compilation(result)
         return result
 
@@ -278,6 +344,7 @@ class LabEnvironment:
         self.pc = VirtualComputer(self.run_root / "virtual-pc", lab_root=self.lab_root)
         self.pc.provision(fixture_path)
         self.faults = FaultController(faults)
+        self.timings = LabTimings()
         self.audit_events: list[dict[str, object]] = []
         self.capability_registry = CapabilityRegistry(
             self.run_root / "capability-registry.sqlite3"
@@ -296,9 +363,13 @@ class LabEnvironment:
             index_database=self.index_db,
             coverage_source=lambda: asdict(self.scheduler.status()),
             semantic_provider=(
-                OllamaEmbeddingProvider(
-                    model="qwen3-embedding:0.6b",
-                    base_url=base_url,
+                TimingEmbeddingProvider(
+                    OllamaEmbeddingProvider(
+                        model="qwen3-embedding:0.6b",
+                        base_url=base_url,
+                    ),
+                    self.timings,
+                    "content",
                 )
                 if provider is None
                 else None
@@ -361,7 +432,7 @@ class LabEnvironment:
             task_ledger=self.ledger,
             capability_handlers=file_handlers,
         )
-        self.executor = RecordingExecutor(orchestrator, self.faults)
+        self.executor = RecordingExecutor(orchestrator, self.faults, self.timings)
         raw_provider = provider or MeasuredOllamaModelProvider(
             model=model,
             base_url=base_url,
@@ -370,7 +441,7 @@ class LabEnvironment:
             max_output_tokens=768,
             keep_alive="10m",
         )
-        self.model = TracingModel(raw_provider, self.faults)
+        self.model = TracingModel(raw_provider, self.faults, self.timings)
         self.compiler = TracingIntentCompiler(
             IntentCompiler(
                 self.model,
@@ -381,8 +452,11 @@ class LabEnvironment:
                 ),
             ),
             self.model,
+            self.timings,
         )
-        self.store = WorkspaceStore(self.run_root / "workspace.sqlite3")
+        self.store = TimingWorkspaceStore(
+            self.run_root / "workspace.sqlite3", self.timings
+        )
         descriptors = _registry_descriptors(
             self.capability_registry,
             self.executor.available_capabilities(),
@@ -395,12 +469,19 @@ class LabEnvironment:
                 lexical_router,
                 SemanticCapabilitySelector(
                     descriptors,
-                    OllamaEmbeddingProvider(
-                        model="qwen3-embedding:0.6b",
-                        base_url=base_url,
+                    TimingEmbeddingProvider(
+                        OllamaEmbeddingProvider(
+                            model="qwen3-embedding:0.6b",
+                            base_url=base_url,
+                        ),
+                        self.timings,
+                        "capabilities",
                     ),
                 ),
             )
+        capability_router = TimingCapabilityRouter(
+            capability_router, self.timings
+        )
         self.runtime = WorkspaceRuntime(
             self.store,
             self.model,
@@ -519,6 +600,11 @@ def _counter(payload: Mapping[str, object], name: str) -> int | None:
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         return None
     return value
+
+
+def _nanoseconds_ms(payload: Mapping[str, object], name: str) -> float | None:
+    value = _counter(payload, name)
+    return None if value is None else round(value / 1_000_000, 3)
 
 
 def _trace_request(value: object) -> object:
