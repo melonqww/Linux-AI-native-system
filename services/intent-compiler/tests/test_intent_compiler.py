@@ -485,6 +485,33 @@ class IntentCompilerTests(unittest.TestCase):
 
                 self.assertEqual(result.state, CompilationState.NEEDS_CLARIFICATION)
 
+    def test_new_module_search_uses_semantic_role_without_core_operation_name(self):
+        definition = OperationDefinition(
+            "search_records", "records.query.search", "Search records.",
+            {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "semanticRole": "content_text"},
+                },
+                "required": [], "additionalProperties": False,
+            },
+        )
+        compiler = IntentCompiler(
+            CallableIntentProvider(lambda _request: {}),
+            operation_source=lambda: (definition,),
+        )
+        for arguments, expected in (
+            ({}, CompilationState.NEEDS_CLARIFICATION),
+            ({"query": "алгебра"}, CompilationState.READY),
+        ):
+            with self.subTest(arguments=arguments):
+                text = "Найди записи об алгебре"
+                response = payload(text, [operation(
+                    "search", "search_records", arguments, text,
+                )])
+                result = compiler.compile_payload(response, text=text)
+                self.assertEqual(result.state, expected)
+
     def test_search_mode_is_always_derived_from_factual_arguments(self):
         cases = (
             ({"mode": "hybrid", "extensions": ["pdf"]}, "metadata"),

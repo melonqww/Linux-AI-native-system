@@ -219,6 +219,73 @@ class OllamaProviderTests(unittest.TestCase):
                 calls, request, operation_definitions()
             ))
 
+    def test_optional_review_accepts_only_quoted_exact_user_evidence(self):
+        provider = OllamaModelProvider()
+        request = model_request("Покажи пять самых больших файлов")
+        calls = [{"function": {"name": "search_documents", "arguments": {
+            "mode": "metadata", "extensions": [], "sort_by": "size_desc", "limit": 5,
+        }}}]
+        with patch.object(provider, "_structured_message", side_effect=[
+            {"status": "requested", "evidence": '"самых больших файлов"'},
+            {"status": "requested", "evidence": "«пять»"},
+        ]):
+            reviewed = provider._review_explicit_optional_arguments(
+                calls, request, operation_definitions()
+            )
+        self.assertEqual(reviewed[0]["function"]["arguments"]["sort_by"], "size_desc")
+        self.assertEqual(reviewed[0]["function"]["arguments"]["limit"], 5)
+        self.assertFalse(provider._quoted_evidence_in_message(
+            '"самых маленьких файлов"', request.user_text
+        ))
+
+    def test_optional_review_retries_invalid_evidence_once(self):
+        provider = OllamaModelProvider()
+        request = model_request("Покажи самые большие файлы")
+        calls = [{"function": {"name": "search_documents", "arguments": {
+            "mode": "metadata", "extensions": [], "sort_by": "size_desc",
+        }}}]
+        with patch.object(provider, "_structured_message", side_effect=[
+            {"status": "requested", "evidence": '"sort_by": "size_desc"'},
+            {"status": "requested", "evidence": "самые большие файлы"},
+        ]) as review:
+            result = provider._review_explicit_optional_arguments(
+                calls, request, operation_definitions()
+            )
+        self.assertEqual(review.call_count, 2)
+        self.assertEqual(result[0]["function"]["arguments"]["sort_by"], "size_desc")
+
+    def test_module_owned_sort_cue_skips_model_vote_only_for_positive_phrase(self):
+        definition = OperationDefinition(
+            "search_documents", "documents.query.search", "Search files.",
+            {
+                "type": "object",
+                "properties": {
+                    "sort_by": {
+                        "type": "string", "enum": ["name_asc", "size_desc"],
+                        "explicitRequestReview": True,
+                        "explicitRequestCues": {
+                            "size_desc": ["самых больших"],
+                        },
+                    },
+                },
+                "required": [], "additionalProperties": False,
+            },
+        )
+        provider = OllamaModelProvider()
+        calls = [{"function": {"name": "search_documents", "arguments": {
+            "sort_by": "size_desc",
+        }}}]
+        with patch.object(provider, "_structured_message") as review:
+            result = provider._review_explicit_optional_arguments(
+                calls, model_request("Покажи самых больших файлов"), (definition,)
+            )
+        review.assert_not_called()
+        self.assertEqual(result[0]["function"]["arguments"]["sort_by"], "size_desc")
+        self.assertFalse(provider._has_explicit_request_cue(
+            definition.input_schema["properties"]["sort_by"],
+            "size_desc", "Покажи не самых больших файлов",
+        ))
+
     def test_implicit_omission_never_turns_into_an_unrequested_policy(self):
         definition = OperationDefinition(
             "move_results", "files.items.move", "Move selected files.",

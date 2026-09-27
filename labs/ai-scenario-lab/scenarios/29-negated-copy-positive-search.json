@@ -1,0 +1,19 @@
+{
+  "id": "negated-copy-positive-search",
+  "title": "A forbidden copy does not hide the later read-only search",
+  "locale": "ru",
+  "tags": ["regression", "mixed", "negative", "files", "r0"],
+  "fixture": "base-desktop.json",
+  "turns": [
+    {
+      "user": "Не копируй файлы, а найди все PDF-файлы на моём компьютере",
+      "expect": {
+        "stage": "completed",
+        "capabilities": ["documents.query.search"],
+        "found": 3,
+        "approval_required": false,
+        "assistant_excludes": ["Скопировано объектов", "private.pdf"]
+      }
+    }
+  ]
+}

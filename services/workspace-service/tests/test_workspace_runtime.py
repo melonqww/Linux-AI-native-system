@@ -703,9 +703,8 @@ class WorkspaceRuntimeTests(unittest.TestCase):
                 "operations": [{"kind": "search_documents"}],
             }),
             {
-                "kind": "mixed", "language": "ru", "confidence": 0.95,
-                "conversation_text": "Не копируй файлы, а",
-                "action_text": "найди все PDF файлы",
+                "kind": "action", "language": "ru", "confidence": 0.95,
+                "conversation_text": None, "action_text": text,
             },
         )
         compiler = Compiler(SimpleNamespace(state=CompilationState.READY, plan=object()))
@@ -732,7 +731,7 @@ class WorkspaceRuntimeTests(unittest.TestCase):
             runtime.close()
 
         self.assertEqual(model.classify_calls, 1)
-        self.assertEqual(model.requests[-1].user_text, "найди все PDF файлы")
+        self.assertEqual(model.requests[-1].user_text, "а найди все PDF файлы")
         self.assertEqual(model.requests[-1].allowed_operations, ("search_documents",))
         self.assertEqual(compiler.calls, 1)
         self.assertTrue(executor.called.is_set())
@@ -827,6 +826,28 @@ class WorkspaceRuntimeTests(unittest.TestCase):
             ("search_documents",),
         )
         self.assertTrue(executor.called.is_set())
+
+    def test_classifier_failure_logs_only_error_type(self):
+        text = "Найди secret-canary PDF"
+        model = BrokenClassifierModel(
+            ModelTurn(ModelTurnKind.CONVERSATION, response_text="unused"), {},
+        )
+        runtime = WorkspaceRuntime(
+            self.store, model, Compiler(None), Executor(None),
+            lambda: TaskContext(locale="ru"), turn_router=TurnRouter(model),
+        )
+        message = self.store.append_message(
+            MessageRole.USER, MessageKind.CONVERSATION, text,
+        )
+        try:
+            with self.assertLogs("ai_native_workspace.runtime", level="WARNING") as logs:
+                result = runtime._classify_turn(text, "ru", message.message_id)
+        finally:
+            runtime.close()
+
+        self.assertIsNone(result)
+        self.assertIn("error_type=ValueError", logs.output[0])
+        self.assertNotIn("secret-canary", str(logs.output))
 
     def test_turn_classification_uses_current_message_before_bounded_history(self):
         self.store.append_message(

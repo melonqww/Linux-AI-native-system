@@ -10,6 +10,7 @@ from .contracts import CapabilityDescriptor, CapabilityMatch
 
 
 _WORD = re.compile(r"[^\W_]+", re.UNICODE)
+_NEGATORS = frozenset({"не", "not", "never", "without", "dont"})
 
 
 class CapabilityCandidateRouter:
@@ -99,16 +100,11 @@ class CapabilityCandidateRouter:
         tolerates one typo in longer cues, not arbitrary semantic similarity.
         Quoted examples do not authorize operations.
         """
-        visible = re.sub(r'"[^"\n]*"|«[^»]*»|`[^`]*`', " ", text)
         result = []
         # Negation is local to a clause. Without this boundary, a safety
         # preface such as "ничего лишнего не делай: найди документы" wrongly
         # suppresses the separate, explicit command after the colon.
-        clauses = tuple(
-            self._normalize(part).split()
-            for part in re.split(r"[.!?;:\r\n]+", visible)
-            if self._normalize(part)
-        )
+        clauses = self._request_clauses(text)
         for descriptor in self.descriptors:
             cues = {
                 self._normalize(example).split()[0]
@@ -118,10 +114,7 @@ class CapabilityCandidateRouter:
             matched = False
             for tokens in clauses:
                 for index, token in enumerate(tokens):
-                    if any(
-                        word in {"не", "not", "never", "without", "dont"}
-                        for word in tokens[max(0, index - 3) : index]
-                    ):
+                    if self._locally_negated(tokens, index):
                         continue
                     if any(
                         token == cue
@@ -149,20 +142,12 @@ class CapabilityCandidateRouter:
         genuine multi-action request.
         """
         requested = self.requested_operations(text)
-        visible = re.sub(r'"[^"\n]*"|«[^»]*»|`[^`]*`', " ", text)
-        clauses = tuple(
-            self._normalize(part).split()
-            for part in re.split(r"[.!?;:\r\n]+", visible)
-            if self._normalize(part)
-        )
+        clauses = self._request_clauses(text)
         winners: dict[tuple[int, int], tuple[float, str]] = {}
         for clause_index, tokens in enumerate(clauses):
             clause = " ".join(tokens)
             for index, word in enumerate(tokens):
-                if any(
-                    negator in {"не", "not", "never", "without", "dont"}
-                    for negator in tokens[max(0, index - 3) : index]
-                ):
+                if self._locally_negated(tokens, index):
                     continue
                 for descriptor in self.descriptors:
                     if descriptor.operation not in requested:
@@ -190,6 +175,18 @@ class CapabilityCandidateRouter:
             operation for score, operation in winners.values() if score >= 0.45
         }
         return tuple(operation for operation in requested if operation in selected)
+
+    @classmethod
+    def _request_clauses(cls, text: str) -> tuple[tuple[str, ...], ...]:
+        visible = re.sub(r'"[^"\n]*"|«[^»]*»|`[^`]*`', " ", text)
+        return tuple(
+            tokens for part in re.split(r"[.!?;:\r\n]+", visible)
+            if (tokens := tuple(cls._normalize(part).split()))
+        )
+
+    @staticmethod
+    def _locally_negated(tokens: tuple[str, ...], index: int) -> bool:
+        return any(word in _NEGATORS for word in tokens[max(0, index - 3) : index])
 
     @staticmethod
     def _normalize(value: str) -> str:

@@ -760,6 +760,10 @@ class OllamaModelProvider:
                     name, schema, arguments, definition, request.user_text
                 ):
                     continue
+                if self._has_explicit_request_cue(
+                    schema, arguments[name], request.user_text
+                ):
+                    continue
                 payload = {
                     "model": self.model,
                     "messages": [
@@ -821,18 +825,71 @@ class OllamaModelProvider:
                     return None
                 status = answer.get("status")
                 evidence = answer.get("evidence")
+                if (
+                    status == "requested"
+                    and isinstance(evidence, str)
+                    and not self._quoted_evidence_in_message(
+                        evidence, request.user_text
+                    )
+                ):
+                    retry_payload = deepcopy(payload)
+                    retry_payload["messages"][0]["content"] += (
+                        " Your previous evidence was not a substring of the "
+                        "current user message. For requested, evidence must be "
+                        "copied verbatim from current_user_message only, without "
+                        "schema keys, JSON syntax, explanation, or surrounding quotes. "
+                        "If no such substring supports the modifier, choose uncertain."
+                    )
+                    try:
+                        answer = self._structured_message(
+                            retry_payload, "optional argument evidence retry"
+                        )
+                    except (OllamaProviderError, TypeError, ValueError):
+                        return None
+                    status = answer.get("status")
+                    evidence = answer.get("evidence")
                 if status == "not_requested":
                     arguments.pop(name)
                 elif (
                     status == "requested"
                     and isinstance(evidence, str)
-                    and evidence.strip()
-                    and evidence.casefold() in request.user_text.casefold()
+                    and self._quoted_evidence_in_message(
+                        evidence, request.user_text
+                    )
                 ):
                     continue
                 else:
                     return None
         return amended
+
+    @staticmethod
+    def _quoted_evidence_in_message(evidence: str, user_text: str) -> bool:
+        quote = evidence.strip()
+        if len(quote) >= 2 and (quote[0], quote[-1]) in {
+            ('"', '"'), ("'", "'"), ("«", "»"),
+        }:
+            quote = quote[1:-1].strip()
+        return bool(quote) and quote.casefold() in user_text.casefold()
+
+    @staticmethod
+    def _has_explicit_request_cue(
+        schema: Mapping[str, object], value: object, user_text: str
+    ) -> bool:
+        cues = schema.get("explicitRequestCues", {})
+        if not isinstance(value, str) or not isinstance(cues, Mapping):
+            return False
+        for cue in cues.get(value, ()):
+            for match in re.finditer(
+                rf"(?<!\w){re.escape(cue)}(?!\w)", user_text,
+                flags=re.IGNORECASE,
+            ):
+                prefix = re.findall(r"[^\W_]+", user_text[:match.start()].casefold())
+                if not any(
+                    word in {"не", "not", "never", "without", "dont"}
+                    for word in prefix[-3:]
+                ):
+                    return True
+        return False
 
     @staticmethod
     def _is_grounded_full_filename_filter(

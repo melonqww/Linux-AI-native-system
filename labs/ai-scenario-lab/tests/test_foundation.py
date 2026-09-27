@@ -110,8 +110,8 @@ def test_prepare_never_calls_model_or_starts_process(prepared, monkeypatch):
     )
     run = foundation.prepare(lab, project)
     manifest = foundation.read_json(run / "manifest.json")
-    assert len(manifest["cases"]) == 113  # 3 gates + 2 * (34 contracts + 21 journeys)
-    assert len({case["id"] for case in manifest["cases"]}) == 113
+    assert len(manifest["cases"]) == 117  # 3 gates + 2 * (36 contracts + 21 journeys)
+    assert len({case["id"] for case in manifest["cases"]}) == 117
     assert manifest["model"] == "qwen3.5:2b"
     assert manifest["context_tokens"] == 8192
     assert manifest["automatic_retries"] == 0

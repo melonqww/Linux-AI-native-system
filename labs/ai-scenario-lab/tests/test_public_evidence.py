@@ -56,6 +56,21 @@ def test_public_table_distinguishes_focused_run_from_last_full_run():
     assert "| `mode` | `full-case` |" in latest.split("## Все случаи", 1)[0]
 
 
+def test_public_table_marks_unrecorded_foreground_duration_unknown():
+    run = _run("20260927T153344.724638Z", "foundation-v1", "case")
+    index = {"runs": [{
+        "run_id": run["run_id"],
+        "artifact": f"foundation/{run['run_id']}.json",
+        "counts": run["outcome"]["counts"],
+        "wall_time_seconds": None,
+        "verdict": "backend_candidate",
+    }]}
+
+    rendered = render_public_results(index, [run])
+
+    assert "| 0 | — | `backend_candidate` |" in rendered
+
+
 def test_public_token_rejects_paths_and_prose():
     for value in ("C:\\Users\\name", "/home/name/file.pdf", "my private text"):
         with pytest.raises(UnsafeEvidence):

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
@@ -44,6 +45,9 @@ from .input_policy import (
     input_notice,
     safe_chat_reply,
 )
+
+
+_LOG = logging.getLogger(__name__)
 
 
 class RouteProvider(Protocol):
@@ -174,7 +178,8 @@ class WorkspaceRuntime:
                 ),
             )
             return result
-        except Exception:
+        except Exception as error:
+            _LOG.error("workspace_approval_failed error_type=%s", type(error).__name__)
             self._finish_failure(workspace_run.run_id, locale)
             raise
 
@@ -310,6 +315,17 @@ class WorkspaceRuntime:
                     positive_action_evidence=bool(required),
                 )
                 if (
+                    classification is not None
+                    and classification.kind is TurnKind.CLARIFICATION
+                    and required
+                    and callable(required_source)
+                ):
+                    classification = self.turn_router.recover_negated_action(
+                        TurnRequest(text, locale, positive_action_evidence=True),
+                        required=required,
+                        required_for=required_source,
+                    ) or classification
+                if (
                     classification is None
                     or classification.kind is TurnKind.CLARIFICATION
                 ):
@@ -418,7 +434,11 @@ class WorkspaceRuntime:
                         chat_response = self._respond_chat(
                             conversation_text, locale, user_message_id
                         )
-                    except Exception:
+                    except Exception as error:
+                        _LOG.warning(
+                            "workspace_mixed_chat_failed error_type=%s",
+                            type(error).__name__,
+                        )
                         if classification.kind is TurnKind.CONVERSATION:
                             raise
                         chat_response = None
@@ -536,7 +556,8 @@ class WorkspaceRuntime:
                 requested=requested,
                 required=required,
             )
-        except Exception:
+        except Exception as error:
+            _LOG.error("workspace_run_failed error_type=%s", type(error).__name__)
             self._finish_failure(run_id, locale)
 
     def _execute_intent(
@@ -937,7 +958,11 @@ class WorkspaceRuntime:
                         positive_action_evidence=positive_action_evidence,
                     )
                 )
-            except Exception:
+            except Exception as error:
+                _LOG.warning(
+                    "workspace_turn_classification_failed attempt=%s error_type=%s",
+                    ordinal + 1, type(error).__name__,
+                )
                 continue
         return None
 
@@ -1034,7 +1059,11 @@ class WorkspaceRuntime:
                                 MessageKind.CONVERSATION,
                                 natural,
                             )
-                except Exception:
+                except Exception as error:
+                    _LOG.warning(
+                        "workspace_result_composition_failed error_type=%s",
+                        type(error).__name__,
+                    )
                     content = system_result
             message = self.store.append_message(
                 MessageRole.ASSISTANT,
@@ -1097,7 +1126,8 @@ class WorkspaceRuntime:
                 message.message_id,
                 task_id=current.task_id,
             )
-        except Exception:
+        except Exception as error:
+            _LOG.error("workspace_failure_record_failed error_type=%s", type(error).__name__)
             return
 
     def _model_readiness(self) -> Mapping[str, object] | None:
@@ -1105,7 +1135,8 @@ class WorkspaceRuntime:
             return None
         try:
             status = self.model_status()
-        except Exception:
+        except Exception as error:
+            _LOG.warning("workspace_model_status_failed error_type=%s", type(error).__name__)
             return {"state": "unavailable", "reason": "model_manager_unavailable"}
         if not isinstance(status, Mapping):
             return {"state": "unavailable", "reason": "model_manager_invalid"}

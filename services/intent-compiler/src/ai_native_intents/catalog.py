@@ -34,6 +34,7 @@ _SCHEMA_KEYS = frozenset(
         "uncuedFallback",
         "implicitOmissionValue",
         "explicitRequestReview",
+        "explicitRequestCues",
         "valueRequires",
     }
 )
@@ -133,6 +134,7 @@ class OperationDefinition:
             property_schema.pop("uncuedFallback", None)
             property_schema.pop("implicitOmissionValue", None)
             property_schema.pop("explicitRequestReview", None)
+            property_schema.pop("explicitRequestCues", None)
             property_schema.pop("valueRequires", None)
         return schema
 
@@ -470,6 +472,27 @@ def _validated_property_schema(value: object, *, array_item: bool) -> dict[str, 
     explicit_review = value.get("explicitRequestReview")
     if explicit_review is not None and not isinstance(explicit_review, bool):
         raise ValueError("explicitRequestReview must be boolean")
+    request_cues = value.get("explicitRequestCues")
+    if request_cues is not None and (
+        kind != "string"
+        or not explicit_review
+        or not isinstance(enum, list)
+        or not isinstance(request_cues, Mapping)
+        or not request_cues
+        or not set(request_cues) <= set(enum)
+        or any(
+            not isinstance(cues, list)
+            or not cues
+            or any(
+                not isinstance(cue, str)
+                or not cue.strip()
+                or len(cue) > 80
+                for cue in cues
+            )
+            for cues in request_cues.values()
+        )
+    ):
+        raise ValueError("explicitRequestCues require reviewed enum values and bounded cues")
     value_requires = value.get("valueRequires")
     if value_requires is not None and (
         kind != "string"

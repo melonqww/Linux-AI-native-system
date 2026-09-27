@@ -1,0 +1,26 @@
+{
+  "id": "size-ranked-search",
+  "title": "Largest files search uses metadata ranking without a name or type filter",
+  "locale": "ru",
+  "tags": ["regression", "files", "r0"],
+  "fixture": "base-desktop.json",
+  "turns": [
+    {
+      "user": "Покажи пять самых больших файлов на моём компьютере",
+      "expect": {
+        "stage": "completed",
+        "capabilities": ["documents.query.search"],
+        "found": 5,
+        "approval_required": false,
+        "plan_steps_include": [
+          {
+            "capability": "documents.query.search",
+            "arguments": {"mode": "metadata", "sort_by": "size_desc"}
+          }
+        ],
+        "assistant_contains_any": ["large-notes.txt"],
+        "assistant_excludes": ["private.pdf"]
+      }
+    }
+  ]
+}

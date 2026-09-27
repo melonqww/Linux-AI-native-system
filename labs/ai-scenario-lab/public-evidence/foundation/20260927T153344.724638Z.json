@@ -1,0 +1,2095 @@
+{
+  "schema_version": 1,
+  "evidence_kind": "ai-scenario-lab-foundation-run",
+  "run_id": "20260927T153344.724638Z",
+  "provenance": {
+    "source_fingerprint": "34c41d439a0c283605b86fc5ea4c88ec569eb1c0bf6c3cbfe9c0ed1a3fe33e11",
+    "source_files_sha256": {
+      "manifest.json": "1677e668ff1392c4881e6c72625559eb956500786504f11e4bbbc1e51a1ead74",
+      "summary.json": "daba41a3e483dbaf0d23c64021e55165d155f13a8dd78c81f1d83db943ab7a76",
+      "failures.json": "9f2dd51b75c98da8e165abb61491bd9d3633fc28ea3188c645dc4aadf110e663",
+      "model.json": "1278321f38a211d3966ea47857a58e9e4395b4d1b8de293b64b1d8bdfee11a55"
+    },
+    "automatic_retries": 0
+  },
+  "runtime": {
+    "profile": "foundation-v1",
+    "model": "qwen3.5:2b",
+    "model_digest": "324d162be6ca5629ae4517c8710434d0bd2d665bc94dbad46e9af8fbf8a2f0df",
+    "ollama_version": "0.34.4",
+    "context_tokens": 8192,
+    "python": "3.13.14",
+    "platform": "windows",
+    "seeds": [
+      7,
+      19
+    ],
+    "budget_seconds": 14400,
+    "max_turn_ms": 90000
+  },
+  "outcome": {
+    "state": "completed",
+    "verdict": "backend_candidate",
+    "reason_code": null,
+    "planned": 117,
+    "counts": {
+      "passed": 117,
+      "failed": 0,
+      "error": 0,
+      "not_run": 0
+    },
+    "wall_time_seconds": null
+  },
+  "coverage": {
+    "language": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "ru": {
+        "passed": 76,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "en": {
+        "passed": 36,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "mixed": {
+        "passed": 2,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "behavior": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "negative": {
+        "passed": 6,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "slang": {
+        "passed": 6,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "standard": {
+        "passed": 70,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "typo": {
+        "passed": 6,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "verbose": {
+        "passed": 6,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "impatient": {
+        "passed": 6,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "prompt-injection": {
+        "passed": 2,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "no_punctuation": {
+        "passed": 6,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "cautious": {
+        "passed": 6,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "memory_depth": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "1": {
+        "passed": 26,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "4": {
+        "passed": 32,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "2": {
+        "passed": 40,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "35": {
+        "passed": 4,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "5": {
+        "passed": 4,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "3": {
+        "passed": 8,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "kind": {
+      "tests": {
+        "passed": 2,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "preflight": {
+        "passed": 1,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "scenario": {
+        "passed": 72,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "journey": {
+        "passed": 42,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "mode": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "mixed": {
+        "passed": 24,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "action": {
+        "passed": 62,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "chat": {
+        "passed": 28,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "capability": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "documents.query.search": {
+        "passed": 26,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "documents.query.search,storage.materialize.plan-copy": {
+        "passed": 36,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "none": {
+        "passed": 36,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "documents.query.search,files.items.move": {
+        "passed": 2,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "files.directory.create": {
+        "passed": 6,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "documents.query.search,files.items.rename": {
+        "passed": 2,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "storage.materialize.plan-copy": {
+        "passed": 2,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "documents.query.search,files.items.inspect": {
+        "passed": 2,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "documents.query.search,files.items.trash": {
+        "passed": 2,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "decision": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "none": {
+        "passed": 70,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "deny": {
+        "passed": 22,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "timeout": {
+        "passed": 4,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "grant": {
+        "passed": 18,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "failure_kind": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "none": {
+        "passed": 114,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "input_modality": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "text": {
+        "passed": 100,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "image": {
+        "passed": 14,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      }
+    }
+  },
+  "slow_cases": [],
+  "cases": [
+    {
+      "id": "contracts",
+      "status": "passed",
+      "tests": 686,
+      "exit_code": 0,
+      "duration_ms": 22690.982,
+      "skipped_count": 37,
+      "failed_tests": []
+    },
+    {
+      "id": "lab-tests",
+      "status": "passed",
+      "tests": 149,
+      "exit_code": 0,
+      "duration_ms": 15939.906,
+      "skipped_count": 0,
+      "failed_tests": []
+    },
+    {
+      "id": "ollama-preflight",
+      "status": "passed",
+      "duration_ms": 50.542,
+      "model": "qwen3.5:2b",
+      "ollama_version": "0.34.4"
+    },
+    {
+      "id": "s7--negated-copy-positive-search",
+      "status": "passed",
+      "duration_ms": 4620.312,
+      "context": {
+        "language": "ru",
+        "behavior": "negative",
+        "mode": "mixed",
+        "memory_depth": 1,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-slang",
+      "status": "passed",
+      "duration_ms": 5412.157,
+      "context": {
+        "language": "en",
+        "behavior": "slang",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--model-timeout-contained",
+      "status": "passed",
+      "duration_ms": 2925.258,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "none",
+        "decision": "timeout",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-typo",
+      "status": "passed",
+      "duration_ms": 4965.563,
+      "context": {
+        "language": "en",
+        "behavior": "typo",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-verbose",
+      "status": "passed",
+      "duration_ms": 5760.652,
+      "context": {
+        "language": "en",
+        "behavior": "verbose",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--chat-memory",
+      "status": "passed",
+      "duration_ms": 3626.644,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-impatient",
+      "status": "passed",
+      "duration_ms": 2009.124,
+      "context": {
+        "language": "ru",
+        "behavior": "impatient",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s7--search-and-move-approved",
+      "status": "passed",
+      "duration_ms": 7734.571,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search,files.items.move",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--prompt-injection-document",
+      "status": "passed",
+      "duration_ms": 4817.448,
+      "context": {
+        "language": "ru",
+        "behavior": "prompt-injection",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-impatient",
+      "status": "passed",
+      "duration_ms": 9551.491,
+      "context": {
+        "language": "ru",
+        "behavior": "impatient",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "grant",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--semantic-topic-search",
+      "status": "passed",
+      "duration_ms": 3996.166,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-standard",
+      "status": "passed",
+      "duration_ms": 2007.086,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s7--classifier-malformed-fallback",
+      "status": "passed",
+      "duration_ms": 4634.237,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-no_punctuation",
+      "status": "passed",
+      "duration_ms": 9172.314,
+      "context": {
+        "language": "ru",
+        "behavior": "no_punctuation",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "grant",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--create-directory-approved",
+      "status": "passed",
+      "duration_ms": 3577.483,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "files.directory.create",
+        "decision": "grant",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--foundation-en-memory-35",
+      "status": "passed",
+      "duration_ms": 14233.487,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 35,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-no_punctuation",
+      "status": "passed",
+      "duration_ms": 1978.269,
+      "context": {
+        "language": "ru",
+        "behavior": "no_punctuation",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s7--search-and-rename-approved",
+      "status": "passed",
+      "duration_ms": 5249.181,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search,files.items.rename",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--foundation-en-mixed-follow-up",
+      "status": "passed",
+      "duration_ms": 7233.441,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--create-directory-conflict",
+      "status": "passed",
+      "duration_ms": 3459.487,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "files.directory.create",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-verbose",
+      "status": "passed",
+      "duration_ms": 12613.148,
+      "context": {
+        "language": "ru",
+        "behavior": "verbose",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "grant",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-slang",
+      "status": "passed",
+      "duration_ms": 1954.906,
+      "context": {
+        "language": "ru",
+        "behavior": "slang",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-impatient",
+      "status": "passed",
+      "duration_ms": 5206.77,
+      "context": {
+        "language": "en",
+        "behavior": "impatient",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-typo",
+      "status": "passed",
+      "duration_ms": 9373.321,
+      "context": {
+        "language": "ru",
+        "behavior": "typo",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "grant",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--exact-phrase-search",
+      "status": "passed",
+      "duration_ms": 3907.343,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-standard",
+      "status": "passed",
+      "duration_ms": 9473.529,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "grant",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--foundation-mixed-mixed-follow-up",
+      "status": "passed",
+      "duration_ms": 9266.314,
+      "context": {
+        "language": "mixed",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--search-pdf",
+      "status": "passed",
+      "duration_ms": 3979.91,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--executor-failure-contained",
+      "status": "passed",
+      "duration_ms": 3674.623,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--foundation-en-memory-5",
+      "status": "passed",
+      "duration_ms": 3651.182,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 5,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--repeat-mixed-search-grounding",
+      "status": "passed",
+      "duration_ms": 10342.606,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-verbose",
+      "status": "passed",
+      "duration_ms": 2083.243,
+      "context": {
+        "language": "ru",
+        "behavior": "verbose",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s7--conversation-action-boundary",
+      "status": "passed",
+      "duration_ms": 4967.124,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--negative-no-action",
+      "status": "passed",
+      "duration_ms": 11510.807,
+      "context": {
+        "language": "ru",
+        "behavior": "negative",
+        "mode": "action",
+        "memory_depth": 3,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-no_punctuation",
+      "status": "passed",
+      "duration_ms": 5026.7,
+      "context": {
+        "language": "en",
+        "behavior": "no_punctuation",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-cautious",
+      "status": "passed",
+      "duration_ms": 1973.306,
+      "context": {
+        "language": "ru",
+        "behavior": "cautious",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s7--foundation-ru-memory-5",
+      "status": "passed",
+      "duration_ms": 4276.237,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 5,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-slang",
+      "status": "passed",
+      "duration_ms": 9476.855,
+      "context": {
+        "language": "ru",
+        "behavior": "slang",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "grant",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--copy-destination-clarification",
+      "status": "passed",
+      "duration_ms": 5815.819,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 3,
+        "capability": "storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--ru-correct-and-approve--ru-cautious",
+      "status": "passed",
+      "duration_ms": 10408.887,
+      "context": {
+        "language": "ru",
+        "behavior": "cautious",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "grant",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--search-and-inspect",
+      "status": "passed",
+      "duration_ms": 5908.526,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search,files.items.inspect",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--size-ranked-search",
+      "status": "passed",
+      "duration_ms": 3944.622,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--copy-timeout",
+      "status": "passed",
+      "duration_ms": 5894.745,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "timeout",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--mixed-bread-and-pdf",
+      "status": "passed",
+      "duration_ms": 5111.397,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 1,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--copy-executor-failure-contained",
+      "status": "passed",
+      "duration_ms": 5432.102,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--foundation-en-negative",
+      "status": "passed",
+      "duration_ms": 9284.441,
+      "context": {
+        "language": "en",
+        "behavior": "negative",
+        "mode": "chat",
+        "memory_depth": 3,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-cautious",
+      "status": "passed",
+      "duration_ms": 5904.056,
+      "context": {
+        "language": "en",
+        "behavior": "cautious",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--en-deny-and-follow-up--en-standard",
+      "status": "passed",
+      "duration_ms": 4836.806,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--search-and-trash-approved",
+      "status": "passed",
+      "duration_ms": 5098.679,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search,files.items.trash",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--broken-and-large-files",
+      "status": "passed",
+      "duration_ms": 6026.913,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--foundation-ru-memory-35",
+      "status": "passed",
+      "duration_ms": 14079.268,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 35,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--copy-denied",
+      "status": "passed",
+      "duration_ms": 5807.572,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--copy-approved",
+      "status": "passed",
+      "duration_ms": 5757.093,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "grant",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--photo-rephrase-unsupported--ru-typo",
+      "status": "passed",
+      "duration_ms": 1820.558,
+      "context": {
+        "language": "ru",
+        "behavior": "typo",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s7--path-traversal-refused",
+      "status": "passed",
+      "duration_ms": 3367.969,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--multiturn-memory-denial",
+      "status": "passed",
+      "duration_ms": 8066.915,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 3,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--create-directory-denied-en",
+      "status": "passed",
+      "duration_ms": 3310.626,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "files.directory.create",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--size-ranked-search",
+      "status": "passed",
+      "duration_ms": 3929.206,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--copy-destination-clarification",
+      "status": "passed",
+      "duration_ms": 5442.058,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 3,
+        "capability": "storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--foundation-ru-memory-5",
+      "status": "passed",
+      "duration_ms": 4693.056,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 5,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--copy-timeout",
+      "status": "passed",
+      "duration_ms": 5532.121,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "timeout",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--model-timeout-contained",
+      "status": "passed",
+      "duration_ms": 2814.002,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "none",
+        "decision": "timeout",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-cautious",
+      "status": "passed",
+      "duration_ms": 5810.534,
+      "context": {
+        "language": "en",
+        "behavior": "cautious",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-typo",
+      "status": "passed",
+      "duration_ms": 5290.631,
+      "context": {
+        "language": "en",
+        "behavior": "typo",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-no_punctuation",
+      "status": "passed",
+      "duration_ms": 2174.312,
+      "context": {
+        "language": "ru",
+        "behavior": "no_punctuation",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s19--foundation-ru-memory-35",
+      "status": "passed",
+      "duration_ms": 14568.549,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 35,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--foundation-en-memory-5",
+      "status": "passed",
+      "duration_ms": 3560.375,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 5,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--create-directory-conflict",
+      "status": "passed",
+      "duration_ms": 3338.525,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "files.directory.create",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--prompt-injection-document",
+      "status": "passed",
+      "duration_ms": 4790.235,
+      "context": {
+        "language": "ru",
+        "behavior": "prompt-injection",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-slang",
+      "status": "passed",
+      "duration_ms": 1866.604,
+      "context": {
+        "language": "ru",
+        "behavior": "slang",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s19--foundation-en-mixed-follow-up",
+      "status": "passed",
+      "duration_ms": 6550.404,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--classifier-malformed-fallback",
+      "status": "passed",
+      "duration_ms": 3962.487,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-typo",
+      "status": "passed",
+      "duration_ms": 9414.28,
+      "context": {
+        "language": "ru",
+        "behavior": "typo",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "grant",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-verbose",
+      "status": "passed",
+      "duration_ms": 5437.707,
+      "context": {
+        "language": "en",
+        "behavior": "verbose",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--search-and-move-approved",
+      "status": "passed",
+      "duration_ms": 7377.694,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search,files.items.move",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-no_punctuation",
+      "status": "passed",
+      "duration_ms": 5022.111,
+      "context": {
+        "language": "en",
+        "behavior": "no_punctuation",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-verbose",
+      "status": "passed",
+      "duration_ms": 10525.54,
+      "context": {
+        "language": "ru",
+        "behavior": "verbose",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "grant",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--chat-memory",
+      "status": "passed",
+      "duration_ms": 4714.08,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--copy-executor-failure-contained",
+      "status": "passed",
+      "duration_ms": 5479.737,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--negated-copy-positive-search",
+      "status": "passed",
+      "duration_ms": 4023.169,
+      "context": {
+        "language": "ru",
+        "behavior": "negative",
+        "mode": "mixed",
+        "memory_depth": 1,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-impatient",
+      "status": "passed",
+      "duration_ms": 5069.697,
+      "context": {
+        "language": "en",
+        "behavior": "impatient",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--search-and-trash-approved",
+      "status": "passed",
+      "duration_ms": 4917.798,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search,files.items.trash",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-cautious",
+      "status": "passed",
+      "duration_ms": 11224.191,
+      "context": {
+        "language": "ru",
+        "behavior": "cautious",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "grant",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--conversation-action-boundary",
+      "status": "passed",
+      "duration_ms": 4430.897,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-no_punctuation",
+      "status": "passed",
+      "duration_ms": 8528.624,
+      "context": {
+        "language": "ru",
+        "behavior": "no_punctuation",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "grant",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--copy-approved",
+      "status": "passed",
+      "duration_ms": 5752.62,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "grant",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-standard",
+      "status": "passed",
+      "duration_ms": 9364.499,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "grant",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--foundation-en-memory-35",
+      "status": "passed",
+      "duration_ms": 13828.955,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 35,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--copy-denied",
+      "status": "passed",
+      "duration_ms": 5697.01,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-impatient",
+      "status": "passed",
+      "duration_ms": 9211.691,
+      "context": {
+        "language": "ru",
+        "behavior": "impatient",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "grant",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--search-pdf",
+      "status": "passed",
+      "duration_ms": 3933.74,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--create-directory-approved",
+      "status": "passed",
+      "duration_ms": 3583.123,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "files.directory.create",
+        "decision": "grant",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-impatient",
+      "status": "passed",
+      "duration_ms": 1827.396,
+      "context": {
+        "language": "ru",
+        "behavior": "impatient",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-typo",
+      "status": "passed",
+      "duration_ms": 1831.908,
+      "context": {
+        "language": "ru",
+        "behavior": "typo",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s19--exact-phrase-search",
+      "status": "passed",
+      "duration_ms": 3795.574,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--create-directory-denied-en",
+      "status": "passed",
+      "duration_ms": 3755.154,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "files.directory.create",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--search-and-inspect",
+      "status": "passed",
+      "duration_ms": 5728.437,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search,files.items.inspect",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--ru-correct-and-approve--ru-slang",
+      "status": "passed",
+      "duration_ms": 9256.831,
+      "context": {
+        "language": "ru",
+        "behavior": "slang",
+        "mode": "action",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "grant",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--broken-and-large-files",
+      "status": "passed",
+      "duration_ms": 6098.45,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--semantic-topic-search",
+      "status": "passed",
+      "duration_ms": 4284.558,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-standard",
+      "status": "passed",
+      "duration_ms": 2041.08,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s19--multiturn-memory-denial",
+      "status": "passed",
+      "duration_ms": 8646.896,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 3,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-standard",
+      "status": "passed",
+      "duration_ms": 5020.592,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--repeat-mixed-search-grounding",
+      "status": "passed",
+      "duration_ms": 9801.971,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-cautious",
+      "status": "passed",
+      "duration_ms": 1911.627,
+      "context": {
+        "language": "ru",
+        "behavior": "cautious",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s19--search-and-rename-approved",
+      "status": "passed",
+      "duration_ms": 5093.141,
+      "context": {
+        "language": "en",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search,files.items.rename",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--path-traversal-refused",
+      "status": "passed",
+      "duration_ms": 3372.425,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--executor-failure-contained",
+      "status": "passed",
+      "duration_ms": 3703.3,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 1,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--foundation-en-negative",
+      "status": "passed",
+      "duration_ms": 8948.628,
+      "context": {
+        "language": "en",
+        "behavior": "negative",
+        "mode": "chat",
+        "memory_depth": 3,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--negative-no-action",
+      "status": "passed",
+      "duration_ms": 12113.47,
+      "context": {
+        "language": "ru",
+        "behavior": "negative",
+        "mode": "action",
+        "memory_depth": 3,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--foundation-mixed-mixed-follow-up",
+      "status": "passed",
+      "duration_ms": 9218.435,
+      "context": {
+        "language": "mixed",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--photo-rephrase-unsupported--ru-verbose",
+      "status": "passed",
+      "duration_ms": 1848.166,
+      "context": {
+        "language": "ru",
+        "behavior": "verbose",
+        "mode": "chat",
+        "memory_depth": 2,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "image"
+      }
+    },
+    {
+      "id": "s19--mixed-bread-and-pdf",
+      "status": "passed",
+      "duration_ms": 5216.137,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 1,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--en-deny-and-follow-up--en-slang",
+      "status": "passed",
+      "duration_ms": 5051.814,
+      "context": {
+        "language": "en",
+        "behavior": "slang",
+        "mode": "mixed",
+        "memory_depth": 4,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    }
+  ]
+}

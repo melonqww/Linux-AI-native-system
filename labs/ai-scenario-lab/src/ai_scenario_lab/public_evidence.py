@@ -294,7 +294,9 @@ def _table_value(value: Any) -> str:
     return f"`{value}`" if value not in (None, "") else "—"
 
 
-def _human_duration(seconds: float) -> str:
+def _human_duration(seconds: float | None) -> str:
+    if seconds is None:
+        return "—"
     rounded = int(round(seconds))
     hours, remainder = divmod(rounded, 3600)
     minutes, remaining_seconds = divmod(remainder, 60)
@@ -310,7 +312,8 @@ def build_public_run(run_directory: Path) -> dict[str, Any]:
     manifest = _read_json(run_directory / "manifest.json")
     summary = _read_json(run_directory / "summary.json")
     failures = _read_json(run_directory / "failures.json")
-    launch = _read_json(run_directory / "launch.json")
+    launch_file = run_directory / "launch.json"
+    launch = _read_json(launch_file) if launch_file.is_file() else None
     progress = _read_json(run_directory / "progress.json")
     model_file = run_directory / "model.json"
     model = _read_json(model_file) if model_file.is_file() else None
@@ -320,10 +323,13 @@ def build_public_run(run_directory: Path) -> dict[str, Any]:
     fingerprint = _safe_sha256(manifest.get("source_fingerprint"))
     if model is not None and model.get("model") != manifest.get("model"):
         raise UnsafeEvidence("model preflight tag does not match manifest")
-    wall_time = max(
-        0.0,
-        float(progress.get("heartbeat_unix", 0.0))
-        - float(launch.get("launched_unix", 0.0)),
+    wall_time = (
+        max(
+            0.0,
+            float(progress.get("heartbeat_unix", 0.0))
+            - float(launch.get("launched_unix", 0.0)),
+        )
+        if launch is not None else None
     )
 
     failure_by_id = {
@@ -384,7 +390,7 @@ def build_public_run(run_directory: Path) -> dict[str, Any]:
             "reason_code": _safe_optional_token(summary.get("reason"), "reason"),
             "planned": planned,
             "counts": counts,
-            "wall_time_seconds": round(wall_time, 3),
+            "wall_time_seconds": round(wall_time, 3) if wall_time is not None else None,
         },
         "coverage": _sanitize_coverage(summary.get("coverage", {})),
         "slow_cases": _sanitize_slow_cases(summary.get("slow_cases")),

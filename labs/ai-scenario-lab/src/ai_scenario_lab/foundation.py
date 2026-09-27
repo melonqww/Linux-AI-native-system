@@ -368,6 +368,11 @@ def supervise(lab: Path, project: Path, run: Path) -> int:
             raise ValueError(
                 "run already started; prepare a new run (no silent resume)"
             )
+        if not (run / "launch.json").is_file():
+            atomic_json(
+                run / "launch.json",
+                {"pid": os.getpid(), "launched_unix": time.time()},
+            )
         started = time.monotonic()
         state, reason = "running", None
         try:

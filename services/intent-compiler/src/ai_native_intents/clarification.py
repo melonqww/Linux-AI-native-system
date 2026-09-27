@@ -42,52 +42,23 @@ class ClarificationPolicy:
             )
         definitions = {item.operation: item for item in operation_definitions}
         for operation in intent.operations:
+            definition = definitions.get(operation.kind)
+            if definition is None:
+                continue
             arguments = operation.arguments
-            if operation.kind == "search_documents" and not (
-                any(arguments.get(key) for key in ("text", "extensions", "name_terms"))
-                or self._has_constrained_selection(
-                    arguments, definitions.get(operation.kind)
-                )
+            properties = definition.input_schema["properties"]
+            search_fields = tuple(
+                name for name, schema in properties.items()
+                if schema.get("semanticRole") in {
+                    "content_text", "file_extensions", "filename_terms"
+                }
+            )
+            if (
+                search_fields
+                and not any(arguments.get(name) for name in search_fields)
+                and not self._has_constrained_selection(arguments, definition)
             ):
                 return "Что именно нужно найти?" if russian else "What should be found?"
-            if operation.kind == "find_application" and not arguments.get("query"):
-                return (
-                    "Какое приложение найти?"
-                    if russian
-                    else "Which application should be found?"
-                )
-            if operation.kind == "plan_web_search" and not arguments.get("query"):
-                return (
-                    "Что искать в интернете?"
-                    if russian
-                    else "What should be searched on the web?"
-                )
-            if operation.kind == "save_results":
-                if not arguments.get("results_from"):
-                    return (
-                        "Какие результаты сохранить?"
-                        if russian
-                        else "Which results should be saved?"
-                    )
-                if not arguments.get("title"):
-                    return (
-                        "Как назвать коллекцию?"
-                        if russian
-                        else "What should the collection be named?"
-                    )
-            if operation.kind == "copy_results":
-                if not arguments.get("results_from"):
-                    return (
-                        "Какие результаты скопировать?"
-                        if russian
-                        else "Which results should be copied?"
-                    )
-                if not arguments.get("destination"):
-                    return (
-                        "Куда скопировать результаты?"
-                        if russian
-                        else "Where should results be copied?"
-                    )
         return None
 
     @staticmethod

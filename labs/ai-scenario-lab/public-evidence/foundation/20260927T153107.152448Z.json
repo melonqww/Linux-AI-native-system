@@ -1,0 +1,403 @@
+{
+  "schema_version": 1,
+  "evidence_kind": "ai-scenario-lab-foundation-run",
+  "run_id": "20260927T153107.152448Z",
+  "provenance": {
+    "source_fingerprint": "34c41d439a0c283605b86fc5ea4c88ec569eb1c0bf6c3cbfe9c0ed1a3fe33e11",
+    "source_files_sha256": {
+      "manifest.json": "615cfbdf1aa911331313d50a2ad27f57c2233380242fca736fc6f50f9116c89b",
+      "summary.json": "17e2ced5d356c789f210ce6a21469132ffb0518bbf1bd5a4aa7814d7bbf4ca46",
+      "failures.json": "9f2dd51b75c98da8e165abb61491bd9d3633fc28ea3188c645dc4aadf110e663",
+      "model.json": "1278321f38a211d3966ea47857a58e9e4395b4d1b8de293b64b1d8bdfee11a55"
+    },
+    "automatic_retries": 0
+  },
+  "runtime": {
+    "profile": "foundation-failed-subjects-v1",
+    "model": "qwen3.5:2b",
+    "model_digest": "324d162be6ca5629ae4517c8710434d0bd2d665bc94dbad46e9af8fbf8a2f0df",
+    "ollama_version": "0.34.4",
+    "context_tokens": 8192,
+    "python": "3.13.14",
+    "platform": "windows",
+    "seeds": [
+      7,
+      19
+    ],
+    "budget_seconds": 14400,
+    "max_turn_ms": 90000
+  },
+  "outcome": {
+    "state": "completed",
+    "verdict": "backend_candidate",
+    "reason_code": null,
+    "planned": 13,
+    "counts": {
+      "passed": 13,
+      "failed": 0,
+      "error": 0,
+      "not_run": 0
+    },
+    "wall_time_seconds": null
+  },
+  "coverage": {
+    "language": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "ru": {
+        "passed": 8,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "mixed": {
+        "passed": 2,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "behavior": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "negative": {
+        "passed": 4,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "standard": {
+        "passed": 6,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "memory_depth": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "1": {
+        "passed": 2,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "2": {
+        "passed": 4,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "3": {
+        "passed": 4,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "kind": {
+      "tests": {
+        "passed": 2,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "preflight": {
+        "passed": 1,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "scenario": {
+        "passed": 10,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "mode": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "mixed": {
+        "passed": 4,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "action": {
+        "passed": 6,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "capability": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "documents.query.search": {
+        "passed": 6,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "none": {
+        "passed": 2,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "documents.query.search,storage.materialize.plan-copy": {
+        "passed": 2,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "decision": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "none": {
+        "passed": 8,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "deny": {
+        "passed": 2,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "failure_kind": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "none": {
+        "passed": 10,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      }
+    },
+    "input_modality": {
+      "unobserved": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      },
+      "text": {
+        "passed": 10,
+        "failed": 0,
+        "error": 0,
+        "not_run": 0
+      }
+    }
+  },
+  "slow_cases": [],
+  "cases": [
+    {
+      "id": "contracts",
+      "status": "passed",
+      "tests": 686,
+      "exit_code": 0,
+      "duration_ms": 27299.068,
+      "skipped_count": 37,
+      "failed_tests": []
+    },
+    {
+      "id": "lab-tests",
+      "status": "passed",
+      "tests": 149,
+      "exit_code": 0,
+      "duration_ms": 16921.856,
+      "skipped_count": 0,
+      "failed_tests": []
+    },
+    {
+      "id": "ollama-preflight",
+      "status": "passed",
+      "duration_ms": 40.383,
+      "model": "qwen3.5:2b",
+      "ollama_version": "0.34.4"
+    },
+    {
+      "id": "s7--negated-copy-positive-search",
+      "status": "passed",
+      "duration_ms": 11763.43,
+      "context": {
+        "language": "ru",
+        "behavior": "negative",
+        "mode": "mixed",
+        "memory_depth": 1,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--foundation-mixed-mixed-follow-up",
+      "status": "passed",
+      "duration_ms": 9270.569,
+      "context": {
+        "language": "mixed",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--negative-no-action",
+      "status": "passed",
+      "duration_ms": 11833.292,
+      "context": {
+        "language": "ru",
+        "behavior": "negative",
+        "mode": "action",
+        "memory_depth": 3,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--copy-executor-failure-contained",
+      "status": "passed",
+      "duration_ms": 5817.51,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s7--multiturn-memory-denial",
+      "status": "passed",
+      "duration_ms": 8360.285,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 3,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--copy-executor-failure-contained",
+      "status": "passed",
+      "duration_ms": 5367.713,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--negated-copy-positive-search",
+      "status": "passed",
+      "duration_ms": 4537.603,
+      "context": {
+        "language": "ru",
+        "behavior": "negative",
+        "mode": "mixed",
+        "memory_depth": 1,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--multiturn-memory-denial",
+      "status": "passed",
+      "duration_ms": 8658.039,
+      "context": {
+        "language": "ru",
+        "behavior": "standard",
+        "mode": "action",
+        "memory_depth": 3,
+        "capability": "documents.query.search,storage.materialize.plan-copy",
+        "decision": "deny",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--negative-no-action",
+      "status": "passed",
+      "duration_ms": 11741.132,
+      "context": {
+        "language": "ru",
+        "behavior": "negative",
+        "mode": "action",
+        "memory_depth": 3,
+        "capability": "none",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    },
+    {
+      "id": "s19--foundation-mixed-mixed-follow-up",
+      "status": "passed",
+      "duration_ms": 9429.401,
+      "context": {
+        "language": "mixed",
+        "behavior": "standard",
+        "mode": "mixed",
+        "memory_depth": 2,
+        "capability": "documents.query.search",
+        "decision": "none",
+        "failure_kind": "none",
+        "input_modality": "text"
+      }
+    }
+  ]
+}

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from typing import Protocol
 
 from .contracts import TurnClassification, TurnKind, TurnRequest
@@ -79,6 +79,35 @@ class TurnRouter:
                 TurnKind.CLARIFICATION, language, float(confidence)
             )
         return TurnClassification(kind, language, float(confidence), conversation, action)
+
+    def recover_negated_action(
+        self,
+        request: TurnRequest,
+        *,
+        required: tuple[str, ...],
+        required_for: Callable[[str], tuple[str, ...]],
+    ) -> TurnClassification | None:
+        """Retain only a separately grounded action after a negative preface.
+
+        This handles a small model's whole-turn action classification without
+        allowing the forbidden prefix to become executable text. Both fragments
+        remain exact substrings supplied by the user.
+        """
+        if not required or not self._is_negative_guard(request.user_text):
+            return None
+        for boundary in re.finditer(r"[,;:.!?]", request.user_text):
+            prefix = request.user_text[:boundary.start()].strip()
+            suffix = request.user_text[boundary.end():].strip()
+            if (
+                prefix
+                and suffix
+                and not required_for(prefix)
+                and set(required_for(suffix)) == set(required)
+            ):
+                return TurnClassification(
+                    TurnKind.ACTION, request.locale, 1.0, action_text=suffix,
+                )
+        return None
 
     @staticmethod
     def _recover_conversation_fragment(

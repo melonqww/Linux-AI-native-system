@@ -62,6 +62,27 @@ class TurnRouterTests(unittest.TestCase):
         self.assertEqual(result.kind, TurnKind.CLARIFICATION)
         self.assertIsNone(result.action_text)
 
+    def test_recovers_only_module_grounded_suffix_after_negated_preface(self):
+        router = TurnRouter(Classifier(payload("action", action="unused")))
+        request = TurnRequest(
+            "Не копируй файлы, а найди PDF", "ru",
+            positive_action_evidence=True,
+        )
+        required_for = lambda value: (
+            ("search_documents",) if "найди" in value else ()
+        )
+
+        recovered = router.recover_negated_action(
+            request, required=("search_documents",), required_for=required_for,
+        )
+
+        self.assertEqual(recovered.kind, TurnKind.ACTION)
+        self.assertEqual(recovered.action_text, "а найди PDF")
+        self.assertIsNone(router.recover_negated_action(
+            TurnRequest("Не копируй файлы", "ru"),
+            required=("search_documents",), required_for=required_for,
+        ))
+
     def test_pure_conversation_uses_original_text_when_small_model_paraphrases(self):
         text = "А при какой температуре печь хлеб"
         result = TurnRouter(Classifier(payload(

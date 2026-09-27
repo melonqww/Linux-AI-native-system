@@ -44,10 +44,13 @@ traces, локальные пути, данные хоста, PID и сетев�
 | `20260927T100131.575266Z` | `foundation-v1` | windows, qwen3.5:2b, 8192 tokens | 110/113 passed; 3 failed; 0 error | 0 | 12 min 48 s | `problems_found` | [открыть](foundation/20260927T100131.575266Z.json) |
 | `20260927T111000.690383Z` | `foundation-v1` | windows, qwen3.5:2b, 8192 tokens | 111/113 passed; 2 failed; 0 error | 0 | 14 min 07 s | `problems_found` | [открыть](foundation/20260927T111000.690383Z.json) |
 | `20260927T113342.838423Z` | `foundation-v1` | windows, qwen3.5:2b, 8192 tokens | 113/113 passed; 0 failed; 0 error | 0 | 15 min 41 s | `backend_candidate` | [открыть](foundation/20260927T113342.838423Z.json) |
+| `20260927T145714.340106Z` | `foundation-v1` | windows, qwen3.5:2b, 8192 tokens | 108/117 passed; 9 failed; 0 error | 0 | — | `problems_found` | [открыть](foundation/20260927T145714.340106Z.json) |
+| `20260927T153107.152448Z` | `foundation-failed-subjects-v1` | windows, qwen3.5:2b, 8192 tokens | 13/13 passed; 0 failed; 0 error | 0 | — | `backend_candidate` | [открыть](foundation/20260927T153107.152448Z.json) |
+| `20260927T153344.724638Z` | `foundation-v1` | windows, qwen3.5:2b, 8192 tokens | 117/117 passed; 0 failed; 0 error | 0 | — | `backend_candidate` | [открыть](foundation/20260927T153344.724638Z.json) |
 
-## Последний полный прогон — `20260927T113342.838423Z`
+## Последний полный прогон — `20260927T153344.724638Z`
 
-В этой зафиксированной матрице: **113/113 passed**, 0 failed, 0 error. Verdict: `backend_candidate`. Зелёный результат подтверждает только охваченный backend-сценарий в виртуальной среде; он не является Linux/GNOME release validation или гарантией для произвольных запросов.
+В этой зафиксированной матрице: **117/117 passed**, 0 failed, 0 error. Verdict: `backend_candidate`. Зелёный результат подтверждает только охваченный backend-сценарий в виртуальной среде; он не является Linux/GNOME release validation или гарантией для произвольных запросов.
 
 В знаменатель входят два test gate и один model preflight; остальные позиции — попытки сценариев и journeys на указанных seeds. Пропуски внутри test gates не считаются отдельными позициями Foundation.
 
@@ -55,61 +58,61 @@ traces, локальные пути, данные хоста, PID и сетев�
 
 | Gate | Статус | Собрано тестов | Пропущено |
 |---|---|---:|---:|
-| `contracts` | `passed` | 673 | 37 |
-| `lab-tests` | `passed` | 146 | 0 |
+| `contracts` | `passed` | 686 | 37 |
+| `lab-tests` | `passed` | 149 | 0 |
 
 ### Покрытие
 
 | Ось | Значение | Passed | Failed | Error | Not run |
 |---|---|---:|---:|---:|---:|
 | `language` | `unobserved` | 3 | 0 | 0 | 0 |
-| `language` | `mixed` | 2 | 0 | 0 | 0 |
+| `language` | `ru` | 76 | 0 | 0 | 0 |
 | `language` | `en` | 36 | 0 | 0 | 0 |
-| `language` | `ru` | 72 | 0 | 0 | 0 |
+| `language` | `mixed` | 2 | 0 | 0 | 0 |
 | `behavior` | `unobserved` | 3 | 0 | 0 | 0 |
-| `behavior` | `standard` | 68 | 0 | 0 | 0 |
-| `behavior` | `verbose` | 6 | 0 | 0 | 0 |
-| `behavior` | `cautious` | 6 | 0 | 0 | 0 |
-| `behavior` | `prompt-injection` | 2 | 0 | 0 | 0 |
-| `behavior` | `impatient` | 6 | 0 | 0 | 0 |
+| `behavior` | `negative` | 6 | 0 | 0 | 0 |
 | `behavior` | `slang` | 6 | 0 | 0 | 0 |
-| `behavior` | `no_punctuation` | 6 | 0 | 0 | 0 |
+| `behavior` | `standard` | 70 | 0 | 0 | 0 |
 | `behavior` | `typo` | 6 | 0 | 0 | 0 |
-| `behavior` | `negative` | 4 | 0 | 0 | 0 |
+| `behavior` | `verbose` | 6 | 0 | 0 | 0 |
+| `behavior` | `impatient` | 6 | 0 | 0 | 0 |
+| `behavior` | `prompt-injection` | 2 | 0 | 0 | 0 |
+| `behavior` | `no_punctuation` | 6 | 0 | 0 | 0 |
+| `behavior` | `cautious` | 6 | 0 | 0 | 0 |
 | `memory_depth` | `unobserved` | 3 | 0 | 0 | 0 |
-| `memory_depth` | `2` | 40 | 0 | 0 | 0 |
-| `memory_depth` | `1` | 22 | 0 | 0 | 0 |
+| `memory_depth` | `1` | 26 | 0 | 0 | 0 |
 | `memory_depth` | `4` | 32 | 0 | 0 | 0 |
+| `memory_depth` | `2` | 40 | 0 | 0 | 0 |
+| `memory_depth` | `35` | 4 | 0 | 0 | 0 |
 | `memory_depth` | `5` | 4 | 0 | 0 | 0 |
 | `memory_depth` | `3` | 8 | 0 | 0 | 0 |
-| `memory_depth` | `35` | 4 | 0 | 0 | 0 |
 | `kind` | `tests` | 2 | 0 | 0 | 0 |
 | `kind` | `preflight` | 1 | 0 | 0 | 0 |
-| `kind` | `scenario` | 68 | 0 | 0 | 0 |
+| `kind` | `scenario` | 72 | 0 | 0 | 0 |
 | `kind` | `journey` | 42 | 0 | 0 | 0 |
 | `mode` | `unobserved` | 3 | 0 | 0 | 0 |
-| `mode` | `mixed` | 22 | 0 | 0 | 0 |
-| `mode` | `action` | 60 | 0 | 0 | 0 |
+| `mode` | `mixed` | 24 | 0 | 0 | 0 |
+| `mode` | `action` | 62 | 0 | 0 | 0 |
 | `mode` | `chat` | 28 | 0 | 0 | 0 |
 | `capability` | `unobserved` | 3 | 0 | 0 | 0 |
-| `capability` | `documents.query.search` | 22 | 0 | 0 | 0 |
-| `capability` | `files.directory.create` | 6 | 0 | 0 | 0 |
-| `capability` | `none` | 36 | 0 | 0 | 0 |
-| `capability` | `documents.query.search,files.items.rename` | 2 | 0 | 0 | 0 |
+| `capability` | `documents.query.search` | 26 | 0 | 0 | 0 |
 | `capability` | `documents.query.search,storage.materialize.plan-copy` | 36 | 0 | 0 | 0 |
+| `capability` | `none` | 36 | 0 | 0 | 0 |
 | `capability` | `documents.query.search,files.items.move` | 2 | 0 | 0 | 0 |
+| `capability` | `files.directory.create` | 6 | 0 | 0 | 0 |
+| `capability` | `documents.query.search,files.items.rename` | 2 | 0 | 0 | 0 |
 | `capability` | `storage.materialize.plan-copy` | 2 | 0 | 0 | 0 |
 | `capability` | `documents.query.search,files.items.inspect` | 2 | 0 | 0 | 0 |
 | `capability` | `documents.query.search,files.items.trash` | 2 | 0 | 0 | 0 |
 | `decision` | `unobserved` | 3 | 0 | 0 | 0 |
-| `decision` | `none` | 66 | 0 | 0 | 0 |
-| `decision` | `timeout` | 4 | 0 | 0 | 0 |
+| `decision` | `none` | 70 | 0 | 0 | 0 |
 | `decision` | `deny` | 22 | 0 | 0 | 0 |
+| `decision` | `timeout` | 4 | 0 | 0 | 0 |
 | `decision` | `grant` | 18 | 0 | 0 | 0 |
 | `failure_kind` | `unobserved` | 3 | 0 | 0 | 0 |
-| `failure_kind` | `none` | 110 | 0 | 0 | 0 |
+| `failure_kind` | `none` | 114 | 0 | 0 | 0 |
 | `input_modality` | `unobserved` | 3 | 0 | 0 | 0 |
-| `input_modality` | `text` | 96 | 0 | 0 | 0 |
+| `input_modality` | `text` | 100 | 0 | 0 | 0 |
 | `input_modality` | `image` | 14 | 0 | 0 | 0 |
 
 ### Непрошедшие случаи
@@ -2503,6 +2506,277 @@ traces, локальные пути, данные хоста, PID и сетев�
 | `s19--en-deny-and-follow-up--en-cautious` | `passed` | `en` | `cautious` | `mixed` | `documents.query.search,storage.materialize.plan-copy` | `—` | 5805 ms |
 | `s19--mixed-bread-and-pdf` | `passed` | `ru` | `standard` | `mixed` | `documents.query.search` | `—` | 4992 ms |
 | `s19--ru-correct-and-approve--ru-no_punctuation` | `passed` | `ru` | `no_punctuation` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 8762 ms |
+
+</details>
+
+<details>
+<summary><code>20260927T145714.340106Z</code> — 108/117 passed</summary>
+
+| Case | Статус | Язык | Поведение | Режим | Capability | Диагностика | Время |
+|---|---|---|---|---|---|---|---:|
+| `contracts` | `passed` | — | — | — | — | `—` | 22871 ms |
+| `lab-tests` | `passed` | — | — | — | — | `—` | 16926 ms |
+| `ollama-preflight` | `passed` | — | — | — | — | `—` | 64 ms |
+| `s7--negated-copy-positive-search` | `failed` | `ru` | `negative` | `mixed` | `none` | `incomplete_case` | 227834 ms |
+| `s7--en-deny-and-follow-up--en-slang` | `passed` | `en` | `slang` | `mixed` | `documents.query.search,storage.materialize.plan-copy` | `—` | 141710 ms |
+| `s7--model-timeout-contained` | `passed` | `ru` | `standard` | `action` | `none` | `—` | 2785 ms |
+| `s7--en-deny-and-follow-up--en-typo` | `passed` | `en` | `typo` | `mixed` | `documents.query.search,storage.materialize.plan-copy` | `—` | 5715 ms |
+| `s7--en-deny-and-follow-up--en-verbose` | `passed` | `en` | `verbose` | `mixed` | `documents.query.search,storage.materialize.plan-copy` | `—` | 5996 ms |
+| `s7--chat-memory` | `passed` | `ru` | `standard` | `chat` | `none` | `—` | 3927 ms |
+| `s7--photo-rephrase-unsupported--ru-impatient` | `passed` | `ru` | `impatient` | `chat` | `none` | `—` | 1953 ms |
+| `s7--search-and-move-approved` | `passed` | `ru` | `standard` | `action` | `documents.query.search,files.items.move` | `—` | 7151 ms |
+| `s7--prompt-injection-document` | `passed` | `ru` | `prompt-injection` | `action` | `documents.query.search` | `—` | 4465 ms |
+| `s7--ru-correct-and-approve--ru-impatient` | `passed` | `ru` | `impatient` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 9060 ms |
+| `s7--semantic-topic-search` | `passed` | `en` | `standard` | `action` | `documents.query.search` | `—` | 3938 ms |
+| `s7--photo-rephrase-unsupported--ru-standard` | `passed` | `ru` | `standard` | `chat` | `none` | `—` | 1848 ms |
+| `s7--classifier-malformed-fallback` | `passed` | `ru` | `standard` | `action` | `none` | `—` | 3815 ms |
+| `s7--ru-correct-and-approve--ru-no_punctuation` | `passed` | `ru` | `no_punctuation` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 9341 ms |
+| `s7--create-directory-approved` | `passed` | `ru` | `standard` | `action` | `files.directory.create` | `—` | 3409 ms |
+| `s7--foundation-en-memory-35` | `passed` | `en` | `standard` | `chat` | `none` | `—` | 14042 ms |
+| `s7--photo-rephrase-unsupported--ru-no_punctuation` | `passed` | `ru` | `no_punctuation` | `chat` | `none` | `—` | 1936 ms |
+| `s7--search-and-rename-approved` | `passed` | `en` | `standard` | `action` | `documents.query.search,files.items.rename` | `—` | 5175 ms |
+| `s7--foundation-en-mixed-follow-up` | `passed` | `en` | `standard` | `mixed` | `documents.query.search` | `—` | 6634 ms |
+| `s7--create-directory-conflict` | `passed` | `en` | `standard` | `action` | `files.directory.create` | `—` | 3250 ms |
+| `s7--ru-correct-and-approve--ru-verbose` | `passed` | `ru` | `verbose` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 12519 ms |
+| `s7--photo-rephrase-unsupported--ru-slang` | `passed` | `ru` | `slang` | `chat` | `none` | `—` | 1906 ms |
+| `s7--en-deny-and-follow-up--en-impatient` | `passed` | `en` | `impatient` | `mixed` | `documents.query.search,storage.materialize.plan-copy` | `—` | 4955 ms |
+| `s7--ru-correct-and-approve--ru-typo` | `passed` | `ru` | `typo` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 8617 ms |
+| `s7--exact-phrase-search` | `passed` | `en` | `standard` | `action` | `documents.query.search` | `—` | 3906 ms |
+| `s7--ru-correct-and-approve--ru-standard` | `passed` | `ru` | `standard` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 9164 ms |
+| `s7--foundation-mixed-mixed-follow-up` | `failed` | `mixed` | `standard` | `mixed` | `documents.query.search` | `route_mismatch` | 9332 ms |
+| `s7--search-pdf` | `passed` | `ru` | `standard` | `action` | `documents.query.search` | `—` | 4147 ms |
+| `s7--executor-failure-contained` | `passed` | `ru` | `standard` | `action` | `none` | `—` | 3793 ms |
+| `s7--foundation-en-memory-5` | `passed` | `en` | `standard` | `chat` | `none` | `—` | 3435 ms |
+| `s7--repeat-mixed-search-grounding` | `passed` | `ru` | `standard` | `mixed` | `documents.query.search` | `—` | 9439 ms |
+| `s7--photo-rephrase-unsupported--ru-verbose` | `passed` | `ru` | `verbose` | `chat` | `none` | `—` | 1836 ms |
+| `s7--conversation-action-boundary` | `passed` | `en` | `standard` | `chat` | `documents.query.search` | `—` | 4409 ms |
+| `s7--negative-no-action` | `failed` | `ru` | `negative` | `action` | `none` | `unrequested_operation` | 13500 ms |
+| `s7--en-deny-and-follow-up--en-no_punctuation` | `passed` | `en` | `no_punctuation` | `mixed` | `documents.query.search,storage.materialize.plan-copy` | `—` | 4975 ms |
+| `s7--photo-rephrase-unsupported--ru-cautious` | `passed` | `ru` | `cautious` | `chat` | `none` | `—` | 1845 ms |
+| `s7--foundation-ru-memory-5` | `passed` | `ru` | `standard` | `chat` | `none` | `—` | 4118 ms |
+| `s7--ru-correct-and-approve--ru-slang` | `passed` | `ru` | `slang` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 10056 ms |
+| `s7--copy-destination-clarification` | `passed` | `en` | `standard` | `action` | `storage.materialize.plan-copy` | `—` | 5802 ms |
+| `s7--ru-correct-and-approve--ru-cautious` | `passed` | `ru` | `cautious` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 14696 ms |
+| `s7--search-and-inspect` | `passed` | `ru` | `standard` | `action` | `documents.query.search,files.items.inspect` | `—` | 6626 ms |
+| `s7--size-ranked-search` | `passed` | `ru` | `standard` | `action` | `documents.query.search` | `—` | 4191 ms |
+| `s7--copy-timeout` | `passed` | `ru` | `standard` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 5940 ms |
+| `s7--mixed-bread-and-pdf` | `passed` | `ru` | `standard` | `mixed` | `documents.query.search` | `—` | 6565 ms |
+| `s7--copy-executor-failure-contained` | `failed` | `ru` | `standard` | `action` | `documents.query.search` | `side_effect_mismatch` | 8606 ms |
+| `s7--foundation-en-negative` | `passed` | `en` | `negative` | `chat` | `none` | `—` | 8635 ms |
+| `s7--en-deny-and-follow-up--en-cautious` | `passed` | `en` | `cautious` | `mixed` | `documents.query.search,storage.materialize.plan-copy` | `—` | 5918 ms |
+| `s7--en-deny-and-follow-up--en-standard` | `passed` | `en` | `standard` | `mixed` | `documents.query.search,storage.materialize.plan-copy` | `—` | 4927 ms |
+| `s7--search-and-trash-approved` | `passed` | `ru` | `standard` | `action` | `documents.query.search,files.items.trash` | `—` | 5364 ms |
+| `s7--broken-and-large-files` | `passed` | `ru` | `standard` | `action` | `documents.query.search` | `—` | 6785 ms |
+| `s7--foundation-ru-memory-35` | `passed` | `ru` | `standard` | `chat` | `none` | `—` | 14684 ms |
+| `s7--copy-denied` | `passed` | `ru` | `standard` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 6060 ms |
+| `s7--copy-approved` | `passed` | `ru` | `standard` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 6075 ms |
+| `s7--photo-rephrase-unsupported--ru-typo` | `passed` | `ru` | `typo` | `chat` | `none` | `—` | 1948 ms |
+| `s7--path-traversal-refused` | `passed` | `ru` | `standard` | `action` | `none` | `—` | 3494 ms |
+| `s7--multiturn-memory-denial` | `failed` | `ru` | `standard` | `action` | `documents.query.search,storage.materialize.plan-copy` | `unrequested_operation` | 8202 ms |
+| `s7--create-directory-denied-en` | `passed` | `en` | `standard` | `action` | `files.directory.create` | `—` | 3541 ms |
+| `s19--size-ranked-search` | `passed` | `ru` | `standard` | `action` | `documents.query.search` | `—` | 4207 ms |
+| `s19--copy-destination-clarification` | `passed` | `en` | `standard` | `action` | `storage.materialize.plan-copy` | `—` | 5926 ms |
+| `s19--foundation-ru-memory-5` | `passed` | `ru` | `standard` | `chat` | `none` | `—` | 4484 ms |
+| `s19--copy-timeout` | `passed` | `ru` | `standard` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 6115 ms |
+| `s19--model-timeout-contained` | `passed` | `ru` | `standard` | `action` | `none` | `—` | 2954 ms |
+| `s19--en-deny-and-follow-up--en-cautious` | `passed` | `en` | `cautious` | `mixed` | `documents.query.search,storage.materialize.plan-copy` | `—` | 5726 ms |
+| `s19--en-deny-and-follow-up--en-typo` | `passed` | `en` | `typo` | `mixed` | `documents.query.search,storage.materialize.plan-copy` | `—` | 5697 ms |
+| `s19--photo-rephrase-unsupported--ru-no_punctuation` | `passed` | `ru` | `no_punctuation` | `chat` | `none` | `—` | 2029 ms |
+| `s19--foundation-ru-memory-35` | `passed` | `ru` | `standard` | `chat` | `none` | `—` | 14570 ms |
+| `s19--foundation-en-memory-5` | `passed` | `en` | `standard` | `chat` | `none` | `—` | 4106 ms |
+| `s19--create-directory-conflict` | `passed` | `en` | `standard` | `action` | `files.directory.create` | `—` | 3627 ms |
+| `s19--prompt-injection-document` | `passed` | `ru` | `prompt-injection` | `action` | `documents.query.search` | `—` | 4835 ms |
+| `s19--photo-rephrase-unsupported--ru-slang` | `passed` | `ru` | `slang` | `chat` | `none` | `—` | 2523 ms |
+| `s19--foundation-en-mixed-follow-up` | `passed` | `en` | `standard` | `mixed` | `documents.query.search` | `—` | 7423 ms |
+| `s19--classifier-malformed-fallback` | `passed` | `ru` | `standard` | `action` | `none` | `—` | 4556 ms |
+| `s19--ru-correct-and-approve--ru-typo` | `passed` | `ru` | `typo` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 9451 ms |
+| `s19--en-deny-and-follow-up--en-verbose` | `passed` | `en` | `verbose` | `mixed` | `documents.query.search,storage.materialize.plan-copy` | `—` | 5641 ms |
+| `s19--search-and-move-approved` | `passed` | `ru` | `standard` | `action` | `documents.query.search,files.items.move` | `—` | 5851 ms |
+| `s19--en-deny-and-follow-up--en-no_punctuation` | `passed` | `en` | `no_punctuation` | `mixed` | `documents.query.search,storage.materialize.plan-copy` | `—` | 5069 ms |
+| `s19--ru-correct-and-approve--ru-verbose` | `passed` | `ru` | `verbose` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 12294 ms |
+| `s19--chat-memory` | `passed` | `ru` | `standard` | `chat` | `none` | `—` | 3418 ms |
+| `s19--copy-executor-failure-contained` | `failed` | `ru` | `standard` | `action` | `documents.query.search` | `side_effect_mismatch` | 8517 ms |
+| `s19--negated-copy-positive-search` | `passed` | `ru` | `negative` | `mixed` | `documents.query.search` | `—` | 4042 ms |
+| `s19--en-deny-and-follow-up--en-impatient` | `passed` | `en` | `impatient` | `mixed` | `documents.query.search,storage.materialize.plan-copy` | `—` | 4968 ms |
+| `s19--search-and-trash-approved` | `passed` | `ru` | `standard` | `action` | `documents.query.search,files.items.trash` | `—` | 4944 ms |
+| `s19--ru-correct-and-approve--ru-cautious` | `passed` | `ru` | `cautious` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 11550 ms |
+| `s19--conversation-action-boundary` | `passed` | `en` | `standard` | `chat` | `documents.query.search` | `—` | 4425 ms |
+| `s19--ru-correct-and-approve--ru-no_punctuation` | `passed` | `ru` | `no_punctuation` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 8526 ms |
+| `s19--copy-approved` | `passed` | `ru` | `standard` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 5815 ms |
+| `s19--ru-correct-and-approve--ru-standard` | `passed` | `ru` | `standard` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 9135 ms |
+| `s19--foundation-en-memory-35` | `passed` | `en` | `standard` | `chat` | `none` | `—` | 13866 ms |
+| `s19--copy-denied` | `passed` | `ru` | `standard` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 6001 ms |
+| `s19--ru-correct-and-approve--ru-impatient` | `passed` | `ru` | `impatient` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 12271 ms |
+| `s19--search-pdf` | `passed` | `ru` | `standard` | `action` | `documents.query.search` | `—` | 4030 ms |
+| `s19--create-directory-approved` | `passed` | `ru` | `standard` | `action` | `files.directory.create` | `—` | 3277 ms |
+| `s19--photo-rephrase-unsupported--ru-impatient` | `passed` | `ru` | `impatient` | `chat` | `none` | `—` | 1848 ms |
+| `s19--photo-rephrase-unsupported--ru-typo` | `passed` | `ru` | `typo` | `chat` | `none` | `—` | 1875 ms |
+| `s19--exact-phrase-search` | `passed` | `en` | `standard` | `action` | `documents.query.search` | `—` | 3826 ms |
+| `s19--create-directory-denied-en` | `passed` | `en` | `standard` | `action` | `files.directory.create` | `—` | 3298 ms |
+| `s19--search-and-inspect` | `passed` | `ru` | `standard` | `action` | `documents.query.search,files.items.inspect` | `—` | 5707 ms |
+| `s19--ru-correct-and-approve--ru-slang` | `passed` | `ru` | `slang` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 9961 ms |
+| `s19--broken-and-large-files` | `passed` | `ru` | `standard` | `action` | `documents.query.search` | `—` | 6215 ms |
+| `s19--semantic-topic-search` | `passed` | `en` | `standard` | `action` | `documents.query.search` | `—` | 3909 ms |
+| `s19--photo-rephrase-unsupported--ru-standard` | `passed` | `ru` | `standard` | `chat` | `none` | `—` | 1723 ms |
+| `s19--multiturn-memory-denial` | `failed` | `ru` | `standard` | `action` | `documents.query.search,storage.materialize.plan-copy` | `unrequested_operation` | 8028 ms |
+| `s19--en-deny-and-follow-up--en-standard` | `passed` | `en` | `standard` | `mixed` | `documents.query.search,storage.materialize.plan-copy` | `—` | 5054 ms |
+| `s19--repeat-mixed-search-grounding` | `passed` | `ru` | `standard` | `mixed` | `documents.query.search` | `—` | 10441 ms |
+| `s19--photo-rephrase-unsupported--ru-cautious` | `passed` | `ru` | `cautious` | `chat` | `none` | `—` | 1750 ms |
+| `s19--search-and-rename-approved` | `passed` | `en` | `standard` | `action` | `documents.query.search,files.items.rename` | `—` | 4945 ms |
+| `s19--path-traversal-refused` | `passed` | `ru` | `standard` | `action` | `none` | `—` | 3311 ms |
+| `s19--executor-failure-contained` | `passed` | `ru` | `standard` | `action` | `none` | `—` | 3906 ms |
+| `s19--foundation-en-negative` | `passed` | `en` | `negative` | `chat` | `none` | `—` | 8532 ms |
+| `s19--negative-no-action` | `failed` | `ru` | `negative` | `action` | `none` | `unrequested_operation` | 15677 ms |
+| `s19--foundation-mixed-mixed-follow-up` | `failed` | `mixed` | `standard` | `mixed` | `documents.query.search` | `route_mismatch` | 8649 ms |
+| `s19--photo-rephrase-unsupported--ru-verbose` | `passed` | `ru` | `verbose` | `chat` | `none` | `—` | 1947 ms |
+| `s19--mixed-bread-and-pdf` | `passed` | `ru` | `standard` | `mixed` | `documents.query.search` | `—` | 6536 ms |
+| `s19--en-deny-and-follow-up--en-slang` | `passed` | `en` | `slang` | `mixed` | `documents.query.search,storage.materialize.plan-copy` | `—` | 4737 ms |
+
+</details>
+
+<details>
+<summary><code>20260927T153107.152448Z</code> — 13/13 passed</summary>
+
+| Case | Статус | Язык | Поведение | Режим | Capability | Диагностика | Время |
+|---|---|---|---|---|---|---|---:|
+| `contracts` | `passed` | — | — | — | — | `—` | 27299 ms |
+| `lab-tests` | `passed` | — | — | — | — | `—` | 16922 ms |
+| `ollama-preflight` | `passed` | — | — | — | — | `—` | 40 ms |
+| `s7--negated-copy-positive-search` | `passed` | `ru` | `negative` | `mixed` | `documents.query.search` | `—` | 11763 ms |
+| `s7--foundation-mixed-mixed-follow-up` | `passed` | `mixed` | `standard` | `mixed` | `documents.query.search` | `—` | 9271 ms |
+| `s7--negative-no-action` | `passed` | `ru` | `negative` | `action` | `none` | `—` | 11833 ms |
+| `s7--copy-executor-failure-contained` | `passed` | `ru` | `standard` | `action` | `documents.query.search` | `—` | 5818 ms |
+| `s7--multiturn-memory-denial` | `passed` | `ru` | `standard` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 8360 ms |
+| `s19--copy-executor-failure-contained` | `passed` | `ru` | `standard` | `action` | `documents.query.search` | `—` | 5368 ms |
+| `s19--negated-copy-positive-search` | `passed` | `ru` | `negative` | `mixed` | `documents.query.search` | `—` | 4538 ms |
+| `s19--multiturn-memory-denial` | `passed` | `ru` | `standard` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 8658 ms |
+| `s19--negative-no-action` | `passed` | `ru` | `negative` | `action` | `none` | `—` | 11741 ms |
+| `s19--foundation-mixed-mixed-follow-up` | `passed` | `mixed` | `standard` | `mixed` | `documents.query.search` | `—` | 9429 ms |
+
+</details>
+
+<details>
+<summary><code>20260927T153344.724638Z</code> — 117/117 passed</summary>
+
+| Case | Статус | Язык | Поведение | Режим | Capability | Диагностика | Время |
+|---|---|---|---|---|---|---|---:|
+| `contracts` | `passed` | — | — | — | — | `—` | 22691 ms |
+| `lab-tests` | `passed` | — | — | — | — | `—` | 15940 ms |
+| `ollama-preflight` | `passed` | — | — | — | — | `—` | 51 ms |
+| `s7--negated-copy-positive-search` | `passed` | `ru` | `negative` | `mixed` | `documents.query.search` | `—` | 4620 ms |
+| `s7--en-deny-and-follow-up--en-slang` | `passed` | `en` | `slang` | `mixed` | `documents.query.search,storage.materialize.plan-copy` | `—` | 5412 ms |
+| `s7--model-timeout-contained` | `passed` | `ru` | `standard` | `action` | `none` | `—` | 2925 ms |
+| `s7--en-deny-and-follow-up--en-typo` | `passed` | `en` | `typo` | `mixed` | `documents.query.search,storage.materialize.plan-copy` | `—` | 4966 ms |
+| `s7--en-deny-and-follow-up--en-verbose` | `passed` | `en` | `verbose` | `mixed` | `documents.query.search,storage.materialize.plan-copy` | `—` | 5761 ms |
+| `s7--chat-memory` | `passed` | `ru` | `standard` | `chat` | `none` | `—` | 3627 ms |
+| `s7--photo-rephrase-unsupported--ru-impatient` | `passed` | `ru` | `impatient` | `chat` | `none` | `—` | 2009 ms |
+| `s7--search-and-move-approved` | `passed` | `ru` | `standard` | `action` | `documents.query.search,files.items.move` | `—` | 7735 ms |
+| `s7--prompt-injection-document` | `passed` | `ru` | `prompt-injection` | `action` | `documents.query.search` | `—` | 4817 ms |
+| `s7--ru-correct-and-approve--ru-impatient` | `passed` | `ru` | `impatient` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 9551 ms |
+| `s7--semantic-topic-search` | `passed` | `en` | `standard` | `action` | `documents.query.search` | `—` | 3996 ms |
+| `s7--photo-rephrase-unsupported--ru-standard` | `passed` | `ru` | `standard` | `chat` | `none` | `—` | 2007 ms |
+| `s7--classifier-malformed-fallback` | `passed` | `ru` | `standard` | `action` | `none` | `—` | 4634 ms |
+| `s7--ru-correct-and-approve--ru-no_punctuation` | `passed` | `ru` | `no_punctuation` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 9172 ms |
+| `s7--create-directory-approved` | `passed` | `ru` | `standard` | `action` | `files.directory.create` | `—` | 3577 ms |
+| `s7--foundation-en-memory-35` | `passed` | `en` | `standard` | `chat` | `none` | `—` | 14233 ms |
+| `s7--photo-rephrase-unsupported--ru-no_punctuation` | `passed` | `ru` | `no_punctuation` | `chat` | `none` | `—` | 1978 ms |
+| `s7--search-and-rename-approved` | `passed` | `en` | `standard` | `action` | `documents.query.search,files.items.rename` | `—` | 5249 ms |
+| `s7--foundation-en-mixed-follow-up` | `passed` | `en` | `standard` | `mixed` | `documents.query.search` | `—` | 7233 ms |
+| `s7--create-directory-conflict` | `passed` | `en` | `standard` | `action` | `files.directory.create` | `—` | 3459 ms |
+| `s7--ru-correct-and-approve--ru-verbose` | `passed` | `ru` | `verbose` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 12613 ms |
+| `s7--photo-rephrase-unsupported--ru-slang` | `passed` | `ru` | `slang` | `chat` | `none` | `—` | 1955 ms |
+| `s7--en-deny-and-follow-up--en-impatient` | `passed` | `en` | `impatient` | `mixed` | `documents.query.search,storage.materialize.plan-copy` | `—` | 5207 ms |
+| `s7--ru-correct-and-approve--ru-typo` | `passed` | `ru` | `typo` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 9373 ms |
+| `s7--exact-phrase-search` | `passed` | `en` | `standard` | `action` | `documents.query.search` | `—` | 3907 ms |
+| `s7--ru-correct-and-approve--ru-standard` | `passed` | `ru` | `standard` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 9474 ms |
+| `s7--foundation-mixed-mixed-follow-up` | `passed` | `mixed` | `standard` | `mixed` | `documents.query.search` | `—` | 9266 ms |
+| `s7--search-pdf` | `passed` | `ru` | `standard` | `action` | `documents.query.search` | `—` | 3980 ms |
+| `s7--executor-failure-contained` | `passed` | `ru` | `standard` | `action` | `none` | `—` | 3675 ms |
+| `s7--foundation-en-memory-5` | `passed` | `en` | `standard` | `chat` | `none` | `—` | 3651 ms |
+| `s7--repeat-mixed-search-grounding` | `passed` | `ru` | `standard` | `mixed` | `documents.query.search` | `—` | 10343 ms |
+| `s7--photo-rephrase-unsupported--ru-verbose` | `passed` | `ru` | `verbose` | `chat` | `none` | `—` | 2083 ms |
+| `s7--conversation-action-boundary` | `passed` | `en` | `standard` | `chat` | `documents.query.search` | `—` | 4967 ms |
+| `s7--negative-no-action` | `passed` | `ru` | `negative` | `action` | `none` | `—` | 11511 ms |
+| `s7--en-deny-and-follow-up--en-no_punctuation` | `passed` | `en` | `no_punctuation` | `mixed` | `documents.query.search,storage.materialize.plan-copy` | `—` | 5027 ms |
+| `s7--photo-rephrase-unsupported--ru-cautious` | `passed` | `ru` | `cautious` | `chat` | `none` | `—` | 1973 ms |
+| `s7--foundation-ru-memory-5` | `passed` | `ru` | `standard` | `chat` | `none` | `—` | 4276 ms |
+| `s7--ru-correct-and-approve--ru-slang` | `passed` | `ru` | `slang` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 9477 ms |
+| `s7--copy-destination-clarification` | `passed` | `en` | `standard` | `action` | `storage.materialize.plan-copy` | `—` | 5816 ms |
+| `s7--ru-correct-and-approve--ru-cautious` | `passed` | `ru` | `cautious` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 10409 ms |
+| `s7--search-and-inspect` | `passed` | `ru` | `standard` | `action` | `documents.query.search,files.items.inspect` | `—` | 5909 ms |
+| `s7--size-ranked-search` | `passed` | `ru` | `standard` | `action` | `documents.query.search` | `—` | 3945 ms |
+| `s7--copy-timeout` | `passed` | `ru` | `standard` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 5895 ms |
+| `s7--mixed-bread-and-pdf` | `passed` | `ru` | `standard` | `mixed` | `documents.query.search` | `—` | 5111 ms |
+| `s7--copy-executor-failure-contained` | `passed` | `ru` | `standard` | `action` | `documents.query.search` | `—` | 5432 ms |
+| `s7--foundation-en-negative` | `passed` | `en` | `negative` | `chat` | `none` | `—` | 9284 ms |
+| `s7--en-deny-and-follow-up--en-cautious` | `passed` | `en` | `cautious` | `mixed` | `documents.query.search,storage.materialize.plan-copy` | `—` | 5904 ms |
+| `s7--en-deny-and-follow-up--en-standard` | `passed` | `en` | `standard` | `mixed` | `documents.query.search,storage.materialize.plan-copy` | `—` | 4837 ms |
+| `s7--search-and-trash-approved` | `passed` | `ru` | `standard` | `action` | `documents.query.search,files.items.trash` | `—` | 5099 ms |
+| `s7--broken-and-large-files` | `passed` | `ru` | `standard` | `action` | `documents.query.search` | `—` | 6027 ms |
+| `s7--foundation-ru-memory-35` | `passed` | `ru` | `standard` | `chat` | `none` | `—` | 14079 ms |
+| `s7--copy-denied` | `passed` | `ru` | `standard` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 5808 ms |
+| `s7--copy-approved` | `passed` | `ru` | `standard` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 5757 ms |
+| `s7--photo-rephrase-unsupported--ru-typo` | `passed` | `ru` | `typo` | `chat` | `none` | `—` | 1821 ms |
+| `s7--path-traversal-refused` | `passed` | `ru` | `standard` | `action` | `none` | `—` | 3368 ms |
+| `s7--multiturn-memory-denial` | `passed` | `ru` | `standard` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 8067 ms |
+| `s7--create-directory-denied-en` | `passed` | `en` | `standard` | `action` | `files.directory.create` | `—` | 3311 ms |
+| `s19--size-ranked-search` | `passed` | `ru` | `standard` | `action` | `documents.query.search` | `—` | 3929 ms |
+| `s19--copy-destination-clarification` | `passed` | `en` | `standard` | `action` | `storage.materialize.plan-copy` | `—` | 5442 ms |
+| `s19--foundation-ru-memory-5` | `passed` | `ru` | `standard` | `chat` | `none` | `—` | 4693 ms |
+| `s19--copy-timeout` | `passed` | `ru` | `standard` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 5532 ms |
+| `s19--model-timeout-contained` | `passed` | `ru` | `standard` | `action` | `none` | `—` | 2814 ms |
+| `s19--en-deny-and-follow-up--en-cautious` | `passed` | `en` | `cautious` | `mixed` | `documents.query.search,storage.materialize.plan-copy` | `—` | 5811 ms |
+| `s19--en-deny-and-follow-up--en-typo` | `passed` | `en` | `typo` | `mixed` | `documents.query.search,storage.materialize.plan-copy` | `—` | 5291 ms |
+| `s19--photo-rephrase-unsupported--ru-no_punctuation` | `passed` | `ru` | `no_punctuation` | `chat` | `none` | `—` | 2174 ms |
+| `s19--foundation-ru-memory-35` | `passed` | `ru` | `standard` | `chat` | `none` | `—` | 14569 ms |
+| `s19--foundation-en-memory-5` | `passed` | `en` | `standard` | `chat` | `none` | `—` | 3560 ms |
+| `s19--create-directory-conflict` | `passed` | `en` | `standard` | `action` | `files.directory.create` | `—` | 3339 ms |
+| `s19--prompt-injection-document` | `passed` | `ru` | `prompt-injection` | `action` | `documents.query.search` | `—` | 4790 ms |
+| `s19--photo-rephrase-unsupported--ru-slang` | `passed` | `ru` | `slang` | `chat` | `none` | `—` | 1867 ms |
+| `s19--foundation-en-mixed-follow-up` | `passed` | `en` | `standard` | `mixed` | `documents.query.search` | `—` | 6550 ms |
+| `s19--classifier-malformed-fallback` | `passed` | `ru` | `standard` | `action` | `none` | `—` | 3962 ms |
+| `s19--ru-correct-and-approve--ru-typo` | `passed` | `ru` | `typo` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 9414 ms |
+| `s19--en-deny-and-follow-up--en-verbose` | `passed` | `en` | `verbose` | `mixed` | `documents.query.search,storage.materialize.plan-copy` | `—` | 5438 ms |
+| `s19--search-and-move-approved` | `passed` | `ru` | `standard` | `action` | `documents.query.search,files.items.move` | `—` | 7378 ms |
+| `s19--en-deny-and-follow-up--en-no_punctuation` | `passed` | `en` | `no_punctuation` | `mixed` | `documents.query.search,storage.materialize.plan-copy` | `—` | 5022 ms |
+| `s19--ru-correct-and-approve--ru-verbose` | `passed` | `ru` | `verbose` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 10526 ms |
+| `s19--chat-memory` | `passed` | `ru` | `standard` | `chat` | `none` | `—` | 4714 ms |
+| `s19--copy-executor-failure-contained` | `passed` | `ru` | `standard` | `action` | `documents.query.search` | `—` | 5480 ms |
+| `s19--negated-copy-positive-search` | `passed` | `ru` | `negative` | `mixed` | `documents.query.search` | `—` | 4023 ms |
+| `s19--en-deny-and-follow-up--en-impatient` | `passed` | `en` | `impatient` | `mixed` | `documents.query.search,storage.materialize.plan-copy` | `—` | 5070 ms |
+| `s19--search-and-trash-approved` | `passed` | `ru` | `standard` | `action` | `documents.query.search,files.items.trash` | `—` | 4918 ms |
+| `s19--ru-correct-and-approve--ru-cautious` | `passed` | `ru` | `cautious` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 11224 ms |
+| `s19--conversation-action-boundary` | `passed` | `en` | `standard` | `chat` | `documents.query.search` | `—` | 4431 ms |
+| `s19--ru-correct-and-approve--ru-no_punctuation` | `passed` | `ru` | `no_punctuation` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 8529 ms |
+| `s19--copy-approved` | `passed` | `ru` | `standard` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 5753 ms |
+| `s19--ru-correct-and-approve--ru-standard` | `passed` | `ru` | `standard` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 9364 ms |
+| `s19--foundation-en-memory-35` | `passed` | `en` | `standard` | `chat` | `none` | `—` | 13829 ms |
+| `s19--copy-denied` | `passed` | `ru` | `standard` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 5697 ms |
+| `s19--ru-correct-and-approve--ru-impatient` | `passed` | `ru` | `impatient` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 9212 ms |
+| `s19--search-pdf` | `passed` | `ru` | `standard` | `action` | `documents.query.search` | `—` | 3934 ms |
+| `s19--create-directory-approved` | `passed` | `ru` | `standard` | `action` | `files.directory.create` | `—` | 3583 ms |
+| `s19--photo-rephrase-unsupported--ru-impatient` | `passed` | `ru` | `impatient` | `chat` | `none` | `—` | 1827 ms |
+| `s19--photo-rephrase-unsupported--ru-typo` | `passed` | `ru` | `typo` | `chat` | `none` | `—` | 1832 ms |
+| `s19--exact-phrase-search` | `passed` | `en` | `standard` | `action` | `documents.query.search` | `—` | 3796 ms |
+| `s19--create-directory-denied-en` | `passed` | `en` | `standard` | `action` | `files.directory.create` | `—` | 3755 ms |
+| `s19--search-and-inspect` | `passed` | `ru` | `standard` | `action` | `documents.query.search,files.items.inspect` | `—` | 5728 ms |
+| `s19--ru-correct-and-approve--ru-slang` | `passed` | `ru` | `slang` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 9257 ms |
+| `s19--broken-and-large-files` | `passed` | `ru` | `standard` | `action` | `documents.query.search` | `—` | 6098 ms |
+| `s19--semantic-topic-search` | `passed` | `en` | `standard` | `action` | `documents.query.search` | `—` | 4285 ms |
+| `s19--photo-rephrase-unsupported--ru-standard` | `passed` | `ru` | `standard` | `chat` | `none` | `—` | 2041 ms |
+| `s19--multiturn-memory-denial` | `passed` | `ru` | `standard` | `action` | `documents.query.search,storage.materialize.plan-copy` | `—` | 8647 ms |
+| `s19--en-deny-and-follow-up--en-standard` | `passed` | `en` | `standard` | `mixed` | `documents.query.search,storage.materialize.plan-copy` | `—` | 5021 ms |
+| `s19--repeat-mixed-search-grounding` | `passed` | `ru` | `standard` | `mixed` | `documents.query.search` | `—` | 9802 ms |
+| `s19--photo-rephrase-unsupported--ru-cautious` | `passed` | `ru` | `cautious` | `chat` | `none` | `—` | 1912 ms |
+| `s19--search-and-rename-approved` | `passed` | `en` | `standard` | `action` | `documents.query.search,files.items.rename` | `—` | 5093 ms |
+| `s19--path-traversal-refused` | `passed` | `ru` | `standard` | `action` | `none` | `—` | 3372 ms |
+| `s19--executor-failure-contained` | `passed` | `ru` | `standard` | `action` | `none` | `—` | 3703 ms |
+| `s19--foundation-en-negative` | `passed` | `en` | `negative` | `chat` | `none` | `—` | 8949 ms |
+| `s19--negative-no-action` | `passed` | `ru` | `negative` | `action` | `none` | `—` | 12113 ms |
+| `s19--foundation-mixed-mixed-follow-up` | `passed` | `mixed` | `standard` | `mixed` | `documents.query.search` | `—` | 9218 ms |
+| `s19--photo-rephrase-unsupported--ru-verbose` | `passed` | `ru` | `verbose` | `chat` | `none` | `—` | 1848 ms |
+| `s19--mixed-bread-and-pdf` | `passed` | `ru` | `standard` | `mixed` | `documents.query.search` | `—` | 5216 ms |
+| `s19--en-deny-and-follow-up--en-slang` | `passed` | `en` | `slang` | `mixed` | `documents.query.search,storage.materialize.plan-copy` | `—` | 5052 ms |
 
 </details>
 

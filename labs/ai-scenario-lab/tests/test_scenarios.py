@@ -77,6 +77,20 @@ def test_repeated_mixed_search_scenario_checks_grounding_and_inaccessible_items(
     assert repeated_mixed.expect["max_duration_ms"] == 90000
 
 
+def test_new_search_regressions_check_plan_and_no_copy_effect():
+    size = load_scenario(LAB_ROOT / "scenarios" / "28-size-ranked-search.json")
+    mixed = load_scenario(
+        LAB_ROOT / "scenarios" / "29-negated-copy-positive-search.json"
+    )
+
+    assert size.turns[0].expect["plan_steps_include"][0]["arguments"] == {
+        "mode": "metadata", "sort_by": "size_desc",
+    }
+    assert size.turns[0].expect["found"] == 5
+    assert mixed.turns[0].expect["capabilities"] == ["documents.query.search"]
+    assert mixed.turns[0].expect["approval_required"] is False
+
+
 def test_file_operations_suite_covers_effects_and_refusals():
     scenarios = discover_scenarios(LAB_ROOT / "scenarios", suite="focused")
     by_id = {scenario.scenario_id: scenario for scenario in scenarios}
