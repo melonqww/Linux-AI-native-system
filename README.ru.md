@@ -8,6 +8,18 @@
 
 > **Статус проекта:** портфолио-MVP для Ubuntu Desktop 24.04 LTS с GNOME. Ядро и основные пользовательские сценарии проверялись также на Ubuntu. Подробный прогон AI Scenario Lab из 117 проверок выполнен на Windows.
 
+## Интерфейс на Ubuntu
+
+![Панель AI-native Linux на рабочем столе Ubuntu](docs/assets/screenshots/desktop-workspace.png)
+
+Снимки сделаны в Ubuntu VM до завершения задачи с моделью. Ниже показаны настройки, приложения, системный монитор и Security Center. [Все снимки интерфейса](docs/SCREENSHOTS.md).
+
+| Настройки и акцентные цвета | Каталог приложений |
+|---|---|
+| ![Настройка уведомлений и выбор акцентного цвета](docs/assets/screenshots/settings-accent.png) | ![Каталог приложений и состояние локального ИИ](docs/assets/screenshots/app-catalog.png) |
+| **Системный монитор** | **Security Center** |
+| ![Состояние системы и индикаторы ресурсов](docs/assets/screenshots/system-overview.png) | ![Управление проверкой Security Center и частичный результат](docs/assets/screenshots/security-scan.png) |
+
 ## Один сценарий — вся цепочка
 
 [Лабораторный сценарий копирования](labs/ai-scenario-lab/scenarios/04-copy-approved.json) проводит два запроса через рабочий backend внутри изолированного виртуального компьютера:

@@ -8,6 +8,18 @@
 
 > **Project status:** portfolio MVP for Ubuntu Desktop 24.04 LTS with GNOME. The core and main user flows have been exercised on Ubuntu. The detailed 117-case AI Scenario Lab campaign was run on Windows.
 
+## Desktop preview
+
+![AI-native Linux workspace panel on Ubuntu Desktop](docs/assets/screenshots/desktop-workspace.png)
+
+The Ubuntu VM captures show the GNOME panel before a model task is completed. Settings, app management, system monitoring, and Security Center are visible below. [Browse all interface screenshots](docs/SCREENSHOTS.md).
+
+| Settings and accent colors | Application catalog |
+|---|---|
+| ![Notification preference and accent color choices](docs/assets/screenshots/settings-accent.png) | ![Application catalog with local AI status](docs/assets/screenshots/app-catalog.png) |
+| **System monitor** | **Security Center** |
+| ![System status and resource gauges](docs/assets/screenshots/system-overview.png) | ![Security Center scan controls and partial result](docs/assets/screenshots/security-scan.png) |
+
 ## See the system in one task
 
 The [copy-approved laboratory scenario](labs/ai-scenario-lab/scenarios/04-copy-approved.json) exercises this two-turn flow against the production backend inside an isolated virtual computer:
