@@ -6,15 +6,24 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPOSITORY_ROOT="$(cd -- "${SCRIPT_DIR}/../../.." && pwd)"
 TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${EXTENSION_UUID}"
 
+run_quietly() {
+    local output
+    if output="$("$@" 2>&1)"; then
+        return 0
+    fi
+    printf '%s\n' "${output}" >&2
+    return 1
+}
+
 if ! command -v glib-compile-schemas >/dev/null 2>&1; then
-    echo "Ошибка: для установки настроек нужен glib-compile-schemas" >&2
+    echo "Error: glib-compile-schemas is required to install panel settings" >&2
     exit 1
 fi
-python3 "${SCRIPT_DIR}/validate_extension.py"
+run_quietly python3 "${SCRIPT_DIR}/validate_extension.py"
 
 if [[ "$(uname -s)" == "Linux" ]]; then
-    echo "Обновляю и подключаю runtime ядра..."
-    bash "${REPOSITORY_ROOT}/deployments/systemd/install-user-service.sh"
+    echo "Connecting the core runtime..."
+    run_quietly bash "${REPOSITORY_ROOT}/deployments/systemd/install-user-service.sh"
 fi
 
 mkdir -p "${TARGET_DIR}"
@@ -30,7 +39,7 @@ panel_files=(metadata.json extension.js runtime-client.js panel-presenter.js sty
 for panel_file in "${panel_files[@]}"; do
     cp "${SCRIPT_DIR}/${panel_file}" "${TARGET_DIR}/${panel_file}"
     if ! cmp -s "${SCRIPT_DIR}/${panel_file}" "${TARGET_DIR}/${panel_file}"; then
-        echo "Ошибка: установленный файл панели не совпадает: ${panel_file}" >&2
+        echo "Error: installed panel file does not match the repository: ${panel_file}" >&2
         exit 1
     fi
 done
@@ -39,7 +48,7 @@ mkdir -p "${TARGET_DIR}/schemas"
 schema_file="org.gnome.shell.extensions.ai-native-linux.gschema.xml"
 cp "${SCRIPT_DIR}/schemas/${schema_file}" "${TARGET_DIR}/schemas/${schema_file}"
 if ! cmp -s "${SCRIPT_DIR}/schemas/${schema_file}" "${TARGET_DIR}/schemas/${schema_file}"; then
-    echo "Ошибка: схема настроек расширения не совпадает" >&2
+    echo "Error: installed settings schema does not match the repository" >&2
     exit 1
 fi
 glib-compile-schemas "${TARGET_DIR}/schemas"
@@ -47,22 +56,20 @@ glib-compile-schemas "${TARGET_DIR}/schemas"
 rm -rf "${TARGET_DIR}/assets"
 cp -R "${SCRIPT_DIR}/assets" "${TARGET_DIR}/assets"
 if ! diff -qr "${SCRIPT_DIR}/assets" "${TARGET_DIR}/assets" >/dev/null; then
-    echo "Ошибка: установленные ресурсы панели не совпадают с репозиторием" >&2
+    echo "Error: installed panel assets do not match the repository" >&2
     exit 1
 fi
 
-echo "Установлено в ${TARGET_DIR}"
-echo "PASS: файлы панели побайтно совпадают с репозиторием"
 if command -v gnome-extensions >/dev/null 2>&1; then
     enable_started_at="$(date --iso-8601=seconds)"
-    if ! gnome-extensions enable "${EXTENSION_UUID}"; then
-        echo "Ошибка: GNOME не включил расширение ${EXTENSION_UUID}" >&2
+    if ! gnome-extensions enable "${EXTENSION_UUID}" >/dev/null; then
+        echo "Error: GNOME could not enable ${EXTENSION_UUID}" >&2
         gnome-extensions info "${EXTENSION_UUID}" >&2 || true
         exit 1
     fi
     sleep 2
     if ! gnome-extensions list --enabled | grep -Fxq "${EXTENSION_UUID}"; then
-        echo "Ошибка: расширение не перешло в состояние enabled" >&2
+        echo "Error: the extension is not enabled" >&2
         gnome-extensions info "${EXTENSION_UUID}" >&2 || true
         exit 1
     fi
@@ -70,27 +77,22 @@ if command -v gnome-extensions >/dev/null 2>&1; then
         panel_errors="$(journalctl --user --since "${enable_started_at}" --no-pager -o cat 2>/dev/null \
             | grep -F 'AI-native Linux: panel construction failed' || true)"
         if [[ -n "${panel_errors}" ]]; then
-            echo "Ошибка: GNOME включил расширение, но не смог построить панель:" >&2
+            echo "Error: GNOME enabled the extension but could not build the panel:" >&2
             printf '%s\n' "${panel_errors}" >&2
             exit 1
         fi
     fi
-    echo "Расширение включено."
 else
-    echo "Команда gnome-extensions не найдена. Установите пакет gnome-shell-extensions и повторите запуск."
+    echo "Warning: gnome-extensions is unavailable; install gnome-shell-extensions and rerun the installer." >&2
 fi
-
-echo "Если GNOME продолжает показывать старую панель, выйдите из сеанса и войдите снова."
 
 if [[ "$(uname -s)" == "Linux" ]]; then
     runtime_socket="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/ai-native-linux/runtime.sock"
     if [[ ! -S "${runtime_socket}" ]]; then
-        echo "Внимание: панель установлена, но ядро не запущено."
-        echo "Повторите установку панели: bash apps/desktop-panel/gnome-extension/install.sh"
+        echo "Warning: the panel is installed, but the core runtime is not running." >&2
+        echo "Rerun: bash apps/desktop-panel/gnome-extension/install.sh" >&2
     fi
     if python3 -c "import gi; gi.require_version('Nautilus', '4.0'); from gi.repository import Nautilus" >/dev/null 2>&1; then
-        bash "${SCRIPT_DIR}/../nautilus/install.sh"
-    else
-        echo "Пункт контекстного меню Nautilus не установлен: нужен пакет python3-nautilus."
+        run_quietly bash "${SCRIPT_DIR}/../nautilus/install.sh"
     fi
 fi
