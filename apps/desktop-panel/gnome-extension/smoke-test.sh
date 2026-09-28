@@ -36,8 +36,8 @@ if ! gnome-extensions list --enabled | grep -Fxq "${EXTENSION_UUID}"; then
 fi
 
 shell_log="$(journalctl --user --since "${started_at}" --no-pager -o cat 2>/dev/null || true)"
-extension_log="$(printf '%s\n' "${shell_log}" | grep -F "${EXTENSION_UUID}" || true)"
-if printf '%s\n' "${extension_log}" | grep -Eiq 'JS ERROR|exception|traceback|error:'; then
+extension_log="$(printf '%s\n' "${shell_log}" | grep -Ei "${EXTENSION_UUID}|AI-native Linux:" || true)"
+if printf '%s\n' "${extension_log}" | grep -Eiq 'JS ERROR|exception|traceback|error:|panel construction failed'; then
     echo "FAIL: GNOME Shell зарегистрировал ошибку расширения"
     printf '%s\n' "${extension_log}"
     exit 1

@@ -114,6 +114,7 @@ def main() -> int:
     ok &= check(".ai-tab-highlight" in styles, "tab highlight styles exist")
     ok &= check(".ai-native-fallback" in styles, "fallback style exists")
     ok &= check("set_spacing" not in source, "StBoxLayout spacing is provided by CSS")
+    ok &= check("new St.Switch" not in source, "settings use a supported Shell toggle actor")
     ok &= check("new Gio.UnixSocketAddress" in runtime_source, "runtime uses Unix IPC")
     ok &= check("http://" not in runtime_source, "runtime client has no TCP fallback")
     ok &= check("executionPresentation" in presenter_source, "panel presenter is installed")

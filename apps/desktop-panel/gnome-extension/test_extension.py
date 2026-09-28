@@ -21,7 +21,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
     def test_metadata_is_valid(self):
         metadata = json.loads((ROOT / "metadata.json").read_text(encoding="utf-8"))
         self.assertEqual(metadata["uuid"], "ai-native-linux@melonqww")
-        self.assertEqual(metadata["version"], 8)
+        self.assertEqual(metadata["version"], 9)
         self.assertIn("46", metadata["shell-version"])
 
     def test_runtime_files_exist(self):
@@ -39,8 +39,13 @@ class GnomeExtensionFilesTest(unittest.TestCase):
 
     def test_install_reloads_live_extension_before_copy(self):
         script = (ROOT / "install.sh").read_text(encoding="utf-8")
+        self.assertIn('python3 "${SCRIPT_DIR}/validate_extension.py"', script)
+        self.assertLess(script.index('validate_extension.py'), script.index('gnome-extensions disable'))
         self.assertIn('gnome-extensions disable "${EXTENSION_UUID}"', script)
         self.assertIn('gnome-extensions enable "${EXTENSION_UUID}"', script)
+        self.assertNotIn('gnome-extensions enable "${EXTENSION_UUID}" || true', script)
+        self.assertIn('gnome-extensions list --enabled', script)
+        self.assertIn('AI-native Linux: panel construction failed', script)
         self.assertIn("panel_files=(metadata.json extension.js runtime-client.js", script)
         self.assertIn("panel-presenter.js stylesheet.css)", script)
         self.assertIn('glib-compile-schemas "${TARGET_DIR}/schemas"', script)
@@ -86,8 +91,9 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "this._settings.set_string('accent-color', colorId)",
             "this._preferences.connect('changed::accent-color'",
             "label: 'По умолчанию'",
-            "toggle.setToggleState(this._settings.get_boolean(key))",
-            "this._settings.set_boolean(key, toggle.getToggleState())",
+            "toggle_mode: true",
+            "checked: this._settings.get_boolean(key)",
+            "this._settings.set_boolean(key, toggle.checked)",
             "Открыть каталог приложений",
             "_workspaceErrorNotice",
             "ai-workspace-error-note",
@@ -229,6 +235,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "taskDetailPresentation(task)",
         ):
             self.assertIn(marker, source)
+        self.assertNotIn("new St.Switch", source)
         self.assertNotIn("St.CheckButton", source)
         self.assertNotIn("_openSecurity()", source)
         self.assertNotIn("Gemma 2 2B", source)
@@ -345,6 +352,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             'gnome-extensions enable "${EXTENSION_UUID}"',
             "gnome-extensions list --enabled",
             "journalctl --user",
+            "panel construction failed",
             "runtime Unix socket доступен",
             "RESULT: READY FOR VISUAL CHECK",
         ):

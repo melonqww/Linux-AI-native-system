@@ -2402,10 +2402,15 @@ class SettingsView extends St.Widget {
         info.add_child(detailLabel);
         row.add_child(info);
 
-        const toggle = new St.Switch({style_class: 'toggle-switch ai-settings-switch'});
-        toggle.setToggleState(this._settings.get_boolean(key));
-        toggle.connect('notify::toggle-state', () => {
-            this._settings.set_boolean(key, toggle.getToggleState());
+        const toggle = new St.Button({
+            style_class: 'toggle-switch ai-settings-switch',
+            toggle_mode: true,
+            checked: this._settings.get_boolean(key),
+            can_focus: true,
+            accessible_name: title,
+        });
+        toggle.connect('notify::checked', () => {
+            this._settings.set_boolean(key, toggle.checked);
         });
         row.add_child(toggle);
         return row;
