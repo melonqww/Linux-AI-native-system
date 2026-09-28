@@ -38,7 +38,7 @@ Read-only actions can proceed without the approval step. Changing actions requir
 
 | Area | Current implementation |
 |---|---|
-| Desktop experience | Native [GNOME Shell extension](apps/desktop-panel/gnome-extension/README.md) with a workspace, task progress, approvals, system health, and notifications. |
+| Desktop experience | Native [GNOME Shell extension](apps/desktop-panel/gnome-extension/README.md) with a workspace, task progress, approvals, system health, notification preferences, and selectable accent colors. |
 | Local AI and routing | [Intent Compiler](services/intent-compiler/README.md) using local Qwen through Ollama, with operations supplied by a runtime [Capability Registry](services/capability-registry/README.md). |
 | Documents and files | Metadata and indexed-content search, PDF extraction, file inspection, and approved copy, move, rename, trash, and folder creation. |
 | System services | Read-only [system monitoring](modules/system-monitor/README.md), bounded update checks, and on-demand module workers. |
