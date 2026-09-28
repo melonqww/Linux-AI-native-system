@@ -51,26 +51,26 @@ const SECURITY_SCAN_TITLES = Object.freeze({
 // until the runtime supports selecting a different model per run.
 const WORKSPACE_MODEL_LABEL = 'Qwen 3.5 2B';
 const SOFTWARE_ICON_ASSETS = Object.freeze({
-    steam: ['steam.svg', 'steam'],
-    discord: ['discord.svg', 'discord'],
-    spotify: ['spotify.svg', 'spotify'],
-    'telegram-desktop': ['telegram.svg', 'telegram'],
-    vlc: ['vlc.svg', 'vlc'],
-    code: ['visualstudiocode.png', 'code'],
-    chromium: ['chromium.svg', 'chromium'],
-    firefox: ['firefox.svg', 'firefox'],
-    'obs-studio': ['obsstudio.svg', 'obs'],
-    blender: ['blender.svg', 'blender'],
-    inkscape: ['inkscape.svg', 'inkscape'],
-    gimp: ['gimp.svg', 'gimp'],
-    slack: ['slack.svg', 'slack'],
-    'zoom-client': ['zoom.svg', 'zoom'],
-    postman: ['postman.svg', 'postman'],
-    'pycharm-community': ['pycharm.svg', 'pycharm'],
-    'intellij-idea-community': ['intellijidea.svg', 'intellij'],
-    libreoffice: ['libreoffice.svg', 'libreoffice'],
-    thunderbird: ['thunderbird.svg', 'thunderbird'],
-    bitwarden: ['bitwarden.svg', 'bitwarden'],
+    steam: 'steam.png',
+    discord: 'discord.png',
+    spotify: 'spotify.png',
+    'telegram-desktop': 'telegram.png',
+    vlc: 'vlc.png',
+    code: 'code.png',
+    chromium: 'chromium.png',
+    firefox: 'firefox.png',
+    'obs-studio': 'obsstudio.png',
+    blender: 'blender.png',
+    inkscape: 'inkscape.png',
+    gimp: 'gimp.png',
+    slack: 'slack.png',
+    'zoom-client': 'zoom.png',
+    postman: 'postman.png',
+    'pycharm-community': 'pycharm.png',
+    'intellij-idea-community': 'intellijidea.png',
+    libreoffice: 'libreoffice.png',
+    thunderbird: 'thunderbird.png',
+    bitwarden: 'bitwarden.png',
 });
 const ACCENT_COLORS = Object.freeze([
     {id: 'blue', color: '#3584e4', label: 'Синий'},
@@ -2284,30 +2284,34 @@ class SettingsView extends St.Widget {
                 item => item.application_id === applicationOrId,
             );
         const applicationId = application?.application_id ?? applicationOrId;
-        const [assetName, colorClass] = SOFTWARE_ICON_ASSETS[applicationId] ?? [null, 'fallback'];
+        const assetName = SOFTWARE_ICON_ASSETS[applicationId];
         const box = new St.Widget({
-            style_class: `ai-software-icon ai-software-icon-${colorClass}`,
+            style_class: 'ai-software-icon',
             layout_manager: new Clutter.BinLayout(),
             y_align: Clutter.ActorAlign.CENTER,
         });
         let icon;
-        const shellApp = application ? this._softwareShellApp(application) : null;
-        if (shellApp) {
-            icon = shellApp.create_icon_texture(30);
-        } else if (assetName && this._extensionDir) {
-            const file = this._extensionDir
+        // Keep catalog artwork consistent before and after an app is installed.
+        // GNOME's desktop icon remains the fallback for unknown catalog entries.
+        const file = assetName && this._extensionDir
+            ? this._extensionDir
                 .get_child('assets')
                 .get_child('software-icons')
-                .get_child(assetName);
+                .get_child(assetName)
+            : null;
+        if (file?.query_exists(null)) {
             icon = new St.Icon({
                 gicon: new Gio.FileIcon({file}),
                 style_class: 'ai-software-logo',
             });
         } else {
-            icon = new St.Icon({
-                icon_name: 'application-x-executable-symbolic',
-                style_class: 'ai-software-logo',
-            });
+            const shellApp = application ? this._softwareShellApp(application) : null;
+            icon = shellApp
+                ? shellApp.create_icon_texture(32)
+                : new St.Icon({
+                    icon_name: 'application-x-executable-symbolic',
+                    style_class: 'ai-software-logo',
+                });
         }
         box.add_child(icon);
         return box;

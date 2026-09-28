@@ -21,7 +21,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
     def test_metadata_is_valid(self):
         metadata = json.loads((ROOT / "metadata.json").read_text(encoding="utf-8"))
         self.assertEqual(metadata["uuid"], "ai-native-linux@melonqww")
-        self.assertEqual(metadata["version"], 9)
+        self.assertEqual(metadata["version"], 10)
         self.assertIn("46", metadata["shell-version"])
 
     def test_runtime_files_exist(self):
@@ -202,7 +202,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "Установлено из бэкапа",
             "SOFTWARE_LAUNCH_TIMEOUT_SECONDS = 60",
             "if (section === 'catalog')",
-            "shellApp.create_icon_texture(30)",
+            "shellApp.create_icon_texture(32)",
             "_loadInferenceLifecycle",
             "_requestInferenceStatus",
             "this._runtime.request('POST', '/v1/inference/status')",
@@ -250,28 +250,30 @@ class GnomeExtensionFilesTest(unittest.TestCase):
     def test_software_catalog_icons_are_bundled(self):
         assets = ROOT / "assets" / "software-icons"
         expected = {
-            "steam.svg",
-            "discord.svg",
-            "spotify.svg",
-            "telegram.svg",
-            "vlc.svg",
-            "visualstudiocode.png",
-            "chromium.svg",
-            "firefox.svg",
-            "obsstudio.svg",
-            "blender.svg",
-            "inkscape.svg",
-            "gimp.svg",
-            "slack.svg",
-            "zoom.svg",
-            "postman.svg",
-            "pycharm.svg",
-            "intellijidea.svg",
-            "libreoffice.svg",
-            "thunderbird.svg",
-            "bitwarden.svg",
+            "steam.png",
+            "discord.png",
+            "spotify.png",
+            "telegram.png",
+            "vlc.png",
+            "code.png",
+            "chromium.png",
+            "firefox.png",
+            "obsstudio.png",
+            "blender.png",
+            "inkscape.png",
+            "gimp.png",
+            "slack.png",
+            "zoom.png",
+            "postman.png",
+            "pycharm.png",
+            "intellijidea.png",
+            "libreoffice.png",
+            "thunderbird.png",
+            "bitwarden.png",
         }
         self.assertEqual(expected, {path.name for path in assets.iterdir() if path.suffix in {".svg", ".png"}})
+        for filename in expected:
+            self.assertTrue((assets / filename).read_bytes().startswith(b"\x89PNG\r\n\x1a\n"))
         install = (ROOT / "install.sh").read_text(encoding="utf-8")
         self.assertIn('cp -R "${SCRIPT_DIR}/assets" "${TARGET_DIR}/assets"', install)
 
@@ -330,7 +332,8 @@ class GnomeExtensionFilesTest(unittest.TestCase):
         self.assertIn(runtime, source)
         self.assertLess(source.index(runtime), source.index("panel_files=("))
         self.assertIn('cmp -s "${SCRIPT_DIR}/${panel_file}"', source)
-        self.assertIn("файлы панели побайтно совпадают", source)
+        self.assertIn("Connecting the core runtime...", source)
+        self.assertNotIn("файлы панели побайтно совпадают", source)
 
     def test_panel_presenter_scenarios(self):
         node = shutil.which("node")

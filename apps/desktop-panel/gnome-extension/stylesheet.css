@@ -598,34 +598,12 @@
     border-radius: 11px;
     height: 42px;
     width: 42px;
+    background-color: rgba(255, 255, 255, 0.06);
 }
 
 .ai-software-logo {
-    color: #ffffff;
-    icon-size: 25px;
+    icon-size: 34px;
 }
-
-.ai-software-icon-steam { background-color: #1b2838; }
-.ai-software-icon-discord { background-color: #5865f2; }
-.ai-software-icon-spotify { background-color: #1db954; }
-.ai-software-icon-telegram { background-color: #229ed9; }
-.ai-software-icon-vlc { background-color: #f06a00; }
-.ai-software-icon-code { background-color: #007acc; }
-.ai-software-icon-chromium { background-color: #4285f4; }
-.ai-software-icon-firefox { background-color: #ff7139; }
-.ai-software-icon-obs { background-color: #242424; }
-.ai-software-icon-blender { background-color: #e86f17; }
-.ai-software-icon-inkscape { background-color: #111111; }
-.ai-software-icon-gimp { background-color: #5c5543; }
-.ai-software-icon-slack { background-color: #4a154b; }
-.ai-software-icon-zoom { background-color: #2d8cff; }
-.ai-software-icon-postman { background-color: #ff6c37; }
-.ai-software-icon-pycharm { background-color: #21d789; }
-.ai-software-icon-intellij { background-color: #5b36f2; }
-.ai-software-icon-libreoffice { background-color: #18a303; }
-.ai-software-icon-thunderbird { background-color: #0a84ff; }
-.ai-software-icon-bitwarden { background-color: #175ddc; }
-.ai-software-icon-fallback { background-color: #555555; }
 
 .ai-software-app-info {
     spacing: 2px;

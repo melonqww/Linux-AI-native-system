@@ -12,13 +12,13 @@
 
 ![Панель AI-native Linux на рабочем столе Ubuntu](docs/assets/screenshots/desktop-workspace.png)
 
-Снимки сделаны в Ubuntu VM до завершения задачи с моделью. Ниже показаны настройки, приложения, системный монитор и Security Center. [Все снимки интерфейса](docs/SCREENSHOTS.md).
+Снимки сделаны в Ubuntu VM до завершения задачи с моделью. В полной галерее также показаны каталог и установка приложений. [Все снимки интерфейса](docs/SCREENSHOTS.md).
 
-| Настройки и акцентные цвета | Каталог приложений |
+| Настройки и акцентные цвета | Системный монитор |
 |---|---|
-| ![Настройка уведомлений и выбор акцентного цвета](docs/assets/screenshots/settings-accent.png) | ![Каталог приложений и состояние локального ИИ](docs/assets/screenshots/app-catalog.png) |
-| **Системный монитор** | **Security Center** |
-| ![Состояние системы и индикаторы ресурсов](docs/assets/screenshots/system-overview.png) | ![Управление проверкой Security Center и частичный результат](docs/assets/screenshots/security-scan.png) |
+| ![Настройка уведомлений и выбор акцентного цвета](docs/assets/screenshots/settings-accent.png) | ![Состояние системы и индикаторы ресурсов](docs/assets/screenshots/system-overview.png) |
+
+![Управление проверкой Security Center и частичный результат](docs/assets/screenshots/security-scan.png)
 
 ## Один сценарий — вся цепочка
 

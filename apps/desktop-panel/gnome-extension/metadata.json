@@ -3,6 +3,6 @@
   "name": "AI-native Linux",
   "description": "Нативная рабочая область AI-native Linux для GNOME Shell.",
   "settings-schema": "org.gnome.shell.extensions.ai-native-linux",
-  "version": 9,
+  "version": 10,
   "shell-version": ["46", "47", "48"]
 }

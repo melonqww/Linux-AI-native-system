@@ -12,13 +12,13 @@
 
 ![AI-native Linux workspace panel on Ubuntu Desktop](docs/assets/screenshots/desktop-workspace.png)
 
-The Ubuntu VM captures show the GNOME panel before a model task is completed. Settings, app management, system monitoring, and Security Center are visible below. [Browse all interface screenshots](docs/SCREENSHOTS.md).
+The Ubuntu VM captures show the GNOME panel before a model task is completed. The full gallery also covers app management and installation. [Browse all interface screenshots](docs/SCREENSHOTS.md).
 
-| Settings and accent colors | Application catalog |
+| Settings and accent colors | System monitor |
 |---|---|
-| ![Notification preference and accent color choices](docs/assets/screenshots/settings-accent.png) | ![Application catalog with local AI status](docs/assets/screenshots/app-catalog.png) |
-| **System monitor** | **Security Center** |
-| ![System status and resource gauges](docs/assets/screenshots/system-overview.png) | ![Security Center scan controls and partial result](docs/assets/screenshots/security-scan.png) |
+| ![Notification preference and accent color choices](docs/assets/screenshots/settings-accent.png) | ![System status and resource gauges](docs/assets/screenshots/system-overview.png) |
+
+![Security Center scan controls and partial result](docs/assets/screenshots/security-scan.png)
 
 ## See the system in one task
 
