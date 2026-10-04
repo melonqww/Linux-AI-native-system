@@ -39,6 +39,27 @@ def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def validate_assets(source: Path, installed: Path | None = None) -> bool:
+    expected = {path.relative_to(source) for path in source.rglob("*") if path.is_file()}
+    if not check(bool(expected), "repository has panel assets"):
+        return False
+    if installed is None:
+        return True
+    ok = True
+    for relative in sorted(expected):
+        target = installed / relative
+        ok &= check(target.is_file(), f"installed asset is present: {relative.as_posix()}")
+        if target.is_file():
+            ok &= check(
+                digest(source / relative) == digest(target),
+                f"installed asset matches repository: {relative.as_posix()}",
+            )
+    actual = {path.relative_to(installed) for path in installed.rglob("*") if path.is_file()}
+    for relative in sorted(actual - expected):
+        ok &= check(False, f"unexpected installed asset: {relative.as_posix()}")
+    return ok
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -59,6 +80,7 @@ def main() -> int:
     )
     for filename in required:
         ok &= check((ROOT / filename).is_file(), f"repository has {filename}")
+    ok &= validate_assets(ROOT / "assets")
 
     metadata = json.loads((ROOT / "metadata.json").read_text(encoding="utf-8"))
     ok &= check(metadata.get("uuid") == UUID, "metadata UUID is correct")
@@ -136,6 +158,7 @@ def main() -> int:
 
     if args.installed:
         installed = Path.home() / ".local" / "share" / "gnome-shell" / "extensions" / UUID
+        ok &= validate_assets(ROOT / "assets", installed / "assets")
         for filename in required[:5]:
             installed_file = installed / filename
             ok &= check(installed_file.is_file(), f"installed copy has {filename}")

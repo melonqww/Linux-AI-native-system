@@ -59,6 +59,14 @@ export class RuntimeClient {
         return this.request('POST', '/v1/models/catalog');
     }
 
+    workspaceModels() {
+        return this.request('POST', '/v1/workspace/models', {}, 30_000);
+    }
+
+    selectWorkspaceModel(name) {
+        return this.request('POST', '/v1/workspace/model/select', {name}, 30_000);
+    }
+
     respondToModel(modelId, decision) {
         return this.request('POST', '/v1/models/respond', {
             model_id: modelId,

@@ -274,6 +274,7 @@ def main() -> int:
             model_status = None
             model_catalog = None
             model_decision = None
+            workspace_models = None
             try:
                 model_module_id = manager.start_for_capability("model.local.ensure")
                 model_status = lambda: manager.invoke(
@@ -607,6 +608,17 @@ def main() -> int:
                     turn_router=TurnRouter(provider),
                     capability_router=capability_router,
                 )
+                from .workspace_models import WorkspaceModelSelection
+
+                workspace_models = WorkspaceModelSelection(
+                    provider,
+                    workspace_controller,
+                    args.memory_database.with_suffix(".model.sqlite3"),
+                    default_status=model_status,
+                )
+                workspace_controller.model_status = lambda: workspace_model_readiness(
+                    ollama_provider_status, workspace_models.status
+                )
                 for capability in plan_executor.available_capabilities():
                     required_scopes = plan_executor.permission_gateway.required_scopes(
                         capability
@@ -635,6 +647,7 @@ def main() -> int:
                 workspace_controller=workspace_controller,
                 model_catalog=model_catalog,
                 model_decision=model_decision,
+                workspace_models=workspace_models,
                 ollama_provider_status=ollama_provider_status,
                 ollama_provider_decision=ollama_provider_decision,
                 software_snapshot=software_snapshot,

@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 import re
 from pathlib import PurePosixPath
-from threading import BoundedSemaphore
+from threading import BoundedSemaphore, RLock
 from typing import Protocol
 
 from ai_native_intents import (
@@ -117,6 +117,13 @@ class WorkspaceRuntime:
             max_workers=workers, thread_name_prefix="workspace-runtime"
         )
         self._slots = BoundedSemaphore(max_pending)
+        self._configuration_lock = RLock()
+
+    def configure_model(self, apply: Callable[[], object]) -> object:
+        with self._configuration_lock:
+            if self.store.list_runs(limit=1, active_only=True):
+                raise WorkspaceBusyError("workspace_model_busy")
+            return apply()
 
     def submit(
         self,
@@ -132,6 +139,15 @@ class WorkspaceRuntime:
             or any(not isinstance(item, WorkspaceAttachment) for item in attachments)
         ):
             raise ValueError("invalid attachments")
+        with self._configuration_lock:
+            return self._submit_locked(normalized, transport_context, attachments)
+
+    def _submit_locked(
+        self,
+        normalized: str,
+        transport_context: TransportContext,
+        attachments: tuple[WorkspaceAttachment, ...],
+    ) -> WorkspaceRun:
         if not self._slots.acquire(blocking=False):
             raise WorkspaceBusyError("workspace_queue_full")
         try:

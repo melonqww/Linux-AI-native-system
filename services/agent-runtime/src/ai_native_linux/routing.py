@@ -46,6 +46,8 @@ class RuntimeApplication(Protocol):
         self, payload: dict[str, object]
     ) -> dict[str, object]: ...
     def inference_lifecycle(self, payload: dict[str, object]) -> dict[str, object]: ...
+    def workspace_model_catalog(self, payload: dict[str, object]) -> dict[str, object]: ...
+    def select_workspace_model(self, payload: dict[str, object]) -> dict[str, object]: ...
     def storage_volumes(self, payload: dict[str, object]) -> dict[str, object]: ...
     def storage_permission(self, payload: dict[str, object]) -> dict[str, object]: ...
     def software_snapshot(self, payload: dict[str, object]) -> dict[str, object]: ...
@@ -209,6 +211,22 @@ class RuntimeRouter:
             return RuntimeResponse(200, self.application.system_status(payload))
         if path == "/v1/system-updates/check":
             return RuntimeResponse(200, self.application.check_system_updates(payload))
+        if path in {"/v1/workspace/models", "/v1/workspace/model/select"}:
+            if not self.allow_r1:
+                return self.error(403, "secure_transport_required", False, request_id)
+            from ai_native_workspace import WorkspaceBusyError
+
+            operation = (
+                self.application.workspace_model_catalog
+                if path == "/v1/workspace/models"
+                else self.application.select_workspace_model
+            )
+            try:
+                return RuntimeResponse(200, operation(payload))
+            except WorkspaceBusyError:
+                return self.error(409, "workspace_model_busy", True, request_id)
+            except ValueError:
+                return self.error(400, "model_not_available", False, request_id)
         if path in {"/v1/models/catalog", "/v1/models/respond"}:
             if not self.allow_r1:
                 return self.error(403, "secure_transport_required", False, request_id)

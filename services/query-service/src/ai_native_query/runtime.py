@@ -70,6 +70,12 @@ class WorkspaceController(Protocol):
     ) -> object: ...
 
 
+class WorkspaceModelController(Protocol):
+    def catalog(self) -> dict[str, object]: ...
+    def select(self, name: str) -> dict[str, object]: ...
+    def status(self) -> dict[str, object]: ...
+
+
 class QueryRuntimeApplication:
     def __init__(
         self,
@@ -89,6 +95,7 @@ class QueryRuntimeApplication:
         workspace_controller: WorkspaceController | None = None,
         model_catalog: Callable[[], dict[str, object]] | None = None,
         model_decision: Callable[[dict[str, object]], dict[str, object]] | None = None,
+        workspace_models: WorkspaceModelController | None = None,
         ollama_provider_status: Callable[[], dict[str, object]] | None = None,
         ollama_provider_decision: Callable[[dict[str, object]], dict[str, object]]
         | None = None,
@@ -120,6 +127,7 @@ class QueryRuntimeApplication:
         self.workspace_controller = workspace_controller
         self.model_catalog_callback = model_catalog
         self.model_decision_callback = model_decision
+        self.workspace_models = workspace_models
         self.ollama_provider_status_callback = ollama_provider_status
         self.ollama_provider_decision_callback = ollama_provider_decision
         self.software_snapshot_callback = software_snapshot
@@ -169,6 +177,8 @@ class QueryRuntimeApplication:
             capabilities.extend(("workspace.messages.read", "workspace.runs.read"))
         if self.workspace_controller is not None:
             capabilities.extend(("workspace.submit", "workspace.approval.respond"))
+        if self.workspace_models is not None:
+            capabilities.extend(("workspace.models.read", "workspace.model.select"))
         if self.model_catalog_callback is not None:
             capabilities.append("models.catalog.read")
         if self.model_decision_callback is not None:
@@ -843,13 +853,62 @@ class QueryRuntimeApplication:
                 model["effective_prompt_required"] = False
             projected.append(model)
         overall = self._inference_overall_state(provider, projected, errors)
-        return {
+        active_model = None
+        if self.workspace_models is not None:
+            selection = self.workspace_models.status()
+            active_model = selection["name"]
+            for model in projected:
+                if (
+                    model.get("role") == "workspace_base"
+                    and model.get("provider_model") != active_model
+                ):
+                    model.update(
+                        required=False, state="unused", effective_state="unused",
+                        prompt_required=False, effective_prompt_required=False,
+                    )
+            selected = next(
+                (item for item in projected if item.get("provider_model") == active_model),
+                None,
+            )
+            if selected is None:
+                selected = self._unavailable_model(
+                    "workspace.selected", active_model, active_model, "workspace_base", True
+                )
+                projected.append(selected)
+            selected.update(
+                required=True, state=selection["state"],
+                effective_state=selection["state"] if provider_ready else "blocked",
+                installed=selection.get("installed", False),
+            )
+            selected["blocked_by"] = None if provider_ready else "provider.ollama"
+            if selection["state"] == "ready":
+                selected.update(prompt_required=False, effective_prompt_required=False)
+            overall = self._inference_overall_state(provider, projected, errors)
+        result = {
             "schema_version": 1,
             "state": overall,
             "provider": provider,
             "models": projected,
             "errors": errors,
         }
+        if active_model is not None:
+            result["active_model"] = active_model
+        return result
+
+    def workspace_model_catalog(self, payload: dict[str, object]) -> dict[str, object]:
+        if payload:
+            raise ValueError("workspace model catalog does not accept fields")
+        if self.workspace_models is None:
+            raise RuntimeError("workspace_models_unavailable")
+        return self.workspace_models.catalog()
+
+    def select_workspace_model(self, payload: dict[str, object]) -> dict[str, object]:
+        if set(payload) != {"name"}:
+            raise ValueError("exactly name is required")
+        name = self._string(payload, "name")
+        if self.workspace_models is None:
+            raise RuntimeError("workspace_models_unavailable")
+        return self.workspace_models.select(name)
 
     def ollama_provider_status(self, payload: dict[str, object]) -> dict[str, object]:
         if self.ollama_provider_status_callback is None:

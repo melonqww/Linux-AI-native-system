@@ -1,8 +1,8 @@
 {
   "uuid": "ai-native-linux@melonqww",
   "name": "AI-native Linux",
-  "description": "Нативная рабочая область AI-native Linux для GNOME Shell.",
+  "description": "РќР°С‚РёРІРЅР°СЏ СЂР°Р±РѕС‡Р°СЏ РѕР±Р»Р°СЃС‚СЊ AI-native Linux РґР»СЏ GNOME Shell.",
   "settings-schema": "org.gnome.shell.extensions.ai-native-linux",
-  "version": 10,
+  "version": 11,
   "shell-version": ["46", "47", "48"]
 }

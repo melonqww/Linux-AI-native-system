@@ -81,12 +81,13 @@ python -m pip install pytest pypdf zstandard
 python -m pytest -q
 ```
 
-On Ubuntu Desktop 24.04 LTS with GNOME, install the user service and extension:
+On Ubuntu Desktop 24.04 LTS with GNOME, install the panel. Its installer also installs and restarts the user runtime service:
 
 ```bash
-./deployments/systemd/install-user-service.sh
 bash apps/desktop-panel/gnome-extension/install.sh
 ```
+
+Click the model name beside the send button to choose an installed Ollama text model in the panel’s own dialog. The selection persists locally and applies to subsequent requests; switching is blocked while a task or approval is pending. Model quality and action support vary; the published laboratory results apply to the tested configuration.
 
 The [runtime guide](deployments/systemd/README.md) covers prerequisites and model setup. The [testing guide](docs/developer/testing.md) explains deterministic tests, live-model evaluation, and the isolated laboratory.
 

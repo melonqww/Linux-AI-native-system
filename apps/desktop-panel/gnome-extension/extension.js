@@ -7,6 +7,7 @@ import Pango from 'gi://Pango';
 import Shell from 'gi://Shell';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as AppFavorites from 'resource:///org/gnome/shell/ui/appFavorites.js';
+import * as ModalDialog from 'resource:///org/gnome/shell/ui/modalDialog.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import {RuntimeClient, RuntimeRequestError} from './runtime-client.js';
 import {
@@ -46,10 +47,6 @@ const SECURITY_SCAN_TITLES = Object.freeze({
     file: 'Проверка файла',
     folder: 'Проверка папки',
 });
-// The runtime's real Ollama model is qwen3.5:2b. Keep the human-readable
-// name here in sync with that backend default; model switching is not exposed
-// until the runtime supports selecting a different model per run.
-const WORKSPACE_MODEL_LABEL = 'Qwen 3.5 2B';
 const SOFTWARE_ICON_ASSETS = Object.freeze({
     steam: 'steam.png',
     discord: 'discord.png',
@@ -164,6 +161,9 @@ class ChatView extends St.BoxLayout {
         this._onTaskLedger = onTaskLedger;
         this._onOpenSettings = onOpenSettings;
         this._busy = false;
+        this._modelSelectionInFlight = false;
+        this._modelSelectionGeneration = 0;
+        this._modelDialog = null;
         this._disposed = false;
         this._workspaceRunId = null;
         this._workspacePollSourceId = 0;
@@ -179,6 +179,8 @@ class ChatView extends St.BoxLayout {
         this._baseModelPromptShown = false;
         this.connect('destroy', () => {
             this._disposed = true;
+            this._modelDialog?.close();
+            this._modelDialog = null;
             if (this._workspacePollSourceId) {
                 GLib.Source.remove(this._workspacePollSourceId);
                 this._workspacePollSourceId = 0;
@@ -548,6 +550,7 @@ class ChatView extends St.BoxLayout {
         if (this._inferenceLifecycleInFlight || this._disposed)
             return;
         this._inferenceLifecycleInFlight = true;
+        const modelGeneration = this._modelSelectionGeneration;
         let snapshot;
         try {
             try {
@@ -559,7 +562,13 @@ class ChatView extends St.BoxLayout {
             }
             if (this._disposed)
                 return;
+            if (modelGeneration !== this._modelSelectionGeneration) {
+                this._scheduleModelCatalogPoll();
+                return;
+            }
             this._providerStatus = snapshot?.provider ?? null;
+            if (typeof snapshot?.active_model === 'string')
+                this._modelLabel.set_text(snapshot.active_model);
             this._inferencePollDelayMs = [
                 'provider_preparing',
                 'models_preparing',
@@ -631,7 +640,7 @@ class ChatView extends St.BoxLayout {
                 model_id: 'workspace.qwen',
                 provider: 'ollama',
                 provider_model: 'qwen3.5:2b',
-                display_name: WORKSPACE_MODEL_LABEL,
+                display_name: 'Базовая модель',
                 required: true,
                 prompt_required: true,
                 state: 'consent_required',
@@ -775,22 +784,27 @@ class ChatView extends St.BoxLayout {
         });
         modelControl.set_size(145, 34);
         const modelButton = new St.Button({
-            style_class: 'ai-model ai-model-fixed',
-            can_focus: false,
-            reactive: false,
+            style_class: 'ai-model',
+            can_focus: true,
+            accessible_name: 'Выбрать модель',
         });
+        this._modelButton = modelButton;
+        modelButton.connect('clicked', () => this._openModelSelector());
         modelButton.set_size(145, 34);
         const modelContent = new St.BoxLayout({
             style_class: 'ai-model-content',
             x_expand: true,
         });
         const modelLabel = new St.Label({
-            text: WORKSPACE_MODEL_LABEL,
+            text: 'Модель…',
             style_class: 'ai-model-label',
             x_expand: true,
             x_align: Clutter.ActorAlign.END,
         });
+        modelLabel.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+        this._modelLabel = modelLabel;
         modelContent.add_child(modelLabel);
+        modelContent.add_child(new St.Icon({icon_name: 'pan-down-symbolic', style_class: 'ai-model-chevron'}));
         modelButton.set_child(modelContent);
         modelControl.add_child(modelButton);
         actions.add_child(new St.Widget({style_class: 'ai-composer-spacer', x_expand: true}));
@@ -804,9 +818,120 @@ class ChatView extends St.BoxLayout {
         return composer;
     }
 
+    setAccentColor(color) {
+        this._modelAccentColor = color;
+    }
+
+    _openModelSelector() {
+        if (this._disposed || this._modelDialog || this._modelSelectionInFlight)
+            return;
+        const dialog = new ModalDialog.ModalDialog({styleClass: 'ai-model-dialog', destroyOnClose: true});
+        this._modelDialog = dialog;
+        dialog.connect('closed', () => {
+            if (this._modelDialog === dialog)
+                this._modelDialog = null;
+        });
+        dialog.contentLayout.add_child(new St.Label({text: 'Модель для рабочей области', style_class: 'ai-model-dialog-title'}));
+        const description = new St.Label({text: 'Установленные модели Ollama для текстового диалога. Выбор сохраняется для следующих задач.', style_class: 'ai-model-dialog-description'});
+        description.clutter_text.line_wrap = true;
+        dialog.contentLayout.add_child(description);
+        const scroll = new St.ScrollView({style_class: 'ai-model-dialog-scroll', x_expand: true});
+        scroll.set_policy(St.PolicyType.NEVER, St.PolicyType.AUTOMATIC);
+        const list = new St.BoxLayout({vertical: true, style_class: 'ai-model-dialog-list', x_expand: true});
+        scroll.set_child(list);
+        dialog.contentLayout.add_child(scroll);
+        dialog.setButtons([{label: 'Закрыть', action: () => dialog.close(), key: Clutter.KEY_Escape}]);
+        if (!dialog.open()) {
+            this._modelDialog = null;
+            dialog.destroy();
+            return;
+        }
+        const alive = () => !this._disposed && this._modelDialog === dialog;
+        const message = text => {
+            list.destroy_all_children();
+            const label = new St.Label({text, style_class: 'ai-model-dialog-description'});
+            label.clutter_text.line_wrap = true;
+            list.add_child(label);
+        };
+        const showError = error => {
+            if (!alive())
+                return;
+            const text = error?.code === 'workspace_model_busy'
+                ? 'Дождитесь завершения текущей задачи или ответьте на запрос подтверждения.'
+                : error?.code === 'model_not_available'
+                    ? 'Эта модель больше недоступна для диалога. Обновите список.'
+                    : 'Не удалось получить или выбрать модель. Проверьте подключение к Ollama.';
+            message(text);
+            const retry = new St.Button({label: 'Обновить список', style_class: 'ai-model-dialog-retry', can_focus: true});
+            retry.connect('clicked', load);
+            list.add_child(retry);
+        };
+        const select = async name => {
+            if (this._modelSelectionInFlight)
+                return;
+            this._modelSelectionInFlight = true;
+            this._setBusy(null, this._busy);
+            message('Применяю выбранную модель…');
+            try {
+                const result = typeof this._runtime.selectWorkspaceModel === 'function'
+                    ? await this._runtime.selectWorkspaceModel(name)
+                    : await this._runtime.request('POST', '/v1/workspace/model/select', {name});
+                this._modelSelectionGeneration++;
+                this._baseModelPromptShown = false;
+                if (this._disposed)
+                    return;
+                this._modelLabel.set_text(result.active_model);
+                if (alive())
+                    dialog.close();
+                this._loadInferenceLifecycle();
+            } catch (error) {
+                showError(error);
+            } finally {
+                this._modelSelectionInFlight = false;
+                if (!this._disposed)
+                    this._setBusy(null, this._busy);
+            }
+        };
+        const load = async () => {
+            message('Получаю список моделей…');
+            try {
+                const catalog = typeof this._runtime.workspaceModels === 'function'
+                    ? await this._runtime.workspaceModels()
+                    : await this._runtime.request('POST', '/v1/workspace/models', {});
+                if (!alive())
+                    return;
+                this._modelLabel.set_text(catalog.active_model);
+                const models = Array.isArray(catalog.models) ? catalog.models : [];
+                message(catalog.busy
+                    ? 'Выбор станет доступен после завершения текущей задачи.'
+                    : models.length ? 'Выберите модель для следующих запросов.' : 'В Ollama пока нет установленных моделей для диалога.');
+                for (const model of models) {
+                    const selected = model.name === catalog.active_model;
+                    const row = new St.Button({style_class: `ai-model-dialog-row${selected ? ' selected' : ''}`, can_focus: true, reactive: !catalog.busy});
+                    if (selected && this._modelAccentColor)
+                        row.set_style(`border-color: ${this._modelAccentColor};`);
+                    const content = new St.BoxLayout({style_class: 'ai-model-dialog-row-content', x_expand: true});
+                    const info = new St.BoxLayout({vertical: true, x_expand: true});
+                    const label = new St.Label({text: model.display_name, style_class: 'ai-model-dialog-name'});
+                    label.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+                    info.add_child(label);
+                    info.add_child(new St.Label({text: `${selected ? 'Текущая модель · ' : ''}${formatBytes(model.size_bytes)}`, style_class: 'ai-model-dialog-meta'}));
+                    content.add_child(info);
+                    content.add_child(new St.Icon({icon_name: selected ? 'object-select-symbolic' : 'go-next-symbolic', style_class: 'ai-model-dialog-check'}));
+                    row.set_child(content);
+                    row.connect('clicked', () => select(model.name));
+                    list.add_child(row);
+                }
+            } catch (error) {
+                showError(error);
+            }
+        };
+        load();
+    }
+
     async _submitEntry(entry) {
         const text = entry.get_text().trim();
-        if (!text || this._busy)
+        if (!text || this._busy || this._modelSelectionInFlight)
             return;
         this._append(this._user(text));
         entry.set_text('');
@@ -1054,12 +1179,14 @@ class ChatView extends St.BoxLayout {
 
     _setBusy(entry, busy) {
         this._busy = busy;
-        this._send.reactive = !busy;
+        const enabled = !busy && !this._modelSelectionInFlight;
+        this._send.reactive = enabled;
+        this._modelButton.reactive = enabled;
         const target = entry ?? this._entry;
         if (target) {
-            target.reactive = !busy;
-            target.clutter_text.editable = !busy;
-            target.clutter_text.activatable = !busy;
+            target.reactive = enabled;
+            target.clutter_text.editable = enabled;
+            target.clutter_text.activatable = enabled;
         }
         if (this._composer) {
             if (busy)
@@ -1487,12 +1614,13 @@ class SettingsView extends St.Widget {
                 return;
             const signature = `${JSON.stringify(snapshot)}:${this._softwareShellSignature(snapshot)}`;
             if (signature !== this._lastSoftwareSnapshotSignature) {
-                this._lastSoftwareSnapshotSignature = signature;
                 this._renderSoftwareSnapshot(body, section, snapshot);
+                this._lastSoftwareSnapshotSignature = signature;
             }
         } catch (error) {
             if (generation !== this._softwareGeneration)
                 return;
+            this._lastSoftwareSnapshotSignature = null;
             body.get_children().forEach(child => child.destroy());
             if (section === 'catalog') {
                 this._modelSetupContainer = new St.BoxLayout({
@@ -3907,6 +4035,7 @@ class Panel extends St.Widget {
             this._tabs.add_child(button);
         });
         this._tabButtons.forEach(button => button.setAccentColor(this._currentAccentColor()));
+        this._workspace.setAccentColor(this._currentAccentColor());
         this._selectTab(1);
         this.setPanelHeight(DEFAULT_PANEL_HEIGHT);
     }
@@ -3920,6 +4049,7 @@ class Panel extends St.Widget {
         const color = this._currentAccentColor();
         this._toggle.set_style(color ? `background-color: ${color};` : '');
         this._tabButtons?.forEach(button => button.setAccentColor(color));
+        this._workspace?.setAccentColor(color);
     }
 
     _selectTab(index) {

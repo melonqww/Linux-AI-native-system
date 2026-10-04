@@ -21,7 +21,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
     def test_metadata_is_valid(self):
         metadata = json.loads((ROOT / "metadata.json").read_text(encoding="utf-8"))
         self.assertEqual(metadata["uuid"], "ai-native-linux@melonqww")
-        self.assertEqual(metadata["version"], 10)
+        self.assertEqual(metadata["version"], 11)
         self.assertIn("46", metadata["shell-version"])
 
     def test_runtime_files_exist(self):
@@ -68,7 +68,6 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "entry.clutter_text.single_line_mode = false",
             "message.clutter_text.ellipsize = Pango.EllipsizeMode.NONE",
             "_animateHighlight",
-            "Qwen 3.5 2B",
             "Рабочая область",
             "Сообщение для вашего ИИ",
             "import {RuntimeClient, RuntimeRequestError} from './runtime-client.js'",
@@ -78,8 +77,8 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "stylesheet load failed",
             "this._workspace = new ChatView(",
             "taskId => this._openTaskLedger(taskId)",
-            "const WORKSPACE_MODEL_LABEL = 'Qwen 3.5 2B'",
-            "style_class: 'ai-model ai-model-fixed'",
+            "_openModelSelector()",
+            "styleClass: 'ai-model-dialog'",
             "const SidebarView = GObject.registerClass",
             "class SidebarView extends St.Widget",
             "const SettingsView = GObject.registerClass",
@@ -129,7 +128,7 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             "this._runtime.workspaceSubmit(text)",
             "this._runtime.workspaceRun(this._workspaceRunId)",
             "this._runtime.workspaceMessages()",
-            "target.clutter_text.editable = !busy",
+            "target.clutter_text.editable = enabled",
             "this._setBusy(this._entry, Boolean(active))",
             "this._runtime.workspaceApproval(approvalRequestId, confirmed)",
             "_buildDependencyNotices",
@@ -341,6 +340,28 @@ class GnomeExtensionFilesTest(unittest.TestCase):
             self.skipTest("node is not installed")
         result = subprocess.run(
             [node, str(ROOT / "tests" / "panel_presenter.test.js")],
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_model_selection_dialog_behaviour(self):
+        node = shutil.which("node")
+        if node is None:
+            self.skipTest("node is not installed")
+        result = subprocess.run(
+            [node, str(ROOT / "tests" / "model_selection.test.js")],
+            capture_output=True, text=True, timeout=20,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_software_snapshot_recovers_after_connection_error(self):
+        node = shutil.which("node")
+        if node is None:
+            self.skipTest("node is not installed")
+        result = subprocess.run(
+            [node, str(ROOT / "tests" / "software_snapshot.test.js")],
             capture_output=True,
             text=True,
             timeout=20,

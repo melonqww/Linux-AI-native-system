@@ -1347,6 +1347,35 @@ class OllamaModelProvider:
             return False
         return str(value).casefold() in normalized
 
+    def installed_models(self) -> list[dict[str, object]]:
+        payload = self._json_request("GET", "/api/tags", timeout=2.0)
+        models = payload.get("models")
+        if not isinstance(models, list) or len(models) > 64:
+            raise OllamaProviderError("Ollama model list has an invalid shape")
+        result = []
+        seen = set()
+        for item in models:
+            if not isinstance(item, Mapping):
+                raise OllamaProviderError("Ollama model entry has an invalid shape")
+            name = self._bounded_text(item.get("name"), "model", maximum=200)
+            digest = item.get("digest")
+            size = item.get("size")
+            if not isinstance(digest, str) or not digest or len(digest) > 200:
+                raise OllamaProviderError("Ollama model digest has an invalid shape")
+            if type(size) is not int or size < 0:
+                raise OllamaProviderError("Ollama model size has an invalid shape")
+            if name in seen:
+                continue
+            seen.add(name)
+            result.append({"name": name, "size_bytes": size, "digest": digest})
+        return result
+
+    def supports_completion(self, model: str) -> bool:
+        name = self._bounded_text(model, "model", maximum=200)
+        payload = self._json_request("POST", "/api/show", {"model": name}, timeout=2.0)
+        capabilities = payload.get("capabilities")
+        return isinstance(capabilities, list) and "completion" in capabilities
+
     def health(self) -> OllamaHealth:
         try:
             health_timeout = min(self.timeout_seconds, 2.0)

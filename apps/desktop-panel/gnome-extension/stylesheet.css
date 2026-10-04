@@ -415,6 +415,7 @@
 }
 
 .ai-model-chevron {
+    icon-size: 14px;
     color: #cfcfcd;
     font-size: 16px;
     margin-top: 2px;
@@ -425,26 +426,87 @@
     color: #ffffff;
 }
 
-.ai-model-menu {
+.ai-model-dialog {
+    background-color: #303030;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 22px;
+    color: #ededed;
+    padding: 24px;
+    width: 420px;
+}
+
+.ai-model-dialog-title {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+
+.ai-model-dialog-description {
+    color: #bdbdbd;
+    font-size: 12px;
+    margin-bottom: 12px;
+}
+
+.ai-model-dialog-scroll {
+    max-height: 340px;
+}
+
+.ai-model-dialog-list {
+    spacing: 10px;
+}
+
+.ai-model-dialog-row {
     background-color: #292929;
     border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 10px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
-    padding: 5px;
-    spacing: 2px;
+    border-radius: 14px;
+    padding: 14px;
 }
 
-.ai-model-option {
-    background-color: transparent;
-    border-radius: 6px;
-    color: #e7e7e5;
+.ai-model-dialog-row:hover,
+.ai-model-dialog-row:focus {
+    background-color: #3b3b3b;
+}
+
+.ai-model-dialog-row.selected {
+    background-color: #383838;
+    border-width: 2px;
+}
+
+.ai-model-dialog-row:insensitive {
+    color: #929292;
+}
+
+.ai-model-dialog-row-content {
+    spacing: 12px;
+}
+
+.ai-model-dialog-name {
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.ai-model-dialog-meta {
+    color: #aaaaaa;
     font-size: 11px;
-    padding: 7px 8px;
+    margin-top: 5px;
 }
 
-.ai-model-option:hover,
-.ai-model-option:focus {
-    background-color: rgba(255, 255, 255, 0.1);
+.ai-model-dialog-check {
+    icon-size: 18px;
+}
+
+.ai-model-dialog-retry,
+.ai-model-dialog .modal-dialog-button {
+    background-color: #474747;
+    border-radius: 10px;
+    color: #eeeeee;
+    padding: 10px 16px;
+}
+
+.ai-model-dialog-retry:hover,
+.ai-model-dialog .modal-dialog-button:hover,
+.ai-model-dialog .modal-dialog-button:focus {
+    background-color: #555555;
 }
 
 .ai-send {
