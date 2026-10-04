@@ -879,6 +879,7 @@ class QueryRuntimeApplication:
                 required=True, state=selection["state"],
                 effective_state=selection["state"] if provider_ready else "blocked",
                 installed=selection.get("installed", False),
+                reason=selection.get("reason"),
             )
             selected["blocked_by"] = None if provider_ready else "provider.ollama"
             if selection["state"] == "ready":

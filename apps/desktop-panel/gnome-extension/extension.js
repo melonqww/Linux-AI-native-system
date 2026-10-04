@@ -242,6 +242,7 @@ class ChatView extends St.BoxLayout {
             provider_server_start_failed: 'не удалось запустить локальную Ollama',
             model_catalog_unavailable: 'каталог Qwen и LLaMA не ответил',
             model_status_missing: 'модель отсутствует в ответе каталога',
+            model_status_unavailable: 'не удалось получить состояние выбранной модели',
             release_asset_missing: 'файл релиза не найден',
             release_digest_missing: 'у релиза отсутствует контрольная сумма',
             unsafe_download_redirect: 'получен небезопасный адрес загрузки',
@@ -826,8 +827,17 @@ class ChatView extends St.BoxLayout {
         if (this._disposed || this._modelDialog || this._modelSelectionInFlight)
             return;
         const dialog = new ModalDialog.ModalDialog({styleClass: 'ai-model-dialog', destroyOnClose: true});
+        let refreshSourceId = 0;
+        let loading = false;
+        const stopRefresh = () => {
+            if (refreshSourceId) {
+                GLib.Source.remove(refreshSourceId);
+                refreshSourceId = 0;
+            }
+        };
         this._modelDialog = dialog;
         dialog.connect('closed', () => {
+            stopRefresh();
             if (this._modelDialog === dialog)
                 this._modelDialog = null;
         });
@@ -840,13 +850,26 @@ class ChatView extends St.BoxLayout {
         const list = new St.BoxLayout({vertical: true, style_class: 'ai-model-dialog-list', x_expand: true});
         scroll.set_child(list);
         dialog.contentLayout.add_child(scroll);
-        dialog.setButtons([{label: 'Закрыть', action: () => dialog.close(), key: Clutter.KEY_Escape}]);
+        dialog.setButtons([
+            {label: 'Обновить', action: () => load()},
+            {label: 'Закрыть', action: () => dialog.close(), key: Clutter.KEY_Escape},
+        ]);
         if (!dialog.open()) {
             this._modelDialog = null;
             dialog.destroy();
             return;
         }
         const alive = () => !this._disposed && this._modelDialog === dialog;
+        const scheduleRefresh = () => {
+            stopRefresh();
+            if (!alive() || this._modelSelectionInFlight)
+                return;
+            refreshSourceId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1_500, () => {
+                refreshSourceId = 0;
+                load(false);
+                return GLib.SOURCE_REMOVE;
+            });
+        };
         const message = text => {
             list.destroy_all_children();
             const label = new St.Label({text, style_class: 'ai-model-dialog-description'});
@@ -863,15 +886,17 @@ class ChatView extends St.BoxLayout {
                     : 'Не удалось получить или выбрать модель. Проверьте подключение к Ollama.';
             message(text);
             const retry = new St.Button({label: 'Обновить список', style_class: 'ai-model-dialog-retry', can_focus: true});
-            retry.connect('clicked', load);
+            retry.connect('clicked', () => load());
             list.add_child(retry);
         };
         const select = async name => {
             if (this._modelSelectionInFlight)
                 return;
+            stopRefresh();
             this._modelSelectionInFlight = true;
             this._setBusy(null, this._busy);
             message('Применяю выбранную модель…');
+            let refreshAfterSelection = false;
             try {
                 const result = typeof this._runtime.selectWorkspaceModel === 'function'
                     ? await this._runtime.selectWorkspaceModel(name)
@@ -885,15 +910,23 @@ class ChatView extends St.BoxLayout {
                     dialog.close();
                 this._loadInferenceLifecycle();
             } catch (error) {
+                refreshAfterSelection = error?.code === 'workspace_model_busy';
                 showError(error);
             } finally {
                 this._modelSelectionInFlight = false;
                 if (!this._disposed)
                     this._setBusy(null, this._busy);
+                if (refreshAfterSelection && alive())
+                    scheduleRefresh();
             }
         };
-        const load = async () => {
-            message('Получаю список моделей…');
+        const load = async (showLoading = true) => {
+            if (!alive() || loading || this._modelSelectionInFlight)
+                return;
+            loading = true;
+            stopRefresh();
+            if (showLoading)
+                message('Получаю список моделей…');
             try {
                 const catalog = typeof this._runtime.workspaceModels === 'function'
                     ? await this._runtime.workspaceModels()
@@ -902,9 +935,20 @@ class ChatView extends St.BoxLayout {
                     return;
                 this._modelLabel.set_text(catalog.active_model);
                 const models = Array.isArray(catalog.models) ? catalog.models : [];
+                const errors = Array.isArray(catalog.errors) ? catalog.errors : [];
                 message(catalog.busy
                     ? 'Выбор станет доступен после завершения текущей задачи.'
-                    : models.length ? 'Выберите модель для следующих запросов.' : 'В Ollama пока нет установленных моделей для диалога.');
+                    : models.length ? 'Выберите модель для следующих запросов.'
+                        : errors.length ? 'Не удалось проверить установленные модели. Обновите список.'
+                            : 'В Ollama пока нет установленных моделей для диалога.');
+                if (errors.length && models.length) {
+                    const warning = new St.Label({
+                        text: `Не удалось проверить моделей: ${errors.length}. Остальные доступны.`,
+                        style_class: 'ai-model-dialog-description',
+                    });
+                    warning.clutter_text.line_wrap = true;
+                    list.add_child(warning);
+                }
                 for (const model of models) {
                     const selected = model.name === catalog.active_model;
                     const row = new St.Button({style_class: `ai-model-dialog-row${selected ? ' selected' : ''}`, can_focus: true, reactive: !catalog.busy});
@@ -922,8 +966,12 @@ class ChatView extends St.BoxLayout {
                     row.connect('clicked', () => select(model.name));
                     list.add_child(row);
                 }
+                if (catalog.busy)
+                    scheduleRefresh();
             } catch (error) {
                 showError(error);
+            } finally {
+                loading = false;
             }
         };
         load();
@@ -1005,6 +1053,7 @@ class ChatView extends St.BoxLayout {
             if (this._disposed)
                 return;
             this._rememberWorkspaceRun(run);
+            this._workspacePollErrorShown = false;
             this._renderWorkspaceMessages(messages.messages ?? [], run);
             if (this._isTerminalStage(run.stage)) {
                 this._workspaceRunId = null;

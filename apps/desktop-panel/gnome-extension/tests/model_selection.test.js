@@ -21,10 +21,27 @@ class Dialog extends Actor {
     open() { return true; }
     close() { this.signals.closed(); }
 }
-const methods = new Function('St', 'ModalDialog', 'Clutter', 'Pango', 'formatBytes',
+const timers = new Map();
+let nextTimer = 1;
+const GLib = {
+    PRIORITY_DEFAULT: 0, SOURCE_REMOVE: false,
+    timeout_add(_priority, _delay, callback) {
+        const id = nextTimer++;
+        timers.set(id, callback);
+        return id;
+    },
+    Source: {remove(id) { timers.delete(id); }},
+};
+const fireTimer = () => {
+    assert.equal(timers.size, 1);
+    const [id, callback] = timers.entries().next().value;
+    timers.delete(id);
+    callback();
+};
+const methods = new Function('St', 'ModalDialog', 'Clutter', 'Pango', 'formatBytes', 'GLib',
     `return ({${source.slice(start, end)}});`)(
     {Label: Actor, ScrollView: Actor, BoxLayout: Actor, Button: Actor, Icon: Actor, PolicyType: {}},
-    {ModalDialog: Dialog}, {KEY_Escape: 1}, {EllipsizeMode: {END: 1}}, size => `${size} B`);
+    {ModalDialog: Dialog}, {KEY_Escape: 1}, {EllipsizeMode: {END: 1}}, size => `${size} B`, GLib);
 const flush = () => new Promise(resolve => setImmediate(resolve));
 function view(runtime) {
     return {_runtime: runtime, _modelSelectionGeneration: 0, _modelAccentColor: '#123456',
@@ -74,6 +91,8 @@ test('busy or failed selection keeps current model and provides retry', async ()
     assert.equal(v._modelSelectionInFlight, false);
     assert.match(rows(dialog)[0].text, /подтверждения/);
     assert.equal(rows(dialog)[1].label, 'Обновить список');
+    dialog.close();
+    assert.equal(timers.size, 0);
 });
 
 test('closing while loading discards the late response', async () => {
@@ -100,4 +119,73 @@ test('empty list and connection failures have explicit states', async () => {
         assert.match(rows(dialog)[0].text, fail ? /подключение/ : /нет установленных/);
         dialog.close();
     }
+});
+
+
+test('busy dialog unlocks after the task finishes and stops polling', async () => {
+    let busy = true;
+    let calls = 0;
+    const v = view({workspaceModels: async () => { calls++; return catalog(busy); }});
+    methods._openModelSelector.call(v);
+    const dialog = v._modelDialog;
+    await flush();
+    assert.equal(rows(dialog)[2].reactive, false);
+    assert.equal(timers.size, 1);
+    busy = false;
+    fireTimer();
+    await flush();
+    assert.equal(rows(dialog)[2].reactive, true);
+    assert.equal(calls, 2);
+    assert.equal(timers.size, 0);
+    dialog.close();
+});
+
+test('closing a busy dialog cancels refresh and ignores an in-flight response', async () => {
+    let resolveRefresh;
+    let calls = 0;
+    const v = view({workspaceModels: async () => {
+        calls++;
+        if (calls === 1) return catalog(true);
+        return new Promise(resolve => { resolveRefresh = resolve; });
+    }});
+    methods._openModelSelector.call(v);
+    const dialog = v._modelDialog;
+    await flush();
+    fireTimer();
+    // Manual refresh must not start another overlapping request.
+    dialog.buttons[0].action();
+    assert.equal(calls, 2);
+    dialog.close();
+    resolveRefresh({...catalog(false), active_model: 'late'});
+    await flush();
+    assert.equal(v._modelLabel.text, 'old');
+    assert.equal(timers.size, 0);
+});
+
+test('partial inspection errors keep valid rows available and manual refresh recovers', async () => {
+    let fail = true;
+    const v = view({workspaceModels: async () => ({...catalog(false),
+        errors: fail ? [{name: 'broken', code: 'model_inspection_unavailable'}] : [],
+    })});
+    methods._openModelSelector.call(v);
+    const dialog = v._modelDialog;
+    await flush();
+    assert.match(rows(dialog)[1].text, /Остальные доступны/);
+    assert.equal(rows(dialog)[3].reactive, true);
+    fail = false;
+    await dialog.buttons[0].action();
+    assert.equal(rows(dialog).length, 3);
+    dialog.close();
+});
+
+test('failed inspections are not described as no installed models', async () => {
+    const v = view({workspaceModels: async () => ({active_model: 'old', models: [],
+        errors: [{name: 'broken', code: 'model_inspection_unavailable'}],
+    })});
+    methods._openModelSelector.call(v);
+    const dialog = v._modelDialog;
+    await flush();
+    assert.match(rows(dialog)[0].text, /Не удалось проверить/);
+    assert.doesNotMatch(rows(dialog)[0].text, /нет установленных/);
+    dialog.close();
 });

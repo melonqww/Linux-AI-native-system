@@ -6,7 +6,7 @@ from pathlib import Path
 import sqlite3
 from threading import RLock
 
-from ai_native_intents import OllamaModelProvider
+from ai_native_intents import IntentProviderError, OllamaModelProvider
 from ai_native_workspace import WorkspaceRuntime
 
 
@@ -51,12 +51,21 @@ class WorkspaceModelSelection:
                 key = (item["name"], item["digest"])
                 supported = self._capabilities.get(key)
                 if supported is None:
-                    supported = self.provider.supports_completion(item["name"])
+                    try:
+                        supported = self.provider.supports_completion(item["name"])
+                    except IntentProviderError:
+                        # A failed inspection must not hide healthy models or
+                        # become a cached negative result on the next refresh.
+                        return item, key, None
                 return item, key, supported
 
             with ThreadPoolExecutor(max_workers=8) as pool:
                 inspected = list(pool.map(inspect, installed))
-            self._capabilities = {key: supported for _, key, supported in inspected}
+            self._capabilities = {
+                key: supported
+                for _, key, supported in inspected
+                if supported is not None
+            }
             models = [
                 {
                     "name": item["name"],
@@ -71,6 +80,11 @@ class WorkspaceModelSelection:
                 "active_model": self.provider.model,
                 "busy": bool(self.workspace.store.list_runs(limit=1, active_only=True)),
                 "models": sorted(models, key=lambda item: item["name"].casefold()),
+                "errors": [
+                    {"name": item["name"], "code": "model_inspection_unavailable"}
+                    for item, _, supported in inspected
+                    if supported is None
+                ],
             }
 
     def select(self, name: str) -> dict[str, object]:
@@ -99,7 +113,14 @@ class WorkspaceModelSelection:
                 self.provider.model == self.default_model
                 and self.default_status is not None
             ):
-                status = dict(self.default_status())
+                try:
+                    status = dict(self.default_status())
+                except Exception:
+                    status = {
+                        "state": "error",
+                        "installed": False,
+                        "reason": "model_status_unavailable",
+                    }
             else:
                 status = {
                     "state": "unavailable",

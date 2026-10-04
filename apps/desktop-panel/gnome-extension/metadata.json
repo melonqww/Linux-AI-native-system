@@ -3,6 +3,6 @@
   "name": "AI-native Linux",
   "description": "РќР°С‚РёРІРЅР°СЏ СЂР°Р±РѕС‡Р°СЏ РѕР±Р»Р°СЃС‚СЊ AI-native Linux РґР»СЏ GNOME Shell.",
   "settings-schema": "org.gnome.shell.extensions.ai-native-linux",
-  "version": 11,
+  "version": 12,
   "shell-version": ["46", "47", "48"]
 }

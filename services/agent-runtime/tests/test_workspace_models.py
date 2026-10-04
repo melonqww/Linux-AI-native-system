@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from threading import RLock
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 from uuid import uuid4
 
 from ai_native_intents import OllamaModelProvider, OllamaProviderError
@@ -177,3 +177,83 @@ class WorkspaceModelsTests(unittest.TestCase):
         self.assertEqual(status["state"], "ready")
         self.assertFalse(status["models"][0]["prompt_required"])
         self.assertEqual(status["models"][-1]["effective_state"], "ready")
+
+    def test_failed_model_inspection_keeps_healthy_models_and_retries(self):
+        original = self.provider.supports_completion
+        failing = True
+
+        def inspect(name):
+            if name == "other:latest" and failing:
+                raise OllamaProviderError("private backend details")
+            return original(name)
+
+        self.provider.supports_completion = inspect
+        snapshot = self.selection.catalog()
+        self.assertEqual([m["name"] for m in snapshot["models"]], [self.default])
+        self.assertEqual(
+            snapshot["errors"],
+            [{"name": "other:latest", "code": "model_inspection_unavailable"}],
+        )
+        self.assertNotIn("private", repr(snapshot))
+        self.selection.select(self.default)
+        with self.assertRaises(ValueError):
+            self.selection.select("other:latest")
+        failing = False
+        recovered = self.selection.catalog()
+        self.assertEqual(recovered["errors"], [])
+        self.assertIn("other:latest", [m["name"] for m in recovered["models"]])
+        self.selection.select("other:latest")
+
+    def test_catalog_transport_failure_is_not_reported_as_an_empty_list(self):
+        with patch.object(
+            self.provider,
+            "installed_models",
+            side_effect=OllamaProviderError("offline"),
+        ):
+            with self.assertRaises(OllamaProviderError):
+                self.selection.catalog()
+
+    def test_fallback_status_failure_preserves_other_lifecycle_components(self):
+        self.installed = [m for m in self.installed if m["name"] != self.default]
+        self.selection.default_status = Mock(
+            side_effect=RuntimeError("private manager details")
+        )
+        catalog = {
+            "models": [
+                {
+                    "model_id": "workspace.qwen",
+                    "provider_model": self.default,
+                    "role": "workspace_base",
+                    "required": True,
+                    "state": "consent_required",
+                },
+                {"model_id": "assistant.llama", "state": "ready", "required": False},
+                {
+                    "model_id": "semantic.selector",
+                    "state": "declined",
+                    "required": False,
+                },
+            ]
+        }
+        app = QueryRuntimeApplication(
+            Mock(),
+            workspace_models=self.selection,
+            model_catalog=lambda: catalog,
+            ollama_provider_status=lambda: {"state": "ready"},
+        )
+        response = RuntimeRouter(app).dispatch("POST", "/v1/inference/status", {})
+        self.assertEqual(response.status, 200)
+        snapshot = response.payload
+        self.assertEqual(snapshot["state"], "error")
+        self.assertEqual(snapshot["active_model"], self.default)
+        self.assertEqual(snapshot["provider"]["state"], "ready")
+        self.assertEqual(snapshot["models"][0]["reason"], "model_status_unavailable")
+        self.assertEqual(snapshot["models"][1]["state"], "ready")
+        self.assertNotIn("private", repr(snapshot))
+        self.selection.default_status = lambda: {
+            "state": "consent_required",
+            "prompt_required": True,
+        }
+        self.assertEqual(
+            app.inference_lifecycle({})["models"][0]["state"], "consent_required"
+        )
